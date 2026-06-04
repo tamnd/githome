@@ -11,16 +11,24 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
 )
 
-// Deps are the dependencies the REST surface needs to mount. Later milestones
-// add the domain services, presenter, and authenticator; for now the surface
-// needs config, a logger, and an optional readiness pinger.
+// Deps are the dependencies the REST surface needs to mount. The auth, domain,
+// and presenter members arrive in M1; a zero member leaves its routes unmounted,
+// which keeps the M0 foundation tests able to build a minimal surface.
 type Deps struct {
-	Config config.Config
-	Logger *slog.Logger
-	Ready  Pinger
+	Config     config.Config
+	Logger     *slog.Logger
+	Ready      Pinger
+	Auth       *auth.Service
+	Users      *domain.UserService
+	URLs       *presenter.URLBuilder
+	NodeFormat nodeid.Format
 }
 
 // Mount wires the REST routes onto root. The API is served both at the
@@ -37,7 +45,16 @@ func Mount(root *mizu.Router, d Deps) {
 	root.Get("/healthz", handleHealthz)
 	root.Get("/readyz", handleReadyz(d.Ready))
 
+	// The OAuth device flow lives at the bare root, outside the API version,
+	// media-type, and auth middleware.
+	if d.Auth != nil {
+		mountOAuth(root, d.Auth)
+	}
+
 	api := root.With(apiVersion, mediaType)
+	if d.Auth != nil {
+		api = api.With(authMiddleware(d.Auth))
+	}
 	mountAPI(api.Prefix("/api/v3"), d)
 	mountAPI(api, d)
 
@@ -49,6 +66,9 @@ func Mount(root *mizu.Router, d Deps) {
 func mountAPI(r *mizu.Router, d Deps) {
 	r.Get("/meta", handleMeta(d.Config))
 	r.Get("/rate_limit", handleRateLimit(d.Config))
+	if d.Users != nil {
+		r.Get("/user", handleUserGet(d))
+	}
 }
 
 // errorHandler turns a handler-returned error or a recovered panic into the
