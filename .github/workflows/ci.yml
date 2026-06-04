@@ -1,0 +1,83 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: no internal/ directories
+        run: |
+          if git ls-files | grep -E '(^|/)internal/'; then
+            echo "::error::internal/ directories are forbidden in this project"
+            exit 1
+          fi
+      - name: no leaked upstream hosts in served code
+        run: |
+          # Cassettes and tests legitimately mention github.com; served Go code must not.
+          if git ls-files '*.go' | grep -vE '(_test\.go|/testdata/)' | xargs --no-run-if-empty grep -nE 'api\.github\.com|//github\.com'; then
+            echo "::error::served code references an upstream GitHub host"
+            exit 1
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dialect: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: githome
+          POSTGRES_PASSWORD: githome
+          POSTGRES_DB: githome_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U githome"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      GITHOME_TEST_DIALECT: ${{ matrix.dialect }}
+      GITHOME_TEST_POSTGRES_DSN: postgres://githome:githome@localhost:5432/githome_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race -coverprofile=coverage.out ./...
+      - if: matrix.dialect == 'sqlite'
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

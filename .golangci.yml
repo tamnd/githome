@@ -1,0 +1,31 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - depguard
+    - misspell
+    - revive
+    - unconvert
+    - whitespace
+  settings:
+    depguard:
+      rules:
+        no-internal:
+          deny:
+            - pkg: github.com/tamnd/githome/internal
+              desc: internal/ directories are forbidden in this project; use the domain layer and lint for boundaries
+    misspell:
+      locale: US
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/tamnd/githome
