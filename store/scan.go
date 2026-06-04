@@ -21,6 +21,10 @@ var timeLayouts = []string{
 	"2006-01-02 15:04:05.999999999-07:00",
 	"2006-01-02 15:04:05.999999999",
 	"2006-01-02 15:04:05",
+	// modernc/sqlite renders a bound time.Time with its String() layout, e.g.
+	// "2026-06-04 14:22:32 +0000 UTC", so a value we wrote round-trips back.
+	"2006-01-02 15:04:05.999999999 -0700 MST",
+	"2006-01-02 15:04:05 -0700 MST",
 }
 
 // nullTime scans a timestamp from either dialect and tracks NULL.

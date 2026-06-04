@@ -68,6 +68,12 @@ func (b *URLBuilder) RepoGitHTTP(owner, repo string) string {
 	return b.HTML(owner) + "/" + repo + ".git"
 }
 
+// RepoGitProto returns the anonymous git-protocol URL, e.g.
+// git://{host}/{owner}/{repo}.git, built from the site host.
+func (b *URLBuilder) RepoGitProto(owner, repo string) string {
+	return "git://" + b.html.Host + "/" + owner + "/" + repo + ".git"
+}
+
 // RepoGitSSH returns the SSH clone URL, omitting the port when it is the
 // default 22, matching GitHub's scp-like form.
 func (b *URLBuilder) RepoGitSSH(owner, repo string) string {

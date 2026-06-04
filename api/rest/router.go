@@ -27,6 +27,7 @@ type Deps struct {
 	Ready      Pinger
 	Auth       *auth.Service
 	Users      *domain.UserService
+	Repos      *domain.RepoService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -69,6 +70,25 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Users != nil {
 		r.Get("/user", handleUserGet(d))
 	}
+	if d.Repos != nil {
+		mountRepos(r, d)
+	}
+}
+
+// mountRepos registers the repository and git-read endpoints on r.
+func mountRepos(r *mizu.Router, d Deps) {
+	r.Get("/repos/{owner}/{repo}", handleRepoGet(d))
+	r.Get("/repos/{owner}/{repo}/branches", handleBranches(d))
+	r.Get("/repos/{owner}/{repo}/branches/{branch}", handleBranch(d))
+	r.Get("/repos/{owner}/{repo}/tags", handleTags(d))
+	r.Get("/repos/{owner}/{repo}/commits", handleCommits(d))
+	r.Get("/repos/{owner}/{repo}/contents", handleContents(d))
+	r.Get("/repos/{owner}/{repo}/contents/{path...}", handleContents(d))
+	r.Get("/repos/{owner}/{repo}/git/blobs/{sha}", handleBlob(d))
+	r.Get("/repos/{owner}/{repo}/git/trees/{sha}", handleTree(d))
+	r.Get("/repos/{owner}/{repo}/git/commits/{sha}", handleGitCommit(d))
+	r.Get("/repos/{owner}/{repo}/git/refs", handleRefs(d))
+	r.Get("/repos/{owner}/{repo}/git/ref/{ref...}", handleRef(d))
 }
 
 // errorHandler turns a handler-returned error or a recovered panic into the

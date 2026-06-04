@@ -50,6 +50,33 @@ type TokenRow struct {
 	CreatedAt   time.Time
 }
 
+// RepoRow is a row of the repositories table, including the settings columns
+// 0003 adds. OwnerPK is the internal pk of the owning user; the public owner
+// object is resolved separately. Description and Homepage are nullable; the
+// boolean flags carry GitHub's per-repository feature and state settings.
+type RepoRow struct {
+	PK              int64
+	DBID            int64
+	OwnerPK         int64
+	Name            string
+	Description     *string
+	Homepage        *string
+	Private         bool
+	Fork            bool
+	DefaultBranch   string
+	HasIssues       bool
+	HasProjects     bool
+	HasWiki         bool
+	HasDownloads    bool
+	Archived        bool
+	Disabled        bool
+	IsTemplate      bool
+	OpenIssuesCount int
+	PushedAt        *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 // OAuthAppRow is a row of the oauth_apps table.
 type OAuthAppRow struct {
 	PK                int64

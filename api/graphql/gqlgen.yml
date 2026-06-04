@@ -1,0 +1,36 @@
+# gqlgen codegen config for the Githome GraphQL API. Schema-first: the SDL under
+# schema/ is the source of truth, object types autobind to presenter/gqlmodel,
+# and the custom scalars bind to the marshalers there. Regenerate with
+# `go generate ./api/graphql/...` after editing the schema.
+schema:
+  - schema/*.graphql
+
+exec:
+  filename: generated/generated.go
+  package: generated
+
+model:
+  # Object types are hand-written in gqlmodel; gqlgen only emits the gaps here
+  # (none yet in M2, but inputs and enums will land in later milestones).
+  filename: generated/models_gen.go
+  package: generated
+
+resolver:
+  layout: follow-schema
+  dir: .
+  package: graphql
+  filename_template: "{name}.resolvers.go"
+
+autobind:
+  - github.com/tamnd/githome/presenter/gqlmodel
+
+models:
+  DateTime:
+    model: github.com/tamnd/githome/presenter/gqlmodel.DateTime
+  URI:
+    model: github.com/tamnd/githome/presenter/gqlmodel.URI
+  GitObjectID:
+    model: github.com/tamnd/githome/presenter/gqlmodel.GitObjectID
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int32

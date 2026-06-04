@@ -1,9 +1,10 @@
 // Command githome runs the Githome server.
 //
-// M0 wires the foundation: configuration, the metadata store with migrations,
-// and the REST surface that serves /meta, /rate_limit, and the health probes.
-// Authentication, git transport, GraphQL, and the worker pool join in later
-// milestones as their packages land.
+// The server wires configuration, the metadata store with migrations, the REST
+// and GraphQL surfaces, and the git Smart HTTP transport. As of M2 it serves
+// users, repository metadata, repository contents and git data, the repository
+// GraphQL query, and read-only git clone and fetch. The git write path, the SSH
+// transport, and the worker pool join in later milestones.
 package main
 
 import (
@@ -19,10 +20,13 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/api/graphql"
 	"github.com/tamnd/githome/api/rest"
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/gittransport"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
@@ -60,6 +64,10 @@ func run() error {
 	authSvc := auth.NewService(st, cfg.URLs.HTML.String())
 	defer authSvc.Close()
 
+	gitStore := git.NewStore(cfg.RepoRoot())
+	repoSvc := domain.NewRepoService(st, gitStore)
+	urls := presenter.NewURLBuilder(cfg.URLs)
+
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{
 		Config:     cfg,
@@ -67,8 +75,21 @@ func run() error {
 		Ready:      st,
 		Auth:       authSvc,
 		Users:      domain.NewUserService(st),
-		URLs:       presenter.NewURLBuilder(cfg.URLs),
+		Repos:      repoSvc,
+		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
+	})
+	graphql.Mount(root, graphql.Deps{
+		Auth:       authSvc,
+		Repos:      repoSvc,
+		URLs:       urls,
+		NodeFormat: nodeid.FormatNew,
+	})
+	gittransport.Mount(root, &gittransport.Service{
+		GitBin: cfg.GitBinaryPath,
+		Repos:  repoSvc,
+		Git:    gitStore,
+		Log:    logger,
 	})
 
 	srv := &http.Server{

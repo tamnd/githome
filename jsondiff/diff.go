@@ -95,7 +95,24 @@ func (o Options) ignoreValue(key string) bool {
 	if o.IgnoreValueKeys[key] {
 		return true
 	}
-	return key == "id" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_at")
+	if key == "id" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_at") {
+		return true
+	}
+	// GraphQL names the same instance-varying fields in camelCase: a timestamp
+	// ends in "At" (createdAt, pushedAt, mergedAt) and a numeric id ends in "Id"
+	// (databaseId). The capital boundary keeps this from matching value-bearing
+	// names like "format" or the git object "oid".
+	return camelSuffix(key, "At") || camelSuffix(key, "Id")
+}
+
+// camelSuffix reports whether key ends with suffix at a camelCase word boundary,
+// that is, the byte before the suffix is a lowercase ASCII letter.
+func camelSuffix(key, suffix string) bool {
+	if !strings.HasSuffix(key, suffix) || len(key) <= len(suffix) {
+		return false
+	}
+	b := key[len(key)-len(suffix)-1]
+	return b >= 'a' && b <= 'z'
 }
 
 // Compare reports every difference of got against want (the golden).
@@ -172,10 +189,12 @@ func diffLeaf(path, key string, want, got any, opt Options) []Diff {
 	return nil
 }
 
-// normalizeURL rewrites known hosts to a sentinel so links compare by path. A
-// non-URL string is returned unchanged.
+// normalizeURL rewrites known hosts to a sentinel so links compare by path. It
+// handles both scheme URLs (https://host/...) and the scp-style git remote a
+// repository's ssh_url uses (git@host:owner/repo.git). A string carrying
+// neither form is returned unchanged.
 func normalizeURL(s string, opt Options) string {
-	if !strings.Contains(s, "://") {
+	if !strings.Contains(s, "://") && !strings.Contains(s, "@") {
 		return s
 	}
 	out := s

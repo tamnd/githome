@@ -55,6 +55,24 @@ func TestIgnoredValueKeys(t *testing.T) {
 	}
 }
 
+func TestIgnoredCamelCaseKeys(t *testing.T) {
+	// GraphQL timestamps (createdAt) and numeric ids (databaseId) vary by
+	// instance and are ignored like their snake_case REST counterparts, while a
+	// value-bearing field that merely ends in those letters is still compared.
+	diffs := compareJSON(t,
+		`{"createdAt":"2020-01-01T00:00:00Z","databaseId":1,"oid":"abc","format":"tarball"}`,
+		`{"createdAt":"2026-06-04T00:00:00Z","databaseId":999,"oid":"abc","format":"tarball"}`)
+	if len(diffs) != 0 {
+		t.Fatalf("expected camelCase timestamp and id values to be ignored, got %v", diffs)
+	}
+
+	// oid is a content-addressed value and must still be compared.
+	diffs = compareJSON(t, `{"oid":"abc"}`, `{"oid":"def"}`)
+	if len(diffs) != 1 || diffs[0].Kind != ValueMismatch {
+		t.Fatalf("expected oid value-mismatch, got %v", diffs)
+	}
+}
+
 func TestURLHostNormalized(t *testing.T) {
 	diffs := compareJSON(t,
 		`{"url":"https://github.com/octocat/Hello-World"}`,
