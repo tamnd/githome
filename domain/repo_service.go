@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
@@ -27,10 +28,16 @@ var (
 	ErrEmptyRepo = errors.New("domain: repository is empty")
 )
 
-// RepoStore is the slice of the store the repo service needs.
+// RepoStore is the slice of the store the repo service needs. The write path
+// (the post-receive sink) adds the repo-by-pk lookup, the pushed_at touch, and
+// the job enqueue; enqueuing through the store keeps the domain on its single
+// store dependency rather than importing the worker package.
 type RepoStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
+	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
+	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 }
 
 // RepoService resolves repositories and reads their git data. It pairs the

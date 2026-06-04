@@ -17,10 +17,15 @@ import (
 )
 
 // fakeRepoStore is an in-memory RepoStore for the service tests. The git data
-// lives in a real git.Store; only the metadata lookups are faked.
+// lives in a real git.Store; only the metadata lookups are faked. The write
+// path records the pushed_at touch and the enqueued jobs so the push-sink test
+// can assert on them.
 type fakeRepoStore struct {
-	repos map[string]*store.RepoRow
-	users map[int64]*store.UserRow
+	repos      map[string]*store.RepoRow
+	users      map[int64]*store.UserRow
+	pushedAt   map[int64]time.Time
+	jobs       []store.JobRow
+	dedupeSeen map[string]bool
 }
 
 func (f *fakeRepoStore) RepoByOwnerName(_ context.Context, owner, name string) (*store.RepoRow, error) {
@@ -31,12 +36,43 @@ func (f *fakeRepoStore) RepoByOwnerName(_ context.Context, owner, name string) (
 	return r, nil
 }
 
+func (f *fakeRepoStore) RepoByPK(_ context.Context, pk int64) (*store.RepoRow, error) {
+	for _, r := range f.repos {
+		if r.PK == pk {
+			return r, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
 func (f *fakeRepoStore) UserByPK(_ context.Context, pk int64) (*store.UserRow, error) {
 	u, ok := f.users[pk]
 	if !ok {
 		return nil, store.ErrNotFound
 	}
 	return u, nil
+}
+
+func (f *fakeRepoStore) TouchRepoPushedAt(_ context.Context, pk int64, at time.Time) error {
+	if f.pushedAt == nil {
+		f.pushedAt = map[int64]time.Time{}
+	}
+	f.pushedAt[pk] = at
+	return nil
+}
+
+func (f *fakeRepoStore) EnqueueJob(_ context.Context, j *store.JobRow) (bool, error) {
+	if j.DedupeKey != "" {
+		if f.dedupeSeen[j.DedupeKey] {
+			return true, nil
+		}
+		if f.dedupeSeen == nil {
+			f.dedupeSeen = map[string]bool{}
+		}
+		f.dedupeSeen[j.DedupeKey] = true
+	}
+	f.jobs = append(f.jobs, *j)
+	return false, nil
 }
 
 // commitInto initializes a worktree repository at dir and writes one commit so
