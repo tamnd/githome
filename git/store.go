@@ -8,14 +8,21 @@ import (
 )
 
 // Store resolves repository handles to bare repositories under a single root
-// directory and opens them for reading. It is safe for concurrent use: it holds
-// only the immutable root path and opens a fresh handle per call.
+// directory. Reads go through go-git; the ref-write and object-inspection
+// operations (repo_write.go) shell out to the git binary, matching the locked
+// design decision for the write path. It is safe for concurrent use: it holds
+// only immutable configuration and opens a fresh handle per call.
 type Store struct {
-	root string
+	root   string
+	gitBin string // git binary for the write path; empty means "git" on PATH
 }
 
 // NewStore builds a Store rooted at dir (typically config.RepoRoot()).
 func NewStore(dir string) *Store { return &Store{root: dir} }
+
+// SetGitBin overrides the git binary the write path execs. An empty value (the
+// default) resolves "git" on PATH. The server sets this from configuration.
+func (s *Store) SetGitBin(bin string) { s.gitBin = bin }
 
 // Dir returns the on-disk path of the bare repository for pk. Repositories are
 // sharded by pk%256 to keep any single directory from holding the whole fleet:

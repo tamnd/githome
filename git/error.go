@@ -21,4 +21,14 @@ var (
 
 	// ErrPathNotFound is returned when a path does not exist at the given ref.
 	ErrPathNotFound = errors.New("git: path not found")
+
+	// ErrRefExists is returned by CreateRef when the reference already exists.
+	ErrRefExists = errors.New("git: reference already exists")
+
+	// ErrRefNotFound is returned when a named reference does not resolve.
+	ErrRefNotFound = errors.New("git: reference not found")
+
+	// ErrNotFastForward is returned by UpdateRef when a non-force update would
+	// not be a fast-forward (the new commit is not a descendant of the old).
+	ErrNotFastForward = errors.New("git: update is not a fast-forward")
 )
