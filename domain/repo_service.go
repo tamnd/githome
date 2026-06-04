@@ -277,6 +277,7 @@ func gitErr(err error) error {
 func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 	return &Repo{
 		PK:              r.PK,
+		OwnerPK:         r.OwnerPK,
 		ID:              r.DBID,
 		Owner:           owner,
 		Name:            r.Name,
