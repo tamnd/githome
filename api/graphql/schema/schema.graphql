@@ -1,0 +1,38 @@
+# The Githome GraphQL schema. M2 stands up the first slice: the repository
+# query and the fields gh repo view selects. It grows milestone by milestone
+# toward GitHub's GraphQL v4 contract. Object types bind to hand-written structs
+# in presenter/gqlmodel; the scalars bind to the marshalers there.
+
+scalar DateTime
+scalar URI
+scalar GitObjectID
+
+type Query {
+  # repository looks up a single repository by its owner login and name. It is
+  # null when the repository does not exist or the viewer cannot see it.
+  repository(owner: String!, name: String!): Repository
+}
+
+# Repository is a git repository. M2 serves the fields gh repo view reads.
+type Repository {
+  id: ID!
+  name: String!
+  nameWithOwner: String!
+  description: String
+  isPrivate: Boolean!
+  createdAt: DateTime!
+  pushedAt: DateTime
+  url: URI!
+  defaultBranchRef: Ref
+}
+
+# Ref is a git reference: a branch or a tag.
+type Ref {
+  name: String!
+  target: GitObject
+}
+
+# GitObject is a git object addressed by its SHA.
+type GitObject {
+  oid: GitObjectID!
+}
