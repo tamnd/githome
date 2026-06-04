@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/jsondiff"
@@ -28,7 +28,7 @@ func testConfig() config.Config {
 
 func testServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	root := chi.NewRouter()
+	root := mizu.NewRouter()
 	Mount(root, Deps{Config: testConfig()})
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)

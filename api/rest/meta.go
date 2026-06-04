@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-mizu/mizu"
+
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/presenter/restmodel"
 )
@@ -18,8 +20,8 @@ type Pinger interface {
 // handleMeta serves GET /meta. A self-hosted instance reports its own network
 // ranges, which are empty by default; the arrays are always present (never null)
 // to match GitHub's shape.
-func handleMeta(_ config.Config) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+func handleMeta(_ config.Config) mizu.Handler {
+	return func(c *mizu.Ctx) error {
 		meta := restmodel.Meta{
 			VerifiablePasswordAuthentication: true,
 			SSHKeyFingerprints:               map[string]string{},
@@ -34,15 +36,16 @@ func handleMeta(_ config.Config) http.HandlerFunc {
 			Actions:                          []string{},
 			Dependabot:                       []string{},
 		}
-		writeJSON(w, http.StatusOK, meta)
+		writeJSON(c.Writer(), http.StatusOK, meta)
+		return nil
 	}
 }
 
 // handleRateLimit serves GET /rate_limit. Querying it never consumes the core
 // budget. With auth landing in M1, M0 reports the anonymous-equivalent full
 // budget for every bucket.
-func handleRateLimit(cfg config.Config) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+func handleRateLimit(cfg config.Config) mizu.Handler {
+	return func(c *mizu.Ctx) error {
 		reset := time.Now().Add(cfg.RateLimit.Window).Unix()
 		bucket := func(limit int, resource string) restmodel.RateLimitBucket {
 			return restmodel.RateLimitBucket{
@@ -65,34 +68,33 @@ func handleRateLimit(cfg config.Config) http.HandlerFunc {
 			},
 			Rate: core,
 		}
-		writeJSON(w, http.StatusOK, rl)
+		writeJSON(c.Writer(), http.StatusOK, rl)
+		return nil
 	}
 }
 
-func handleHealthz(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": config.Version})
+func handleHealthz(c *mizu.Ctx) error {
+	writeJSON(c.Writer(), http.StatusOK, map[string]string{"status": "ok", "version": config.Version})
+	return nil
 }
 
-func handleReadyz(p Pinger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func handleReadyz(p Pinger) mizu.Handler {
+	return func(c *mizu.Ctx) error {
 		if p == nil {
-			writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
-			return
+			writeJSON(c.Writer(), http.StatusOK, map[string]string{"status": "ready"})
+			return nil
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(c.Context(), 2*time.Second)
 		defer cancel()
 		if err := p.Ping(ctx); err != nil {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "db_down"})
-			return
+			writeJSON(c.Writer(), http.StatusServiceUnavailable, map[string]string{"status": "db_down"})
+			return nil
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+		writeJSON(c.Writer(), http.StatusOK, map[string]string{"status": "ready"})
+		return nil
 	}
 }
 
 func notFoundHandler(w http.ResponseWriter, _ *http.Request) {
 	writeError(w, errNotFound())
-}
-
-func methodNotAllowedHandler(w http.ResponseWriter, _ *http.Request) {
-	writeError(w, &apiError{Status: http.StatusMethodNotAllowed, Message: "Method Not Allowed", DocURL: docRoot})
 }
