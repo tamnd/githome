@@ -1,0 +1,14 @@
+{
+  "verifiable_password_authentication": true,
+  "ssh_key_fingerprints": {},
+  "ssh_keys": [],
+  "hooks": [],
+  "web": [],
+  "api": [],
+  "git": [],
+  "packages": [],
+  "pages": [],
+  "importer": [],
+  "actions": [],
+  "dependabot": []
+}
