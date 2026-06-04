@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -29,41 +30,91 @@ const (
 // a client streaming an unbounded request at the subprocess.
 const defaultMaxBody = 50 << 20
 
-// Service serves git clone and fetch over Smart HTTP. It resolves and authorizes
-// the repository through the domain repo service, maps it to its bare path
-// through the git store, and proxies the negotiation to the system git binary.
+// Authenticator resolves an Authorization header into an actor. The git client
+// sends HTTP Basic with the token in the password field, which the auth service
+// understands, so the same credential works for clone, fetch, and push.
+type Authenticator interface {
+	Authenticate(ctx context.Context, authorization string) (*auth.Actor, error)
+}
+
+// Service serves git clone, fetch, and push over Smart HTTP. It resolves and
+// authorizes the repository through the domain repo service, maps it to its bare
+// path through the git store, and proxies the negotiation to the system git
+// binary.
 type Service struct {
 	// GitBin is the git binary to exec; empty means "git" on PATH.
 	GitBin string
-	// Repos authorizes the read and yields the repository's internal pk.
+	// Repos authorizes access and yields the repository's internal pk.
 	Repos *domain.RepoService
 	// Git maps a repository pk to its on-disk bare path.
 	Git *git.Store
+	// Auth resolves the request credential into an actor. When nil, the actor
+	// already in the request context is used (anonymous if none), which is how
+	// the tests inject an actor directly.
+	Auth Authenticator
 	// MaxBodyByte caps the request body; zero uses defaultMaxBody.
 	MaxBodyByte int64
 	Log         *slog.Logger
 }
 
-// Mount registers the read-side Smart HTTP routes. Both the bare-style
-// owner/repo.git path and the suffix-less owner/repo path resolve, because git
-// clients and github.com tolerate both; handlers strip the optional .git.
+// actorFor resolves the request's actor. An actor already placed in the context
+// (by an upstream middleware or, in tests, directly) wins; otherwise, when an
+// Authenticator is configured, the Authorization header is resolved. A present
+// but invalid credential is an error the caller surfaces as 401; a missing
+// credential resolves to the anonymous actor.
+func (s *Service) actorFor(c *mizu.Ctx) (*auth.Actor, error) {
+	ctx := c.Request().Context()
+	if existing := auth.ActorFrom(ctx); existing.IsAuthenticated() {
+		return existing, nil
+	}
+	if s.Auth == nil {
+		return auth.ActorFrom(ctx), nil
+	}
+	actor, err := s.Auth.Authenticate(ctx, c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return nil, err
+	}
+	// Place the resolved actor in the request context so later reads (the pusher
+	// identity the post-receive sink records) see it. mizu exposes no context
+	// setter, so update the request in place; c holds the same *http.Request.
+	r := c.Request()
+	*r = *r.WithContext(auth.WithActor(ctx, actor))
+	return actor, nil
+}
+
+// Mount registers the Smart HTTP routes. Both the bare-style owner/repo.git path
+// and the suffix-less owner/repo path resolve, because git clients and
+// github.com tolerate both; handlers strip the optional .git. info/refs serves
+// both the upload-pack (read) and receive-pack (write) advertisements; the POST
+// routes carry the negotiation and pack for each.
 func Mount(root *mizu.Router, s *Service) {
 	root.Get("/{owner}/{repo}/info/refs", s.handleInfoRefs)
 	root.Post("/{owner}/{repo}/git-upload-pack", s.handleUploadPack)
+	root.Post("/{owner}/{repo}/git-receive-pack", s.handleReceivePack)
 }
 
-// handleInfoRefs answers the reference-discovery GET. It writes the
-// service-advertisement preamble, then streams the ref advertisement the git
-// binary produces. Only git-upload-pack is served in M2; a receive-pack probe
-// is refused until the write milestone. A dumb-protocol probe (no service=) is
-// refused so the loose-object layout never leaks.
+// handleInfoRefs answers the reference-discovery GET. It dispatches on the
+// service parameter: git-upload-pack advertises for clone and fetch (read
+// access), git-receive-pack advertises for push (write access). A dumb-protocol
+// probe (no service=) is refused so the loose-object layout never leaks.
 func (s *Service) handleInfoRefs(c *mizu.Ctx) error {
-	w, r := c.Writer(), c.Request()
-	if r.URL.Query().Get("service") != "git-upload-pack" {
+	w := c.Writer()
+	switch c.Request().URL.Query().Get("service") {
+	case "git-upload-pack":
+		return s.advertiseUpload(c)
+	case "git-receive-pack":
+		return s.advertiseReceive(c)
+	default:
 		http.Error(w, "service not supported", http.StatusForbidden)
 		return nil
 	}
+}
 
+// advertiseUpload streams the upload-pack ref advertisement after authorizing
+// read access. It writes the service-advertisement preamble, then the refs the
+// git binary produces.
+func (s *Service) advertiseUpload(c *mizu.Ctx) error {
+	w, r := c.Writer(), c.Request()
 	bare, ok := s.resolveRead(c)
 	if !ok {
 		return nil
@@ -134,7 +185,12 @@ func (s *Service) handleUploadPack(c *mizu.Ctx) error {
 // ok=false.
 func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 	ctx := c.Request().Context()
-	actor := auth.ActorFrom(ctx)
+	actor, err := s.actorFor(c)
+	if err != nil {
+		c.Writer().Header().Set("WWW-Authenticate", `Basic realm="githome"`)
+		http.Error(c.Writer(), "Unauthorized", http.StatusUnauthorized)
+		return "", false
+	}
 	owner := c.Param("owner")
 	repo := strings.TrimSuffix(c.Param("repo"), ".git")
 
@@ -150,19 +206,38 @@ func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 	return s.Git.Dir(row.PK), true
 }
 
-// gitCommand builds the git subprocess. It forwards the client's Git-Protocol
-// header via the GIT_PROTOCOL environment variable so protocol v2 negotiation
-// works, and runs with a minimal environment.
+// gitCommand builds the git subprocess. It runs with a scrubbed environment per
+// spec doc 04 section 8.3: no inherited GIT_* configuration, no user or system
+// config, and no prompting, so a stray GIT_DIR or credential helper in the
+// daemon's environment can never reach the subprocess. PATH is inherited (git is
+// often outside /usr/bin, e.g. a Homebrew install) so git can find its helper
+// programs. The client's Git-Protocol header is forwarded via GIT_PROTOCOL so
+// protocol v2 negotiation works.
 func (s *Service) gitCommand(ctx context.Context, r *http.Request, args ...string) *exec.Cmd {
 	bin := s.GitBin
 	if bin == "" {
 		bin = "git"
 	}
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = []string{
+		"PATH=" + pathEnv(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+	}
 	if proto := r.Header.Get("Git-Protocol"); proto != "" {
-		cmd.Env = append(cmd.Environ(), "GIT_PROTOCOL="+proto)
+		cmd.Env = append(cmd.Env, "GIT_PROTOCOL="+proto)
 	}
 	return cmd
+}
+
+// pathEnv returns a PATH for the git subprocess, inheriting the daemon's PATH
+// and falling back to a sane default when it is unset.
+func pathEnv() string {
+	if p := os.Getenv("PATH"); p != "" {
+		return p
+	}
+	return "/usr/bin:/bin"
 }
 
 func (s *Service) maxBody() int64 {

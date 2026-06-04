@@ -1,10 +1,12 @@
 // Command githome runs the Githome server.
 //
 // The server wires configuration, the metadata store with migrations, the REST
-// and GraphQL surfaces, and the git Smart HTTP transport. As of M2 it serves
+// and GraphQL surfaces, and the git Smart HTTP transport. As of M3 it serves
 // users, repository metadata, repository contents and git data, the repository
-// GraphQL query, and read-only git clone and fetch. The git write path, the SSH
-// transport, and the worker pool join in later milestones.
+// GraphQL query, git clone and fetch, and git push (receive-pack plus the REST
+// ref-write endpoints) with the in-process post-receive sync that records push
+// events in the job queue. The SSH transport and the job claim-and-run loop join
+// in later milestones.
 package main
 
 import (
@@ -65,6 +67,9 @@ func run() error {
 	defer authSvc.Close()
 
 	gitStore := git.NewStore(cfg.RepoRoot())
+	if cfg.GitBinaryPath != "" {
+		gitStore.SetGitBin(cfg.GitBinaryPath)
+	}
 	repoSvc := domain.NewRepoService(st, gitStore)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
@@ -89,6 +94,7 @@ func run() error {
 		GitBin: cfg.GitBinaryPath,
 		Repos:  repoSvc,
 		Git:    gitStore,
+		Auth:   authSvc,
 		Log:    logger,
 	})
 

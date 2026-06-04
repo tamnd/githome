@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 // repoColumns is the shared SELECT list, qualified with the `r` alias so the
@@ -81,6 +82,18 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	r.HasWiki, r.HasDownloads = hasWiki.Bool, hasDownloads.Bool
 	r.Archived, r.Disabled, r.IsTemplate = archived.Bool, disabled.Bool, isTemplate.Bool
 	return nil
+}
+
+// TouchRepoPushedAt advances pushed_at (and updated_at) to at, which the
+// post-receive sink calls after a push so the pushed_at field and the
+// pushed-sort order reflect the push. The time is stored in UTC to match how
+// every other timestamp round-trips through the scanner.
+func (s *Store) TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error {
+	q := s.rebind(`UPDATE repositories SET pushed_at = ?, updated_at = ?
+		WHERE pk = ? AND deleted_at IS NULL`)
+	utc := at.UTC()
+	_, err := s.db.ExecContext(ctx, q, utc, utc, pk)
+	return err
 }
 
 // scanRepo maps one repositories row into a RepoRow, absorbing the dialect

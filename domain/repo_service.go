@@ -3,9 +3,11 @@ package domain
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/worker"
 )
 
 // The repo service errors. The REST layer maps them to status: a repository the
@@ -27,10 +29,16 @@ var (
 	ErrEmptyRepo = errors.New("domain: repository is empty")
 )
 
-// RepoStore is the slice of the store the repo service needs.
+// RepoStore is the slice of the store the repo service needs. The write path
+// (the post-receive sink) adds the repo-by-pk lookup, the pushed_at touch, and
+// the job enqueue; enqueuing through the store keeps the domain on its single
+// store dependency rather than importing the worker package.
 type RepoStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
+	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
+	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 }
 
 // RepoService resolves repositories and reads their git data. It pairs the
@@ -40,11 +48,14 @@ type RepoStore interface {
 type RepoService struct {
 	store    RepoStore
 	gitStore *git.Store
+	enq      worker.Enqueuer
 }
 
 // NewRepoService builds a RepoService over the metadata store and the git store.
+// The push sink submits its jobs through a store-backed enqueuer built from the
+// same store, so a push records its events in the durable queue.
 func NewRepoService(st RepoStore, gs *git.Store) *RepoService {
-	return &RepoService{store: st, gitStore: gs}
+	return &RepoService{store: st, gitStore: gs, enq: worker.NewStoreEnqueuer(st)}
 }
 
 // GetRepo resolves a repository by owner login and name for the given viewer
