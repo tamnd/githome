@@ -28,9 +28,12 @@ tidy:
 # gates mirrors the cross-cutting CI checks so they can be run locally.
 gates:
 	@echo ">> no internal/ directories"
-	@! git ls-files | grep -E '(^|/)internal/' || (echo "internal/ directory found" && exit 1)
+	@if git ls-files | grep -E '(^|/)internal/'; then echo "internal/ directory found"; exit 1; fi
 	@echo ">> no leaked upstream hosts in served code (cassettes and tests exempt)"
-	@! git ls-files '*.go' | grep -vE '(_test\.go|testdata/)' | xargs grep -nE 'api\.github\.com|//github\.com' 2>/dev/null || (echo "upstream host referenced in served code" && exit 1)
+	@files=$$(git ls-files '*.go' | grep -vE '(_test\.go|testdata/)'); \
+	if [ -n "$$files" ] && printf '%s\n' $$files | xargs grep -nE 'api\.github\.com|//github\.com'; then \
+		echo "upstream host referenced in served code"; exit 1; \
+	fi
 	@echo "gates ok"
 
 clean:
