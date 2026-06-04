@@ -75,6 +75,20 @@ func errValidation(fields ...FieldError) *apiError {
 	}
 }
 
+// errUnprocessable is the 422 GitHub returns with a plain top-level message and
+// no errors array, such as "Reference already exists" when creating a ref that
+// is already present.
+func errUnprocessable(message string) *apiError {
+	return &apiError{Status: http.StatusUnprocessableEntity, Message: message, DocURL: docRoot}
+}
+
+// errForbidden is the 403 for an authenticated caller who may see the repository
+// but lacks the access an operation needs, such as pushing a ref without write
+// permission.
+func errForbidden(message string) *apiError {
+	return &apiError{Status: http.StatusForbidden, Message: message, DocURL: docRoot}
+}
+
 // errBadCredentials is the 401 for a credential that was presented but is
 // invalid, expired, or revoked. GitHub uses the exact message "Bad credentials".
 func errBadCredentials() *apiError {

@@ -1,0 +1,1 @@
+{"ref":"refs/heads/featureA","node_id":"REF_AQRyZWZzL2hlYWRzL2ZlYXR1cmVB","url":"https://HOST/api/v3/repos/octocat/hello/git/refs/heads/featureA","object":{"sha":"52d3c1064aacc468852831b8403d35efc9443b70","type":"commit","url":"https://HOST/api/v3/repos/octocat/hello/git/commits/52d3c1064aacc468852831b8403d35efc9443b70"}}
