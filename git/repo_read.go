@@ -256,13 +256,13 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 		return nil, err
 	}
 	defer iter.Close()
-	max := opts.Max
-	if max <= 0 {
-		max = 30
+	limit := opts.Max
+	if limit <= 0 {
+		limit = 30
 	}
 	var out []Commit
 	err = iter.ForEach(func(c *object.Commit) error {
-		if len(out) >= max {
+		if len(out) >= limit {
 			return storer.ErrStop
 		}
 		out = append(out, commitValue(c))
@@ -336,7 +336,7 @@ func asHash(s string) (plumbing.Hash, bool) {
 	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return plumbing.ZeroHash, false
 		}
 	}
