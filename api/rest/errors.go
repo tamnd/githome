@@ -67,3 +67,19 @@ func errValidation(fields ...FieldError) *apiError {
 		DocURL:  docRoot,
 	}
 }
+
+// errBadCredentials is the 401 for a credential that was presented but is
+// invalid, expired, or revoked. GitHub uses the exact message "Bad credentials".
+func errBadCredentials() *apiError {
+	return &apiError{Status: http.StatusUnauthorized, Message: "Bad credentials", DocURL: docRoot}
+}
+
+// errRequiresAuth is the 401 for an endpoint that needs a credential when none
+// was presented, such as GET /user for an anonymous caller.
+func errRequiresAuth() *apiError {
+	return &apiError{
+		Status:  http.StatusUnauthorized,
+		Message: "Requires authentication",
+		DocURL:  "https://docs.github.com/rest/users/users#get-the-authenticated-user",
+	}
+}

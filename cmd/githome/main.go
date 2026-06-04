@@ -20,7 +20,11 @@ import (
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/api/rest"
+	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
 )
 
@@ -53,8 +57,19 @@ func run() error {
 		return err
 	}
 
+	authSvc := auth.NewService(st, cfg.URLs.HTML.String())
+	defer authSvc.Close()
+
 	root := mizu.NewRouter()
-	rest.Mount(root, rest.Deps{Config: cfg, Logger: logger, Ready: st})
+	rest.Mount(root, rest.Deps{
+		Config:     cfg,
+		Logger:     logger,
+		Ready:      st,
+		Auth:       authSvc,
+		Users:      domain.NewUserService(st),
+		URLs:       presenter.NewURLBuilder(cfg.URLs),
+		NodeFormat: nodeid.FormatNew,
+	})
 
 	srv := &http.Server{
 		Addr:              cfg.Listen.HTTP,
