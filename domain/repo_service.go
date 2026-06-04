@@ -7,6 +7,7 @@ import (
 
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/worker"
 )
 
 // The repo service errors. The REST layer maps them to status: a repository the
@@ -47,11 +48,14 @@ type RepoStore interface {
 type RepoService struct {
 	store    RepoStore
 	gitStore *git.Store
+	enq      worker.Enqueuer
 }
 
 // NewRepoService builds a RepoService over the metadata store and the git store.
+// The push sink submits its jobs through a store-backed enqueuer built from the
+// same store, so a push records its events in the durable queue.
 func NewRepoService(st RepoStore, gs *git.Store) *RepoService {
-	return &RepoService{store: st, gitStore: gs}
+	return &RepoService{store: st, gitStore: gs, enq: worker.NewStoreEnqueuer(st)}
 }
 
 // GetRepo resolves a repository by owner login and name for the given viewer

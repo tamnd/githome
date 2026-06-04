@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strconv"
 	"time"
-
-	"github.com/tamnd/githome/store"
 )
 
 // ZeroSHA is the all-zero object id git uses in a post-receive line to mark a
@@ -75,7 +73,7 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.store.EnqueueJob(ctx, &store.JobRow{Kind: JobPushEvent, Payload: string(payload)}); err != nil {
+	if _, err := s.enq.Enqueue(ctx, JobPushEvent, string(payload), ""); err != nil {
 		return err
 	}
 
@@ -87,7 +85,7 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 	for _, u := range b.Updates {
 		if u.Ref == defaultRef && !u.Deleted() {
 			key := "reindex:repo:" + strconv.FormatInt(b.RepoPK, 10)
-			if _, err := s.store.EnqueueJob(ctx, &store.JobRow{Kind: JobReindexSearch, DedupeKey: key}); err != nil {
+			if _, err := s.enq.Enqueue(ctx, JobReindexSearch, "", key); err != nil {
 				return err
 			}
 			break
