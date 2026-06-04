@@ -172,10 +172,12 @@ func diffLeaf(path, key string, want, got any, opt Options) []Diff {
 	return nil
 }
 
-// normalizeURL rewrites known hosts to a sentinel so links compare by path. A
-// non-URL string is returned unchanged.
+// normalizeURL rewrites known hosts to a sentinel so links compare by path. It
+// handles both scheme URLs (https://host/...) and the scp-style git remote a
+// repository's ssh_url uses (git@host:owner/repo.git). A string carrying
+// neither form is returned unchanged.
 func normalizeURL(s string, opt Options) string {
-	if !strings.Contains(s, "://") {
+	if !strings.Contains(s, "://") && !strings.Contains(s, "@") {
 		return s
 	}
 	out := s
