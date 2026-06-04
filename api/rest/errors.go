@@ -59,6 +59,13 @@ func errNotFound() *apiError {
 	return &apiError{Status: http.StatusNotFound, Message: "Not Found", DocURL: docRoot}
 }
 
+// errConflict is the 409 GitHub returns when an operation cannot apply to the
+// repository's current state, such as listing commits on a repository with no
+// commits yet.
+func errConflict(message string) *apiError {
+	return &apiError{Status: http.StatusConflict, Message: message, DocURL: docRoot}
+}
+
 func errValidation(fields ...FieldError) *apiError {
 	return &apiError{
 		Status:  http.StatusUnprocessableEntity,
