@@ -162,14 +162,14 @@ func diffSnapshots(before, after map[string]git.SHA) []domain.RefUpdate {
 // 404 so a private repo's existence never leaks. On any failure it writes the
 // status and reports ok=false.
 func (s *Service) resolveWrite(c *mizu.Ctx) (*domain.Repo, bool) {
-	w, r := c.Writer(), c.Request()
-	ctx := r.Context()
-	actor := auth.ActorFrom(ctx)
-	if !actor.IsAuthenticated() {
+	w := c.Writer()
+	actor, err := s.actorFor(c)
+	if err != nil || !actor.IsAuthenticated() {
 		w.Header().Set("WWW-Authenticate", `Basic realm="githome"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return nil, false
 	}
+	ctx := c.Request().Context()
 	owner := c.Param("owner")
 	name := strings.TrimSuffix(c.Param("repo"), ".git")
 

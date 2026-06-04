@@ -30,19 +30,56 @@ const (
 // a client streaming an unbounded request at the subprocess.
 const defaultMaxBody = 50 << 20
 
-// Service serves git clone and fetch over Smart HTTP. It resolves and authorizes
-// the repository through the domain repo service, maps it to its bare path
-// through the git store, and proxies the negotiation to the system git binary.
+// Authenticator resolves an Authorization header into an actor. The git client
+// sends HTTP Basic with the token in the password field, which the auth service
+// understands, so the same credential works for clone, fetch, and push.
+type Authenticator interface {
+	Authenticate(ctx context.Context, authorization string) (*auth.Actor, error)
+}
+
+// Service serves git clone, fetch, and push over Smart HTTP. It resolves and
+// authorizes the repository through the domain repo service, maps it to its bare
+// path through the git store, and proxies the negotiation to the system git
+// binary.
 type Service struct {
 	// GitBin is the git binary to exec; empty means "git" on PATH.
 	GitBin string
-	// Repos authorizes the read and yields the repository's internal pk.
+	// Repos authorizes access and yields the repository's internal pk.
 	Repos *domain.RepoService
 	// Git maps a repository pk to its on-disk bare path.
 	Git *git.Store
+	// Auth resolves the request credential into an actor. When nil, the actor
+	// already in the request context is used (anonymous if none), which is how
+	// the tests inject an actor directly.
+	Auth Authenticator
 	// MaxBodyByte caps the request body; zero uses defaultMaxBody.
 	MaxBodyByte int64
 	Log         *slog.Logger
+}
+
+// actorFor resolves the request's actor. An actor already placed in the context
+// (by an upstream middleware or, in tests, directly) wins; otherwise, when an
+// Authenticator is configured, the Authorization header is resolved. A present
+// but invalid credential is an error the caller surfaces as 401; a missing
+// credential resolves to the anonymous actor.
+func (s *Service) actorFor(c *mizu.Ctx) (*auth.Actor, error) {
+	ctx := c.Request().Context()
+	if existing := auth.ActorFrom(ctx); existing.IsAuthenticated() {
+		return existing, nil
+	}
+	if s.Auth == nil {
+		return auth.ActorFrom(ctx), nil
+	}
+	actor, err := s.Auth.Authenticate(ctx, c.Request().Header.Get("Authorization"))
+	if err != nil {
+		return nil, err
+	}
+	// Place the resolved actor in the request context so later reads (the pusher
+	// identity the post-receive sink records) see it. mizu exposes no context
+	// setter, so update the request in place; c holds the same *http.Request.
+	r := c.Request()
+	*r = *r.WithContext(auth.WithActor(ctx, actor))
+	return actor, nil
 }
 
 // Mount registers the Smart HTTP routes. Both the bare-style owner/repo.git path
@@ -148,7 +185,12 @@ func (s *Service) handleUploadPack(c *mizu.Ctx) error {
 // ok=false.
 func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 	ctx := c.Request().Context()
-	actor := auth.ActorFrom(ctx)
+	actor, err := s.actorFor(c)
+	if err != nil {
+		c.Writer().Header().Set("WWW-Authenticate", `Basic realm="githome"`)
+		http.Error(c.Writer(), "Unauthorized", http.StatusUnauthorized)
+		return "", false
+	}
 	owner := c.Param("owner")
 	repo := strings.TrimSuffix(c.Param("repo"), ".git")
 
