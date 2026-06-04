@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/api/rest"
 	"github.com/tamnd/githome/config"
@@ -53,7 +53,7 @@ func run() error {
 		return err
 	}
 
-	root := chi.NewRouter()
+	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{Config: cfg, Logger: logger, Ready: st})
 
 	srv := &http.Server{
