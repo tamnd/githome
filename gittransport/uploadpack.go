@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -44,26 +45,39 @@ type Service struct {
 	Log         *slog.Logger
 }
 
-// Mount registers the read-side Smart HTTP routes. Both the bare-style
-// owner/repo.git path and the suffix-less owner/repo path resolve, because git
-// clients and github.com tolerate both; handlers strip the optional .git.
+// Mount registers the Smart HTTP routes. Both the bare-style owner/repo.git path
+// and the suffix-less owner/repo path resolve, because git clients and
+// github.com tolerate both; handlers strip the optional .git. info/refs serves
+// both the upload-pack (read) and receive-pack (write) advertisements; the POST
+// routes carry the negotiation and pack for each.
 func Mount(root *mizu.Router, s *Service) {
 	root.Get("/{owner}/{repo}/info/refs", s.handleInfoRefs)
 	root.Post("/{owner}/{repo}/git-upload-pack", s.handleUploadPack)
+	root.Post("/{owner}/{repo}/git-receive-pack", s.handleReceivePack)
 }
 
-// handleInfoRefs answers the reference-discovery GET. It writes the
-// service-advertisement preamble, then streams the ref advertisement the git
-// binary produces. Only git-upload-pack is served in M2; a receive-pack probe
-// is refused until the write milestone. A dumb-protocol probe (no service=) is
-// refused so the loose-object layout never leaks.
+// handleInfoRefs answers the reference-discovery GET. It dispatches on the
+// service parameter: git-upload-pack advertises for clone and fetch (read
+// access), git-receive-pack advertises for push (write access). A dumb-protocol
+// probe (no service=) is refused so the loose-object layout never leaks.
 func (s *Service) handleInfoRefs(c *mizu.Ctx) error {
-	w, r := c.Writer(), c.Request()
-	if r.URL.Query().Get("service") != "git-upload-pack" {
+	w := c.Writer()
+	switch c.Request().URL.Query().Get("service") {
+	case "git-upload-pack":
+		return s.advertiseUpload(c)
+	case "git-receive-pack":
+		return s.advertiseReceive(c)
+	default:
 		http.Error(w, "service not supported", http.StatusForbidden)
 		return nil
 	}
+}
 
+// advertiseUpload streams the upload-pack ref advertisement after authorizing
+// read access. It writes the service-advertisement preamble, then the refs the
+// git binary produces.
+func (s *Service) advertiseUpload(c *mizu.Ctx) error {
+	w, r := c.Writer(), c.Request()
 	bare, ok := s.resolveRead(c)
 	if !ok {
 		return nil
@@ -150,19 +164,38 @@ func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 	return s.Git.Dir(row.PK), true
 }
 
-// gitCommand builds the git subprocess. It forwards the client's Git-Protocol
-// header via the GIT_PROTOCOL environment variable so protocol v2 negotiation
-// works, and runs with a minimal environment.
+// gitCommand builds the git subprocess. It runs with a scrubbed environment per
+// spec doc 04 section 8.3: no inherited GIT_* configuration, no user or system
+// config, and no prompting, so a stray GIT_DIR or credential helper in the
+// daemon's environment can never reach the subprocess. PATH is inherited (git is
+// often outside /usr/bin, e.g. a Homebrew install) so git can find its helper
+// programs. The client's Git-Protocol header is forwarded via GIT_PROTOCOL so
+// protocol v2 negotiation works.
 func (s *Service) gitCommand(ctx context.Context, r *http.Request, args ...string) *exec.Cmd {
 	bin := s.GitBin
 	if bin == "" {
 		bin = "git"
 	}
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = []string{
+		"PATH=" + pathEnv(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+	}
 	if proto := r.Header.Get("Git-Protocol"); proto != "" {
-		cmd.Env = append(cmd.Environ(), "GIT_PROTOCOL="+proto)
+		cmd.Env = append(cmd.Env, "GIT_PROTOCOL="+proto)
 	}
 	return cmd
+}
+
+// pathEnv returns a PATH for the git subprocess, inheriting the daemon's PATH
+// and falling back to a sane default when it is unset.
+func pathEnv() string {
+	if p := os.Getenv("PATH"); p != "" {
+		return p
+	}
+	return "/usr/bin:/bin"
 }
 
 func (s *Service) maxBody() int64 {

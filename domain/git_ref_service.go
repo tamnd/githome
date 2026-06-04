@@ -41,7 +41,7 @@ var (
 // visibility rule first, so a private repository the actor cannot see is
 // ErrRepoNotFound (404) rather than ErrForbidden (403).
 func (s *RepoService) CreateRef(ctx context.Context, actorPK int64, owner, name, ref, sha string) (git.Ref, error) {
-	repo, err := s.authorizeWrite(ctx, actorPK, owner, name)
+	repo, err := s.AuthorizeWrite(ctx, actorPK, owner, name)
 	if err != nil {
 		return git.Ref{}, err
 	}
@@ -62,7 +62,7 @@ func (s *RepoService) CreateRef(ctx context.Context, actorPK int64, owner, name,
 // UpdateRef moves an existing reference to sha after authorizing write access.
 // Unless force is set the move must be a fast-forward.
 func (s *RepoService) UpdateRef(ctx context.Context, actorPK int64, owner, name, ref, sha string, force bool) (git.Ref, error) {
-	repo, err := s.authorizeWrite(ctx, actorPK, owner, name)
+	repo, err := s.AuthorizeWrite(ctx, actorPK, owner, name)
 	if err != nil {
 		return git.Ref{}, err
 	}
@@ -82,10 +82,11 @@ func (s *RepoService) UpdateRef(ctx context.Context, actorPK int64, owner, name,
 	return s.resolveRef(ctx, repo.PK, ref, sha)
 }
 
-// authorizeWrite resolves the repository for the actor and checks write access.
+// AuthorizeWrite resolves the repository for the actor and checks write access.
 // Visibility is enforced by GetRepo, so the not-found-vs-forbidden distinction
-// matches GitHub: invisible -> 404, visible-but-no-write -> 403.
-func (s *RepoService) authorizeWrite(ctx context.Context, actorPK int64, owner, name string) (*Repo, error) {
+// matches GitHub: invisible -> 404 (ErrRepoNotFound), visible-but-no-write -> 403
+// (ErrForbidden). The git transport calls it to gate receive-pack.
+func (s *RepoService) AuthorizeWrite(ctx context.Context, actorPK int64, owner, name string) (*Repo, error) {
 	repo, err := s.GetRepo(ctx, actorPK, owner, name)
 	if err != nil {
 		return nil, err
