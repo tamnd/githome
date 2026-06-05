@@ -20,6 +20,9 @@ linters:
               desc: internal/ directories are forbidden in this project; use the domain layer and lint for boundaries
     misspell:
       locale: US
+      # cancelled is a GitHub check-run conclusion value (their spelling, not ours).
+      ignore-rules:
+        - cancelled
 
 formatters:
   enable:
