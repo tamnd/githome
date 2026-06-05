@@ -89,6 +89,7 @@ func run() error {
 	graphql.Mount(root, graphql.Deps{
 		Auth:       authSvc,
 		Repos:      repoSvc,
+		Issues:     issueSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})

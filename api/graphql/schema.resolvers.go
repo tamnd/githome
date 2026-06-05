@@ -45,4 +45,8 @@ func (r *queryResolver) Repository(ctx context.Context, owner string, name strin
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Repository returns generated.RepositoryResolver implementation.
+func (r *Resolver) Repository() generated.RepositoryResolver { return &repositoryResolver{r} }
+
 type queryResolver struct{ *Resolver }
+type repositoryResolver struct{ *Resolver }

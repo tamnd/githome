@@ -2,5 +2,121 @@
 
 package generated
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+
+	"github.com/tamnd/githome/presenter/gqlmodel"
+)
+
+type AddCommentInput struct {
+	SubjectID        string  `json:"subjectId"`
+	Body             string  `json:"body"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type AddCommentPayload struct {
+	CommentEdge      *IssueCommentEdge `json:"commentEdge,omitempty"`
+	ClientMutationID *string           `json:"clientMutationId,omitempty"`
+}
+
+type CloseIssueInput struct {
+	IssueID          string                  `json:"issueId"`
+	StateReason      *IssueClosedStateReason `json:"stateReason,omitempty"`
+	ClientMutationID *string                 `json:"clientMutationId,omitempty"`
+}
+
+type CloseIssuePayload struct {
+	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
+	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type CreateIssueInput struct {
+	RepositoryID     string  `json:"repositoryId"`
+	Title            string  `json:"title"`
+	Body             *string `json:"body,omitempty"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type CreateIssuePayload struct {
+	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
+	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type IssueCommentEdge struct {
+	Cursor string                 `json:"cursor"`
+	Node   *gqlmodel.IssueComment `json:"node,omitempty"`
+}
+
+type Mutation struct {
+}
+
 type Query struct {
+}
+
+type ReopenIssueInput struct {
+	IssueID          string  `json:"issueId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ReopenIssuePayload struct {
+	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
+	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type IssueClosedStateReason string
+
+const (
+	IssueClosedStateReasonCompleted  IssueClosedStateReason = "COMPLETED"
+	IssueClosedStateReasonNotPlanned IssueClosedStateReason = "NOT_PLANNED"
+)
+
+var AllIssueClosedStateReason = []IssueClosedStateReason{
+	IssueClosedStateReasonCompleted,
+	IssueClosedStateReasonNotPlanned,
+}
+
+func (e IssueClosedStateReason) IsValid() bool {
+	switch e {
+	case IssueClosedStateReasonCompleted, IssueClosedStateReasonNotPlanned:
+		return true
+	}
+	return false
+}
+
+func (e IssueClosedStateReason) String() string {
+	return string(e)
+}
+
+func (e *IssueClosedStateReason) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IssueClosedStateReason(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IssueClosedStateReason", str)
+	}
+	return nil
+}
+
+func (e IssueClosedStateReason) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IssueClosedStateReason) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IssueClosedStateReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

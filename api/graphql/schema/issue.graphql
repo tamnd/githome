@@ -1,0 +1,174 @@
+# The issue slice of the GraphQL schema. It adds the issue read fields gh issue
+# view and gh issue list select onto Repository, and the create, comment, close,
+# and reopen mutations gh issue create, comment, and close send. Object types
+# bind to the hand-written structs in presenter/gqlmodel; the enums bind to the
+# typed string constants there. The schema grows toward GitHub's full Issue type
+# milestone by milestone.
+
+extend type Repository {
+  # issue looks up one issue by its per-repository number. It is null when no
+  # such issue exists.
+  issue(number: Int!): Issue
+  # issues is the Relay connection over the repository's issues, newest first.
+  issues(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    states: [IssueState!]
+  ): IssueConnection!
+}
+
+# Actor is an entity that can author issues and comments, reduced to the fields
+# the issue documents select.
+type Actor {
+  login: String!
+  url: URI!
+  avatarUrl: URI!
+}
+
+# Issue is a repository issue.
+type Issue {
+  id: ID!
+  number: Int!
+  title: String!
+  body: String!
+  state: IssueState!
+  stateReason: IssueStateReason
+  url: URI!
+  locked: Boolean!
+  closed: Boolean!
+  author: Actor
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  closedAt: DateTime
+  labels(first: Int, after: String): LabelConnection
+  comments(first: Int, after: String): IssueCommentConnection!
+}
+
+# IssueState is whether an issue is open or closed.
+enum IssueState {
+  OPEN
+  CLOSED
+}
+
+# IssueStateReason is why an issue is in its current state.
+enum IssueStateReason {
+  COMPLETED
+  NOT_PLANNED
+  REOPENED
+}
+
+# IssueConnection is the connection over a repository's issues.
+type IssueConnection {
+  edges: [IssueEdge]
+  nodes: [Issue]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type IssueEdge {
+  cursor: String!
+  node: Issue
+}
+
+# PageInfo is the Relay pagination metadata shared by every connection.
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Label is a repository label.
+type Label {
+  id: ID!
+  name: String!
+  color: String!
+  description: String
+}
+
+type LabelConnection {
+  nodes: [Label]
+  totalCount: Int!
+}
+
+# IssueComment is a comment on an issue.
+type IssueComment {
+  id: ID!
+  body: String!
+  url: URI!
+  author: Actor
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type IssueCommentConnection {
+  nodes: [IssueComment]
+  totalCount: Int!
+}
+
+type IssueCommentEdge {
+  cursor: String!
+  node: IssueComment
+}
+
+# Mutation is the GraphQL write root. gh issue create, comment, and close send
+# these mutations; each takes a node id in its input and returns the affected
+# object so the client can read back its url and state.
+type Mutation {
+  createIssue(input: CreateIssueInput!): CreateIssuePayload
+  addComment(input: AddCommentInput!): AddCommentPayload
+  closeIssue(input: CloseIssueInput!): CloseIssuePayload
+  reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
+}
+
+input CreateIssueInput {
+  repositoryId: ID!
+  title: String!
+  body: String
+  clientMutationId: String
+}
+
+type CreateIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
+
+input AddCommentInput {
+  subjectId: ID!
+  body: String!
+  clientMutationId: String
+}
+
+type AddCommentPayload {
+  commentEdge: IssueCommentEdge
+  clientMutationId: String
+}
+
+# IssueClosedStateReason is the reason supplied when closing an issue.
+enum IssueClosedStateReason {
+  COMPLETED
+  NOT_PLANNED
+}
+
+input CloseIssueInput {
+  issueId: ID!
+  stateReason: IssueClosedStateReason
+  clientMutationId: String
+}
+
+type CloseIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
+
+input ReopenIssueInput {
+  issueId: ID!
+  clientMutationId: String
+}
+
+type ReopenIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
