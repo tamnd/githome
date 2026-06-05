@@ -34,6 +34,7 @@ type Deps struct {
 	Checks     *domain.ChecksService
 	Hooks      *domain.HookService
 	Events     *domain.EventService
+	Search     *domain.SearchService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -97,6 +98,16 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Events != nil {
 		mountEvents(r, d)
 	}
+	if d.Search != nil {
+		mountSearch(r, d)
+	}
+}
+
+// mountSearch registers the search endpoints on r.
+func mountSearch(r *mizu.Router, d Deps) {
+	r.Get("/search/issues", handleSearchIssues(d))
+	r.Get("/search/repositories", handleSearchRepositories(d))
+	r.Get("/search/code", handleSearchCode(d))
 }
 
 // mountPulls registers the pull request endpoints on r. The diff and patch
