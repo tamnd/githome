@@ -1,0 +1,1 @@
+{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":1,"nodes":[{"id":"PRRT_AA4","isResolved":false,"isOutdated":false,"path":"feature.txt","line":1,"comments":{"totalCount":1,"nodes":[{"body":"Nice addition.","path":"feature.txt","outdated":false,"author":{"login":"hubot"}}]}}]}}}}}
