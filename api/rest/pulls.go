@@ -138,72 +138,60 @@ func handlePullGet(d Deps) mizu.Handler {
 	}
 }
 
-// handlePullFiles serves GET /repos/{owner}/{repo}/pulls/{number}/files: the
-// per-file diff of the pull request range.
-func handlePullFiles(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		number, ok := pathInt64(c, "number")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		actor := auth.ActorFrom(c.Request().Context())
-		owner, repo := c.Param("owner"), c.Param("repo")
-		pr, err := d.Pulls.GetPR(c.Request().Context(), actor.UserID, owner, repo, number)
-		if pullError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		files, err := d.Pulls.Files(c.Request().Context(), actor.UserID, owner, repo, number)
-		if pullError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		out := make([]restmodel.PullRequestFile, 0, len(files))
-		for _, f := range files {
-			out = append(out, d.URLs.PullRequestFile(owner, repo, pr.Head.SHA, f))
-		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+// pullFiles serves the per-file diff of the pull request range, the body of GET
+// /repos/{owner}/{repo}/pulls/{number}/files. The number arrives from the shared
+// /pulls/{seg1}/{seg2} GET dispatcher.
+func pullFiles(d Deps, c *mizu.Ctx, number int64) error {
+	actor := auth.ActorFrom(c.Request().Context())
+	owner, repo := c.Param("owner"), c.Param("repo")
+	pr, err := d.Pulls.GetPR(c.Request().Context(), actor.UserID, owner, repo, number)
+	if pullError(c.Writer(), err) {
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	files, err := d.Pulls.Files(c.Request().Context(), actor.UserID, owner, repo, number)
+	if pullError(c.Writer(), err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	out := make([]restmodel.PullRequestFile, 0, len(files))
+	for _, f := range files {
+		out = append(out, d.URLs.PullRequestFile(owner, repo, pr.Head.SHA, f))
+	}
+	writeJSON(c.Writer(), http.StatusOK, out)
+	return nil
 }
 
-// handlePullCommits serves GET /repos/{owner}/{repo}/pulls/{number}/commits: the
-// pull request's own commits, oldest first.
-func handlePullCommits(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		number, ok := pathInt64(c, "number")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		actor := auth.ActorFrom(c.Request().Context())
-		owner, repo := c.Param("owner"), c.Param("repo")
-		prq, err := d.Pulls.GetPR(c.Request().Context(), actor.UserID, owner, repo, number)
-		if pullError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		commits, err := d.Pulls.Commits(c.Request().Context(), actor.UserID, owner, repo, number)
-		if pullError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		out := make([]restmodel.RepoCommit, 0, len(commits))
-		for _, cm := range commits {
-			out = append(out, d.URLs.RepoCommit(owner, repo, prq.Repo.ID, cm))
-		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+// pullCommits serves the pull request's own commits oldest first, the body of GET
+// /repos/{owner}/{repo}/pulls/{number}/commits. The number arrives from the
+// shared /pulls/{seg1}/{seg2} GET dispatcher.
+func pullCommits(d Deps, c *mizu.Ctx, number int64) error {
+	actor := auth.ActorFrom(c.Request().Context())
+	owner, repo := c.Param("owner"), c.Param("repo")
+	prq, err := d.Pulls.GetPR(c.Request().Context(), actor.UserID, owner, repo, number)
+	if pullError(c.Writer(), err) {
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	commits, err := d.Pulls.Commits(c.Request().Context(), actor.UserID, owner, repo, number)
+	if pullError(c.Writer(), err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	out := make([]restmodel.RepoCommit, 0, len(commits))
+	for _, cm := range commits {
+		out = append(out, d.URLs.RepoCommit(owner, repo, prq.Repo.ID, cm))
+	}
+	writeJSON(c.Writer(), http.StatusOK, out)
+	return nil
 }
 
 // mediaDiff and mediaPatch name the two raw media types a pull request GET can

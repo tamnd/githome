@@ -30,6 +30,8 @@ type Deps struct {
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
 	Pulls      *domain.PRService
+	Reviews    *domain.ReviewService
+	Checks     *domain.ChecksService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -81,6 +83,12 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Pulls != nil {
 		mountPulls(r, d)
 	}
+	if d.Reviews != nil {
+		mountReviews(r, d)
+	}
+	if d.Checks != nil {
+		mountChecks(r, d)
+	}
 }
 
 // mountPulls registers the pull request endpoints on r. The diff and patch
@@ -90,9 +98,26 @@ func mountPulls(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/pulls", handlePullsList(d))
 	r.Post("/repos/{owner}/{repo}/pulls", handlePullCreate(d))
 	r.Get("/repos/{owner}/{repo}/pulls/{number}", handlePullGet(d))
-	r.Get("/repos/{owner}/{repo}/pulls/{number}/files", handlePullFiles(d))
-	r.Get("/repos/{owner}/{repo}/pulls/{number}/commits", handlePullCommits(d))
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/merge", handlePullMerge(d))
+
+	// The pull request sub-collections (files, commits, comments, reviews) and the
+	// standalone /pulls/comments/{id} comment lookup all read as /pulls/{x}/{y},
+	// which net/http's mux rejects as an ambiguous pair, so one dispatcher fans
+	// them out. The files and commits diffs are served even without the review
+	// service mounted, so this route always carries them.
+	r.Get("/repos/{owner}/{repo}/pulls/{seg1}/{seg2}", handlePullSubGet(d))
+}
+
+// mountReviews registers the code review endpoints on r: reviews and their
+// submit, dismiss, and get shapes, plus inline review comments and replies.
+func mountReviews(r *mizu.Router, d Deps) {
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/reviews", handleReviewCreate(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}", handleReviewGet(d))
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events", handleReviewSubmit(d))
+	r.Put("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/dismissals", handleReviewDismiss(d))
+
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/comments", handleReviewCommentCreate(d))
+	r.Post("/repos/{owner}/{repo}/pulls/comments/{comment_id}/replies", handleReviewCommentReply(d))
 }
 
 // mountIssues registers the issue, comment, label, milestone, and reaction

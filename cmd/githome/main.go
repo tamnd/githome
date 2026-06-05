@@ -76,6 +76,8 @@ func run() error {
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
+	reviewSvc := domain.NewReviewService(st, repoSvc, pullSvc, issueSvc, gitStore)
+	checksSvc := domain.NewChecksService(st, repoSvc, issueSvc, gitStore)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
 	// The job runtime drains the queue the domain fills. M5 registers the
@@ -84,6 +86,7 @@ func run() error {
 	// the process lifetime and stops when the root context is canceled.
 	runtime := worker.NewRuntime(st, logger, 0)
 	runtime.Register(domain.JobRecomputeMergeability, worker.RecomputeMergeabilityHandler(pullSvc))
+	runtime.Register(domain.JobRecomputeReviewDecision, worker.RecomputeReviewDecisionHandler(reviewSvc))
 	go func() {
 		if err := runtime.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("worker runtime stopped", "err", err)
@@ -100,6 +103,8 @@ func run() error {
 		Repos:      repoSvc,
 		Issues:     issueSvc,
 		Pulls:      pullSvc,
+		Reviews:    reviewSvc,
+		Checks:     checksSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
