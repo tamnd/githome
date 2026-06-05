@@ -188,29 +188,68 @@ func handleIssueEdit(d Deps) mizu.Handler {
 	}
 }
 
-// handleIssueCommentsList serves GET /repos/{owner}/{repo}/issues/{number}/comments.
-func handleIssueCommentsList(d Deps) mizu.Handler {
+// handleIssueCommentsGet dispatches the two GET shapes that share the
+// /issues/{seg1}/{seg2} space and that net/http's mux cannot tell apart on its
+// own, because neither "/issues/{number}/comments" nor "/issues/comments/{id}"
+// is strictly more specific than the other. When the first segment is the
+// literal "comments" the request is a comment fetched by id; when the second
+// segment is "comments" it is an issue's comment list. Anything else under this
+// two-segment shape that a more specific route did not claim is a 404.
+func handleIssueCommentsGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		number, ok := pathInt64(c, "number")
-		if !ok {
+		seg1, seg2 := c.Param("seg1"), c.Param("seg2")
+		switch {
+		case seg1 == "comments":
+			id, ok := parseInt64(seg2)
+			if !ok {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			return commentGet(d, c, id)
+		case seg2 == "comments":
+			number, ok := parseInt64(seg1)
+			if !ok {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			return commentsList(d, c, number)
+		default:
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		actor := auth.ActorFrom(c.Request().Context())
-		comments, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(pageNum(c)), int64(perPage(c)))
-		if issueError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		out := make([]any, 0, len(comments))
-		for _, cm := range comments {
-			out = append(out, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
-		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+	}
+}
+
+// commentsList serves the issue's comment list, oldest first.
+func commentsList(d Deps, c *mizu.Ctx, number int64) error {
+	actor := auth.ActorFrom(c.Request().Context())
+	comments, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(pageNum(c)), int64(perPage(c)))
+	if issueError(c.Writer(), err) {
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	out := make([]any, 0, len(comments))
+	for _, cm := range comments {
+		out = append(out, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
+	}
+	writeJSON(c.Writer(), http.StatusOK, out)
+	return nil
+}
+
+// commentGet serves a single comment fetched by its public id.
+func commentGet(d Deps, c *mizu.Ctx, id int64) error {
+	actor := auth.ActorFrom(c.Request().Context())
+	cm, err := d.Issues.GetComment(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), id)
+	if issueError(c.Writer(), err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	writeJSON(c.Writer(), http.StatusOK, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
+	return nil
 }
 
 // handleIssueCommentCreate serves POST /repos/{owner}/{repo}/issues/{number}/comments.
@@ -238,27 +277,6 @@ func handleIssueCommentCreate(d Deps) mizu.Handler {
 			return err
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
-		return nil
-	}
-}
-
-// handleCommentGet serves GET /repos/{owner}/{repo}/issues/comments/{id}.
-func handleCommentGet(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		id, ok := pathInt64(c, "id")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		actor := auth.ActorFrom(c.Request().Context())
-		cm, err := d.Issues.GetComment(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), id)
-		if issueError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
 		return nil
 	}
 }
@@ -859,7 +877,13 @@ func trimSpace(s string) string {
 // pathInt64 parses a numeric path parameter, reporting false when it is absent
 // or not a non-negative integer.
 func pathInt64(c *mizu.Ctx, name string) (int64, bool) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 64)
+	return parseInt64(c.Param(name))
+}
+
+// parseInt64 parses a non-negative integer, reporting false on a malformed or
+// negative value.
+func parseInt64(s string) (int64, bool) {
+	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil || n < 0 {
 		return 0, false
 	}

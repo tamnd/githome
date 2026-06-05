@@ -87,9 +87,11 @@ func mountIssues(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/issues/{number}", handleIssueGet(d))
 	r.Patch("/repos/{owner}/{repo}/issues/{number}", handleIssueEdit(d))
 
-	r.Get("/repos/{owner}/{repo}/issues/{number}/comments", handleIssueCommentsList(d))
+	// The two GET comment shapes share one dispatcher because net/http's mux
+	// rejects "/issues/{number}/comments" and "/issues/comments/{id}" as an
+	// ambiguous pair; POST, PATCH, and DELETE do not collide and stay distinct.
+	r.Get("/repos/{owner}/{repo}/issues/{seg1}/{seg2}", handleIssueCommentsGet(d))
 	r.Post("/repos/{owner}/{repo}/issues/{number}/comments", handleIssueCommentCreate(d))
-	r.Get("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentGet(d))
 	r.Patch("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentEdit(d))
 	r.Delete("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentDelete(d))
 
