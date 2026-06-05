@@ -262,6 +262,36 @@ func (s *ChecksService) ListCheckRuns(ctx context.Context, viewerPK int64, owner
 	return out, sha, nil
 }
 
+// ListCheckSuites returns the check suites reported against a ref for the viewer,
+// each carrying its check runs.
+func (s *ChecksService) ListCheckSuites(ctx context.Context, viewerPK int64, owner, name, ref string) ([]*CheckSuite, string, error) {
+	repo, sha, err := s.resolveForRead(ctx, viewerPK, owner, name, ref)
+	if err != nil {
+		return nil, "", err
+	}
+	rows, err := s.store.ListCheckSuites(ctx, repo.PK, sha)
+	if err != nil {
+		return nil, "", err
+	}
+	out := make([]*CheckSuite, 0, len(rows))
+	for i := range rows {
+		runRows, err := s.store.ListCheckRunsForSuite(ctx, rows[i].PK)
+		if err != nil {
+			return nil, "", err
+		}
+		runs := make([]*CheckRun, 0, len(runRows))
+		for j := range runRows {
+			runs = append(runs, s.assembleRun(&runRows[j]))
+		}
+		out = append(out, &CheckSuite{
+			PK: rows[i].PK, ID: rows[i].DBID, RepoPK: rows[i].RepoPK, HeadSHA: rows[i].HeadSHA,
+			AppSlug: rows[i].AppSlug, Status: rows[i].Status, Conclusion: rows[i].Conclusion,
+			Runs: runs, CreatedAt: rows[i].CreatedAt, UpdatedAt: rows[i].UpdatedAt,
+		})
+	}
+	return out, sha, nil
+}
+
 // Rollup folds a ref's statuses and check runs into the status check rollup for
 // the viewer, the value the pull request and its head commit surface.
 func (s *ChecksService) Rollup(ctx context.Context, viewerPK int64, owner, name, ref string) (*StatusCheckRollup, error) {
