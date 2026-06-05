@@ -14,6 +14,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -46,6 +48,13 @@ func main() {
 }
 
 func run() error {
+	showVersion := flag.Bool("version", false, "print the build version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(config.Version)
+		return nil
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
