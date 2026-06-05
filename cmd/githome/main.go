@@ -83,6 +83,7 @@ func run() error {
 	enqueuer := worker.NewStoreEnqueuer(st)
 	hookSvc := domain.NewHookService(st, repoSvc, enqueuer)
 	eventSvc := domain.NewEventService(st, repoSvc)
+	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
 	// The webhook deliverer renders each recorded event through the presenter and
@@ -121,6 +122,7 @@ func run() error {
 		Checks:     checksSvc,
 		Hooks:      hookSvc,
 		Events:     eventSvc,
+		Search:     searchSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})

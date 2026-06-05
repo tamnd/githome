@@ -25,7 +25,7 @@ func handleRepoGet(d Deps) mizu.Handler {
 		}
 		actor := auth.ActorFrom(c.Request().Context())
 		body := d.URLs.Repository(repo, d.NodeFormat, repoPermissions(actor, repo))
-		writeJSON(c.Writer(), http.StatusOK, body)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
 }

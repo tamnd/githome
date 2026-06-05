@@ -67,6 +67,11 @@ type reactionBody struct {
 func handleIssuesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		q := domain.IssueQuery{
 			State:         c.Query("state"),
 			Labels:        splitCSV(c.Query("labels")),
@@ -74,13 +79,13 @@ func handleIssuesList(d Deps) mizu.Handler {
 			AssigneeLogin: c.Query("assignee"),
 			Sort:          c.Query("sort"),
 			Direction:     c.Query("direction"),
-			Page:          pageNum(c),
-			PerPage:       perPage(c),
+			Page:          page.Page,
+			PerPage:       page.PerPage,
 		}
 		if n, ok := queryInt64(c, "milestone"); ok {
 			q.MilestoneNumber = &n
 		}
-		issues, _, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		issues, total, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if issueError(c.Writer(), err) {
 			return nil
 		}
@@ -91,7 +96,9 @@ func handleIssuesList(d Deps) mizu.Handler {
 		for _, iss := range issues {
 			out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -143,7 +150,7 @@ func handleIssueGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
 	}
 }
@@ -346,7 +353,7 @@ func handleLabelsList(d Deps) mizu.Handler {
 		for _, l := range labels {
 			out = append(out, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -386,7 +393,7 @@ func handleLabelGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
 		return nil
 	}
 }
@@ -442,7 +449,7 @@ func handleMilestonesList(d Deps) mizu.Handler {
 		for _, m := range ms {
 			out = append(out, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -491,7 +498,7 @@ func handleMilestoneGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		return nil
 	}
 }
