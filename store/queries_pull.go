@@ -155,6 +155,22 @@ func (s *Store) OpenPullsByHeadSHA(ctx context.Context, repoPK int64, headSHA st
 	return out, rows.Err()
 }
 
+// PullNumberByPK resolves the issue number that backs a pull request, addressed
+// by the pull extension's pk. The standalone review-comment lookup needs it to
+// build the comment's pull request urls without the number in the request path.
+func (s *Store) PullNumberByPK(ctx context.Context, pullPK int64) (int64, error) {
+	q := s.rebind(`SELECT i.number FROM pull_requests pr
+		JOIN issues i ON i.pk = pr.issue_pk WHERE pr.pk = ?`)
+	var number int64
+	if err := s.db.QueryRowContext(ctx, q, pullPK).Scan(&number); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNotFound
+		}
+		return 0, err
+	}
+	return number, nil
+}
+
 // pullPrefixed is pullColumns with a pr. prefix for the joined list queries.
 const pullPrefixed = `pr.pk, pr.db_id, pr.issue_pk, pr.repo_pk, pr.base_ref,
 	pr.base_sha, pr.head_ref, pr.head_sha, pr.head_repo_pk, pr.draft,

@@ -50,8 +50,10 @@ type reviewStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	GetIssueByPK(ctx context.Context, pk int64) (*store.IssueRow, error)
 	GetPullByIssuePK(ctx context.Context, issuePK int64) (*store.PullRow, error)
+	PullNumberByPK(ctx context.Context, pullPK int64) (int64, error)
 
 	GetReviewByDBID(ctx context.Context, dbID int64) (*store.ReviewRow, error)
+	GetReviewByPK(ctx context.Context, pk int64) (*store.ReviewRow, error)
 	PendingReviewFor(ctx context.Context, pullPK, userPK int64) (*store.ReviewRow, error)
 	ListReviews(ctx context.Context, pullPK int64) ([]store.ReviewRow, error)
 	DismissReview(ctx context.Context, pk int64, message string) error
@@ -380,20 +382,22 @@ func (s *ReviewService) ListComments(ctx context.Context, viewerPK int64, owner,
 	return out, nil
 }
 
-// GetComment resolves one inline comment by id for the viewer.
-func (s *ReviewService) GetComment(ctx context.Context, viewerPK int64, owner, name string, number, commentDBID int64) (*ReviewComment, error) {
+// GetComment resolves one inline comment by id for the viewer. The standalone
+// pulls/comments/{id} route carries no pull number, so the owning pull request's
+// number is resolved from the comment to build its urls.
+func (s *ReviewService) GetComment(ctx context.Context, viewerPK int64, owner, name string, commentDBID int64) (*ReviewComment, error) {
 	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
 	if err != nil {
 		return nil, err
 	}
-	_, pullRow, err := s.loadPull(ctx, repo.PK, number)
+	row, err := s.store.GetReviewComment(ctx, commentDBID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && row.RepoPK != repo.PK) {
+		return nil, ErrReviewNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	row, err := s.store.GetReviewComment(ctx, commentDBID)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && row.PullPK != pullRow.PK) {
-		return nil, ErrReviewNotFound
-	}
+	number, err := s.store.PullNumberByPK(ctx, row.PullPK)
 	if err != nil {
 		return nil, err
 	}
@@ -714,8 +718,14 @@ func (s *ReviewService) assembleComment(ctx context.Context, row *store.ReviewCo
 	if err != nil {
 		return nil, err
 	}
+	// The wire pull_request_review_id is the owning review's public id, not its
+	// internal pk; resolve it from the row's review_pk.
+	var reviewID int64
+	if rev, err := s.store.GetReviewByPK(ctx, row.ReviewPK); err == nil {
+		reviewID = rev.DBID
+	}
 	return &ReviewComment{
-		PK: row.PK, ID: row.DBID, ReviewPK: row.ReviewPK, PullPK: row.PullPK,
+		PK: row.PK, ID: row.DBID, ReviewPK: row.ReviewPK, ReviewID: reviewID, PullPK: row.PullPK,
 		PullNumber: number, RepoPK: row.RepoPK, User: author, Path: row.Path,
 		Side: row.Side, Line: row.Line, StartLine: row.StartLine, StartSide: row.StartSide,
 		Position: row.Position, OriginalPosition: row.OriginalPosition,
