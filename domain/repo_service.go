@@ -40,6 +40,7 @@ type RepoStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
 // RepoService resolves repositories and reads their git data. It pairs the
@@ -105,6 +106,22 @@ func (s *RepoService) GetRepoByID(ctx context.Context, viewerPK, dbID int64) (*R
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrRepoNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// RepoForEvent assembles a repository by internal pk with no visibility check,
+// the system path the webhook renderer loads an event's repository through. The
+// event was already authorized when it was recorded, so the renderer does not
+// re-gate it.
+func (s *RepoService) RepoForEvent(ctx context.Context, repoPK int64) (*Repo, error) {
+	row, err := s.store.RepoByPK(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
 	if err != nil {
 		return nil, err
 	}

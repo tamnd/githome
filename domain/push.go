@@ -2,9 +2,10 @@ package domain
 
 import (
 	"context"
-	"encoding/json"
 	"strconv"
 	"time"
+
+	"github.com/tamnd/githome/store"
 )
 
 // ZeroSHA is the all-zero object id git uses in a post-receive line to mark a
@@ -12,12 +13,10 @@ import (
 const ZeroSHA = "0000000000000000000000000000000000000000"
 
 // The job kinds the push sink enqueues. The workers that consume them land with
-// the milestones that own each kind (push events and webhook delivery in M7,
-// mergeability in M5, search in a later pass); defining the kinds here, where
-// they are produced, lets the worker package depend on domain rather than the
-// other way around.
+// the milestones that own each kind (webhook fan-out in M7, mergeability in M5,
+// search in a later pass); defining the kinds here, where they are produced,
+// lets the worker package depend on domain rather than the other way around.
 const (
-	JobPushEvent               = "push_event"
 	JobReindexSearch           = "reindex_search"
 	JobRecomputeMergeability   = "recompute_mergeability"
 	JobRecomputeReviewDecision = "recompute_review_decision"
@@ -65,23 +64,26 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 		return err
 	}
 
-	payload, err := json.Marshal(pushEventPayload{
+	repo, err := s.store.RepoByPK(ctx, b.RepoPK)
+	if err != nil {
+		return err
+	}
+
+	// Record the push event and fan it out to the repository's webhooks. The
+	// moved refs have no home in a table, so they ride along on the fan-out job
+	// for the renderer to build the push body from.
+	recordEvent(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventPush,
+		ActorPK: b.PusherPK,
+		RepoPK:  b.RepoPK,
+		Public:  !repo.Private,
+	}, &PushPayload{
 		RepoPK:   b.RepoPK,
 		PusherPK: b.PusherPK,
 		Protocol: b.Protocol,
 		Updates:  b.Updates,
 	})
-	if err != nil {
-		return err
-	}
-	if _, err := s.enq.Enqueue(ctx, JobPushEvent, string(payload), ""); err != nil {
-		return err
-	}
 
-	repo, err := s.store.RepoByPK(ctx, b.RepoPK)
-	if err != nil {
-		return err
-	}
 	defaultRef := "refs/heads/" + repo.DefaultBranch
 	for _, u := range b.Updates {
 		if u.Ref == defaultRef && !u.Deleted() {
@@ -93,13 +95,4 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 		}
 	}
 	return nil
-}
-
-// pushEventPayload is the JSON body of an enqueued push_event job. The webhook
-// worker decodes it in M7 to build the push webhook delivery.
-type pushEventPayload struct {
-	RepoPK   int64       `json:"repo_pk"`
-	PusherPK int64       `json:"pusher_pk"`
-	Protocol string      `json:"protocol"`
-	Updates  []RefUpdate `json:"updates"`
 }

@@ -70,6 +70,7 @@ type reviewStore interface {
 
 	WithTx(ctx context.Context, fn func(*store.Tx) error) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
 // NewReviewService builds a ReviewService over the store, the repo, pull request,
@@ -169,7 +170,7 @@ func (s *ReviewService) CreateReview(ctx context.Context, actorPK int64, owner, 
 	}
 	if state != ReviewPending {
 		s.enqueueRecompute(ctx, issueRow.PK)
-		s.enqueueReviewEvent(ctx, "submitted", repo, number)
+		s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK)
 	}
 	return s.assembleReview(ctx, reviewRow, number)
 }
@@ -209,7 +210,7 @@ func (s *ReviewService) SubmitReview(ctx context.Context, actorPK int64, owner, 
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
-	s.enqueueReviewEvent(ctx, "submitted", repo, number)
+	s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
 }
 
@@ -235,7 +236,7 @@ func (s *ReviewService) DismissReview(ctx context.Context, actorPK int64, owner,
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
-	s.enqueueReviewEvent(ctx, "dismissed", repo, number)
+	s.recordReviewEvent(ctx, actorPK, "dismissed", repo, issueRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
 }
 
@@ -783,18 +784,20 @@ func (s *ReviewService) enqueueRecompute(ctx context.Context, issuePK int64) {
 	_, _ = s.enq.Enqueue(ctx, JobRecomputeReviewDecision, string(payload), key)
 }
 
-// enqueueReviewEvent records a pull_request_review webhook event, delivered when
-// the webhook milestone lands.
-func (s *ReviewService) enqueueReviewEvent(ctx context.Context, action string, repo *Repo, number int64) {
-	payload, err := json.Marshal(struct {
-		Action     string `json:"action"`
-		RepoID     int64  `json:"repo_id"`
-		PullNumber int64  `json:"pull_number"`
-	}{action, repo.ID, number})
-	if err != nil {
-		return
-	}
-	_, _ = s.enq.Enqueue(ctx, "pull_request_review", string(payload), "")
+// recordReviewEvent appends a pull_request_review activity event and enqueues
+// its webhook fan-out. The actor, the repository, and the pull request's issue
+// row are the coordinates the renderer rebuilds the payload from; delivery is
+// best-effort, so a failure here never fails the user's write.
+func (s *ReviewService) recordReviewEvent(ctx context.Context, actorPK int64, action string, repo *Repo, issuePK int64) {
+	pk := issuePK
+	recordEvent(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventPullRequestReview,
+		Action:  action,
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &pk,
+		Public:  !repo.Private,
+	}, nil)
 }
 
 // stateForEvent maps a submit event to the review state it produces. An empty

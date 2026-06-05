@@ -103,14 +103,14 @@ func TestPushRoundTrip(t *testing.T) {
 	var pushEvents, reindexes int
 	for _, j := range jobs {
 		switch j.Kind {
-		case domain.JobPushEvent:
+		case domain.JobDeliverEvent:
 			pushEvents++
 		case domain.JobReindexSearch:
 			reindexes++
 		}
 	}
 	if pushEvents != 1 {
-		t.Errorf("push_event jobs = %d, want 1", pushEvents)
+		t.Errorf("deliver_event jobs = %d, want 1", pushEvents)
 	}
 	if reindexes != 1 {
 		t.Errorf("reindex_search jobs = %d, want 1", reindexes)

@@ -174,8 +174,9 @@ func TestReactionContract(t *testing.T) {
 	assertWriteGolden(t, "reaction_create.golden.json", body)
 }
 
-// TestCreateIssueEnqueuesWebhookJob confirms the create records an `issues` job
-// in the durable queue, the seam the webhook milestone delivers through.
+// TestCreateIssueEnqueuesWebhookJob confirms the create records an event and
+// enqueues the single deliver_event job that fans the activity out to the
+// repository's hooks. The job carries the new event's pk in its payload.
 func TestCreateIssueEnqueuesWebhookJob(t *testing.T) {
 	fx := issueServer(t)
 	if resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/issues", fx.token,
@@ -188,12 +189,12 @@ func TestCreateIssueEnqueuesWebhookJob(t *testing.T) {
 	}
 	var found bool
 	for _, j := range jobs {
-		if j.Kind == "issues" {
+		if j.Kind == "deliver_event" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("create did not enqueue an issues job: %+v", jobs)
+		t.Fatalf("create did not enqueue a deliver_event job: %+v", jobs)
 	}
 }
 

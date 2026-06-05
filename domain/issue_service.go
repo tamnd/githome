@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -89,6 +88,7 @@ type IssueStore interface {
 
 	WithTx(ctx context.Context, fn func(*store.Tx) error) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
 // IssueService implements the issue subsystem over the store, reusing the repo
@@ -206,7 +206,7 @@ func (s *IssueService) CreateIssue(ctx context.Context, actorPK int64, owner, na
 	if err != nil {
 		return nil, err
 	}
-	s.enqueueIssueEvent(ctx, "opened", repo, row.Number)
+	s.recordIssueEvent(ctx, actorPK, EventIssues, "opened", repo, row.PK)
 	return s.assembleIssue(ctx, repo, row)
 }
 
@@ -220,6 +220,17 @@ func (s *IssueService) GetIssue(ctx context.Context, viewerPK int64, owner, name
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrIssueNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
+// IssueForEvent assembles an issue by internal pk for the webhook renderer. The
+// repository is already resolved by the caller; no visibility check applies
+// because the event was authorized when it was recorded.
+func (s *IssueService) IssueForEvent(ctx context.Context, repo *Repo, issuePK int64) (*Issue, error) {
+	row, err := s.store.GetIssueByPK(ctx, issuePK)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +421,7 @@ func (s *IssueService) EditIssue(ctx context.Context, actorPK int64, owner, name
 	if action == "" {
 		action = "edited"
 	}
-	s.enqueueIssueEvent(ctx, action, repo, row.Number)
+	s.recordIssueEvent(ctx, actorPK, EventIssues, action, repo, row.PK)
 	return s.assembleIssue(ctx, repo, row)
 }
 
@@ -595,19 +606,20 @@ func (s *IssueService) userByPK(ctx context.Context, pk int64) (*User, error) {
 	return userFromRow(row), nil
 }
 
-// enqueueIssueEvent records the webhook event for an issue action in the durable
-// queue. Delivery lands with the webhook milestone; here it only enqueues, and a
-// failure to enqueue does not fail the user's write.
-func (s *IssueService) enqueueIssueEvent(ctx context.Context, action string, repo *Repo, number int64) {
-	payload, err := json.Marshal(struct {
-		Action      string `json:"action"`
-		RepoID      int64  `json:"repo_id"`
-		IssueNumber int64  `json:"issue_number"`
-	}{action, repo.ID, number})
-	if err != nil {
-		return
-	}
-	_, _ = s.enq.Enqueue(ctx, "issues", string(payload), "")
+// recordIssueEvent appends an activity event for an issue action and enqueues
+// its webhook fan-out. The actor, the repository, and the issue are the
+// coordinates the renderer rebuilds the payload from; delivery is best-effort,
+// so a failure here never fails the user's write.
+func (s *IssueService) recordIssueEvent(ctx context.Context, actorPK int64, event, action string, repo *Repo, issuePK int64) {
+	pk := issuePK
+	recordEvent(ctx, s.store, s.enq, &store.EventRow{
+		Event:   event,
+		Action:  action,
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &pk,
+		Public:  !repo.Private,
+	}, nil)
 }
 
 func offsetFor(page, perPage int) int {

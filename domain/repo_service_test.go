@@ -25,7 +25,14 @@ type fakeRepoStore struct {
 	users      map[int64]*store.UserRow
 	pushedAt   map[int64]time.Time
 	jobs       []store.JobRow
+	events     []store.EventRow
 	dedupeSeen map[string]bool
+}
+
+func (f *fakeRepoStore) InsertEvent(_ context.Context, e *store.EventRow) error {
+	e.PK = int64(len(f.events) + 1)
+	f.events = append(f.events, *e)
+	return nil
 }
 
 func (f *fakeRepoStore) RepoByOwnerName(_ context.Context, owner, name string) (*store.RepoRow, error) {

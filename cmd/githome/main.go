@@ -2,13 +2,13 @@
 //
 // The server wires configuration, the metadata store with migrations, the REST
 // and GraphQL surfaces, the git Smart HTTP transport, and the job runtime. As of
-// M5 it serves users, repository metadata, repository contents and git data,
-// issues, pull requests with their merge surface, the repository GraphQL query,
-// git clone and fetch, and git push (receive-pack plus the REST ref-write
-// endpoints) with the in-process post-receive sync that records push events and
-// advances pull request heads. The job runtime drains the queue in-process; a
-// push enqueues the mergeability recompute the runtime then runs. The SSH
-// transport joins in a later milestone.
+// M7 it serves users, repository metadata, repository contents and git data,
+// issues, pull requests with their merge surface, code review, the repository
+// GraphQL query, git clone and fetch, git push (receive-pack plus the REST
+// ref-write endpoints), repository webhooks with signed delivery, and the
+// activity feed the Events API exposes. The job runtime drains the queue
+// in-process; a push or issue or pull request records an event the runtime fans
+// out to the repository's hooks. The SSH transport joins in a later milestone.
 package main
 
 import (
@@ -34,6 +34,7 @@ import (
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/webhook"
 	"github.com/tamnd/githome/worker"
 )
 
@@ -78,15 +79,28 @@ func run() error {
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
 	reviewSvc := domain.NewReviewService(st, repoSvc, pullSvc, issueSvc, gitStore)
 	checksSvc := domain.NewChecksService(st, repoSvc, issueSvc, gitStore)
+	userSvc := domain.NewUserService(st)
+	enqueuer := worker.NewStoreEnqueuer(st)
+	hookSvc := domain.NewHookService(st, repoSvc, enqueuer)
+	eventSvc := domain.NewEventService(st, repoSvc)
 	urls := presenter.NewURLBuilder(cfg.URLs)
+
+	// The webhook deliverer renders each recorded event through the presenter and
+	// posts it to the repository's subscribed hooks behind an SSRF guard. Its two
+	// handlers join the runtime below: deliver_event fans an event out to its
+	// hooks, and deliver_webhook performs one signed POST and records the result.
+	webhookRenderer := webhook.NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
+	deliverer := webhook.NewDeliverer(st, webhookRenderer, nil, enqueuer, config.Version)
 
 	// The job runtime drains the queue the domain fills. M5 registers the
 	// mergeability recompute a pull request enqueues when it opens or its base or
-	// head moves; later milestones register their kinds the same way. It runs for
+	// head moves; M7 adds the webhook fan-out and delivery handlers. It runs for
 	// the process lifetime and stops when the root context is canceled.
 	runtime := worker.NewRuntime(st, logger, 0)
 	runtime.Register(domain.JobRecomputeMergeability, worker.RecomputeMergeabilityHandler(pullSvc))
 	runtime.Register(domain.JobRecomputeReviewDecision, worker.RecomputeReviewDecisionHandler(reviewSvc))
+	runtime.Register(domain.JobDeliverEvent, deliverer.DeliverEventHandler())
+	runtime.Register(domain.JobDeliverWebhook, deliverer.DeliverWebhookHandler())
 	go func() {
 		if err := runtime.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("worker runtime stopped", "err", err)
@@ -99,12 +113,14 @@ func run() error {
 		Logger:     logger,
 		Ready:      st,
 		Auth:       authSvc,
-		Users:      domain.NewUserService(st),
+		Users:      userSvc,
 		Repos:      repoSvc,
 		Issues:     issueSvc,
 		Pulls:      pullSvc,
 		Reviews:    reviewSvc,
 		Checks:     checksSvc,
+		Hooks:      hookSvc,
+		Events:     eventSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})

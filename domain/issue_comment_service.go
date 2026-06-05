@@ -37,7 +37,7 @@ func (s *IssueService) CreateComment(ctx context.Context, actorPK int64, owner, 
 	}); err != nil {
 		return nil, err
 	}
-	s.enqueueIssueEvent(ctx, "commented", repo, row.Number)
+	s.recordIssueEvent(ctx, actorPK, EventIssueComment, "created", repo, row.PK)
 	return s.assembleComment(ctx, c)
 }
 

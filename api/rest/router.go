@@ -32,6 +32,8 @@ type Deps struct {
 	Pulls      *domain.PRService
 	Reviews    *domain.ReviewService
 	Checks     *domain.ChecksService
+	Hooks      *domain.HookService
+	Events     *domain.EventService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -88,6 +90,12 @@ func mountAPI(r *mizu.Router, d Deps) {
 	}
 	if d.Checks != nil {
 		mountChecks(r, d)
+	}
+	if d.Hooks != nil {
+		mountHooks(r, d)
+	}
+	if d.Events != nil {
+		mountEvents(r, d)
 	}
 }
 

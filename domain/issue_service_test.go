@@ -56,23 +56,27 @@ func TestCreateIssueEnqueuesEvent(t *testing.T) {
 		t.Fatalf("issue = %+v", iss)
 	}
 
-	// The create records an `issues` webhook job in the durable queue, delivered
-	// when the webhook milestone lands.
+	// The create records an `issues` opened event and enqueues its fan-out job,
+	// the trigger the webhook delivery worker drains.
+	events, err := f.st.ListEvents(f.ctx, store.EventFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(events) != 1 || events[0].Event != "issues" || events[0].Action != "opened" {
+		t.Fatalf("events = %+v, want one issues/opened event", events)
+	}
 	jobs, err := f.st.ListJobs(f.ctx)
 	if err != nil {
 		t.Fatalf("ListJobs: %v", err)
 	}
 	var found bool
 	for _, j := range jobs {
-		if j.Kind == "issues" {
+		if j.Kind == JobDeliverEvent {
 			found = true
-			if !contains(j.Payload, `"action":"opened"`) {
-				t.Errorf("issues payload missing opened action: %s", j.Payload)
-			}
 		}
 	}
 	if !found {
-		t.Fatalf("create did not enqueue an issues job: %+v", jobs)
+		t.Fatalf("create did not enqueue a deliver_event job: %+v", jobs)
 	}
 }
 
@@ -222,13 +226,4 @@ func TestMilestoneFlow(t *testing.T) {
 	if err != nil || got.OpenIssues != 1 {
 		t.Fatalf("milestone counts = %+v (%v)", got, err)
 	}
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }

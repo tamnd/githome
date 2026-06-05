@@ -1,0 +1,213 @@
+package rest
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
+	"github.com/go-mizu/mizu"
+
+	"github.com/tamnd/githome/auth"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
+	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/worker"
+)
+
+// hookFixture is a REST server backed by a store seeded with owner octocat, repo
+// hello, and a second user mallory who has no rights to the repo. It carries both
+// users' tokens so a test can drive the admin path and the forbidden path.
+type hookFixture struct {
+	srv    *httptest.Server
+	token  string // octocat, the repo owner
+	intrud string // mallory, an unrelated user
+}
+
+func hookServer(t *testing.T) hookFixture {
+	t.Helper()
+	ctx := context.Background()
+
+	st, err := store.Open(ctx, "sqlite://"+filepath.Join(t.TempDir(), "githome.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	owner := &store.UserRow{Login: "octocat", Type: "User"}
+	if err := st.InsertUser(ctx, owner); err != nil {
+		t.Fatalf("insert owner: %v", err)
+	}
+	intruder := &store.UserRow{Login: "mallory", Type: "User"}
+	if err := st.InsertUser(ctx, intruder); err != nil {
+		t.Fatalf("insert intruder: %v", err)
+	}
+	repo := &store.RepoRow{OwnerPK: owner.PK, Name: "hello", DefaultBranch: "main"}
+	if err := st.InsertRepo(ctx, repo); err != nil {
+		t.Fatalf("insert repo: %v", err)
+	}
+
+	authSvc := auth.NewService(st, "https://git.test.internal")
+	t.Cleanup(authSvc.Close)
+	cfg := authConfig(t)
+	gitStore := git.NewStore(t.TempDir())
+	repoSvc := domain.NewRepoService(st, gitStore)
+	enq := worker.NewStoreEnqueuer(st)
+	root := mizu.NewRouter()
+	Mount(root, Deps{
+		Config:     cfg,
+		Ready:      st,
+		Auth:       authSvc,
+		Users:      domain.NewUserService(st),
+		Repos:      repoSvc,
+		Hooks:      domain.NewHookService(st, repoSvc, enq),
+		URLs:       presenter.NewURLBuilder(cfg.URLs),
+		NodeFormat: nodeid.FormatNew,
+	})
+	srv := httptest.NewServer(root)
+	t.Cleanup(srv.Close)
+
+	return hookFixture{
+		srv:    srv,
+		token:  seedToken(t, st, owner.PK),
+		intrud: seedToken(t, st, intruder.PK),
+	}
+}
+
+// seedHook creates a hook subscribed to push and returns its external id, which
+// is the store's global db_id rather than a per-repo counter.
+func (fx hookFixture) seedHook(t *testing.T) int64 {
+	t.Helper()
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/hooks", fx.token,
+		`{"events":["push"],"config":{"url":"https://example.test/hook"}}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed hook status %d, body %s", resp.StatusCode, body)
+	}
+	var got struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode seed hook: %v", err)
+	}
+	return got.ID
+}
+
+func TestCreateHookContract(t *testing.T) {
+	fx := hookServer(t)
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/hooks", fx.token,
+		`{"name":"web","active":true,"events":["push","issues"],"config":{"url":"https://example.test/hook","content_type":"json","secret":"swordfish","insecure_ssl":"0"}}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d, want 201, body %s", resp.StatusCode, body)
+	}
+	assertWriteGolden(t, "hook_create.golden.json", body)
+
+	// The secret is never echoed back; the config carries the fixed mask instead.
+	var got struct {
+		Config struct {
+			Secret string `json:"secret"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Config.Secret != "********" {
+		t.Errorf("config.secret = %q, want the fixed mask", got.Config.Secret)
+	}
+}
+
+func TestGetHookContract(t *testing.T) {
+	fx := hookServer(t)
+	id := fx.seedHook(t)
+	resp, body := authedSend(t, fx.srv, http.MethodGet, fmt.Sprintf("/repos/octocat/hello/hooks/%d", id), fx.token, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	assertWriteGolden(t, "hook_get.golden.json", body)
+}
+
+func TestListHooksContract(t *testing.T) {
+	fx := hookServer(t)
+	fx.seedHook(t)
+	resp, body := authedSend(t, fx.srv, http.MethodGet, "/repos/octocat/hello/hooks", fx.token, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	assertWriteGolden(t, "hooks_list.golden.json", body)
+}
+
+func TestUpdateHookContract(t *testing.T) {
+	fx := hookServer(t)
+	id := fx.seedHook(t)
+	resp, body := authedSend(t, fx.srv, http.MethodPatch, fmt.Sprintf("/repos/octocat/hello/hooks/%d", id), fx.token,
+		`{"active":false,"add_events":["issues","pull_request"],"config":{"content_type":"form"}}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	assertWriteGolden(t, "hook_update.golden.json", body)
+}
+
+func TestDeleteHookContract(t *testing.T) {
+	fx := hookServer(t)
+	id := fx.seedHook(t)
+	path := fmt.Sprintf("/repos/octocat/hello/hooks/%d", id)
+	resp, _ := authedSend(t, fx.srv, http.MethodDelete, path, fx.token, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete status %d, want 204", resp.StatusCode)
+	}
+	// The hook is gone: a follow-up GET is 404.
+	if resp, _ := authedSend(t, fx.srv, http.MethodGet, path, fx.token, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("get after delete status %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestEmptyDeliveriesContract(t *testing.T) {
+	fx := hookServer(t)
+	id := fx.seedHook(t)
+	resp, body := authedSend(t, fx.srv, http.MethodGet, fmt.Sprintf("/repos/octocat/hello/hooks/%d/deliveries", id), fx.token, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	if string(body) != "[]" {
+		t.Errorf("deliveries body = %s, want []", body)
+	}
+}
+
+func TestHookWriteErrors(t *testing.T) {
+	fx := hookServer(t)
+
+	// A config without a url is rejected before any write.
+	if resp, _ := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/hooks", fx.token,
+		`{"events":["push"],"config":{}}`); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("missing-url status %d, want 422", resp.StatusCode)
+	}
+
+	// A user without admin rights cannot manage the repo's hooks: 403.
+	if resp, _ := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/hooks", fx.intrud,
+		`{"events":["push"],"config":{"url":"https://example.test/hook"}}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("intruder create status %d, want 403", resp.StatusCode)
+	}
+
+	// A hook under a repository that does not exist is 404, never 403.
+	if resp, _ := authedSend(t, fx.srv, http.MethodGet, "/repos/octocat/nope/hooks/1", fx.token, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("missing repo status %d, want 404", resp.StatusCode)
+	}
+
+	// A hook id that does not exist is 404.
+	if resp, _ := authedSend(t, fx.srv, http.MethodGet, "/repos/octocat/hello/hooks/999", fx.token, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("missing hook status %d, want 404", resp.StatusCode)
+	}
+
+	// A redelivery of a delivery that does not exist is 404.
+	id := fx.seedHook(t)
+	if resp, _ := authedSend(t, fx.srv, http.MethodPost, fmt.Sprintf("/repos/octocat/hello/hooks/%d/deliveries/999/attempts", id), fx.token, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("missing delivery redeliver status %d, want 404", resp.StatusCode)
+	}
+}
