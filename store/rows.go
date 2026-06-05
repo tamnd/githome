@@ -113,6 +113,124 @@ type PullRow struct {
 	UpdatedAt             time.Time
 }
 
+// ReviewRow is a row of pull_request_reviews, one act of reviewing a pull
+// request. State is PENDING (a draft with no submitted_at yet), APPROVED,
+// CHANGES_REQUESTED, COMMENTED, or DISMISSED. SubmittedAt is nil while the review
+// is still a pending draft. DismissedMessage carries the reason a review was
+// later dismissed.
+type ReviewRow struct {
+	PK               int64
+	DBID             int64
+	PullPK           int64
+	RepoPK           int64
+	UserPK           int64
+	State            string
+	Body             string
+	CommitID         string
+	DismissedMessage *string
+	SubmittedAt      *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// ReviewCommentRow is a row of pull_request_review_comments, a comment anchored
+// to a diff line. Line/StartLine are file line numbers in the new model; Position
+// is the legacy 1-based diff offset, kept for the older API shape. Side and
+// StartSide are LEFT (base) or RIGHT (head). InReplyToPK threads a reply under
+// the comment that started a conversation; Resolved marks that thread settled.
+type ReviewCommentRow struct {
+	PK                int64
+	DBID              int64
+	ReviewPK          int64
+	PullPK            int64
+	RepoPK            int64
+	UserPK            int64
+	Path              string
+	Side              string
+	Line              *int64
+	StartLine         *int64
+	StartSide         *string
+	OriginalLine      *int64
+	OriginalStartLine *int64
+	Position          *int64
+	OriginalPosition  *int64
+	CommitID          string
+	OriginalCommitID  string
+	InReplyToPK       *int64
+	DiffHunk          string
+	SubjectType       string
+	Body              string
+	Resolved          bool
+	ResolvedByPK      *int64
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// CommitStatusRow is a row of commit_statuses, one external pass/fail report
+// against a sha under a context. State is error, failure, pending, or success.
+type CommitStatusRow struct {
+	PK          int64
+	DBID        int64
+	RepoPK      int64
+	SHA         string
+	State       string
+	Context     string
+	TargetURL   *string
+	Description *string
+	CreatorPK   *int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// CheckSuiteRow is a row of check_suites, the per-app container for the check
+// runs reported against a head sha. Status is queued, in_progress, or completed;
+// Conclusion is set only once completed.
+type CheckSuiteRow struct {
+	PK         int64
+	DBID       int64
+	RepoPK     int64
+	HeadSHA    string
+	AppSlug    string
+	Status     string
+	Conclusion *string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// CheckRunRow is a row of check_runs, one named check against a head sha inside a
+// suite. Status is queued, in_progress, or completed; Conclusion (success,
+// failure, neutral, cancelled, timed_out, action_required, skipped) is set when
+// the run completes.
+type CheckRunRow struct {
+	PK            int64
+	DBID          int64
+	SuitePK       int64
+	RepoPK        int64
+	HeadSHA       string
+	Name          string
+	Status        string
+	Conclusion    *string
+	DetailsURL    *string
+	ExternalID    *string
+	OutputTitle   *string
+	OutputSummary *string
+	OutputText    *string
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// PullCheckStateRow is the denormalized snapshot the recompute worker writes: a
+// pull request's derived review decision and status check rollup state, so list
+// views and webhook payloads read one row instead of re-aggregating.
+type PullCheckStateRow struct {
+	PullPK         int64
+	ReviewDecision *string
+	RollupState    string
+	UpdatedAt      time.Time
+}
+
 // OAuthAppRow is a row of the oauth_apps table.
 type OAuthAppRow struct {
 	PK                int64
