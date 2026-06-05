@@ -82,6 +82,12 @@ func errUnprocessable(message string) *apiError {
 	return &apiError{Status: http.StatusUnprocessableEntity, Message: message, DocURL: docRoot}
 }
 
+// errMethodNotAllowed is the 405 GitHub returns when a pull request cannot be
+// merged in its current state, carrying the reason as the top-level message.
+func errMethodNotAllowed(message string) *apiError {
+	return &apiError{Status: http.StatusMethodNotAllowed, Message: message, DocURL: docRoot}
+}
+
 // errForbidden is the 403 for an authenticated caller who may see the repository
 // but lacks the access an operation needs, such as pushing a ref without write
 // permission.

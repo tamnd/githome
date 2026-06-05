@@ -29,6 +29,7 @@ type Deps struct {
 	Users      *domain.UserService
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
+	Pulls      *domain.PRService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -77,6 +78,21 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Issues != nil {
 		mountIssues(r, d)
 	}
+	if d.Pulls != nil {
+		mountPulls(r, d)
+	}
+}
+
+// mountPulls registers the pull request endpoints on r. The diff and patch
+// bodies of a single pull request are negotiated inside the GET handler from the
+// Accept header rather than from a path suffix, matching GitHub.
+func mountPulls(r *mizu.Router, d Deps) {
+	r.Get("/repos/{owner}/{repo}/pulls", handlePullsList(d))
+	r.Post("/repos/{owner}/{repo}/pulls", handlePullCreate(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}", handlePullGet(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}/files", handlePullFiles(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}/commits", handlePullCommits(d))
+	r.Put("/repos/{owner}/{repo}/pulls/{number}/merge", handlePullMerge(d))
 }
 
 // mountIssues registers the issue, comment, label, milestone, and reaction
