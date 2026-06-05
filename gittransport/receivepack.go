@@ -1,6 +1,7 @@
 package gittransport
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -128,7 +129,28 @@ func (s *Service) handleReceivePack(c *mizu.Ctx) error {
 		// lag, not data loss, so the push still reports success to the client.
 		s.Log.Error("post-receive sink failed", "err", err)
 	}
+	s.syncPulls(ctx, repo.PK, updates)
 	return nil
+}
+
+// syncPulls advances any open pull request that tracks a pushed branch as its
+// head or base, then requeues its mergeability. It runs after the repo sync, off
+// the same accepted-ref batch, and only on branch updates: a deleted branch or a
+// tag push moves no pull request. A failure is logged, not surfaced, since the
+// push is already durable.
+func (s *Service) syncPulls(ctx context.Context, repoPK int64, updates []domain.RefUpdate) {
+	if s.Pulls == nil {
+		return
+	}
+	for _, u := range updates {
+		branch, ok := strings.CutPrefix(u.Ref, "refs/heads/")
+		if !ok || u.Deleted() {
+			continue
+		}
+		if err := s.Pulls.OnHeadPush(ctx, repoPK, branch, u.NewSHA); err != nil && s.Log != nil {
+			s.Log.Error("pull request head sync failed", "ref", u.Ref, "err", err)
+		}
+	}
 }
 
 // diffSnapshots turns a before/after ref map into the moved-ref batch: refs only
