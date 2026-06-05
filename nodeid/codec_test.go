@@ -5,6 +5,7 @@ import "testing"
 var allKinds = []Kind{
 	KindUser, KindOrganization, KindRepository, KindIssue, KindPullRequest,
 	KindIssueComment, KindPullRequestReview, KindPullRequestReviewComment,
+	KindPullRequestReviewThread, KindCheckRun, KindCheckSuite, KindStatusContext,
 	KindLabel, KindMilestone, KindCommit,
 }
 
