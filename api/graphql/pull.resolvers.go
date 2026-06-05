@@ -1,0 +1,91 @@
+package graphql
+
+// This file holds the pull request resolvers. gqlgen regenerates the method set
+// from the schema and copies these bodies through. The connection-assembly and
+// state-mapping helpers live in helpers.go so a regenerate leaves them alone.
+
+import (
+	"context"
+	"errors"
+
+	"github.com/tamnd/githome/api/graphql/generated"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/presenter/gqlmodel"
+)
+
+// Commits is the resolver for the commits field. It reads the pull request's own
+// commits through the git layer on demand, the way gh pr view selects them.
+func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error) {
+	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+		return nil, err
+	}
+	commits, err := r.Pulls.Commits(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*gqlmodel.PullRequestCommit, 0, len(commits))
+	for _, cm := range commits {
+		nodes = append(nodes, r.URLs.GQLPullRequestCommit(obj.RepoOwner, obj.RepoName, cm))
+	}
+	return &gqlmodel.PullRequestCommitConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// Files is the resolver for the files field. It reads the per-file diff of the
+// pull request range through the git layer on demand.
+func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error) {
+	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+		return nil, err
+	}
+	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*gqlmodel.PullRequestChangedFile, 0, len(files))
+	for _, f := range files {
+		nodes = append(nodes, r.URLs.GQLPullRequestChangedFile(f))
+	}
+	return &gqlmodel.PullRequestChangedFileConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// PullRequest is the resolver for the pullRequest field. A missing pull request,
+// or one in a repository the actor cannot see, resolves to null rather than an
+// error.
+func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error) {
+	owner, name := splitNWO(obj.NameWithOwner)
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, int64(number))
+	if errors.Is(err, domain.ErrPullNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+}
+
+// PullRequests is the resolver for the pullRequests field. A repository the actor
+// cannot see resolves to an empty connection, never an error, so its existence
+// does not leak.
+func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) (*gqlmodel.PullRequestConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
+	if err != nil {
+		return nil, err
+	}
+	owner, name := splitNWO(obj.NameWithOwner)
+	prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+		State:   pullStateFilter(states),
+		Page:    page.page(),
+		PerPage: page.limit,
+	})
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return emptyPullRequestConnection(), nil
+	}
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+}
+
+// PullRequest returns generated.PullRequestResolver implementation.
+func (r *Resolver) PullRequest() generated.PullRequestResolver { return &pullRequestResolver{r} }
+
+type pullRequestResolver struct{ *Resolver }
