@@ -227,12 +227,3 @@ func TestMilestoneFlow(t *testing.T) {
 		t.Fatalf("milestone counts = %+v (%v)", got, err)
 	}
 }
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
-}

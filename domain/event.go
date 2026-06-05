@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/tamnd/githome/store"
 	"github.com/tamnd/githome/worker"
@@ -80,10 +81,44 @@ func recordEvent(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev 
 }
 
 // EventStore is the slice of the store the activity feed reads through: the
-// scoped event list and the login lookup the per-user feed resolves an actor by.
+// scoped event list, the login lookup the per-user feed resolves an actor by,
+// and the by-pk lookups that resolve each event's actor and repository into the
+// compact objects the feed embeds.
 type EventStore interface {
 	ListEvents(ctx context.Context, f store.EventFilter) ([]store.EventRow, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
+	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+}
+
+// Event is the domain view of one activity-feed entry: the resolved actor and
+// repository, the GitHub event type, and the payload object the fan-out worker
+// rendered and stored. Payload is the raw JSON the feed serves verbatim.
+type Event struct {
+	ID        int64
+	Type      string
+	Actor     *User
+	Repo      *Repo
+	Payload   json.RawMessage
+	Public    bool
+	CreatedAt time.Time
+}
+
+// eventType maps an internal event name to the Events-API type string.
+func eventType(name string) string {
+	switch name {
+	case EventPush:
+		return "PushEvent"
+	case EventIssues:
+		return "IssuesEvent"
+	case EventIssueComment:
+		return "IssueCommentEvent"
+	case EventPullRequest:
+		return "PullRequestEvent"
+	case EventPullRequestReview:
+		return "PullRequestReviewEvent"
+	default:
+		return name
+	}
 }
 
 // EventService serves the pull-based activity feed: the global public timeline,
@@ -103,31 +138,83 @@ func NewEventService(st EventStore, repos *RepoService) *EventService {
 
 // PublicFeed returns the global public timeline: events on public repositories
 // that are themselves public, newest first.
-func (s *EventService) PublicFeed(ctx context.Context, perPage int) ([]store.EventRow, error) {
-	return s.store.ListEvents(ctx, store.EventFilter{PublicOnly: true, Limit: perPage})
+func (s *EventService) PublicFeed(ctx context.Context, perPage int) ([]Event, error) {
+	rows, err := s.store.ListEvents(ctx, store.EventFilter{PublicOnly: true, Limit: perPage})
+	if err != nil {
+		return nil, err
+	}
+	return s.toEvents(ctx, rows)
 }
 
 // RepoFeed returns a repository's timeline. The visibility check is the repo
 // service's: a viewer who cannot see the repository gets ErrRepoNotFound, never
 // a leak, and a viewer who can see a private repository sees its private events.
-func (s *EventService) RepoFeed(ctx context.Context, viewerPK int64, owner, name string, perPage int) ([]store.EventRow, error) {
+func (s *EventService) RepoFeed(ctx context.Context, viewerPK int64, owner, name string, perPage int) ([]Event, error) {
 	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.ListEvents(ctx, store.EventFilter{RepoPK: &repo.PK, Limit: perPage})
+	rows, err := s.store.ListEvents(ctx, store.EventFilter{RepoPK: &repo.PK, Limit: perPage})
+	if err != nil {
+		return nil, err
+	}
+	return s.toEvents(ctx, rows)
 }
 
 // UserFeed returns the events a user performed. A viewer reading their own feed
 // sees their private activity; any other viewer sees only the public subset.
-func (s *EventService) UserFeed(ctx context.Context, viewerPK int64, login string, perPage int) ([]store.EventRow, error) {
+func (s *EventService) UserFeed(ctx context.Context, viewerPK int64, login string, perPage int) ([]Event, error) {
 	u, err := s.store.UserByLogin(ctx, login)
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
-	return s.store.ListEvents(ctx, store.EventFilter{
+	rows, err := s.store.ListEvents(ctx, store.EventFilter{
 		ActorPK:    &u.PK,
 		PublicOnly: viewerPK != u.PK,
 		Limit:      perPage,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return s.toEvents(ctx, rows)
+}
+
+// toEvents resolves each row's actor and repository into the compact objects the
+// feed embeds and maps the stored fields onto the domain view. Actor and repo
+// are cached across the page so a busy actor or repository is resolved once.
+func (s *EventService) toEvents(ctx context.Context, rows []store.EventRow) ([]Event, error) {
+	actors := map[int64]*User{}
+	repos := map[int64]*Repo{}
+	out := make([]Event, 0, len(rows))
+	for i := range rows {
+		r := rows[i]
+		actor, ok := actors[r.ActorPK]
+		if !ok {
+			row, err := s.store.UserByPK(ctx, r.ActorPK)
+			if err != nil {
+				return nil, err
+			}
+			actor = userFromRow(row)
+			actors[r.ActorPK] = actor
+		}
+		repo, ok := repos[r.RepoPK]
+		if !ok {
+			rp, err := s.repos.RepoForEvent(ctx, r.RepoPK)
+			if err != nil {
+				return nil, err
+			}
+			repo = rp
+			repos[r.RepoPK] = repo
+		}
+		out = append(out, Event{
+			ID:        r.DBID,
+			Type:      eventType(r.Event),
+			Actor:     actor,
+			Repo:      repo,
+			Payload:   json.RawMessage(r.Payload),
+			Public:    r.Public,
+			CreatedAt: r.CreatedAt,
+		})
+	}
+	return out, nil
 }

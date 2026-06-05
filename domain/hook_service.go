@@ -31,7 +31,7 @@ type HookStore interface {
 // HookService manages a repository's webhooks. Webhook administration needs the
 // same authority as writing to the repository, so every method authorizes write
 // access first; the secret a hook carries is held but never returned, so the
-// service strips it before handing a row back.
+// service maps each row to a domain view that omits it.
 type HookService struct {
 	store HookStore
 	repos *RepoService
@@ -73,7 +73,7 @@ type HookPatch struct {
 
 // CreateHook registers a webhook on the repository after authorizing write
 // access and validating the URL and content type.
-func (s *HookService) CreateHook(ctx context.Context, actorPK int64, owner, name string, in HookInput) (*store.WebhookRow, error) {
+func (s *HookService) CreateHook(ctx context.Context, actorPK int64, owner, name string, in HookInput) (*Hook, error) {
 	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
 	if err != nil {
 		return nil, err
@@ -99,11 +99,11 @@ func (s *HookService) CreateHook(ctx context.Context, actorPK int64, owner, name
 	if err := s.store.InsertWebhook(ctx, row); err != nil {
 		return nil, err
 	}
-	return redactHook(row), nil
+	return hookFromRow(row), nil
 }
 
-// ListHooks returns the repository's webhooks, secrets stripped.
-func (s *HookService) ListHooks(ctx context.Context, actorPK int64, owner, name string) ([]store.WebhookRow, error) {
+// ListHooks returns the repository's webhooks, secrets omitted.
+func (s *HookService) ListHooks(ctx context.Context, actorPK int64, owner, name string) ([]Hook, error) {
 	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
 	if err != nil {
 		return nil, err
@@ -112,24 +112,24 @@ func (s *HookService) ListHooks(ctx context.Context, actorPK int64, owner, name 
 	if err != nil {
 		return nil, err
 	}
+	out := make([]Hook, 0, len(rows))
 	for i := range rows {
-		redactHook(&rows[i])
+		out = append(out, *hookFromRow(&rows[i]))
 	}
-	return rows, nil
+	return out, nil
 }
 
-// GetHook resolves one webhook by its public id, secret stripped.
-func (s *HookService) GetHook(ctx context.Context, actorPK int64, owner, name string, hookID int64) (*store.WebhookRow, error) {
+// GetHook resolves one webhook by its public id, secret omitted.
+func (s *HookService) GetHook(ctx context.Context, actorPK int64, owner, name string, hookID int64) (*Hook, error) {
 	_, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
 	if err != nil {
 		return nil, err
 	}
-	return redactHook(row), nil
+	return hookFromRow(row), nil
 }
 
-// UpdateHook applies a patch to a webhook and returns it with the secret
-// stripped.
-func (s *HookService) UpdateHook(ctx context.Context, actorPK int64, owner, name string, hookID int64, p HookPatch) (*store.WebhookRow, error) {
+// UpdateHook applies a patch to a webhook and returns its domain view.
+func (s *HookService) UpdateHook(ctx context.Context, actorPK int64, owner, name string, hookID int64, p HookPatch) (*Hook, error) {
 	_, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func (s *HookService) UpdateHook(ctx context.Context, actorPK int64, owner, name
 	if err := s.store.UpdateWebhook(ctx, row); err != nil {
 		return nil, err
 	}
-	return redactHook(row), nil
+	return hookFromRow(row), nil
 }
 
 // DeleteHook removes a webhook and its deliveries.
@@ -185,16 +185,25 @@ func (s *HookService) DeleteHook(ctx context.Context, actorPK int64, owner, name
 }
 
 // ListHookDeliveries returns a webhook's recent deliveries, newest first.
-func (s *HookService) ListHookDeliveries(ctx context.Context, actorPK int64, owner, name string, hookID int64, perPage int) ([]store.WebhookDeliveryRow, error) {
+func (s *HookService) ListHookDeliveries(ctx context.Context, actorPK int64, owner, name string, hookID int64, perPage int) ([]HookDelivery, error) {
 	_, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.ListDeliveries(ctx, row.PK, perPage)
+	rows, err := s.store.ListDeliveries(ctx, row.PK, perPage)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]HookDelivery, 0, len(rows))
+	for i := range rows {
+		out = append(out, *deliveryFromRow(&rows[i], false))
+	}
+	return out, nil
 }
 
-// GetHookDelivery resolves one delivery of a webhook by its public id.
-func (s *HookService) GetHookDelivery(ctx context.Context, actorPK int64, owner, name string, hookID, deliveryID int64) (*store.WebhookDeliveryRow, error) {
+// GetHookDelivery resolves one delivery of a webhook by its public id, with the
+// full request and response record.
+func (s *HookService) GetHookDelivery(ctx context.Context, actorPK int64, owner, name string, hookID, deliveryID int64) (*HookDelivery, error) {
 	_, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
 	if err != nil {
 		return nil, err
@@ -203,7 +212,10 @@ func (s *HookService) GetHookDelivery(ctx context.Context, actorPK int64, owner,
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrHookNotFound
 	}
-	return d, err
+	if err != nil {
+		return nil, err
+	}
+	return deliveryFromRow(d, true), nil
 }
 
 // RedeliverHookDelivery enqueues a replay of a recorded delivery: the worker
@@ -243,13 +255,6 @@ func (s *HookService) loadHook(ctx context.Context, actorPK int64, owner, name s
 		return nil, nil, err
 	}
 	return repo, row, nil
-}
-
-// redactHook clears the stored secret so it never reaches the wire, the way
-// GitHub returns config.secret as a fixed mask. The presenter renders the mask.
-func redactHook(w *store.WebhookRow) *store.WebhookRow {
-	w.Secret = nil
-	return w
 }
 
 // validateHookURL requires an absolute http or https URL; the SSRF guard on the
