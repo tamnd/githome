@@ -29,12 +29,17 @@ type pullCreateBody struct {
 func handlePullsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		q := domain.PRQuery{
 			State:   c.Query("state"),
-			Page:    pageNum(c),
-			PerPage: perPage(c),
+			Page:    page.Page,
+			PerPage: page.PerPage,
 		}
-		prs, _, err := d.Pulls.ListPRs(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		prs, total, err := d.Pulls.ListPRs(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -45,6 +50,8 @@ func handlePullsList(d Deps) mizu.Handler {
 		for _, pr := range prs {
 			out = append(out, d.URLs.PullRequest(c.Param("owner"), c.Param("repo"), pr, d.NodeFormat, false))
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}

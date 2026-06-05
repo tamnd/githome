@@ -67,6 +67,11 @@ type reactionBody struct {
 func handleIssuesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		q := domain.IssueQuery{
 			State:         c.Query("state"),
 			Labels:        splitCSV(c.Query("labels")),
@@ -74,13 +79,13 @@ func handleIssuesList(d Deps) mizu.Handler {
 			AssigneeLogin: c.Query("assignee"),
 			Sort:          c.Query("sort"),
 			Direction:     c.Query("direction"),
-			Page:          pageNum(c),
-			PerPage:       perPage(c),
+			Page:          page.Page,
+			PerPage:       page.PerPage,
 		}
 		if n, ok := queryInt64(c, "milestone"); ok {
 			q.MilestoneNumber = &n
 		}
-		issues, _, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		issues, total, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if issueError(c.Writer(), err) {
 			return nil
 		}
@@ -91,6 +96,8 @@ func handleIssuesList(d Deps) mizu.Handler {
 		for _, iss := range issues {
 			out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}

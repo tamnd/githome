@@ -7,6 +7,7 @@ package presenter
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/tamnd/githome/config"
 )
@@ -49,6 +50,19 @@ func (b *URLBuilder) API(segments ...string) string {
 // HTML joins path segments onto the site base.
 func (b *URLBuilder) HTML(segments ...string) string {
 	return b.html.JoinPath(segments...).String()
+}
+
+// PageLink returns the absolute URL a Link header rel points at: the given
+// request path on the configured API host, carrying every query parameter
+// through unchanged except page, which is set to the target. Building it on the
+// API host (never the inbound Host header) keeps the link on the Githome host
+// the same way every other embedded URL is.
+func (b *URLBuilder) PageLink(path, rawQuery string, page int) string {
+	u := url.URL{Scheme: b.api.Scheme, Host: b.api.Host, Path: path}
+	q, _ := url.ParseQuery(rawQuery)
+	q.Set("page", strconv.Itoa(page))
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // UserAPI returns the API URL for a user, e.g. {api}/users/{login}.
