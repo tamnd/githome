@@ -25,6 +25,8 @@ type Deps struct {
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
 	Pulls      *domain.PRService
+	Reviews    *domain.ReviewService
+	Checks     *domain.ChecksService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -37,6 +39,8 @@ func NewHandler(d Deps) http.Handler {
 		Repos:      d.Repos,
 		Issues:     d.Issues,
 		Pulls:      d.Pulls,
+		Reviews:    d.Reviews,
+		Checks:     d.Checks,
 		URLs:       d.URLs,
 		NodeFormat: d.NodeFormat,
 	}})

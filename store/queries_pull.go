@@ -133,6 +133,44 @@ func (s *Store) OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef st
 	return out, rows.Err()
 }
 
+// OpenPullsByHeadSHA returns the open pull requests in a repository whose head
+// currently points at the given sha, the set a status or check report against
+// that sha refreshes the rollup of.
+func (s *Store) OpenPullsByHeadSHA(ctx context.Context, repoPK int64, headSHA string) ([]PullRow, error) {
+	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests
+		WHERE repo_pk = ? AND head_sha = ? AND merged = ?`)
+	rows, err := s.db.QueryContext(ctx, q, repoPK, headSHA, false)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []PullRow
+	for rows.Next() {
+		p, err := scanPullRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *p)
+	}
+	return out, rows.Err()
+}
+
+// PullNumberByPK resolves the issue number that backs a pull request, addressed
+// by the pull extension's pk. The standalone review-comment lookup needs it to
+// build the comment's pull request urls without the number in the request path.
+func (s *Store) PullNumberByPK(ctx context.Context, pullPK int64) (int64, error) {
+	q := s.rebind(`SELECT i.number FROM pull_requests pr
+		JOIN issues i ON i.pk = pr.issue_pk WHERE pr.pk = ?`)
+	var number int64
+	if err := s.db.QueryRowContext(ctx, q, pullPK).Scan(&number); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNotFound
+		}
+		return 0, err
+	}
+	return number, nil
+}
+
 // pullPrefixed is pullColumns with a pr. prefix for the joined list queries.
 const pullPrefixed = `pr.pk, pr.db_id, pr.issue_pk, pr.repo_pk, pr.base_ref,
 	pr.base_sha, pr.head_ref, pr.head_sha, pr.head_repo_pk, pr.draft,

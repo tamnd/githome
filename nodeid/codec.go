@@ -32,6 +32,10 @@ const (
 	KindIssueComment
 	KindPullRequestReview
 	KindPullRequestReviewComment
+	KindPullRequestReviewThread
+	KindCheckRun
+	KindCheckSuite
+	KindStatusContext
 	KindLabel
 	KindMilestone
 	KindCommit
@@ -63,6 +67,10 @@ var registry = map[Kind]entry{
 	KindIssueComment:             {"IssueComment", "012", "IC"},
 	KindPullRequestReview:        {"PullRequestReview", "017", "PRR"},
 	KindPullRequestReviewComment: {"PullRequestReviewComment", "024", "PRRC"},
+	KindPullRequestReviewThread:  {"PullRequestReviewThread", "023", "PRRT"},
+	KindCheckRun:                 {"CheckRun", "08", "CR"},
+	KindCheckSuite:               {"CheckSuite", "010", "CS"},
+	KindStatusContext:            {"StatusContext", "013", "SC"},
 	KindLabel:                    {"Label", "05", "LA"},
 	KindMilestone:                {"Milestone", "09", "MI"},
 	KindCommit:                   {"Commit", "06", "C"},

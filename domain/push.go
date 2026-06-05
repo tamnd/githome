@@ -17,9 +17,10 @@ const ZeroSHA = "0000000000000000000000000000000000000000"
 // they are produced, lets the worker package depend on domain rather than the
 // other way around.
 const (
-	JobPushEvent             = "push_event"
-	JobReindexSearch         = "reindex_search"
-	JobRecomputeMergeability = "recompute_mergeability"
+	JobPushEvent               = "push_event"
+	JobReindexSearch           = "reindex_search"
+	JobRecomputeMergeability   = "recompute_mergeability"
+	JobRecomputeReviewDecision = "recompute_review_decision"
 )
 
 // RefUpdate is one moved reference from a push.

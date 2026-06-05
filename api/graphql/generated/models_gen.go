@@ -66,6 +66,26 @@ type ReopenIssuePayload struct {
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
+type ResolveReviewThreadInput struct {
+	ThreadID         string  `json:"threadId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ResolveReviewThreadPayload struct {
+	Thread           *gqlmodel.PullRequestReviewThread `json:"thread,omitempty"`
+	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
+}
+
+type UnresolveReviewThreadInput struct {
+	ThreadID         string  `json:"threadId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type UnresolveReviewThreadPayload struct {
+	Thread           *gqlmodel.PullRequestReviewThread `json:"thread,omitempty"`
+	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
+}
+
 type IssueClosedStateReason string
 
 const (

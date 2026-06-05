@@ -130,6 +130,16 @@ func argTime(p *time.Time) any {
 	return *p
 }
 
+// affectedOrNotFound maps an UPDATE/DELETE that touched no row to ErrNotFound,
+// so a call against a missing primary key reads as a not-found rather than a
+// silent success.
+func affectedOrNotFound(res sql.Result) error {
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // strPtr converts a scanned sql.NullString to *string.
 func strPtr(n sql.NullString) *string {
 	if !n.Valid {

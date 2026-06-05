@@ -1,0 +1,102 @@
+# The code review slice of the GraphQL schema. It adds the review fields gh pr
+# view and gh pr status select onto PullRequest and its head Commit: the derived
+# review decision, the review threads, and the status check rollup. The two thread
+# mutations resolve and unresolve a conversation. Object types bind to the
+# hand-written structs in presenter/gqlmodel; the enums bind to the typed string
+# constants there.
+
+extend type PullRequest {
+  # reviewDecision is the pull request's derived review state, null when no
+  # submitted review blocks or approves it. Githome computes APPROVED and
+  # CHANGES_REQUESTED from the reviews; REVIEW_REQUIRED needs branch protection.
+  reviewDecision: PullRequestReviewDecision
+  # reviewThreads is the connection over the pull request's review conversations,
+  # each a root comment and its replies.
+  reviewThreads(first: Int, after: String): PullRequestReviewThreadConnection!
+}
+
+extend type Commit {
+  # statusCheckRollup folds every status and check run on the commit into one
+  # state, null when none have been reported against it.
+  statusCheckRollup: StatusCheckRollup
+}
+
+# PullRequestReviewDecision is a pull request's derived review state.
+enum PullRequestReviewDecision {
+  CHANGES_REQUESTED
+  APPROVED
+  REVIEW_REQUIRED
+}
+
+# StatusState is a rollup or status state, worst first.
+enum StatusState {
+  ERROR
+  EXPECTED
+  FAILURE
+  PENDING
+  SUCCESS
+}
+
+# PullRequestReviewThread is a review conversation: a root comment and its replies.
+type PullRequestReviewThread {
+  id: ID!
+  isResolved: Boolean!
+  isOutdated: Boolean!
+  path: String!
+  line: Int
+  # comments is the connection over the thread's comments, oldest first.
+  comments(first: Int, after: String): PullRequestReviewCommentConnection!
+}
+
+type PullRequestReviewThreadConnection {
+  nodes: [PullRequestReviewThread]
+  totalCount: Int!
+}
+
+# PullRequestReviewComment is one inline comment in a review thread.
+type PullRequestReviewComment {
+  id: ID!
+  body: String!
+  path: String!
+  author: Actor
+  outdated: Boolean!
+  url: URI!
+  createdAt: DateTime!
+}
+
+type PullRequestReviewCommentConnection {
+  nodes: [PullRequestReviewComment]
+  totalCount: Int!
+}
+
+# StatusCheckRollup is a head commit's combined status and check state.
+type StatusCheckRollup {
+  state: StatusState!
+}
+
+extend type Mutation {
+  # resolveReviewThread marks a review conversation resolved.
+  resolveReviewThread(input: ResolveReviewThreadInput!): ResolveReviewThreadPayload
+  # unresolveReviewThread reopens a resolved review conversation.
+  unresolveReviewThread(input: UnresolveReviewThreadInput!): UnresolveReviewThreadPayload
+}
+
+input ResolveReviewThreadInput {
+  threadId: ID!
+  clientMutationId: String
+}
+
+type ResolveReviewThreadPayload {
+  thread: PullRequestReviewThread
+  clientMutationId: String
+}
+
+input UnresolveReviewThreadInput {
+  threadId: ID!
+  clientMutationId: String
+}
+
+type UnresolveReviewThreadPayload {
+  thread: PullRequestReviewThread
+  clientMutationId: String
+}
