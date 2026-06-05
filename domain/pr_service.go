@@ -535,6 +535,21 @@ func (s *PRService) repoByPK(ctx context.Context, viewerPK, repoPK int64) (*Repo
 	return repoFromRow(repoRow, userFromRow(ownerRow)), nil
 }
 
+// PullForEvent assembles a pull request by its issue pk for the webhook
+// renderer. No visibility check applies: the event was authorized when it was
+// recorded.
+func (s *PRService) PullForEvent(ctx context.Context, repo *Repo, issuePK int64) (*PullRequest, error) {
+	issueRow, err := s.store.GetIssueByPK(ctx, issuePK)
+	if err != nil {
+		return nil, err
+	}
+	pullRow, err := s.store.GetPullByIssuePK(ctx, issuePK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assemble(ctx, repo, issueRow, pullRow)
+}
+
 // assemble composes the domain PullRequest from the issue row, the pull row, and
 // the repository, resolving the author, assignees, labels, milestone, merger,
 // and the base and head endpoints.

@@ -226,6 +226,17 @@ func (s *IssueService) GetIssue(ctx context.Context, viewerPK int64, owner, name
 	return s.assembleIssue(ctx, repo, row)
 }
 
+// IssueForEvent assembles an issue by internal pk for the webhook renderer. The
+// repository is already resolved by the caller; no visibility check applies
+// because the event was authorized when it was recorded.
+func (s *IssueService) IssueForEvent(ctx context.Context, repo *Repo, issuePK int64) (*Issue, error) {
+	row, err := s.store.GetIssueByPK(ctx, issuePK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
 // IssueRef resolves an issue's public database id to the owner login,
 // repository name, and per-repo number, the coordinates the write methods take.
 // The GraphQL mutations decode an issue node id to its database id and resolve

@@ -112,6 +112,22 @@ func (s *RepoService) GetRepoByID(ctx context.Context, viewerPK, dbID int64) (*R
 	return repoFromRow(row, userFromRow(ownerRow)), nil
 }
 
+// RepoForEvent assembles a repository by internal pk with no visibility check,
+// the system path the webhook renderer loads an event's repository through. The
+// event was already authorized when it was recorded, so the renderer does not
+// re-gate it.
+func (s *RepoService) RepoForEvent(ctx context.Context, repoPK int64) (*Repo, error) {
+	row, err := s.store.RepoByPK(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
 // DefaultBranchRef resolves the repository's head branch. It returns ErrEmptyRepo
 // when the repository has no commits, which the caller renders as a null
 // default_branch ref rather than an error.
