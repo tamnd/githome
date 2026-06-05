@@ -98,7 +98,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 		}
 		page.Total = total
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -150,7 +150,7 @@ func handleIssueGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
 	}
 }
@@ -353,7 +353,7 @@ func handleLabelsList(d Deps) mizu.Handler {
 		for _, l := range labels {
 			out = append(out, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -393,7 +393,7 @@ func handleLabelGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
 		return nil
 	}
 }
@@ -449,7 +449,7 @@ func handleMilestonesList(d Deps) mizu.Handler {
 		for _, m := range ms {
 			out = append(out, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -498,7 +498,7 @@ func handleMilestoneGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		return nil
 	}
 }

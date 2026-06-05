@@ -46,7 +46,21 @@ func golden(t *testing.T, name string) []byte {
 
 func get(t *testing.T, srv *httptest.Server, path string) (*http.Response, []byte) {
 	t.Helper()
-	resp, err := http.Get(srv.URL + path)
+	return getWith(t, srv, path, nil)
+}
+
+// getWith is get with caller-supplied request headers, for conditional-request
+// tests that send If-None-Match.
+func getWith(t *testing.T, srv *httptest.Server, path string, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+	if err != nil {
+		t.Fatalf("new request %s: %v", path, err)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET %s: %v", path, err)
 	}

@@ -52,7 +52,7 @@ func handlePullsList(d Deps) mizu.Handler {
 		}
 		page.Total = total
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -139,7 +139,7 @@ func handlePullGet(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
-			writeJSON(c.Writer(), http.StatusOK, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
+			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
 			return nil
 		}
 	}
