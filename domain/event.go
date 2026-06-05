@@ -47,14 +47,16 @@ type PushPayload struct {
 }
 
 // DeliverWebhookPayload is the body of a deliver_webhook job: the hook to POST
-// to and the event whose rendered body to send. The renderer stores the body on
-// the event row, so the delivery worker reads one place. RedeliverOf, when set,
-// replays a recorded delivery instead: the worker re-sends its stored request
-// rather than rendering the event afresh.
+// to and the event whose body to render and send. Push carries the moved refs a
+// push event has no table to reload from, propagated from the deliver_event job
+// so each hook's body renders the same push. RedeliverOf, when set, replays a
+// recorded delivery instead: the worker re-sends its stored request rather than
+// rendering the event afresh.
 type DeliverWebhookPayload struct {
-	WebhookPK   int64 `json:"webhook_pk"`
-	EventPK     int64 `json:"event_pk"`
-	RedeliverOf int64 `json:"redeliver_of,omitempty"`
+	WebhookPK   int64        `json:"webhook_pk"`
+	EventPK     int64        `json:"event_pk"`
+	Push        *PushPayload `json:"push,omitempty"`
+	RedeliverOf int64        `json:"redeliver_of,omitempty"`
 }
 
 // eventRecorder is the slice of the store the event sink writes through: one

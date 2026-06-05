@@ -69,10 +69,12 @@ type deliverFixture struct {
 	issues   *domain.IssueService
 	pulls    *domain.PRService
 	hooks    *domain.HookService
+	enq      *worker.StoreEnqueuer
 	runtime  *worker.Runtime
 	rcv      *receiver
 	srv      *httptest.Server
 	ownerPK  int64
+	repoPK   int64
 	repoName string
 }
 
@@ -123,8 +125,8 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	rt.Register(domain.JobDeliverWebhook, deliverer.DeliverWebhookHandler())
 
 	return &deliverFixture{
-		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, hooks: hookSvc,
-		runtime: rt, rcv: rcv, srv: srv, ownerPK: owner.PK, repoName: "hello",
+		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, hooks: hookSvc, enq: enq,
+		runtime: rt, rcv: rcv, srv: srv, ownerPK: owner.PK, repoPK: repo.PK, repoName: "hello",
 	}
 }
 
@@ -214,6 +216,77 @@ func TestIssueEventSignedDelivery(t *testing.T) {
 	}
 	if payload.Repository.FullName != "octocat/hello" || payload.Sender.Login != "octocat" {
 		t.Errorf("payload repo/sender = %q/%q", payload.Repository.FullName, payload.Sender.Login)
+	}
+}
+
+// TestPushEventSignedDelivery covers the renderer's push branch, which the issue
+// path does not touch. A push has no row to load from: the moved refs ride on the
+// deliver_event job. The test records a push event and enqueues that job directly,
+// the same two steps the git transport performs after a receive-pack, then drains
+// and asserts the receiver got a signed PushEvent whose ref and after-sha match.
+func TestPushEventSignedDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	secret := "hunter2"
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Secret: &secret,
+		Events: []string{"push"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+
+	const after = "3333333333333333333333333333333333333333"
+	ev := &store.EventRow{
+		Event:   domain.EventPush,
+		ActorPK: f.ownerPK,
+		RepoPK:  f.repoPK,
+		Public:  true,
+		Payload: "{}",
+	}
+	if err := f.st.InsertEvent(f.ctx, ev); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+	payload, err := json.Marshal(domain.DeliverEventPayload{
+		EventPK: ev.PK,
+		Push: &domain.PushPayload{
+			RepoPK:   f.repoPK,
+			PusherPK: f.ownerPK,
+			Protocol: "http",
+			Updates: []domain.RefUpdate{{
+				Ref:    "refs/heads/main",
+				OldSHA: domain.ZeroSHA,
+				NewSHA: after,
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	if _, err := f.enq.Enqueue(f.ctx, domain.JobDeliverEvent, string(payload), ""); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.last()
+	if !ok {
+		t.Fatal("receiver got no delivery")
+	}
+	if got.headers.Get("X-GitHub-Event") != "push" {
+		t.Errorf("X-GitHub-Event = %q, want push", got.headers.Get("X-GitHub-Event"))
+	}
+	if !Verify(secret, got.headers.Get("X-Hub-Signature-256"), got.body) {
+		t.Error("push signature did not verify over the received body")
+	}
+	var body struct {
+		Ref     string `json:"ref"`
+		After   string `json:"after"`
+		Created bool   `json:"created"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.Ref != "refs/heads/main" || body.After != after || !body.Created {
+		t.Errorf("push body ref/after/created = %q/%q/%v", body.Ref, body.After, body.Created)
 	}
 }
 
