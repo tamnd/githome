@@ -45,6 +45,15 @@ func (f *fakeRepoStore) RepoByPK(_ context.Context, pk int64) (*store.RepoRow, e
 	return nil, store.ErrNotFound
 }
 
+func (f *fakeRepoStore) RepoByDBID(_ context.Context, dbID int64) (*store.RepoRow, error) {
+	for _, r := range f.repos {
+		if r.DBID == dbID {
+			return r, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
 func (f *fakeRepoStore) UserByPK(_ context.Context, pk int64) (*store.UserRow, error) {
 	u, ok := f.users[pk]
 	if !ok {

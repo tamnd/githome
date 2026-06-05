@@ -291,21 +291,4 @@ func (s *Store) applyOne(ctx context.Context, conn *sql.Conn, m migration, up bo
 }
 
 // rebind rewrites `?` placeholders to the dialect's form ($1.. on Postgres).
-func (s *Store) rebind(query string) string {
-	if s.dialect != DialectPostgres {
-		return query
-	}
-	var b strings.Builder
-	b.Grow(len(query) + 8)
-	n := 0
-	for i := 0; i < len(query); i++ {
-		if query[i] == '?' {
-			n++
-			b.WriteByte('$')
-			b.WriteString(strconv.Itoa(n))
-			continue
-		}
-		b.WriteByte(query[i])
-	}
-	return b.String()
-}
+func (s *Store) rebind(query string) string { return rebindFor(s.dialect, query) }

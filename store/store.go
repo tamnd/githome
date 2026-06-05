@@ -20,6 +20,11 @@ import (
 // ErrNotFound is returned when a row that was expected to exist does not.
 var ErrNotFound = errors.New("store: not found")
 
+// errUnknownDialect guards the dialect switches that branch on Postgres vs
+// SQLite SQL; it should never surface in practice since the dialect is resolved
+// once at Open from a known scheme.
+var errUnknownDialect = errors.New("store: unknown dialect")
+
 // Store wraps a *sql.DB together with its resolved dialect. It is safe for
 // concurrent use; *sql.DB is a connection pool.
 type Store struct {
@@ -73,7 +78,7 @@ func (s *Store) AllocDBID(ctx context.Context) (int64, error) {
 	case DialectSQLite:
 		q = `UPDATE id_allocator SET high_water = high_water + 1 WHERE id = 1 RETURNING high_water`
 	default:
-		return 0, fmt.Errorf("store: unknown dialect")
+		return 0, errUnknownDialect
 	}
 	var id int64
 	if err := s.db.QueryRowContext(ctx, q).Scan(&id); err != nil {

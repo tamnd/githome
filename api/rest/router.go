@@ -28,6 +28,7 @@ type Deps struct {
 	Auth       *auth.Service
 	Users      *domain.UserService
 	Repos      *domain.RepoService
+	Issues     *domain.IssueService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -73,6 +74,46 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Repos != nil {
 		mountRepos(r, d)
 	}
+	if d.Issues != nil {
+		mountIssues(r, d)
+	}
+}
+
+// mountIssues registers the issue, comment, label, milestone, and reaction
+// endpoints on r.
+func mountIssues(r *mizu.Router, d Deps) {
+	r.Get("/repos/{owner}/{repo}/issues", handleIssuesList(d))
+	r.Post("/repos/{owner}/{repo}/issues", handleIssueCreate(d))
+	r.Get("/repos/{owner}/{repo}/issues/{number}", handleIssueGet(d))
+	r.Patch("/repos/{owner}/{repo}/issues/{number}", handleIssueEdit(d))
+
+	// The two GET comment shapes share one dispatcher because net/http's mux
+	// rejects "/issues/{number}/comments" and "/issues/comments/{id}" as an
+	// ambiguous pair; POST, PATCH, and DELETE do not collide and stay distinct.
+	r.Get("/repos/{owner}/{repo}/issues/{seg1}/{seg2}", handleIssueCommentsGet(d))
+	r.Post("/repos/{owner}/{repo}/issues/{number}/comments", handleIssueCommentCreate(d))
+	r.Patch("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentEdit(d))
+	r.Delete("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentDelete(d))
+
+	r.Get("/repos/{owner}/{repo}/labels", handleLabelsList(d))
+	r.Post("/repos/{owner}/{repo}/labels", handleLabelCreate(d))
+	r.Get("/repos/{owner}/{repo}/labels/{name}", handleLabelGet(d))
+	r.Patch("/repos/{owner}/{repo}/labels/{name}", handleLabelEdit(d))
+	r.Delete("/repos/{owner}/{repo}/labels/{name}", handleLabelDelete(d))
+
+	r.Get("/repos/{owner}/{repo}/milestones", handleMilestonesList(d))
+	r.Post("/repos/{owner}/{repo}/milestones", handleMilestoneCreate(d))
+	r.Get("/repos/{owner}/{repo}/milestones/{number}", handleMilestoneGet(d))
+	r.Patch("/repos/{owner}/{repo}/milestones/{number}", handleMilestoneEdit(d))
+	r.Delete("/repos/{owner}/{repo}/milestones/{number}", handleMilestoneDelete(d))
+
+	r.Get("/repos/{owner}/{repo}/issues/{number}/reactions", handleIssueReactionsList(d))
+	r.Post("/repos/{owner}/{repo}/issues/{number}/reactions", handleIssueReactionCreate(d))
+	r.Delete("/repos/{owner}/{repo}/issues/{number}/reactions/{id}", handleIssueReactionDelete(d))
+
+	r.Get("/repos/{owner}/{repo}/issues/comments/{id}/reactions", handleCommentReactionsList(d))
+	r.Post("/repos/{owner}/{repo}/issues/comments/{id}/reactions", handleCommentReactionCreate(d))
+	r.Delete("/repos/{owner}/{repo}/issues/comments/{id}/reactions/{reaction_id}", handleCommentReactionDelete(d))
 }
 
 // mountRepos registers the repository and git-read endpoints on r.

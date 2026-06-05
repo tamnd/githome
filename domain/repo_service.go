@@ -36,6 +36,7 @@ var (
 type RepoStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
+	RepoByDBID(ctx context.Context, dbID int64) (*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
@@ -65,6 +66,32 @@ func NewRepoService(st RepoStore, gs *git.Store) *RepoService {
 // the status code.
 func (s *RepoService) GetRepo(ctx context.Context, viewerPK int64, owner, name string) (*Repo, error) {
 	row, err := s.store.RepoByOwnerName(ctx, owner, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !canSee(row, viewerPK) {
+		return nil, ErrRepoNotFound
+	}
+	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// GetRepoByID resolves a repository by its public database id for the viewer,
+// applying the same visibility rule as GetRepo: a private repository the viewer
+// cannot see is ErrRepoNotFound, never leaked. The GraphQL mutations decode a
+// repository node id to this database id, then act through the owner-login and
+// name path the rest of the domain uses.
+func (s *RepoService) GetRepoByID(ctx context.Context, viewerPK, dbID int64) (*Repo, error) {
+	row, err := s.store.RepoByDBID(ctx, dbID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrRepoNotFound
 	}

@@ -35,6 +35,7 @@ const (
 	KindLabel
 	KindMilestone
 	KindCommit
+	KindReaction
 )
 
 // Format selects the encoding.
@@ -65,6 +66,7 @@ var registry = map[Kind]entry{
 	KindLabel:                    {"Label", "05", "LA"},
 	KindMilestone:                {"Milestone", "09", "MI"},
 	KindCommit:                   {"Commit", "06", "C"},
+	KindReaction:                 {"Reaction", "08", "RA"},
 }
 
 // byNewPrefix and byTypeName are reverse lookups built once at init.

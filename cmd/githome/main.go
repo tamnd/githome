@@ -71,6 +71,7 @@ func run() error {
 		gitStore.SetGitBin(cfg.GitBinaryPath)
 	}
 	repoSvc := domain.NewRepoService(st, gitStore)
+	issueSvc := domain.NewIssueService(st, repoSvc)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
 	root := mizu.NewRouter()
@@ -81,12 +82,14 @@ func run() error {
 		Auth:       authSvc,
 		Users:      domain.NewUserService(st),
 		Repos:      repoSvc,
+		Issues:     issueSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
 	graphql.Mount(root, graphql.Deps{
 		Auth:       authSvc,
 		Repos:      repoSvc,
+		Issues:     issueSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})

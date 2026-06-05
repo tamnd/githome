@@ -12,6 +12,7 @@ import (
 // same rule the REST handlers follow.
 type Resolver struct {
 	Repos      *domain.RepoService
+	Issues     *domain.IssueService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }

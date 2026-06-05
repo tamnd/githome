@@ -25,12 +25,23 @@ autobind:
   - github.com/tamnd/githome/presenter/gqlmodel
 
 models:
+  Issue:
+    fields:
+      # comments are paged through the domain on demand rather than embedded, so
+      # the field needs its own resolver. labels stay bound to the struct field
+      # the presenter fills.
+      comments:
+        resolver: true
   DateTime:
     model: github.com/tamnd/githome/presenter/gqlmodel.DateTime
   URI:
     model: github.com/tamnd/githome/presenter/gqlmodel.URI
   GitObjectID:
     model: github.com/tamnd/githome/presenter/gqlmodel.GitObjectID
+  IssueState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.IssueState
+  IssueStateReason:
+    model: github.com/tamnd/githome/presenter/gqlmodel.IssueStateReason
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int32
