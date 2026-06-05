@@ -74,6 +74,8 @@ func (b *URLBuilder) GQLPullRequestCommit(owner, repo string, c git.Commit) *gql
 			Oid:             gqlmodel.GitObjectID(c.SHA),
 			Message:         c.Message,
 			MessageHeadline: messageHeadline(c.Message),
+			RepoOwner:       owner,
+			RepoName:        repo,
 		},
 	}
 }

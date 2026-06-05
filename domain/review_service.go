@@ -494,6 +494,42 @@ func (s *ReviewService) ResolveThread(ctx context.Context, actorPK int64, owner,
 	return nil, ErrReviewNotFound
 }
 
+// ThreadRef decodes a review thread's root comment id into the owner, repo, and
+// pull number the resolve and unresolve mutations address it by. It enforces the
+// viewer's visibility through GetRepo, so a thread in a repository the viewer
+// cannot see resolves as not found rather than leaking its existence.
+func (s *ReviewService) ThreadRef(ctx context.Context, viewerPK, rootDBID int64) (owner, name string, number int64, err error) {
+	root, err := s.store.GetReviewComment(ctx, rootDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	repoRow, err := s.repos.store.RepoByPK(ctx, root.RepoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	ownerRow, err := s.repos.store.UserByPK(ctx, repoRow.OwnerPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	if _, err := s.repos.GetRepo(ctx, viewerPK, ownerRow.Login, repoRow.Name); err != nil {
+		return "", "", 0, err
+	}
+	number, err = s.store.PullNumberByPK(ctx, root.PullPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	return ownerRow.Login, repoRow.Name, number, nil
+}
+
 // ReviewDecision returns a pull request's derived review decision for the viewer,
 // the value the GraphQL field and the pull request view surface.
 func (s *ReviewService) ReviewDecision(ctx context.Context, viewerPK int64, owner, name string, number int64) (*string, error) {

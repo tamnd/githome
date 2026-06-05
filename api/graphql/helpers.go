@@ -79,6 +79,17 @@ func (r *Resolver) issueRefFromID(ctx context.Context, id string) (owner, name s
 	return owner, name, number, nil
 }
 
+// threadDBIDFromID decodes a PullRequestReviewThread node ID into the root
+// comment id the review service addresses a thread by. A node ID of the wrong
+// kind returns the GitHub "could not resolve" error.
+func threadDBIDFromID(id string) (int64, error) {
+	kind, dbID, err := nodeid.Decode(id)
+	if err != nil || kind != nodeid.KindPullRequestReviewThread {
+		return 0, unresolvable("PullRequestReviewThread", id)
+	}
+	return dbID, nil
+}
+
 // viewerID is the request actor's user PK, zero for an anonymous request.
 func viewerID(ctx context.Context) int64 { return auth.ActorFrom(ctx).UserID }
 

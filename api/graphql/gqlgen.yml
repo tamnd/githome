@@ -41,6 +41,29 @@ models:
         resolver: true
       files:
         resolver: true
+      # reviewDecision and reviewThreads are fetched through the review service on
+      # demand, so each carries its own resolver rather than a struct field every
+      # pull request render would eagerly fill.
+      reviewDecision:
+        resolver: true
+      reviewThreads:
+        resolver: true
+  Commit:
+    fields:
+      # statusCheckRollup folds the commit's statuses and check runs through the
+      # checks service on demand, so it carries its own resolver.
+      statusCheckRollup:
+        resolver: true
+  PullRequestReviewThread:
+    fields:
+      # comments takes paging arguments, so the field needs its own resolver; it
+      # returns the connection the presenter already folded onto the struct.
+      comments:
+        resolver: true
+  PullRequestReviewDecision:
+    model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestReviewDecision
+  StatusState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.StatusState
   PullRequestState:
     model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestState
   MergeableState:

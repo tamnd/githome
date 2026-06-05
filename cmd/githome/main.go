@@ -113,6 +113,8 @@ func run() error {
 		Repos:      repoSvc,
 		Issues:     issueSvc,
 		Pulls:      pullSvc,
+		Reviews:    reviewSvc,
+		Checks:     checksSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})

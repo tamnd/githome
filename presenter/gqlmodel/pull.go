@@ -144,6 +144,13 @@ type Commit struct {
 	Oid             GitObjectID
 	Message         string
 	MessageHeadline string
+
+	// RepoOwner and RepoName carry the repository coordinates so the
+	// statusCheckRollup field resolver can fold the commit's statuses and check
+	// runs. They are not part of the GraphQL schema, so gqlgen ignores them; the
+	// presenter fills them.
+	RepoOwner string
+	RepoName  string
 }
 
 // PullRequestCommitConnection is the connection over a pull request's commits.

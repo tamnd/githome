@@ -14,6 +14,8 @@ type Resolver struct {
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
 	Pulls      *domain.PRService
+	Reviews    *domain.ReviewService
+	Checks     *domain.ChecksService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
