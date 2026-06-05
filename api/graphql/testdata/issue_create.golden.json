@@ -1,0 +1,1 @@
+{"data":{"createIssue":{"issue":{"number":3,"title":"a new issue","body":"from graphql","state":"OPEN","author":{"login":"octocat"}}}}}

@@ -1,0 +1,1 @@
+{"data":{"repository":{"issue":{"id":"I_AAY","number":1,"title":"first issue","body":"the first issue body","state":"OPEN","url":"https://HOST/octocat/hello/issues/1","author":{"login":"octocat","url":"https://HOST/octocat"},"labels":{"totalCount":0,"nodes":[]},"comments":{"totalCount":1,"nodes":[{"body":"thanks for the report","author":{"login":"octocat"}}]}}}}}

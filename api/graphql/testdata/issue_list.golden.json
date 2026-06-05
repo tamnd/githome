@@ -1,0 +1,1 @@
+{"data":{"repository":{"issues":{"totalCount":2,"nodes":[{"number":2,"title":"second issue","state":"OPEN"},{"number":1,"title":"first issue","state":"OPEN"}],"edges":[{"cursor":"Z2hvOjE=","node":{"number":2}},{"cursor":"Z2hvOjI=","node":{"number":1}}],"pageInfo":{"hasNextPage":false,"hasPreviousPage":false,"startCursor":"Z2hvOjE=","endCursor":"Z2hvOjI="}}}}}
