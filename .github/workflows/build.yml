@@ -19,6 +19,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      smoke_intel_macos:
+        description: "Also run the darwin/amd64 native smoke test (scarce macos-13 Intel runner; off by default)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -152,7 +157,6 @@ jobs:
         include:
           - { runner: ubuntu-24.04, goos: linux, goarch: amd64 }
           - { runner: ubuntu-24.04-arm, goos: linux, goarch: arm64 }
-          - { runner: macos-13, goos: darwin, goarch: amd64 }
           - { runner: macos-15, goos: darwin, goarch: arm64 }
           - { runner: windows-2025, goos: windows, goarch: amd64 }
           - { runner: windows-11-arm, goos: windows, goarch: arm64 }
@@ -186,6 +190,43 @@ jobs:
           # The migrate tool prints its usage and exits non-zero with no args;
           # we only assert it starts and produces the expected usage line.
           usage="$(./githome-migrate${ext} 2>&1 || true)"
+          echo "githome-migrate (no args) => $usage"
+          echo "$usage" | grep -q "usage: githome-migrate" || { echo "::error::migrate did not print usage"; exit 1; }
+
+  # darwin/amd64 is built and format-checked in the build matrix on every run.
+  # Its native smoke test needs a macos-13 Intel runner, which is heavily
+  # queue-constrained as GitHub winds Intel macOS down, so it is opt-in: it never
+  # blocks a PR. Run it from the Actions tab (Run workflow -> tick "Also run the
+  # darwin/amd64 native smoke test") to exercise it on real Intel hardware.
+  smoke-darwin-amd64:
+    needs: version
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.smoke_intel_macos }}
+    name: smoke darwin/amd64 (opt-in)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: build for host and run it
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ldflags="-X github.com/tamnd/githome/config.Version=${VERSION}"
+          go build -trimpath -ldflags "$ldflags" -o githome ./cmd/githome
+          go build -trimpath -ldflags "$ldflags" -o githome-migrate ./cmd/githome-migrate
+          go build -trimpath -ldflags "$ldflags" -o githome-conform ./cmd/githome-conform
+
+          got="$(./githome -version)"
+          echo "githome -version => '$got' (want '$VERSION')"
+          [ "$got" = "$VERSION" ] || { echo "::error::version flag returned '$got', expected '$VERSION'"; exit 1; }
+
+          usage="$(./githome-migrate 2>&1 || true)"
           echo "githome-migrate (no args) => $usage"
           echo "$usage" | grep -q "usage: githome-migrate" || { echo "::error::migrate did not print usage"; exit 1; }
 
