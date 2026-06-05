@@ -56,6 +56,7 @@ type IssueStore interface {
 
 	GetIssueByNumber(ctx context.Context, repoPK, number int64) (*store.IssueRow, error)
 	GetIssueByPK(ctx context.Context, pk int64) (*store.IssueRow, error)
+	GetIssueByDBID(ctx context.Context, dbID int64) (*store.IssueRow, error)
 	ListIssues(ctx context.Context, repoPK int64, f store.IssueFilter) ([]store.IssueRow, error)
 	CountIssues(ctx context.Context, repoPK int64, f store.IssueFilter) (int, error)
 	LabelsByIssue(ctx context.Context, issuePK int64) ([]store.LabelRow, error)
@@ -223,6 +224,33 @@ func (s *IssueService) GetIssue(ctx context.Context, viewerPK int64, owner, name
 		return nil, err
 	}
 	return s.assembleIssue(ctx, repo, row)
+}
+
+// IssueRef resolves an issue's public database id to the owner login,
+// repository name, and per-repo number, the coordinates the write methods take.
+// The GraphQL mutations decode an issue node id to its database id and resolve
+// it here. It does not authorize: the write method the caller invokes next
+// (EditIssue, CreateComment) enforces write access and repository visibility.
+func (s *IssueService) IssueRef(ctx context.Context, issueDBID int64) (owner, name string, number int64, err error) {
+	row, err := s.store.GetIssueByDBID(ctx, issueDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrIssueNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	repoRow, err := s.repos.store.RepoByPK(ctx, row.RepoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrIssueNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	ownerRow, err := s.repos.store.UserByPK(ctx, repoRow.OwnerPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	return ownerRow.Login, repoRow.Name, row.Number, nil
 }
 
 // ListIssues returns a page of the repository's issues plus the total matching
