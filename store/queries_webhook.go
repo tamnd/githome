@@ -47,12 +47,12 @@ func (s *Store) GetWebhookByPK(ctx context.Context, pk int64) (*WebhookRow, erro
 	return scanWebhook(s.db.QueryRowContext(ctx, q, pk))
 }
 
-// GetWebhookForRepo resolves a webhook scoped to its repository, the lookup the
-// REST CRUD endpoints use so a hook id from one repository never addresses
-// another's.
-func (s *Store) GetWebhookForRepo(ctx context.Context, repoPK, pk int64) (*WebhookRow, error) {
-	q := s.rebind(`SELECT ` + webhookColumns + ` FROM webhooks WHERE repo_pk = ? AND pk = ?`)
-	return scanWebhook(s.db.QueryRowContext(ctx, q, repoPK, pk))
+// GetWebhookForRepo resolves a webhook by its public id scoped to its
+// repository, the lookup the REST CRUD endpoints use so a hook id from one
+// repository never addresses another's.
+func (s *Store) GetWebhookForRepo(ctx context.Context, repoPK, dbID int64) (*WebhookRow, error) {
+	q := s.rebind(`SELECT ` + webhookColumns + ` FROM webhooks WHERE repo_pk = ? AND db_id = ?`)
+	return scanWebhook(s.db.QueryRowContext(ctx, q, repoPK, dbID))
 }
 
 // ListWebhooks returns a repository's webhooks, oldest first.
@@ -113,10 +113,11 @@ func (s *Store) SetWebhookLastResponse(ctx context.Context, pk int64, summary st
 	return affectedOrNotFound(res)
 }
 
-// DeleteWebhook removes a webhook and, by cascade, its deliveries.
-func (s *Store) DeleteWebhook(ctx context.Context, repoPK, pk int64) error {
-	q := s.rebind(`DELETE FROM webhooks WHERE repo_pk = ? AND pk = ?`)
-	res, err := s.db.ExecContext(ctx, q, repoPK, pk)
+// DeleteWebhook removes a webhook by its public id and, by cascade, its
+// deliveries.
+func (s *Store) DeleteWebhook(ctx context.Context, repoPK, dbID int64) error {
+	q := s.rebind(`DELETE FROM webhooks WHERE repo_pk = ? AND db_id = ?`)
+	res, err := s.db.ExecContext(ctx, q, repoPK, dbID)
 	if err != nil {
 		return err
 	}
@@ -183,12 +184,19 @@ func (s *Store) InsertDelivery(ctx context.Context, d *WebhookDeliveryRow) error
 	})
 }
 
-// GetDeliveryForWebhook resolves one delivery scoped to its webhook, the lookup
-// the inspect and redeliver endpoints use.
-func (s *Store) GetDeliveryForWebhook(ctx context.Context, webhookPK, pk int64) (*WebhookDeliveryRow, error) {
+// GetDeliveryForWebhook resolves one delivery by its public id scoped to its
+// webhook, the lookup the inspect and redeliver endpoints use.
+func (s *Store) GetDeliveryForWebhook(ctx context.Context, webhookPK, dbID int64) (*WebhookDeliveryRow, error) {
 	q := s.rebind(`SELECT ` + deliveryColumns + ` FROM webhook_deliveries
-		WHERE webhook_pk = ? AND pk = ?`)
-	return scanDelivery(s.db.QueryRowContext(ctx, q, webhookPK, pk))
+		WHERE webhook_pk = ? AND db_id = ?`)
+	return scanDelivery(s.db.QueryRowContext(ctx, q, webhookPK, dbID))
+}
+
+// GetDeliveryByPK resolves one delivery by primary key, the value a redeliver
+// job carries so the worker can replay the recorded request.
+func (s *Store) GetDeliveryByPK(ctx context.Context, pk int64) (*WebhookDeliveryRow, error) {
+	q := s.rebind(`SELECT ` + deliveryColumns + ` FROM webhook_deliveries WHERE pk = ?`)
+	return scanDelivery(s.db.QueryRowContext(ctx, q, pk))
 }
 
 // ListDeliveries returns a webhook's recent deliveries, newest first.

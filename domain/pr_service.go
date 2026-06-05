@@ -65,6 +65,7 @@ type PullStore interface {
 
 	WithTx(ctx context.Context, fn func(*store.Tx) error) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
 // PRService implements the pull request subsystem. It leans on the repo service
@@ -199,7 +200,7 @@ func (s *PRService) CreatePR(ctx context.Context, actorPK int64, owner, name str
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
-	s.enqueuePullEvent(ctx, "opened", repo, issueRow.Number)
+	s.recordPullEvent(ctx, actorPK, "opened", repo, issueRow.PK)
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }
 
@@ -381,7 +382,7 @@ func (s *PRService) Merge(ctx context.Context, actorPK int64, owner, name string
 	if err != nil {
 		return nil, err
 	}
-	s.enqueuePullEvent(ctx, "closed", repo, number)
+	s.recordPullEvent(ctx, actorPK, "closed", repo, issueRow.PK)
 	return &MergeResult{SHA: sha, Merged: true, Message: message}, nil
 }
 
@@ -667,19 +668,20 @@ func (s *PRService) enqueueRecompute(ctx context.Context, issuePK int64) {
 	_, _ = s.enq.Enqueue(ctx, JobRecomputeMergeability, string(payload), key)
 }
 
-// enqueuePullEvent records a pull_request webhook event in the durable queue,
-// delivered when the webhook milestone lands. A failure to enqueue does not fail
-// the user's write.
-func (s *PRService) enqueuePullEvent(ctx context.Context, action string, repo *Repo, number int64) {
-	payload, err := json.Marshal(struct {
-		Action     string `json:"action"`
-		RepoID     int64  `json:"repo_id"`
-		PullNumber int64  `json:"pull_number"`
-	}{action, repo.ID, number})
-	if err != nil {
-		return
-	}
-	_, _ = s.enq.Enqueue(ctx, "pull_request", string(payload), "")
+// recordPullEvent appends a pull_request activity event and enqueues its webhook
+// fan-out. The actor, the repository, and the pull request's issue row are the
+// coordinates the renderer rebuilds the payload from; delivery is best-effort,
+// so a failure here never fails the user's write.
+func (s *PRService) recordPullEvent(ctx context.Context, actorPK int64, action string, repo *Repo, issuePK int64) {
+	pk := issuePK
+	recordEvent(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventPullRequest,
+		Action:  action,
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &pk,
+		Public:  !repo.Private,
+	}, nil)
 }
 
 // recomputePayload is the JSON body of a recompute_mergeability job. The worker

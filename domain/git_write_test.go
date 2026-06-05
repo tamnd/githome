@@ -45,14 +45,17 @@ func TestOnPush(t *testing.T) {
 	if len(st.jobs) != 2 {
 		t.Fatalf("jobs = %d, want 2 (%+v)", len(st.jobs), st.jobs)
 	}
-	if st.jobs[0].Kind != JobPushEvent {
-		t.Errorf("job[0].Kind = %q, want %q", st.jobs[0].Kind, JobPushEvent)
+	if st.jobs[0].Kind != JobDeliverEvent {
+		t.Errorf("job[0].Kind = %q, want %q", st.jobs[0].Kind, JobDeliverEvent)
 	}
 	if st.jobs[1].Kind != JobReindexSearch || st.jobs[1].DedupeKey != "reindex:repo:5" {
 		t.Errorf("job[1] = %+v, want reindex with dedupe reindex:repo:5", st.jobs[1])
 	}
 	if !strings.Contains(st.jobs[0].Payload, `"refs/heads/main"`) {
-		t.Errorf("push_event payload missing ref: %s", st.jobs[0].Payload)
+		t.Errorf("deliver_event payload missing ref: %s", st.jobs[0].Payload)
+	}
+	if len(st.events) != 1 || st.events[0].Event != EventPush {
+		t.Errorf("events = %+v, want one push event", st.events)
 	}
 
 	// A push that touches only a side branch records the event but no reindex.
@@ -64,8 +67,8 @@ func TestOnPush(t *testing.T) {
 	if err := svc.OnPush(ctx, side); err != nil {
 		t.Fatalf("OnPush side: %v", err)
 	}
-	if len(st.jobs) != 1 || st.jobs[0].Kind != JobPushEvent {
-		t.Fatalf("side push jobs = %+v, want one push_event", st.jobs)
+	if len(st.jobs) != 1 || st.jobs[0].Kind != JobDeliverEvent {
+		t.Fatalf("side push jobs = %+v, want one deliver_event", st.jobs)
 	}
 
 	// An empty batch is a no-op.

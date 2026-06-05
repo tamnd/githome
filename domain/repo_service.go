@@ -40,6 +40,7 @@ type RepoStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
 // RepoService resolves repositories and reads their git data. It pairs the
