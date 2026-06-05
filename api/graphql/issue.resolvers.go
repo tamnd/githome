@@ -260,10 +260,18 @@ func closedStateReason(r generated.IssueClosedStateReason) string {
 	return "completed"
 }
 
+// gqlError carries a user-facing GraphQL error message verbatim. The resolvers
+// build it through fmt.Sprintf rather than fmt.Errorf so the wording can match
+// GitHub's capitalized, punctuated messages a client may match on, without the
+// Go error-string convention rewriting them.
+type gqlError struct{ msg string }
+
+func (e gqlError) Error() string { return e.msg }
+
 // unresolvable is the error GitHub returns for a node ID that does not name a
 // visible object of the expected type.
 func unresolvable(kind, id string) error {
-	return fmt.Errorf("Could not resolve to a %s with the global id of '%s'.", kind, id)
+	return gqlError{fmt.Sprintf("Could not resolve to a %s with the global id of '%s'.", kind, id)}
 }
 
 // mapErr translates a domain error into the message a GraphQL client sees. A
@@ -272,9 +280,9 @@ func unresolvable(kind, id string) error {
 func mapErr(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
-		return errors.New("You do not have permission to perform this action.")
+		return gqlError{"You do not have permission to perform this action."}
 	case errors.Is(err, domain.ErrValidation):
-		return errors.New("The change you requested was rejected: a required field is missing or invalid.")
+		return gqlError{"The change you requested was rejected: a required field is missing or invalid."}
 	default:
 		return err
 	}

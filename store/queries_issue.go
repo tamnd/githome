@@ -47,12 +47,12 @@ type IssueFilter struct {
 	State        string   // "open" | "closed" | "all"; "" means "open"
 	Labels       []string // issue must carry every named label
 	CreatorPK    *int64
-	AssigneePK   *int64   // 0-valued pointer not used; nil means unfiltered
+	AssigneePK   *int64 // 0-valued pointer not used; nil means unfiltered
 	MilestonePK  *int64
-	IncludePulls bool     // when false, is_pull rows are excluded
-	Sort         string   // "created" | "updated" | "comments"; "" means "created"
-	Direction    string   // "asc" | "desc"; "" means "desc"
-	Limit        int      // 0 means the default page of 30
+	IncludePulls bool   // when false, is_pull rows are excluded
+	Sort         string // "created" | "updated" | "comments"; "" means "created"
+	Direction    string // "asc" | "desc"; "" means "desc"
+	Limit        int    // 0 means the default page of 30
 	Offset       int
 }
 
@@ -186,15 +186,15 @@ func scanIssue(row interface{ Scan(...any) error }) (*IssueRow, error) {
 
 func scanIssueRows(row interface{ Scan(...any) error }) (*IssueRow, error) {
 	var (
-		iss           IssueRow
-		body          sql.NullString
-		stateReason   sql.NullString
-		milestonePK   sql.NullInt64
-		lockReason    sql.NullString
-		closedByPK    sql.NullInt64
-		locked, pull  boolVal
-		closedAt      nullTime
-		created, upd  nullTime
+		iss          IssueRow
+		body         sql.NullString
+		stateReason  sql.NullString
+		milestonePK  sql.NullInt64
+		lockReason   sql.NullString
+		closedByPK   sql.NullInt64
+		locked, pull boolVal
+		closedAt     nullTime
+		created, upd nullTime
 	)
 	if err := row.Scan(&iss.PK, &iss.DBID, &iss.RepoPK, &iss.Number, &pull, &iss.Title, &body,
 		&iss.UserPK, &iss.State, &stateReason, &milestonePK, &locked, &lockReason,
@@ -423,7 +423,7 @@ func (t *Tx) TouchIssue(ctx context.Context, issuePK int64) error {
 	return err
 }
 
-// AdjustOpenIssues: the repositories.open_issues_count cache is bumped when an
+// AdjustOpenIssuesCount bumps the repositories.open_issues_count cache when an
 // issue opens or closes so the repository view need not aggregate on read.
 func (t *Tx) AdjustOpenIssuesCount(ctx context.Context, repoPK int64, delta int) error {
 	q := t.rebind(`UPDATE repositories SET open_issues_count = open_issues_count + ? WHERE pk = ?`)

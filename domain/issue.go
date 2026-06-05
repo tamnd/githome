@@ -21,12 +21,12 @@ type Issue struct {
 	StateReason *string
 	Locked      bool
 
-	User        *User
-	Assignees   []*User
-	Labels      []*Label
-	Milestone   *Milestone
-	ClosedBy    *User
-	Reactions   ReactionRollup
+	User          *User
+	Assignees     []*User
+	Labels        []*Label
+	Milestone     *Milestone
+	ClosedBy      *User
+	Reactions     ReactionRollup
 	CommentsCount int
 
 	ClosedAt  *time.Time

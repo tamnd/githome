@@ -179,11 +179,11 @@ func scanMilestone(row interface{ Scan(...any) error }) (*MilestoneRow, error) {
 
 func scanMilestoneRows(row interface{ Scan(...any) error }) (*MilestoneRow, error) {
 	var (
-		m                       MilestoneRow
-		desc                    sql.NullString
-		creator                 sql.NullInt64
-		dueOn, closedAt         nullTime
-		created, updated        nullTime
+		m                MilestoneRow
+		desc             sql.NullString
+		creator          sql.NullInt64
+		dueOn, closedAt  nullTime
+		created, updated nullTime
 	)
 	if err := row.Scan(&m.PK, &m.DBID, &m.RepoPK, &m.Number, &m.Title, &desc, &m.State,
 		&dueOn, &creator, &closedAt, &created, &updated); err != nil {

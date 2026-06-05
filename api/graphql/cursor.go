@@ -25,15 +25,15 @@ func encodeCursor(offset int) string {
 func decodeCursor(s string) (int, error) {
 	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return 0, fmt.Errorf("`%s` does not appear to be a valid cursor.", s)
+		return 0, gqlError{fmt.Sprintf("`%s` does not appear to be a valid cursor.", s)}
 	}
 	raw := string(b)
 	if !strings.HasPrefix(raw, cursorPrefix) {
-		return 0, fmt.Errorf("`%s` does not appear to be a valid cursor.", s)
+		return 0, gqlError{fmt.Sprintf("`%s` does not appear to be a valid cursor.", s)}
 	}
 	n, err := strconv.Atoi(strings.TrimPrefix(raw, cursorPrefix))
 	if err != nil || n < 0 {
-		return 0, fmt.Errorf("`%s` does not appear to be a valid cursor.", s)
+		return 0, gqlError{fmt.Sprintf("`%s` does not appear to be a valid cursor.", s)}
 	}
 	return n, nil
 }

@@ -7,15 +7,6 @@ import (
 	"strings"
 )
 
-// dbConn is the subset of *sql.DB and *sql.Tx the query helpers use, so a query
-// can run either standalone against the pool or inside a transaction. Both types
-// satisfy it.
-type dbConn interface {
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
 // Tx is a transaction-scoped handle the multi-statement writes run through, so a
 // mutation and the timeline and counter updates it implies all commit together
 // or not at all. It exposes the same write methods the store does, bound to one

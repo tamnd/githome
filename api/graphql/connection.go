@@ -30,16 +30,16 @@ func (p issuePage) page() int { return p.offset/p.limit + 1 }
 // window. It mirrors GitHub's wording for the over-limit and unsupported cases.
 func issuePageArgs(first *int32, after *string, last *int32, before *string) (issuePage, error) {
 	if last != nil || before != nil {
-		return issuePage{}, fmt.Errorf("backward pagination with `last`/`before` is not supported on this connection.")
+		return issuePage{}, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
 	}
 	p := issuePage{limit: defaultPageSize}
 	if first != nil {
 		n := int(*first)
 		if n < 0 {
-			return p, fmt.Errorf("`first` must be a non-negative integer.")
+			return p, gqlError{"`first` must be a non-negative integer."}
 		}
 		if n > maxPageSize {
-			return p, fmt.Errorf("Requesting %d records on this connection exceeds the `first` limit of %d records.", n, maxPageSize)
+			return p, gqlError{fmt.Sprintf("Requesting %d records on this connection exceeds the `first` limit of %d records.", n, maxPageSize)}
 		}
 		p.limit = n
 	}

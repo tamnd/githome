@@ -9,6 +9,7 @@ package gqlmodel
 // IssueState is the GraphQL IssueState enum: an issue is OPEN or CLOSED.
 type IssueState string
 
+// The IssueState values.
 const (
 	IssueStateOpen   IssueState = "OPEN"
 	IssueStateClosed IssueState = "CLOSED"
@@ -18,6 +19,7 @@ const (
 // null for an open issue that has never been closed.
 type IssueStateReason string
 
+// The IssueStateReason values.
 const (
 	IssueStateReasonCompleted  IssueStateReason = "COMPLETED"
 	IssueStateReasonNotPlanned IssueStateReason = "NOT_PLANNED"

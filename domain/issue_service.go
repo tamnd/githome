@@ -301,11 +301,11 @@ func (s *IssueService) EditIssue(ctx context.Context, actorPK int64, owner, name
 	}
 
 	var (
-		action     string
-		labels     []store.LabelRow
-		assignees  []int64
-		setLabels  bool
-		setAssign  bool
+		action    string
+		labels    []store.LabelRow
+		assignees []int64
+		setLabels bool
+		setAssign bool
 	)
 	if p.Labels != nil {
 		setLabels = true

@@ -8,46 +8,46 @@ package restmodel
 // element type of the issues list. A pull request is an issue with a
 // pull_request member; M4 renders issues only, so PullRequest stays nil.
 type Issue struct {
-	ID                int64           `json:"id"`
-	NodeID            string          `json:"node_id"`
-	URL               string          `json:"url"`
-	RepositoryURL     string          `json:"repository_url"`
-	LabelsURL         string          `json:"labels_url"`
-	CommentsURL       string          `json:"comments_url"`
-	EventsURL         string          `json:"events_url"`
-	HTMLURL           string          `json:"html_url"`
-	Number            int64           `json:"number"`
-	State             string          `json:"state"`
-	StateReason       *string         `json:"state_reason"`
-	Title             string          `json:"title"`
-	Body              *string         `json:"body"`
-	User              SimpleUser      `json:"user"`
-	Labels            []Label         `json:"labels"`
-	Assignee          *SimpleUser     `json:"assignee"`
-	Assignees         []SimpleUser    `json:"assignees"`
-	Milestone         *Milestone      `json:"milestone"`
-	Locked            bool            `json:"locked"`
-	ActiveLockReason  *string         `json:"active_lock_reason"`
-	Comments          int             `json:"comments"`
-	PullRequest       *IssuePRLink    `json:"pull_request,omitempty"`
-	ClosedAt          *Time           `json:"closed_at"`
-	CreatedAt         Time            `json:"created_at"`
-	UpdatedAt         Time            `json:"updated_at"`
-	ClosedBy          *SimpleUser     `json:"closed_by"`
-	AuthorAssociation string          `json:"author_association"`
-	Reactions         ReactionRollup  `json:"reactions"`
-	TimelineURL       string          `json:"timeline_url"`
-	PerformedViaApp   *string         `json:"performed_via_github_app"`
+	ID                int64          `json:"id"`
+	NodeID            string         `json:"node_id"`
+	URL               string         `json:"url"`
+	RepositoryURL     string         `json:"repository_url"`
+	LabelsURL         string         `json:"labels_url"`
+	CommentsURL       string         `json:"comments_url"`
+	EventsURL         string         `json:"events_url"`
+	HTMLURL           string         `json:"html_url"`
+	Number            int64          `json:"number"`
+	State             string         `json:"state"`
+	StateReason       *string        `json:"state_reason"`
+	Title             string         `json:"title"`
+	Body              *string        `json:"body"`
+	User              SimpleUser     `json:"user"`
+	Labels            []Label        `json:"labels"`
+	Assignee          *SimpleUser    `json:"assignee"`
+	Assignees         []SimpleUser   `json:"assignees"`
+	Milestone         *Milestone     `json:"milestone"`
+	Locked            bool           `json:"locked"`
+	ActiveLockReason  *string        `json:"active_lock_reason"`
+	Comments          int            `json:"comments"`
+	PullRequest       *IssuePRLink   `json:"pull_request,omitempty"`
+	ClosedAt          *Time          `json:"closed_at"`
+	CreatedAt         Time           `json:"created_at"`
+	UpdatedAt         Time           `json:"updated_at"`
+	ClosedBy          *SimpleUser    `json:"closed_by"`
+	AuthorAssociation string         `json:"author_association"`
+	Reactions         ReactionRollup `json:"reactions"`
+	TimelineURL       string         `json:"timeline_url"`
+	PerformedViaApp   *string        `json:"performed_via_github_app"`
 }
 
 // IssuePRLink is the pull_request member present on issues that are pull
 // requests. It is reserved for the pull request milestone.
 type IssuePRLink struct {
-	URL      string  `json:"url"`
-	HTMLURL  string  `json:"html_url"`
-	DiffURL  string  `json:"diff_url"`
-	PatchURL string  `json:"patch_url"`
-	MergedAt *Time   `json:"merged_at"`
+	URL      string `json:"url"`
+	HTMLURL  string `json:"html_url"`
+	DiffURL  string `json:"diff_url"`
+	PatchURL string `json:"patch_url"`
+	MergedAt *Time  `json:"merged_at"`
 }
 
 // Label is a repository label as embedded on issues and returned by the labels
