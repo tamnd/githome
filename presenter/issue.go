@@ -103,9 +103,9 @@ func (b *URLBuilder) Milestone(owner, repo string, m *domain.Milestone, format n
 
 // IssueComment renders an issue comment for owner/repo. The comment carries the
 // number of the issue it belongs to so its html_url and issue_url resolve.
-func (b *URLBuilder) IssueComment(owner, repo string, issueNumber int64, cm *domain.Comment, format nodeid.Format) restmodel.IssueComment {
+func (b *URLBuilder) IssueComment(owner, repo string, cm *domain.Comment, format nodeid.Format) restmodel.IssueComment {
 	base := b.RepoAPI(owner, repo)
-	num := strconv.FormatInt(issueNumber, 10)
+	num := strconv.FormatInt(cm.IssueNumber, 10)
 	id := strconv.FormatInt(cm.ID, 10)
 	self := base + "/issues/comments/" + id
 	return restmodel.IssueComment{

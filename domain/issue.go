@@ -64,15 +64,18 @@ type Milestone struct {
 	UpdatedAt    time.Time
 }
 
-// Comment is the domain view of an issue comment.
+// Comment is the domain view of an issue comment. IssueNumber is the per-repo
+// number of the issue the comment belongs to, carried so the presenter can build
+// the comment's issue and html URLs without a second lookup.
 type Comment struct {
-	ID        int64
-	IssuePK   int64
-	User      *User
-	Body      string
-	Reactions ReactionRollup
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          int64
+	IssuePK     int64
+	IssueNumber int64
+	User        *User
+	Body        string
+	Reactions   ReactionRollup
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ReactionRollup is the per-content reaction count GitHub embeds on reactable

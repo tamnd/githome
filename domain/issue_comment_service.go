@@ -156,17 +156,22 @@ func (s *IssueService) assembleComment(ctx context.Context, row *store.CommentRo
 	if err != nil {
 		return nil, err
 	}
+	iss, err := s.store.GetIssueByPK(ctx, row.IssuePK)
+	if err != nil {
+		return nil, err
+	}
 	roll, err := s.store.ReactionRollupFor(ctx, "comment", row.PK)
 	if err != nil {
 		return nil, err
 	}
 	return &Comment{
-		ID:        row.DBID,
-		IssuePK:   row.IssuePK,
-		User:      author,
-		Body:      row.Body,
-		Reactions: rollup(roll),
-		CreatedAt: row.CreatedAt,
-		UpdatedAt: row.UpdatedAt,
+		ID:          row.DBID,
+		IssuePK:     row.IssuePK,
+		IssueNumber: iss.Number,
+		User:        author,
+		Body:        row.Body,
+		Reactions:   rollup(roll),
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
 	}, nil
 }
