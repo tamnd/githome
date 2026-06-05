@@ -257,3 +257,65 @@ type DeviceCodeRow struct {
 	ExpiresAt      time.Time
 	CreatedAt      time.Time
 }
+
+// EventRow is a row of the events table: one append-only record of an action a
+// user took on a repository. It feeds both the pull-based Events API and the
+// push-based webhook fan-out. IssuePK is nullable because push and repository
+// events have no issue. Public is the repo-visibility-derived flag the public
+// Events API filters on; Payload is the rendered Events-API JSON document.
+type EventRow struct {
+	PK        int64
+	DBID      int64
+	Event     string
+	Action    string
+	ActorPK   int64
+	RepoPK    int64
+	IssuePK   *int64
+	Payload   string
+	Public    bool
+	CreatedAt time.Time
+}
+
+// WebhookRow is a row of the webhooks table: a repository's registration of a
+// URL to POST events to. Secret is nullable and held in the clear because HMAC
+// signing needs the original bytes; the API always redacts it. Events is the
+// JSON array of subscribed event names ("*" means all). LastResponse is the
+// JSON summary of the most recent delivery, nil until the first POST.
+type WebhookRow struct {
+	PK           int64
+	DBID         int64
+	RepoPK       int64
+	Name         string
+	URL          string
+	ContentType  string
+	Secret       *string
+	InsecureSSL  bool
+	Active       bool
+	Events       string
+	LastResponse *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+// WebhookDeliveryRow is a row of the webhook_deliveries table: the recorded
+// result of one POST to a webhook. StatusCode is nullable because a transport
+// failure (connection refused, timeout) produces no HTTP status. Redelivery
+// marks a delivery that replayed an earlier one; Success is the 2xx outcome.
+type WebhookDeliveryRow struct {
+	PK              int64
+	DBID            int64
+	WebhookPK       int64
+	GUID            string
+	Event           string
+	Action          string
+	StatusCode      *int64
+	RequestURL      string
+	RequestHeaders  string
+	RequestBody     string
+	ResponseHeaders string
+	ResponseBody    string
+	DurationMS      int64
+	Redelivery      bool
+	Success         bool
+	CreatedAt       time.Time
+}
