@@ -1,0 +1,133 @@
+# The pull request slice of the GraphQL schema. It adds the pull request read
+# fields gh pr view and gh pr diff select onto Repository. Object types bind to
+# the hand-written structs in presenter/gqlmodel; the enums bind to the typed
+# string constants there. The merge view (mergeable, mergeStateStatus) is the
+# worker-resolved state, UNKNOWN until the recompute runs. The schema grows
+# toward GitHub's full PullRequest type milestone by milestone.
+
+extend type Repository {
+  # pullRequest looks up one pull request by its per-repository number. It is
+  # null when no such pull request exists.
+  pullRequest(number: Int!): PullRequest
+  # pullRequests is the Relay connection over the repository's pull requests,
+  # newest first.
+  pullRequests(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    states: [PullRequestState!]
+  ): PullRequestConnection!
+}
+
+# PullRequest is a repository pull request.
+type PullRequest {
+  id: ID!
+  number: Int!
+  title: String!
+  body: String!
+  state: PullRequestState!
+  url: URI!
+  locked: Boolean!
+  closed: Boolean!
+  isDraft: Boolean!
+  merged: Boolean!
+  mergedAt: DateTime
+  mergeable: MergeableState!
+  mergeStateStatus: MergeStateStatus!
+  author: Actor
+  baseRefName: String!
+  headRefName: String!
+  baseRefOid: GitObjectID!
+  headRefOid: GitObjectID!
+  additions: Int!
+  deletions: Int!
+  changedFiles: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  closedAt: DateTime
+  # commits is the connection over the pull request's own commits, oldest first.
+  commits(first: Int, after: String): PullRequestCommitConnection!
+  # files is the connection over the pull request's changed files.
+  files(first: Int, after: String): PullRequestChangedFileConnection!
+}
+
+# PullRequestState is whether a pull request is open, closed, or merged.
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+# MergeableState is the tri-state mergeability the worker resolves.
+enum MergeableState {
+  MERGEABLE
+  CONFLICTING
+  UNKNOWN
+}
+
+# MergeStateStatus is GitHub's richer view of a pull request's merge state.
+enum MergeStateStatus {
+  BEHIND
+  BLOCKED
+  CLEAN
+  DIRTY
+  DRAFT
+  HAS_HOOKS
+  UNKNOWN
+  UNSTABLE
+}
+
+# PatchStatus is how a file changed across a pull request's diff.
+enum PatchStatus {
+  ADDED
+  DELETED
+  MODIFIED
+  RENAMED
+  COPIED
+  CHANGED
+}
+
+# PullRequestConnection is the connection over a repository's pull requests.
+type PullRequestConnection {
+  edges: [PullRequestEdge]
+  nodes: [PullRequest]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestEdge {
+  cursor: String!
+  node: PullRequest
+}
+
+# PullRequestChangedFile is one file's change in a pull request's diff.
+type PullRequestChangedFile {
+  path: String!
+  additions: Int!
+  deletions: Int!
+  changeType: PatchStatus!
+}
+
+type PullRequestChangedFileConnection {
+  nodes: [PullRequestChangedFile]
+  totalCount: Int!
+}
+
+# PullRequestCommit wraps one commit on a pull request.
+type PullRequestCommit {
+  url: URI!
+  commit: Commit!
+}
+
+# Commit is the reduced git commit gh pr view reads.
+type Commit {
+  oid: GitObjectID!
+  message: String!
+  messageHeadline: String!
+}
+
+type PullRequestCommitConnection {
+  nodes: [PullRequestCommit]
+  totalCount: Int!
+}
