@@ -13,6 +13,7 @@ import (
 type Resolver struct {
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
+	Pulls      *domain.PRService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }

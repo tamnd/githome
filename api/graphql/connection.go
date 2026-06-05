@@ -3,6 +3,7 @@ package graphql
 import (
 	"fmt"
 
+	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -59,6 +60,43 @@ func emptyIssueConnection() *gqlmodel.IssueConnection {
 	return &gqlmodel.IssueConnection{
 		Edges:    []*gqlmodel.IssueEdge{},
 		Nodes:    []*gqlmodel.Issue{},
+		PageInfo: &gqlmodel.PageInfo{},
+	}
+}
+
+// buildPullRequestConnection renders a page of domain pull requests into the
+// GraphQL connection, cursoring each edge at its absolute offset so a follow-up
+// after: cursor resumes past it, the same forward window the issues connection
+// pages over.
+func (r *Resolver) buildPullRequestConnection(owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
+	nodes := make([]*gqlmodel.PullRequest, 0, len(prs))
+	edges := make([]*gqlmodel.PullRequestEdge, 0, len(prs))
+	for i, pr := range prs {
+		node := r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat)
+		nodes = append(nodes, node)
+		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursor(offset + i + 1), Node: node})
+	}
+	info := &gqlmodel.PageInfo{HasNextPage: offset+len(prs) < total}
+	if len(edges) > 0 {
+		start, end := edges[0].Cursor, edges[len(edges)-1].Cursor
+		info.StartCursor = &start
+		info.EndCursor = &end
+		info.HasPreviousPage = offset > 0
+	}
+	return &gqlmodel.PullRequestConnection{
+		Nodes:      nodes,
+		Edges:      edges,
+		PageInfo:   info,
+		TotalCount: int32(total),
+	}
+}
+
+// emptyPullRequestConnection is the connection a not-found or invisible
+// repository resolves to: no nodes, a zero total, and no further pages.
+func emptyPullRequestConnection() *gqlmodel.PullRequestConnection {
+	return &gqlmodel.PullRequestConnection{
+		Edges:    []*gqlmodel.PullRequestEdge{},
+		Nodes:    []*gqlmodel.PullRequest{},
 		PageInfo: &gqlmodel.PageInfo{},
 	}
 }

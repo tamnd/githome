@@ -1,12 +1,14 @@
 // Command githome runs the Githome server.
 //
 // The server wires configuration, the metadata store with migrations, the REST
-// and GraphQL surfaces, and the git Smart HTTP transport. As of M3 it serves
-// users, repository metadata, repository contents and git data, the repository
-// GraphQL query, git clone and fetch, and git push (receive-pack plus the REST
-// ref-write endpoints) with the in-process post-receive sync that records push
-// events in the job queue. The SSH transport and the job claim-and-run loop join
-// in later milestones.
+// and GraphQL surfaces, the git Smart HTTP transport, and the job runtime. As of
+// M5 it serves users, repository metadata, repository contents and git data,
+// issues, pull requests with their merge surface, the repository GraphQL query,
+// git clone and fetch, and git push (receive-pack plus the REST ref-write
+// endpoints) with the in-process post-receive sync that records push events and
+// advances pull request heads. The job runtime drains the queue in-process; a
+// push enqueues the mergeability recompute the runtime then runs. The SSH
+// transport joins in a later milestone.
 package main
 
 import (
@@ -32,6 +34,7 @@ import (
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/worker"
 )
 
 func main() {
@@ -72,7 +75,20 @@ func run() error {
 	}
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
+	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
 	urls := presenter.NewURLBuilder(cfg.URLs)
+
+	// The job runtime drains the queue the domain fills. M5 registers the
+	// mergeability recompute a pull request enqueues when it opens or its base or
+	// head moves; later milestones register their kinds the same way. It runs for
+	// the process lifetime and stops when the root context is canceled.
+	runtime := worker.NewRuntime(st, logger, 0)
+	runtime.Register(domain.JobRecomputeMergeability, worker.RecomputeMergeabilityHandler(pullSvc))
+	go func() {
+		if err := runtime.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Error("worker runtime stopped", "err", err)
+		}
+	}()
 
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{
@@ -83,6 +99,7 @@ func run() error {
 		Users:      domain.NewUserService(st),
 		Repos:      repoSvc,
 		Issues:     issueSvc,
+		Pulls:      pullSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
@@ -90,6 +107,7 @@ func run() error {
 		Auth:       authSvc,
 		Repos:      repoSvc,
 		Issues:     issueSvc,
+		Pulls:      pullSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
@@ -97,6 +115,7 @@ func run() error {
 		GitBin: cfg.GitBinaryPath,
 		Repos:  repoSvc,
 		Git:    gitStore,
+		Pulls:  pullSvc,
 		Auth:   authSvc,
 		Log:    logger,
 	})

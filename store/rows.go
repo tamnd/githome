@@ -77,6 +77,42 @@ type RepoRow struct {
 	UpdatedAt       time.Time
 }
 
+// PullRow is a row of the pull_requests table, the extension a pull request
+// carries on top of its issue row. IssuePK ties it to the issues row that holds
+// the title, body, state, and per-repo number; the fields here are the git
+// coordinates and the merge state. Mergeable and Rebaseable are pointers because
+// they are NULL until the recompute_mergeability worker computes them, the
+// null-then-value contract the API surfaces. HeadRepoPK, MergedAt, MergedByPK,
+// MergeCommitSHA, and MergeabilityCheckedAt are nullable for the same reason a
+// pull request acquires them only over its lifetime.
+type PullRow struct {
+	PK                    int64
+	DBID                  int64
+	IssuePK               int64
+	RepoPK                int64
+	BaseRef               string
+	BaseSHA               string
+	HeadRef               string
+	HeadSHA               string
+	HeadRepoPK            *int64
+	Draft                 bool
+	MaintainerCanModify   bool
+	Merged                bool
+	MergedAt              *time.Time
+	MergedByPK            *int64
+	MergeCommitSHA        *string
+	Mergeable             *bool
+	MergeableState        string
+	Rebaseable            *bool
+	Additions             int
+	Deletions             int
+	ChangedFiles          int
+	CommitsCount          int
+	MergeabilityCheckedAt *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
 // OAuthAppRow is a row of the oauth_apps table.
 type OAuthAppRow struct {
 	PK                int64

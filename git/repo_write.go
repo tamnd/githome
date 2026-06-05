@@ -44,18 +44,32 @@ func pathEnv() string {
 	return "/usr/bin:/bin"
 }
 
-// run executes a git command against the bare repository for pk with a scrubbed
-// environment: no inherited GIT_* configuration, no user or system config, and
-// no prompting. It is the single exec entry point for the write path.
-func (s *Store) run(ctx context.Context, pk int64, stdin io.Reader, args ...string) (runResult, error) {
-	full := append([]string{"--git-dir", s.Dir(pk)}, args...)
-	cmd := exec.CommandContext(ctx, s.bin(), full...)
-	cmd.Env = []string{
+// baseEnv is the scrubbed environment every git subprocess runs under: no
+// inherited GIT_* configuration, no user or system config, and no prompting.
+// The merge path appends GIT_AUTHOR_*/GIT_COMMITTER_* on top of it when it
+// writes commit objects.
+func baseEnv() []string {
+	return []string{
 		"PATH=" + pathEnv(),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_SYSTEM=/dev/null",
 	}
+}
+
+// run executes a git command against the bare repository for pk with the
+// scrubbed base environment. It is the single exec entry point for the write
+// path.
+func (s *Store) run(ctx context.Context, pk int64, stdin io.Reader, args ...string) (runResult, error) {
+	return s.runEnv(ctx, pk, nil, stdin, args...)
+}
+
+// runEnv is run with extra environment entries appended after the scrubbed
+// base, used by the merge path to pass commit author and committer identity.
+func (s *Store) runEnv(ctx context.Context, pk int64, extraEnv []string, stdin io.Reader, args ...string) (runResult, error) {
+	full := append([]string{"--git-dir", s.Dir(pk)}, args...)
+	cmd := exec.CommandContext(ctx, s.bin(), full...)
+	cmd.Env = append(baseEnv(), extraEnv...)
 	cmd.Stdin = stdin
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb

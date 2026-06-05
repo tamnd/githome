@@ -48,6 +48,10 @@ type Service struct {
 	Repos *domain.RepoService
 	// Git maps a repository pk to its on-disk bare path.
 	Git *git.Store
+	// Pulls moves a pull request's head and requeues its mergeability when the
+	// branch it tracks is pushed. Optional: nil leaves the post-receive sync to
+	// the repo service alone, which is how the pre-M5 tests wire the service.
+	Pulls *domain.PRService
 	// Auth resolves the request credential into an actor. When nil, the actor
 	// already in the request context is used (anonymous if none), which is how
 	// the tests inject an actor directly.

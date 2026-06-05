@@ -24,6 +24,7 @@ type Deps struct {
 	Auth       *auth.Service
 	Repos      *domain.RepoService
 	Issues     *domain.IssueService
+	Pulls      *domain.PRService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
@@ -35,6 +36,7 @@ func NewHandler(d Deps) http.Handler {
 	es := generated.NewExecutableSchema(generated.Config{Resolvers: &Resolver{
 		Repos:      d.Repos,
 		Issues:     d.Issues,
+		Pulls:      d.Pulls,
 		URLs:       d.URLs,
 		NodeFormat: d.NodeFormat,
 	}})

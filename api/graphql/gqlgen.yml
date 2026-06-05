@@ -32,6 +32,23 @@ models:
       # the presenter fills.
       comments:
         resolver: true
+  PullRequest:
+    fields:
+      # commits and files are read through the git layer on demand, so each needs
+      # its own resolver rather than a struct field the presenter would have to
+      # eagerly fill on every pull request render.
+      commits:
+        resolver: true
+      files:
+        resolver: true
+  PullRequestState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestState
+  MergeableState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.MergeableState
+  MergeStateStatus:
+    model: github.com/tamnd/githome/presenter/gqlmodel.MergeStateStatus
+  PatchStatus:
+    model: github.com/tamnd/githome/presenter/gqlmodel.PatchStatus
   DateTime:
     model: github.com/tamnd/githome/presenter/gqlmodel.DateTime
   URI:
