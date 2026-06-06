@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -96,6 +97,73 @@ func TestPaginationLinkHeader(t *testing.T) {
 	}
 	if _, ok := rels["next"]; ok {
 		t.Errorf("page 3 should have no next, got %+v", rels)
+	}
+}
+
+// nextPath returns the path and query of the rel="next" link as a server-local
+// request target, or "" when there is no next link. It lets a test follow the
+// keyset walk the way a client does, by replaying the URL the server handed back.
+func nextPath(t *testing.T, header string) string {
+	t.Helper()
+	if header == "" {
+		return ""
+	}
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if !strings.Contains(part, `rel="next"`) {
+			continue
+		}
+		lt := strings.IndexByte(part, '<')
+		gt := strings.IndexByte(part, '>')
+		target := part[lt+1 : gt]
+		slash := strings.Index(target, "/repos/")
+		if slash < 0 {
+			t.Fatalf("next link has no /repos/ path: %q", target)
+		}
+		return target[slash:]
+	}
+	return ""
+}
+
+// TestCursorWalkCoversAllIssues follows the rel="next" cursor from page to page
+// the way a client does and checks the flat path returns every issue exactly
+// once and stops cleanly. The walk never touches a page number, so it exercises
+// the no-COUNT keyset path end to end.
+func TestCursorWalkCoversAllIssues(t *testing.T) {
+	fx := issueServer(t)
+	seedIssues(t, fx, 7) // 7 issues, per_page 2 -> 4 pages
+
+	seen := map[string]bool{}
+	// Start from the first page's cursor next-link, then follow cursors only.
+	path := "/repos/octocat/hello/issues?per_page=2&page=1"
+	usedCursor := false
+	for pages := 0; path != "" && pages < 20; pages++ {
+		resp, body := get(t, fx.srv, path)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("walk page status %d, body %s", resp.StatusCode, body)
+		}
+		var arr []map[string]any
+		if err := json.Unmarshal(body, &arr); err != nil {
+			t.Fatalf("decode page body: %v", err)
+		}
+		for _, item := range arr {
+			title, _ := item["title"].(string)
+			if seen[title] {
+				t.Fatalf("issue %q returned twice during cursor walk", title)
+			}
+			seen[title] = true
+		}
+		next := nextPath(t, resp.Header.Get("Link"))
+		if strings.Contains(next, "cursor=") {
+			usedCursor = true
+		}
+		path = next
+	}
+	if !usedCursor {
+		t.Fatalf("cursor walk never followed a cursor link")
+	}
+	if len(seen) != 7 {
+		t.Fatalf("cursor walk covered %d issues, want 7", len(seen))
 	}
 }
 

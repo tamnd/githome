@@ -63,6 +63,7 @@ type PullStore interface {
 	GetPullByIssuePK(ctx context.Context, issuePK int64) (*store.PullRow, error)
 	GetPullByDBID(ctx context.Context, dbID int64) (*store.PullRow, error)
 	ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]store.PullRow, error)
+	ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
 	CountPulls(ctx context.Context, repoPK int64, state string) (int, error)
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
@@ -105,10 +106,13 @@ type PRInput struct {
 }
 
 // PRQuery narrows the list endpoint to a state (open, closed, all) and a page.
+// Cursor, when set, is the opaque keyset token from the previous page's Link
+// header, which switches the list to a number seek instead of OFFSET.
 type PRQuery struct {
 	State   string
 	Page    int
 	PerPage int
+	Cursor  string
 }
 
 // MergeInput is the merge payload: the strategy, the optional commit title and
@@ -264,6 +268,33 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 		return nil, 0, err
 	}
 	return out, total, nil
+}
+
+// ListPRsPage returns a keyset-paginated page of the repository's pull requests
+// plus whether a further page exists, without the COUNT that ListPRs runs for
+// the page-number Link header. It is the flat read path for cursor walks: a
+// malformed cursor decodes to nil and starts from the newest, matching the
+// issue list's degrade-to-first-page behavior.
+func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) ([]*PullRequest, bool, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, false, err
+	}
+	var cursor *store.PullCursor
+	if q.Cursor != "" {
+		if cur, derr := store.DecodePullCursor(q.Cursor); derr == nil {
+			cursor = &cur
+		}
+	}
+	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, q.State, cursor, q.PerPage)
+	if err != nil {
+		return nil, false, err
+	}
+	out, err := s.assemblePRs(ctx, repo, rows)
+	if err != nil {
+		return nil, false, err
+	}
+	return out, hasMore, nil
 }
 
 // Files returns the per-file diff of a pull request over the three-dot range

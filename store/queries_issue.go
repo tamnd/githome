@@ -152,11 +152,9 @@ func (s *Store) ListIssues(ctx context.Context, repoPK int64, f IssueFilter) ([]
 		limit = 30
 	}
 
-	useKeyset := f.Cursor != nil && (f.Sort == "" || f.Sort == "created") &&
-		(f.Direction == "" || strings.EqualFold(f.Direction, "desc"))
-
-	if useKeyset {
-		return s.listIssuesKeyset(ctx, repoPK, f, limit)
+	if keysetEligible(f) {
+		rows, _, err := s.listIssuesKeyset(ctx, repoPK, f, limit)
+		return rows, err
 	}
 
 	where, args := f.where()
@@ -179,37 +177,73 @@ func (s *Store) ListIssues(ctx context.Context, repoPK int64, f IssueFilter) ([]
 	return out, rows.Err()
 }
 
+// keysetEligible reports whether the filter can be served by the keyset seek:
+// it carries a cursor and uses the default newest-first created order the seek
+// index covers. Custom sorts and ascending order fall back to OFFSET.
+func keysetEligible(f IssueFilter) bool {
+	return f.Cursor != nil && (f.Sort == "" || f.Sort == "created") &&
+		(f.Direction == "" || strings.EqualFold(f.Direction, "desc"))
+}
+
+// ListIssuesPage serves a keyset-paginated issue page and reports whether a
+// further page exists, without a COUNT. It fetches one row beyond the page and
+// uses its presence as the has-next signal, so a list request on a
+// several-hundred-thousand-issue repo costs the page, not a full count plus a
+// deep OFFSET scan. The filter must be keysetEligible; callers check that the
+// cursor decoded before routing here.
+func (s *Store) ListIssuesPage(ctx context.Context, repoPK int64, f IssueFilter) ([]IssueRow, bool, error) {
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 30
+	}
+	return s.listIssuesKeyset(ctx, repoPK, f, limit)
+}
+
 // listIssuesKeyset is the keyset variant of ListIssues used when a cursor is
 // present. It appends a seek predicate:
 //
 //	AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))
 //
 // which is index-seekable on (created_at, number) and flat in page depth. The
-// expanded form avoids dialect differences around row-value comparisons.
-func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilter, limit int) ([]IssueRow, error) {
+// expanded form avoids dialect differences around row-value comparisons. It
+// fetches limit+1 rows and returns at most limit, with hasMore true when the
+// extra row was present, so the caller learns there is a next page without a
+// separate COUNT.
+func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilter, limit int) ([]IssueRow, bool, error) {
 	where, args := f.where()
-	cur := f.Cursor
-	// Append the seek predicate after the other WHERE clauses.
-	where += ` AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))`
+	full := append([]any{repoPK}, args...)
+	// Append the seek predicate after the other WHERE clauses. A nil cursor (a
+	// first page, or a cursor that failed to decode) omits the seek and returns
+	// the newest page, so a malformed token degrades to the first page.
+	if cur := f.Cursor; cur != nil {
+		where += ` AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))`
+		full = append(full, s.timeArg(cur.CreatedAt), s.timeArg(cur.CreatedAt), cur.Number)
+	}
 	// Order by (created_at DESC, number DESC) — keyset only applies for this order.
 	order := ` ORDER BY i.created_at DESC, i.number DESC`
-	full := append([]any{repoPK}, args...)
-	full = append(full, s.timeArg(cur.CreatedAt), s.timeArg(cur.CreatedAt), cur.Number, limit)
+	full = append(full, limit+1)
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues i` + where + order + ` LIMIT ?`)
 	rows, err := s.db.QueryContext(ctx, q, full...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer func() { _ = rows.Close() }()
 	var out []IssueRow
 	for rows.Next() {
 		iss, err := scanIssueRows(rows)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		out = append(out, *iss)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+	hasMore := len(out) > limit
+	if hasMore {
+		out = out[:limit]
+	}
+	return out, hasMore, nil
 }
 
 // CountIssues counts the issues matching the filter, ignoring its page window.

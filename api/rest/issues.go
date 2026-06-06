@@ -92,6 +92,34 @@ func handleIssuesList(d Deps) mizu.Handler {
 		if n, ok := queryInt64(c, "milestone"); ok {
 			q.MilestoneNumber = &n
 		}
+
+		// Flat read path: a cursor follow-up on the default newest-first order
+		// seeks straight to the page and skips the COUNT that page-number
+		// navigation needs for rel="last". Only rel="next" is offered, so deep
+		// walks of a several-hundred-thousand-issue repo cost the page, not a
+		// full count plus a deep OFFSET scan.
+		if q.Cursor != "" && issueCursorEligible(q) {
+			issues, hasMore, err := d.Issues.ListIssuesPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+			if issueError(c.Writer(), err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			out := make([]any, 0, len(issues))
+			for _, iss := range issues {
+				out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
+			}
+			var nextCursor string
+			if hasMore && len(issues) > 0 {
+				last := issues[len(issues)-1]
+				nextCursor = store.EncodeCursor(store.IssueCursor{CreatedAt: last.CreatedAt, Number: last.Number})
+			}
+			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, nextCursor)
+			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+			return nil
+		}
+
 		issues, total, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if issueError(c.Writer(), err) {
 			return nil
@@ -109,9 +137,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 		// DESC): following it uses a keyset seek instead of OFFSET.
 		// For explicit custom sorts or reverse direction, fall back to page numbers.
 		var nextCursor string
-		if len(issues) > 0 && page.HasNextPage() &&
-			(q.Sort == "" || q.Sort == "created") &&
-			(q.Direction == "" || strings.EqualFold(q.Direction, "desc")) {
+		if len(issues) > 0 && page.HasNextPage() && issueCursorEligible(q) {
 			last := issues[len(issues)-1]
 			nextCursor = store.EncodeCursor(store.IssueCursor{
 				CreatedAt: last.CreatedAt,
@@ -122,6 +148,15 @@ func handleIssuesList(d Deps) mizu.Handler {
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
+}
+
+// issueCursorEligible reports whether an issue query can be served by the keyset
+// seek and so advertise a cursor next-link: it uses the default newest-first
+// created order the seek index covers. Custom sorts and ascending direction fall
+// back to OFFSET with page-number links.
+func issueCursorEligible(q domain.IssueQuery) bool {
+	return (q.Sort == "" || q.Sort == "created") &&
+		(q.Direction == "" || strings.EqualFold(q.Direction, "desc"))
 }
 
 // handleIssueCreate serves POST /repos/{owner}/{repo}/issues.

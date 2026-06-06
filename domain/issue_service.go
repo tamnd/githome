@@ -57,6 +57,7 @@ type IssueStore interface {
 	GetIssueByPK(ctx context.Context, pk int64) (*store.IssueRow, error)
 	GetIssueByDBID(ctx context.Context, dbID int64) (*store.IssueRow, error)
 	ListIssues(ctx context.Context, repoPK int64, f store.IssueFilter) ([]store.IssueRow, error)
+	ListIssuesPage(ctx context.Context, repoPK int64, f store.IssueFilter) ([]store.IssueRow, bool, error)
 	CountIssues(ctx context.Context, repoPK int64, f store.IssueFilter) (int, error)
 	LabelsByIssue(ctx context.Context, issuePK int64) ([]store.LabelRow, error)
 	ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, error)
@@ -297,6 +298,32 @@ func (s *IssueService) ListIssues(ctx context.Context, viewerPK int64, owner, na
 		return nil, 0, err
 	}
 	return out, total, nil
+}
+
+// ListIssuesPage returns a keyset-paginated page of the repository's issues plus
+// whether a further page exists, without the COUNT that ListIssues runs for the
+// page-number Link header. It is the flat read path for cursor walks: deep pages
+// of a several-hundred-thousand-issue repo cost the page, not a full count plus
+// a deep OFFSET scan. The caller routes here only when the cursor decoded, so
+// the filter is keyset-eligible.
+func (s *IssueService) ListIssuesPage(ctx context.Context, viewerPK int64, owner, name string, q IssueQuery) ([]*Issue, bool, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, false, err
+	}
+	f, err := s.buildFilter(ctx, repo, q)
+	if err != nil {
+		return nil, false, err
+	}
+	rows, hasMore, err := s.store.ListIssuesPage(ctx, repo.PK, f)
+	if err != nil {
+		return nil, false, err
+	}
+	out, err := s.assembleIssues(ctx, repo, rows)
+	if err != nil {
+		return nil, false, err
+	}
+	return out, hasMore, nil
 }
 
 // EditIssue applies a patch to an issue under the optimistic lock, retrying once

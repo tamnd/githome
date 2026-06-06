@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -111,6 +112,57 @@ func TestPullListAndCountFilters(t *testing.T) {
 		n, err := st.CountPulls(ctx, repo.PK, "open")
 		if err != nil || n != 2 {
 			t.Fatalf("CountPulls open = %d (%v), want 2", n, err)
+		}
+	})
+}
+
+func TestListPullsPageKeysetWalk(t *testing.T) {
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		repo := seedRepo(t, st, "octocat", &store.RepoRow{Name: "Hello-World"})
+		const total = 5
+		for i := 0; i < total; i++ {
+			seedPull(t, st, repo, "pull", "main", "f"+strconv.Itoa(i))
+		}
+
+		// Walk the open pulls two at a time following the number cursor, the way
+		// the REST handler does. Every pull must appear once, newest number first.
+		// PullRow carries the issue number on its backing issue, resolved here via
+		// PullNumberByPK, which is also how the cursor advances.
+		seen := map[int64]bool{}
+		var cursor *store.PullCursor
+		var prevNumber int64 = 1 << 62
+		for pages := 0; pages < 20; pages++ {
+			rows, hasMore, err := st.ListPullsPage(ctx, repo.PK, "", cursor, 2)
+			if err != nil {
+				t.Fatalf("ListPullsPage: %v", err)
+			}
+			var lastNumber int64
+			for _, r := range rows {
+				number, err := st.PullNumberByPK(ctx, r.PK)
+				if err != nil {
+					t.Fatalf("PullNumberByPK: %v", err)
+				}
+				if seen[number] {
+					t.Fatalf("pull number %d returned twice", number)
+				}
+				if number >= prevNumber {
+					t.Fatalf("out of order: number %d after %d", number, prevNumber)
+				}
+				seen[number] = true
+				prevNumber = number
+				lastNumber = number
+			}
+			if !hasMore {
+				break
+			}
+			cursor = &store.PullCursor{Number: lastNumber}
+		}
+		if len(seen) != total {
+			t.Fatalf("keyset walk covered %d pulls, want %d", len(seen), total)
 		}
 	})
 }

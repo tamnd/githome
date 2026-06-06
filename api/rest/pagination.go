@@ -114,3 +114,16 @@ func writeLinkHeaderCursor(w http.ResponseWriter, r *http.Request, ub *presenter
 	}
 	w.Header().Set("Link", strings.Join(parts, ", "))
 }
+
+// writeNextCursorLink sets a forward-only Link header carrying just rel="next"
+// as a keyset cursor. It is the header for the flat read path: a cursor walk
+// skips the COUNT that page-number navigation needs for rel="last", so no total
+// is known and only the next hop is offered. An empty cursor means the last page
+// was reached and no header is written, which is how a client detects the end.
+func writeNextCursorLink(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, nextCursor string) {
+	if nextCursor == "" {
+		return
+	}
+	link := "<" + ub.CursorLink(r.URL.Path, r.URL.RawQuery, nextCursor) + `>; rel="next"`
+	w.Header().Set("Link", link)
+}
