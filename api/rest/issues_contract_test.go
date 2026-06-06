@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/auth"
+	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/nodeid"
@@ -30,6 +32,13 @@ type issueFixture struct {
 // the issue service wired, returning the server, the owner's plaintext token,
 // and the store so a test can read back the durable job queue.
 func issueServer(t testing.TB) issueFixture {
+	t.Helper()
+	return issueServerCfg(t, authConfig(t))
+}
+
+// issueServerCfg is issueServer with an explicit config, letting a test exercise
+// server knobs such as the request-body cap without touching the default path.
+func issueServerCfg(t testing.TB, cfg config.Config) issueFixture {
 	t.Helper()
 	ctx := context.Background()
 
@@ -64,7 +73,6 @@ func issueServer(t testing.TB) issueFixture {
 
 	authSvc := auth.NewService(st, "https://git.test.internal")
 	t.Cleanup(authSvc.Close)
-	cfg := authConfig(t)
 	gitStore := git.NewStore(t.TempDir())
 	repoSvc := domain.NewRepoService(st, gitStore)
 	root := mizu.NewRouter()
@@ -97,6 +105,29 @@ func TestCreateIssueContract(t *testing.T) {
 		t.Fatalf("status %d, want 201, body %s", resp.StatusCode, body)
 	}
 	assertWriteGolden(t, "issue_create.golden.json", body)
+}
+
+// TestRequestBodyCap checks the JSON surface rejects an oversized request body
+// with 413 once the body cap is exceeded, while a body under the cap still
+// succeeds. The cap is set small so the test stays cheap.
+func TestRequestBodyCap(t *testing.T) {
+	cfg := authConfig(t)
+	cfg.Server.MaxBodyBytes = 256
+	fx := issueServerCfg(t, cfg)
+
+	// A title padded past the cap trips the MaxBytesReader during decode.
+	big := strings.Repeat("x", 512)
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/issues", fx.token,
+		`{"title":"`+big+`"}`)
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body status %d, want 413, body %s", resp.StatusCode, body)
+	}
+
+	// A small body under the cap is unaffected.
+	if resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/issues", fx.token,
+		`{"title":"small"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("small body status %d, want 201, body %s", resp.StatusCode, body)
+	}
 }
 
 func TestGetIssueContract(t *testing.T) {

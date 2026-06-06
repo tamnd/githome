@@ -62,6 +62,27 @@ func mediaType(next mizu.Handler) mizu.Handler {
 	}
 }
 
+// maxBody caps the request body of every API request at limit bytes by wrapping
+// it in an http.MaxBytesReader. A handler that reads past the cap sees an
+// *http.MaxBytesError, which decodeJSON maps to a 413. A zero or negative limit
+// disables the cap. This guards the JSON surface only: the git smart-HTTP
+// transport mounts on the root router outside this chain, so multi-gigabyte
+// clone and push bodies are never wrapped.
+func maxBody(limit int64) func(mizu.Handler) mizu.Handler {
+	return func(next mizu.Handler) mizu.Handler {
+		if limit <= 0 {
+			return next
+		}
+		return func(c *mizu.Ctx) error {
+			r := c.Request()
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(c.Writer(), r.Body, limit)
+			}
+			return next(c)
+		}
+	}
+}
+
 // newRequestID returns a GitHub-style request id: five uppercase hex groups
 // separated by colons.
 func newRequestID() string {
