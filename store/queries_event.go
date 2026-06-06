@@ -24,6 +24,21 @@ func (s *Store) InsertEvent(ctx context.Context, e *EventRow) error {
 	return s.WithTx(ctx, func(t *Tx) error { return t.InsertEvent(ctx, e) })
 }
 
+// InsertEventAndJob appends an event row and enqueues a background job in one
+// transaction, halving the write-transaction count for a triggered write (the
+// three-transaction sequence of mutation / event / job becomes two). buildPayload
+// is called after the event INSERT so it can embed the event's assigned PK; the
+// job uses no dedupe key. On failure the event and job both roll back together.
+func (s *Store) InsertEventAndJob(ctx context.Context, e *EventRow, jobKind string, buildPayload func(eventPK int64) string) error {
+	return s.WithTx(ctx, func(t *Tx) error {
+		if err := t.InsertEvent(ctx, e); err != nil {
+			return err
+		}
+		payload := buildPayload(e.PK)
+		return t.insertJob(ctx, &JobRow{Kind: jobKind, Payload: payload})
+	})
+}
+
 // InsertEvent appends one event row inside an existing transaction.
 func (t *Tx) InsertEvent(ctx context.Context, e *EventRow) error {
 	dbID, err := t.allocDBID(ctx)

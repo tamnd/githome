@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sort"
+	"sync"
 	"testing"
 
 	"github.com/tamnd/githome/git"
@@ -225,5 +227,52 @@ func TestMilestoneFlow(t *testing.T) {
 	got, err := f.svc.GetMilestone(f.ctx, f.ownerPK, "octocat", "hello", m.Number)
 	if err != nil || got.OpenIssues != 1 {
 		t.Fatalf("milestone counts = %+v (%v)", got, err)
+	}
+}
+
+// TestConcurrentIssueNumbersUniqueAndContiguous guards the per-repo number
+// allocator: N goroutines open issues concurrently; each must receive a unique
+// number and the full set must be contiguous (1 through N). A duplicate or gap
+// would indicate a race in AllocIssueNumber.
+func TestConcurrentIssueNumbersUniqueAndContiguous(t *testing.T) {
+	const N = 20
+	f := newIssueFixture(t)
+
+	type result struct {
+		number int64
+		err    error
+	}
+	results := make(chan result, N)
+
+	var wg sync.WaitGroup
+	for i := 0; i < N; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			iss, err := f.svc.CreateIssue(f.ctx, f.ownerPK, "octocat", "hello", IssueInput{
+				Title: "concurrent " + string(rune('a'+i)),
+			})
+			if err != nil {
+				results <- result{err: err}
+				return
+			}
+			results <- result{number: iss.Number}
+		}(i)
+	}
+	wg.Wait()
+	close(results)
+
+	seen := make([]int64, 0, N)
+	for r := range results {
+		if r.err != nil {
+			t.Fatalf("CreateIssue: %v", r.err)
+		}
+		seen = append(seen, r.number)
+	}
+	sort.Slice(seen, func(i, j int) bool { return seen[i] < seen[j] })
+	for i, n := range seen {
+		if n != int64(i+1) {
+			t.Fatalf("number sequence = %v; want 1..%d contiguous", seen, N)
+		}
 	}
 }

@@ -52,6 +52,20 @@ func (s *Store) EnqueueJob(ctx context.Context, j *JobRow) (deduped bool, err er
 	return false, err
 }
 
+// insertJob inserts a queued job inside an existing transaction without the
+// dedupe pre-check. It is used by InsertEventAndJob where the caller guarantees
+// DedupeKey is empty and the full dedupe SELECT/INSERT round trip is unnecessary.
+func (t *Tx) insertJob(ctx context.Context, j *JobRow) error {
+	if j.Payload == "" {
+		j.Payload = "{}"
+	}
+	q := t.rebind(`INSERT INTO jobs (kind, payload, dedupe_key)
+		VALUES (?, ?, ?)
+		RETURNING pk, state, attempts, max_attempts`)
+	return t.tx.QueryRowContext(ctx, q, j.Kind, j.Payload, nil).
+		Scan(&j.PK, &j.State, &j.Attempts, &j.MaxAttempts)
+}
+
 // ClaimJob atomically takes the oldest runnable queued job, moving it to the
 // running state and bumping its attempt count under the database's own clock so
 // concurrent claimers never hand out the same job. It returns ErrNotFound when
