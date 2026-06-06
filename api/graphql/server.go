@@ -19,7 +19,8 @@ import (
 
 // Deps are the dependencies the GraphQL surface needs to mount: the auth service
 // that resolves the request actor, the domain services resolvers fetch through,
-// the presenter that renders the wire shapes, and the node-ID format.
+// the presenter that renders the wire shapes, the node-ID format, and the
+// Batcher that backs the per-request dataloaders.
 type Deps struct {
 	Auth       *auth.Service
 	Repos      *domain.RepoService
@@ -27,29 +28,48 @@ type Deps struct {
 	Pulls      *domain.PRService
 	Reviews    *domain.ReviewService
 	Checks     *domain.ChecksService
+	Batch      *domain.Batcher
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }
 
+// maxQueryComplexity is the maximum allowed query-complexity score. GitHub's
+// public API uses 5000; Githome matches that value.
+const maxQueryComplexity = 5000
+
+// maxQueryDepth is the maximum nesting depth allowed before the server rejects
+// the document. GitHub enforces 10 levels.
+const maxQueryDepth = 10
+
 // NewHandler builds the GraphQL HTTP handler: the gqlgen executable schema over
 // the root resolver, the POST and GET transports gh and octokit use, a parsed
-// query cache, and the auth middleware that mirrors the REST surface.
+// query cache, the auth middleware that mirrors the REST surface, the
+// per-request dataloader middleware, and complexity + depth guards.
 func NewHandler(d Deps) http.Handler {
-	es := generated.NewExecutableSchema(generated.Config{Resolvers: &Resolver{
-		Repos:      d.Repos,
-		Issues:     d.Issues,
-		Pulls:      d.Pulls,
-		Reviews:    d.Reviews,
-		Checks:     d.Checks,
-		URLs:       d.URLs,
-		NodeFormat: d.NodeFormat,
-	}})
+	es := generated.NewExecutableSchema(generated.Config{
+		Resolvers:  &Resolver{
+			Repos:      d.Repos,
+			Issues:     d.Issues,
+			Pulls:      d.Pulls,
+			Reviews:    d.Reviews,
+			Checks:     d.Checks,
+			URLs:       d.URLs,
+			NodeFormat: d.NodeFormat,
+		},
+		Complexity: buildComplexityRoot(),
+	})
 	srv := handler.New(es)
 	srv.AddTransport(transport.POST{})
 	srv.AddTransport(transport.GET{})
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](256))
 	srv.Use(extension.Introspection{})
-	return authenticate(d.Auth, srv)
+	srv.Use(extension.FixedComplexityLimit(maxQueryComplexity))
+	srv.Use(depthLimitExtension(maxQueryDepth))
+	var h http.Handler = srv
+	if d.Batch != nil {
+		h = loadersMiddleware(d.Batch, d.URLs, d.NodeFormat, h)
+	}
+	return authenticate(d.Auth, h)
 }
 
 // Mount registers the GraphQL endpoint at both the GHES-style /api/graphql and

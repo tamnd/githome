@@ -14,6 +14,35 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+// Author is the resolver for the author field. It loads the issue author
+// through the per-request user dataloader so that concurrent nested field
+// resolutions batch into one user query per request.
+func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Actor, error) {
+	if obj.UserPK == 0 {
+		return nil, nil // ghost author
+	}
+	l := loadersFrom(ctx)
+	if l == nil {
+		return obj.Author, nil // fallback: loaders not wired (tests)
+	}
+	return l.Users.Load(ctx, obj.UserPK)
+}
+
+// Labels is the resolver for the labels field. It loads the issue's labels
+// through the per-request label dataloader so that concurrent nested field
+// resolutions batch into one label query per request.
+func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error) {
+	l := loadersFrom(ctx)
+	if l == nil {
+		return obj.Labels, nil // fallback: loaders not wired (tests)
+	}
+	nodes, err := l.LabelsByIssue.Load(ctx, obj.PK)
+	if err != nil {
+		return nil, err
+	}
+	return &gqlmodel.LabelConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
 // Comments is the resolver for the comments field. It pages the issue's comments
 // through the domain on demand, the way gh issue view selects them.
 func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {

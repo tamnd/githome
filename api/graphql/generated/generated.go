@@ -293,6 +293,9 @@ type CommitResolver interface {
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
 type IssueResolver interface {
+	Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Actor, error)
+
+	Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error)
 	Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error)
 }
 type MutationResolver interface {
@@ -3466,7 +3469,7 @@ func (ec *executionContext) _Issue_author(ctx context.Context, field graphql.Col
 			return ec.fieldContext_Issue_author(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Author, nil
+			return ec.Resolvers.Issue().Author(ctx, obj)
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
@@ -3480,8 +3483,8 @@ func (ec *executionContext) fieldContext_Issue_author(_ context.Context, field g
 	fc = &graphql.FieldContext{
 		Object:     "Issue",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Actor(ctx, field)
 		},
@@ -3567,7 +3570,8 @@ func (ec *executionContext) _Issue_labels(ctx context.Context, field graphql.Col
 			return ec.fieldContext_Issue_labels(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Labels, nil
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Issue().Labels(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.LabelConnection) graphql.Marshaler {
@@ -3581,8 +3585,8 @@ func (ec *executionContext) fieldContext_Issue_labels(ctx context.Context, field
 	fc = &graphql.FieldContext{
 		Object:     "Issue",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_LabelConnection(ctx, field)
 		},
@@ -8575,7 +8579,38 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "author":
-			out.Values[i] = ec._Issue_author(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_author(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "createdAt":
 			out.Values[i] = ec._Issue_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -8589,7 +8624,38 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 		case "closedAt":
 			out.Values[i] = ec._Issue_closedAt(ctx, field, obj)
 		case "labels":
-			out.Values[i] = ec._Issue_labels(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_labels(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "comments":
 			field := field
 
