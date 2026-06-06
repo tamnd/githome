@@ -5,6 +5,18 @@ import (
 	"strings"
 )
 
+// buildFTSMatch converts search terms to an FTS5 MATCH expression. Each term
+// is double-quoted so it is treated as a literal phrase token rather than a
+// prefix or boolean operator. Terms are space-separated, which FTS5 interprets
+// as implicit AND so all terms must appear in the document.
+func buildFTSMatch(terms []string) string {
+	quoted := make([]string, len(terms))
+	for i, t := range terms {
+		quoted[i] = `"` + strings.ReplaceAll(t, `"`, `""`) + `"`
+	}
+	return strings.Join(quoted, " ")
+}
+
 // issueSearchColumns is issueColumns qualified with the `i` alias, since the
 // search query joins issues to repositories (for visibility and the repo:
 // qualifier) and to users (for the owner login behind user:/org:). The scan
@@ -56,20 +68,6 @@ func (q IssueSearch) where() (string, []any) {
 	case "closed":
 		b.WriteString(` AND i.state = 'closed'`)
 	}
-	for _, t := range q.Terms {
-		like := "%" + strings.ToLower(t) + "%"
-		switch {
-		case q.MatchTitle && !q.MatchBody:
-			b.WriteString(` AND lower(i.title) LIKE ?`)
-			args = append(args, like)
-		case q.MatchBody && !q.MatchTitle:
-			b.WriteString(` AND lower(COALESCE(i.body, '')) LIKE ?`)
-			args = append(args, like)
-		default:
-			b.WriteString(` AND (lower(i.title) LIKE ? OR lower(COALESCE(i.body, '')) LIKE ?)`)
-			args = append(args, like, like)
-		}
-	}
 	if q.AuthorPK != nil {
 		b.WriteString(` AND i.user_pk = ?`)
 		args = append(args, *q.AuthorPK)
@@ -117,10 +115,54 @@ func (q IssueSearch) orderBy() string {
 	return ` ORDER BY ` + col + ` ` + dir + `, i.db_id ` + dir
 }
 
+// issueTermClause returns the SQL fragment and args that filter issues by the
+// query's Terms field. For title+body searches (the common case) it uses the
+// dialect's FTS index; for title-only or body-only it falls back to LIKE so
+// the more specific in-field constraint is preserved.
+func (s *Store) issueTermClause(q IssueSearch) (string, []any) {
+	if len(q.Terms) == 0 {
+		return "", nil
+	}
+	titleOnly := q.MatchTitle && !q.MatchBody
+	bodyOnly := q.MatchBody && !q.MatchTitle
+	if !titleOnly && !bodyOnly {
+		// Both fields (or neither, treated as both): use FTS.
+		switch s.dialect {
+		case DialectSQLite:
+			return ` AND i.pk IN (SELECT rowid FROM issues_fts WHERE issues_fts MATCH ?)`,
+				[]any{buildFTSMatch(q.Terms)}
+		case DialectPostgres:
+			return ` AND i.search_vector @@ plainto_tsquery('simple', ?)`,
+				[]any{strings.Join(q.Terms, " ")}
+		}
+	}
+	// Title-only, body-only, or unknown dialect: LIKE.
+	var b strings.Builder
+	var args []any
+	for _, t := range q.Terms {
+		like := "%" + strings.ToLower(t) + "%"
+		switch {
+		case titleOnly:
+			b.WriteString(` AND lower(i.title) LIKE ?`)
+			args = append(args, like)
+		case bodyOnly:
+			b.WriteString(` AND lower(COALESCE(i.body, '')) LIKE ?`)
+			args = append(args, like)
+		default:
+			b.WriteString(` AND (lower(i.title) LIKE ? OR lower(COALESCE(i.body, '')) LIKE ?)`)
+			args = append(args, like, like)
+		}
+	}
+	return b.String(), args
+}
+
 // SearchIssues returns the page of issues and pull requests matching the query,
 // joined across every repository the viewer may see.
 func (s *Store) SearchIssues(ctx context.Context, q IssueSearch) ([]IssueRow, error) {
 	where, args := q.where()
+	termSQL, termArgs := s.issueTermClause(q)
+	where += termSQL
+	args = append(args, termArgs...)
 	limit := q.Limit
 	if limit <= 0 {
 		limit = 30
@@ -148,6 +190,9 @@ func (s *Store) SearchIssues(ctx context.Context, q IssueSearch) ([]IssueRow, er
 // window, for the search envelope's total_count.
 func (s *Store) CountSearchIssues(ctx context.Context, q IssueSearch) (int, error) {
 	where, args := q.where()
+	termSQL, termArgs := s.issueTermClause(q)
+	where += termSQL
+	args = append(args, termArgs...)
 	sql := s.rebind(`SELECT COUNT(*) FROM issues i
 		JOIN repositories r ON r.pk = i.repo_pk` + where)
 	var n int
@@ -178,11 +223,6 @@ func (q RepoSearch) where() (string, []any) {
 	b.WriteString(` AND (r.private = ? OR r.owner_pk = ?)`)
 	args = append(args, false, q.ViewerPK)
 
-	for _, t := range q.Terms {
-		like := "%" + strings.ToLower(t) + "%"
-		b.WriteString(` AND (lower(r.name) LIKE ? OR lower(COALESCE(r.description, '')) LIKE ?)`)
-		args = append(args, like, like)
-	}
 	if frag, fargs := inClause("r.owner_pk", q.OwnerPKs); frag != "" {
 		b.WriteString(frag)
 		args = append(args, fargs...)
@@ -209,9 +249,38 @@ func (q RepoSearch) orderBy() string {
 	return ` ORDER BY ` + col + ` ` + dir + `, r.db_id ` + dir
 }
 
+// repoTermClause returns the SQL fragment and args for the repository term
+// filter. Always uses FTS for both name+description (the only case); LIKE
+// fallback is retained for safety on unknown dialects.
+func (s *Store) repoTermClause(q RepoSearch) (string, []any) {
+	if len(q.Terms) == 0 {
+		return "", nil
+	}
+	switch s.dialect {
+	case DialectSQLite:
+		return ` AND r.pk IN (SELECT rowid FROM repos_fts WHERE repos_fts MATCH ?)`,
+			[]any{buildFTSMatch(q.Terms)}
+	case DialectPostgres:
+		return ` AND r.search_vector @@ plainto_tsquery('simple', ?)`,
+			[]any{strings.Join(q.Terms, " ")}
+	default:
+		var b strings.Builder
+		var args []any
+		for _, t := range q.Terms {
+			like := "%" + strings.ToLower(t) + "%"
+			b.WriteString(` AND (lower(r.name) LIKE ? OR lower(COALESCE(r.description, '')) LIKE ?)`)
+			args = append(args, like, like)
+		}
+		return b.String(), args
+	}
+}
+
 // SearchRepositories returns the page of repositories matching the query.
 func (s *Store) SearchRepositories(ctx context.Context, q RepoSearch) ([]RepoRow, error) {
 	where, args := q.where()
+	termSQL, termArgs := s.repoTermClause(q)
+	where += termSQL
+	args = append(args, termArgs...)
 	limit := q.Limit
 	if limit <= 0 {
 		limit = 30
@@ -238,6 +307,9 @@ func (s *Store) SearchRepositories(ctx context.Context, q RepoSearch) ([]RepoRow
 // envelope's total_count.
 func (s *Store) CountSearchRepositories(ctx context.Context, q RepoSearch) (int, error) {
 	where, args := q.where()
+	termSQL, termArgs := s.repoTermClause(q)
+	where += termSQL
+	args = append(args, termArgs...)
 	sql := s.rebind(`SELECT COUNT(*) FROM repositories r` + where)
 	var n int
 	if err := s.db.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {

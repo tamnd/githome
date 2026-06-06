@@ -126,6 +126,86 @@ func TestSearchRepositoriesTermAndVisibility(t *testing.T) {
 	})
 }
 
+// TestSearchIssuesFTSMultiTerm checks that FTS-based issue search requires all
+// terms to appear (implicit AND), so a two-term query does not match a document
+// that contains only one of the terms.
+func TestSearchIssuesFTSMultiTerm(t *testing.T) {
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		repo := seedRepo(t, st, "octocat", &store.RepoRow{Name: "multi"})
+		seedIssue(t, st, repo.PK, repo.OwnerPK, "hello world")
+		seedIssue(t, st, repo.PK, repo.OwnerPK, "hello universe")
+
+		// Both terms → only the first issue matches.
+		got, err := st.SearchIssues(ctx, store.IssueSearch{
+			Terms: []string{"hello", "world"}, MatchTitle: true, MatchBody: true,
+		})
+		if err != nil {
+			t.Fatalf("SearchIssues: %v", err)
+		}
+		if len(got) != 1 || got[0].Title != "hello world" {
+			t.Errorf("multi-term search = %+v, want one 'hello world' issue", got)
+		}
+	})
+}
+
+// TestSearchIssuesFTSTriggerUpdate verifies that the FTS5 sync trigger fires on
+// title/body updates so the new text is searchable and the old text is not.
+func TestSearchIssuesFTSTriggerUpdate(t *testing.T) {
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		repo := seedRepo(t, st, "octocat", &store.RepoRow{Name: "trigup"})
+		iss := seedIssue(t, st, repo.PK, repo.OwnerPK, "unique alpha")
+
+		// Before update: "unique" is found.
+		before, err := st.SearchIssues(ctx, store.IssueSearch{
+			Terms: []string{"unique"}, MatchTitle: true, MatchBody: true,
+		})
+		if err != nil {
+			t.Fatalf("SearchIssues before: %v", err)
+		}
+		if len(before) != 1 {
+			t.Errorf("before update: want 1 result, got %d", len(before))
+		}
+
+		// Update title — FTS trigger must reindex.
+		iss.Title = "different beta"
+		if err := st.WithTx(ctx, func(tx *store.Tx) error {
+			return tx.UpdateIssue(ctx, iss)
+		}); err != nil {
+			t.Fatalf("UpdateIssue: %v", err)
+		}
+
+		// "unique" must no longer match.
+		after, err := st.SearchIssues(ctx, store.IssueSearch{
+			Terms: []string{"unique"}, MatchTitle: true, MatchBody: true,
+		})
+		if err != nil {
+			t.Fatalf("SearchIssues after: %v", err)
+		}
+		if len(after) != 0 {
+			t.Errorf("after update: old term still matches %d issues, want 0", len(after))
+		}
+
+		// "different" must now match.
+		updated, err := st.SearchIssues(ctx, store.IssueSearch{
+			Terms: []string{"different"}, MatchTitle: true, MatchBody: true,
+		})
+		if err != nil {
+			t.Fatalf("SearchIssues new term: %v", err)
+		}
+		if len(updated) != 1 {
+			t.Errorf("after update: new term wants 1 result, got %d", len(updated))
+		}
+	})
+}
+
 // TestVisibleRepoPKs confirms the code-search scope helper lists only the
 // repositories a viewer may see among the named owners.
 func TestVisibleRepoPKs(t *testing.T) {
