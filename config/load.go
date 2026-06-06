@@ -40,6 +40,7 @@ func Load() (Config, error) {
 // variable leaves the default (or file) value intact.
 func applyEnv(c *Config) {
 	setStr(&c.DatabaseURL, "GITHOME_DATABASE_URL")
+	setInt(&c.DBPoolSize, "GITHOME_DB_POOL_SIZE")
 	setStr(&c.DataDir, "GITHOME_DATA_DIR")
 	setStr(&c.GitBinaryPath, "GITHOME_GIT_BINARY")
 	setStr(&c.GitBackend, "GITHOME_GIT_BACKEND")

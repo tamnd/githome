@@ -24,6 +24,7 @@ type Config struct {
 	URLs            URLs
 	Listen          Listen
 	DatabaseURL     string // GITHOME_DATABASE_URL; scheme selects the dialect
+	DBPoolSize      int    // GITHOME_DB_POOL_SIZE; Postgres max-open-connections, default 25
 	DataDir         string // GITHOME_DATA_DIR; bare repos live under DataDir/repos
 	GitBinaryPath   string // GITHOME_GIT_BINARY; resolved on PATH when empty
 	GitBackend      string // GITHOME_GIT_BACKEND; auto|gogit|gitcli|git2go
@@ -93,6 +94,7 @@ func defaults() Config {
 	return Config{
 		Listen:          Listen{HTTP: ":3000", SSH: ":2222"},
 		DataDir:         "/data",
+		DBPoolSize:      25,
 		GitBackend:      "auto",
 		ShutdownTimeout: 30 * time.Second,
 		Env:             "development",

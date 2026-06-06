@@ -126,3 +126,43 @@ func TestOpenRejectsUnknownDSN(t *testing.T) {
 		t.Fatal("expected Open to reject an unknown DSN scheme")
 	}
 }
+
+// TestSQLitePragmas verifies that the performance-critical SQLite pragmas are
+// active on a freshly opened database so a misconfigured build doesn't silently
+// skip them.
+func TestSQLitePragmas(t *testing.T) {
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "pragmas.db")
+	ctx := context.Background()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	check := func(pragma, want string) {
+		t.Helper()
+		var got string
+		if err := st.DB().QueryRowContext(ctx, "PRAGMA "+pragma).Scan(&got); err != nil {
+			t.Errorf("PRAGMA %s: %v", pragma, err)
+			return
+		}
+		if got != want {
+			t.Errorf("PRAGMA %s = %q, want %q", pragma, got, want)
+		}
+	}
+	check("journal_mode", "wal")
+	check("foreign_keys", "1")
+	check("synchronous", "1") // NORMAL = 1
+}
+
+// TestOpenWithCustomPoolSize verifies that Open accepts an explicit pool size
+// without error (the value is applied internally; this test just guards the
+// signature stays callable and doesn't panic).
+func TestOpenWithCustomPoolSize(t *testing.T) {
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "pool.db")
+	st, err := store.Open(context.Background(), dsn, 50)
+	if err != nil {
+		t.Fatalf("Open with custom pool size: %v", err)
+	}
+	_ = st.Close()
+}
