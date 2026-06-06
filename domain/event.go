@@ -66,12 +66,32 @@ type eventRecorder interface {
 	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
 
+// batchEventRecorder is an optional extension of eventRecorder: when the
+// concrete store implements it, recordEvent uses InsertEventAndJob to combine
+// the event append and the fan-out job enqueue into one transaction, cutting the
+// post-mutation write-transaction count from two to one.
+type batchEventRecorder interface {
+	eventRecorder
+	InsertEventAndJob(ctx context.Context, e *store.EventRow, jobKind string, buildPayload func(int64) string) error
+}
+
 // recordEvent appends an event row and enqueues its fan-out job. Delivery is
 // best-effort: a failure to record or enqueue never fails the user's write,
 // matching how GitHub detaches webhook delivery from the API call that triggered
 // it. push is nil for every event except a push, where it carries the moved refs
 // the renderer needs.
+//
+// When st also implements batchEventRecorder the event append and the deliver_event
+// job insert land in one transaction; otherwise they fall back to two separate
+// round trips.
 func recordEvent(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload) {
+	if batcher, ok := st.(batchEventRecorder); ok {
+		_ = batcher.InsertEventAndJob(ctx, ev, JobDeliverEvent, func(eventPK int64) string {
+			p, _ := json.Marshal(DeliverEventPayload{EventPK: eventPK, Push: push})
+			return string(p)
+		})
+		return
+	}
 	if err := st.InsertEvent(ctx, ev); err != nil {
 		return
 	}

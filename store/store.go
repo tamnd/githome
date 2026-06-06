@@ -2,6 +2,22 @@
 // supports PostgreSQL (jackc/pgx/v5 via database/sql) and SQLite
 // (modernc.org/sqlite, pure Go, no cgo) behind one dialect-aware Store. The same
 // embedded migrations run on both.
+//
+// # Write-throughput ceiling
+//
+// SQLite serializes all writers at the database level: only one write transaction
+// runs at a time. On modern NVMe storage each committed write transaction costs
+// ~0.1–0.5 ms (one fsync), giving a ceiling of roughly 2–10K writes/sec for
+// single-statement mutations. The multi-statement write path for an issue or pull
+// request (number allocation, row insert, label/assignee associations, counter
+// bump, event + job batch) sits comfortably inside that ceiling at development
+// scale but tops out below the 500 RPS SLO target.
+//
+// Postgres lifts this ceiling: each write transaction acquires row-level locks
+// (not a database-wide write lock), so unrelated writes proceed concurrently and
+// the throughput scales with connection-pool depth and hardware IOPS. Githome
+// targets Postgres for production at scale; SQLite serves development, tests, and
+// single-user instances where the ceiling is not a bottleneck.
 package store
 
 import (
