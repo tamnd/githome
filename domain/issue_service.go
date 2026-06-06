@@ -60,6 +60,11 @@ type IssueStore interface {
 	CountIssues(ctx context.Context, repoPK int64, f store.IssueFilter) (int, error)
 	LabelsByIssue(ctx context.Context, issuePK int64) ([]store.LabelRow, error)
 	ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, error)
+	LabelsByIssuePKs(ctx context.Context, issuePKs []int64) (map[int64][]store.LabelRow, error)
+	AssigneesByIssuePKs(ctx context.Context, issuePKs []int64) (map[int64][]int64, error)
+	UsersByPKs(ctx context.Context, pks []int64) (map[int64]*store.UserRow, error)
+	MilestonesByPKs(ctx context.Context, pks []int64) (map[int64]*store.MilestoneRow, error)
+	ReactionRollupsBySubjectPKs(ctx context.Context, subjectType string, subjectPKs []int64) (map[int64]store.ReactionRollup, error)
 
 	ListLabels(ctx context.Context, repoPK int64) ([]store.LabelRow, error)
 	GetLabel(ctx context.Context, repoPK int64, name string) (*store.LabelRow, error)
@@ -283,13 +288,9 @@ func (s *IssueService) ListIssues(ctx context.Context, viewerPK int64, owner, na
 	if err != nil {
 		return nil, 0, err
 	}
-	out := make([]*Issue, 0, len(rows))
-	for i := range rows {
-		iss, err := s.assembleIssue(ctx, repo, &rows[i])
-		if err != nil {
-			return nil, 0, err
-		}
-		out = append(out, iss)
+	out, err := s.assembleIssues(ctx, repo, rows)
+	if err != nil {
+		return nil, 0, err
 	}
 	return out, total, nil
 }
@@ -497,6 +498,156 @@ func matchNothing(f store.IssueFilter) store.IssueFilter {
 	var impossible int64 = -1
 	f.CreatorPK = &impossible
 	return f
+}
+
+// assembleIssues batch-loads all ancillary data for a page of issue rows in
+// five round trips (users, labels, assignees, milestones, reactions) instead of
+// N×5, then assembles each row using the pre-loaded maps. Follows the pattern
+// established in domain/event.go.
+func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []store.IssueRow) ([]*Issue, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	// Collect the unique PKs we need across the whole page.
+	issuePKs := make([]int64, len(rows))
+	userPKSet := map[int64]struct{}{}
+	milestonePKSet := map[int64]struct{}{}
+	for i := range rows {
+		issuePKs[i] = rows[i].PK
+		userPKSet[rows[i].UserPK] = struct{}{}
+		if rows[i].MilestonePK != nil {
+			milestonePKSet[*rows[i].MilestonePK] = struct{}{}
+		}
+		if rows[i].ClosedByPK != nil {
+			userPKSet[*rows[i].ClosedByPK] = struct{}{}
+		}
+	}
+
+	// Batch-load labels and assignees (keyed by issue PK).
+	labelMap, err := s.store.LabelsByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+	assigneeMap, err := s.store.AssigneesByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect assignee user PKs discovered from the assignee map.
+	for _, pks := range assigneeMap {
+		for _, pk := range pks {
+			userPKSet[pk] = struct{}{}
+		}
+	}
+
+	// Flatten sets into slices for the batch loaders.
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	milestonePKs := make([]int64, 0, len(milestonePKSet))
+	for pk := range milestonePKSet {
+		milestonePKs = append(milestonePKs, pk)
+	}
+
+	// Batch-load users, milestones, and reaction rollups.
+	userMap, err := s.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	milestoneMap, err := s.store.MilestonesByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
+	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "issue", issuePKs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Assemble each issue from the pre-loaded maps.
+	out := make([]*Issue, 0, len(rows))
+	for i := range rows {
+		row := &rows[i]
+
+		var author *User
+		if u, ok := userMap[row.UserPK]; ok {
+			author = userFromRow(u)
+		}
+
+		assigneePKs := assigneeMap[row.PK]
+		assignees := make([]*User, 0, len(assigneePKs))
+		for _, pk := range assigneePKs {
+			if u, ok := userMap[pk]; ok {
+				assignees = append(assignees, userFromRow(u))
+			}
+		}
+
+		var milestone *Milestone
+		if row.MilestonePK != nil {
+			if mr, ok := milestoneMap[*row.MilestonePK]; ok {
+				// milestone creator may or may not be in the user map; fall back to a
+				// direct load only if we missed them (uncommon: milestone creator not
+				// also an issue author/assignee on this page).
+				var creator *User
+				if mr.CreatorPK != nil {
+					if cu, ok := userMap[*mr.CreatorPK]; ok {
+						creator = userFromRow(cu)
+					} else {
+						cu2, err := s.store.UserByPK(ctx, *mr.CreatorPK)
+						if err == nil {
+							creator = userFromRow(cu2)
+						}
+					}
+				}
+				open, closed, err := s.store.MilestoneIssueCounts(ctx, mr.PK)
+				if err != nil {
+					return nil, err
+				}
+				milestone = &Milestone{
+					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
+					Description: mr.Description, State: mr.State, Creator: creator,
+					OpenIssues: open, ClosedIssues: closed,
+					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
+					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
+				}
+			}
+		}
+
+		var closedBy *User
+		if row.ClosedByPK != nil {
+			if u, ok := userMap[*row.ClosedByPK]; ok {
+				closedBy = userFromRow(u)
+			}
+		}
+
+		roll := rollupMap[row.PK]
+
+		out = append(out, &Issue{
+			PK:            row.PK,
+			ID:            row.DBID,
+			RepoPK:        repo.PK,
+			RepoID:        repo.ID,
+			Number:        row.Number,
+			Title:         row.Title,
+			Body:          row.Body,
+			State:         row.State,
+			StateReason:   row.StateReason,
+			Locked:        row.Locked,
+			User:          author,
+			Assignees:     assignees,
+			Labels:        labelsFromRows(labelMap[row.PK]),
+			Milestone:     milestone,
+			ClosedBy:      closedBy,
+			Reactions:     rollup(roll),
+			CommentsCount: row.CommentsCount,
+			ClosedAt:      row.ClosedAt,
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+			lockVersion:   row.LockVersion,
+		})
+	}
+	return out, nil
 }
 
 // assembleIssue resolves the author, assignees, labels, milestone, closer, and

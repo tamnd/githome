@@ -51,9 +51,14 @@ type PullStore interface {
 
 	GetIssueByNumber(ctx context.Context, repoPK, number int64) (*store.IssueRow, error)
 	GetIssueByPK(ctx context.Context, pk int64) (*store.IssueRow, error)
+	IssuesByPKs(ctx context.Context, pks []int64) (map[int64]*store.IssueRow, error)
 	LabelsByIssue(ctx context.Context, issuePK int64) ([]store.LabelRow, error)
 	ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, error)
 	GetMilestoneByPK(ctx context.Context, pk int64) (*store.MilestoneRow, error)
+	LabelsByIssuePKs(ctx context.Context, issuePKs []int64) (map[int64][]store.LabelRow, error)
+	AssigneesByIssuePKs(ctx context.Context, issuePKs []int64) (map[int64][]int64, error)
+	UsersByPKs(ctx context.Context, pks []int64) (map[int64]*store.UserRow, error)
+	MilestonesByPKs(ctx context.Context, pks []int64) (map[int64]*store.MilestoneRow, error)
 
 	GetPullByIssuePK(ctx context.Context, issuePK int64) (*store.PullRow, error)
 	GetPullByDBID(ctx context.Context, dbID int64) (*store.PullRow, error)
@@ -254,17 +259,9 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 	if err != nil {
 		return nil, 0, err
 	}
-	out := make([]*PullRequest, 0, len(rows))
-	for i := range rows {
-		issueRow, err := s.store.GetIssueByPK(ctx, rows[i].IssuePK)
-		if err != nil {
-			return nil, 0, err
-		}
-		pr, err := s.assemble(ctx, repo, issueRow, &rows[i])
-		if err != nil {
-			return nil, 0, err
-		}
-		out = append(out, pr)
+	out, err := s.assemblePRs(ctx, repo, rows)
+	if err != nil {
+		return nil, 0, err
 	}
 	return out, total, nil
 }
@@ -548,6 +545,166 @@ func (s *PRService) PullForEvent(ctx context.Context, repo *Repo, issuePK int64)
 		return nil, err
 	}
 	return s.assemble(ctx, repo, issueRow, pullRow)
+}
+
+// assemblePRs batch-loads all ancillary data for a page of pull rows in five
+// round trips (issues, users, labels, assignees, milestones) instead of N×5.
+func (s *PRService) assemblePRs(ctx context.Context, repo *Repo, rows []store.PullRow) ([]*PullRequest, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	// Collect the issue PKs and batch-load them.
+	issuePKs := make([]int64, len(rows))
+	for i := range rows {
+		issuePKs[i] = rows[i].IssuePK
+	}
+	issueMap, err := s.store.IssuesByPKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect unique user/milestone PKs across all issues.
+	userPKSet := map[int64]struct{}{}
+	milestonePKSet := map[int64]struct{}{}
+	for _, iss := range issueMap {
+		userPKSet[iss.UserPK] = struct{}{}
+		if iss.MilestonePK != nil {
+			milestonePKSet[*iss.MilestonePK] = struct{}{}
+		}
+	}
+	for i := range rows {
+		if rows[i].MergedByPK != nil {
+			userPKSet[*rows[i].MergedByPK] = struct{}{}
+		}
+	}
+
+	// Batch-load labels and assignees by issue PK.
+	labelMap, err := s.store.LabelsByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+	assigneeMap, err := s.store.AssigneesByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+	for _, pks := range assigneeMap {
+		for _, pk := range pks {
+			userPKSet[pk] = struct{}{}
+		}
+	}
+
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	milestonePKs := make([]int64, 0, len(milestonePKSet))
+	for pk := range milestonePKSet {
+		milestonePKs = append(milestonePKs, pk)
+	}
+
+	userMap, err := s.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	milestoneMap, err := s.store.MilestonesByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*PullRequest, 0, len(rows))
+	for i := range rows {
+		pullRow := &rows[i]
+		issueRow, ok := issueMap[pullRow.IssuePK]
+		if !ok {
+			continue
+		}
+
+		var author *User
+		if u, ok := userMap[issueRow.UserPK]; ok {
+			author = userFromRow(u)
+		}
+
+		assigneePKs := assigneeMap[issueRow.PK]
+		assignees := make([]*User, 0, len(assigneePKs))
+		for _, pk := range assigneePKs {
+			if u, ok := userMap[pk]; ok {
+				assignees = append(assignees, userFromRow(u))
+			}
+		}
+
+		var milestone *Milestone
+		if issueRow.MilestonePK != nil {
+			if mr, ok := milestoneMap[*issueRow.MilestonePK]; ok {
+				var creator *User
+				if mr.CreatorPK != nil {
+					if cu, ok := userMap[*mr.CreatorPK]; ok {
+						creator = userFromRow(cu)
+					} else {
+						cu2, err := s.issues.store.UserByPK(ctx, *mr.CreatorPK)
+						if err == nil {
+							creator = userFromRow(cu2)
+						}
+					}
+				}
+				open, closed, err := s.issues.store.MilestoneIssueCounts(ctx, mr.PK)
+				if err != nil {
+					return nil, err
+				}
+				milestone = &Milestone{
+					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
+					Description: mr.Description, State: mr.State, Creator: creator,
+					OpenIssues: open, ClosedIssues: closed,
+					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
+					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
+				}
+			}
+		}
+
+		var mergedBy *User
+		if pullRow.MergedByPK != nil {
+			if u, ok := userMap[*pullRow.MergedByPK]; ok {
+				mergedBy = userFromRow(u)
+			}
+		}
+
+		out = append(out, &PullRequest{
+			PK:                  pullRow.PK,
+			ID:                  pullRow.DBID,
+			IssueID:             issueRow.DBID,
+			Number:              issueRow.Number,
+			RepoPK:              repo.PK,
+			Repo:                repo,
+			Title:               issueRow.Title,
+			Body:                issueRow.Body,
+			State:               issueRow.State,
+			Locked:              issueRow.Locked,
+			User:                author,
+			Assignees:           assignees,
+			Labels:              labelsFromRows(labelMap[issueRow.PK]),
+			Milestone:           milestone,
+			CommentsCount:       issueRow.CommentsCount,
+			Base:                endpoint(repo, pullRow.BaseRef, pullRow.BaseSHA),
+			Head:                endpoint(repo, pullRow.HeadRef, pullRow.HeadSHA),
+			Draft:               pullRow.Draft,
+			MaintainerCanModify: pullRow.MaintainerCanModify,
+			Merged:              pullRow.Merged,
+			MergedAt:            pullRow.MergedAt,
+			MergedBy:            mergedBy,
+			MergeCommitSHA:      pullRow.MergeCommitSHA,
+			Mergeable:           pullRow.Mergeable,
+			MergeableState:      pullRow.MergeableState,
+			Rebaseable:          pullRow.Rebaseable,
+			Additions:           pullRow.Additions,
+			Deletions:           pullRow.Deletions,
+			ChangedFiles:        pullRow.ChangedFiles,
+			CommitsCount:        pullRow.CommitsCount,
+			ClosedAt:            issueRow.ClosedAt,
+			CreatedAt:           issueRow.CreatedAt,
+			UpdatedAt:           issueRow.UpdatedAt,
+		})
+	}
+	return out, nil
 }
 
 // assemble composes the domain PullRequest from the issue row, the pull row, and

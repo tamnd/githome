@@ -58,15 +58,7 @@ func (s *IssueService) ListComments(ctx context.Context, viewerPK int64, owner, 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*Comment, 0, len(rows))
-	for i := range rows {
-		c, err := s.assembleComment(ctx, &rows[i])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, nil
+	return s.assembleComments(ctx, row, rows)
 }
 
 // GetComment resolves a single comment by its public id, gating on the
@@ -149,6 +141,52 @@ func (s *IssueService) canModifyComment(repo *Repo, actorPK int64, row *store.Co
 		return false
 	}
 	return row.UserPK == actorPK || canWrite(repo, actorPK)
+}
+
+// assembleComments batch-loads users and reaction rollups for a page of comment
+// rows in two round trips instead of N×2.
+func (s *IssueService) assembleComments(ctx context.Context, issueRow *store.IssueRow, rows []store.CommentRow) ([]*Comment, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	// Collect unique author PKs and comment PKs.
+	userPKSet := map[int64]struct{}{}
+	commentPKs := make([]int64, len(rows))
+	for i := range rows {
+		userPKSet[rows[i].UserPK] = struct{}{}
+		commentPKs[i] = rows[i].PK
+	}
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	userMap, err := s.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "comment", commentPKs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Comment, 0, len(rows))
+	for i := range rows {
+		row := &rows[i]
+		var author *User
+		if u, ok := userMap[row.UserPK]; ok {
+			author = userFromRow(u)
+		}
+		out = append(out, &Comment{
+			ID:          row.DBID,
+			IssuePK:     row.IssuePK,
+			IssueNumber: issueRow.Number,
+			User:        author,
+			Body:        row.Body,
+			Reactions:   rollup(rollupMap[row.PK]),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+		})
+	}
+	return out, nil
 }
 
 func (s *IssueService) assembleComment(ctx context.Context, row *store.CommentRow) (*Comment, error) {
