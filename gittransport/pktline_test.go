@@ -79,8 +79,8 @@ func (n *nonFlushingWriter) Header() http.Header {
 	}
 	return n.headers
 }
-func (n *nonFlushingWriter) Write(p []byte) (int, error)      { return n.buf.Write(p) }
-func (n *nonFlushingWriter) WriteHeader(_ int)                {}
+func (n *nonFlushingWriter) Write(p []byte) (int, error) { return n.buf.Write(p) }
+func (n *nonFlushingWriter) WriteHeader(_ int)           {}
 
 // BenchmarkWritePktString confirms the pkt-line header is framed with
 // zero heap allocations per call once the pool is warm.
