@@ -34,3 +34,26 @@ func conditionalJSON(w http.ResponseWriter, r *http.Request, status int, v any) 
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }
+
+// conditionalVersioned renders v as a JSON response carrying the pre-computed
+// version ETag tag, and short-circuits to 304 Not Modified without marshaling
+// the body when the request's If-None-Match validator already covers that tag.
+// It is used for resources with stable version markers (id, updated_at) so the
+// 304 hot path pays only the cost of deriving the version key, not a full
+// marshal. The tag must be derived from all fields that can change the body,
+// typically via etag.Version.
+func conditionalVersioned(w http.ResponseWriter, r *http.Request, status int, v any, tag string) {
+	w.Header().Set("ETag", tag)
+	if etag.Match(r.Header.Get("If-None-Match"), tag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	body, err := json.Marshal(v)
+	if err != nil {
+		writeError(w, &apiError{Status: http.StatusInternalServerError, Message: "Server Error", DocURL: docRoot})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}

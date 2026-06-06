@@ -9,6 +9,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/etag"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/restmodel"
@@ -25,7 +26,8 @@ func handleRepoGet(d Deps) mizu.Handler {
 		}
 		actor := auth.ActorFrom(c.Request().Context())
 		body := d.URLs.Repository(repo, d.NodeFormat, repoPermissions(actor, repo))
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
+		tag := etag.Version("repo", repo.ID, repo.UpdatedAt.UnixNano())
+		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, body, tag)
 		return nil
 	}
 }

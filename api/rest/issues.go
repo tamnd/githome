@@ -11,6 +11,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/etag"
 	"github.com/tamnd/githome/store"
 )
 
@@ -170,7 +171,8 @@ func handleIssueGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
+		tag := etag.Version("issue", iss.ID, iss.UpdatedAt.UnixNano())
+		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat), tag)
 		return nil
 	}
 }
