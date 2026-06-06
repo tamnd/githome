@@ -1,0 +1,81 @@
+name: realworld
+
+# Real-world corpus pipeline gates, tiered the way the giants demand: a fast
+# per-PR smoke that proves the export -> seed -> manifest pipeline on a small
+# fixture, and heavier nightly tiers that ingest the real repositories. The
+# heavy tiers need network and a GitHub token to export from live sources, so
+# they run only on schedule/dispatch and skip with a logged reason when no
+# token is configured rather than passing silently.
+
+on:
+  pull_request:
+    paths:
+      - "realworld/**"
+      - "cmd/githome-realworld-ingest/**"
+      - "store/seed*.go"
+      - ".github/workflows/realworld.yml"
+  schedule:
+    # Nightly at 04:17 UTC, off the hour so it does not pile onto the rush.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Fixture tier to run on demand"
+        type: choice
+        options: [rw-smoke, rw-meta, rw-write, rw-git, rw-full]
+        default: rw-smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realworld-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Per-PR gate: the RW-smoke tier. Proves the pipeline (export a local fixture,
+  # seed it, write the manifest, read it back) without cloning any giant. This
+  # is the blocking gate on every PR that touches the ingest path.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build ./...
+      - name: pipeline + corpus tests (RW-smoke)
+        run: go test -race ./realworld/... ./cmd/githome-realworld-ingest/... ./store/...
+
+  # Nightly/dispatch: the heavy tiers ingest the real repositories. The live
+  # export needs network and a token, so when none is configured the leg logs
+  # which tier it skipped and why (no-silent-caps) instead of reporting a pass.
+  tiers:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: [rw-meta, rw-write, rw-git]
+    env:
+      GITHOME_REALWORLD_TOKEN: ${{ secrets.GITHOME_REALWORLD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go build ./cmd/githome-realworld-ingest
+      - name: ingest tier ${{ matrix.tier }}
+        run: |
+          if [ -z "${GITHOME_REALWORLD_TOKEN}" ]; then
+            echo "::notice::tier ${{ matrix.tier }} skipped: GITHOME_REALWORLD_TOKEN is not configured, so the live export from github.com cannot run in this environment"
+            exit 0
+          fi
+          dsn="sqlite://$RUNNER_TEMP/realworld-${{ matrix.tier }}.db"
+          ./githome-realworld-ingest \
+            -stage all \
+            -data "$RUNNER_TEMP/snapshot-${{ matrix.tier }}" \
+            -db "$dsn" \
+            -tier "${{ matrix.tier }}"
