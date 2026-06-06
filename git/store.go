@@ -68,3 +68,11 @@ func (s *Store) Init(pk int64) (*Repo, error) {
 	}
 	return &Repo{repo: r}, nil
 }
+
+// Close shuts down the long-lived cat-file processes the pool holds. The server
+// calls it on shutdown so the helper processes do not outlive the store.
+func (s *Store) Close() {
+	if s.pool != nil {
+		s.pool.close()
+	}
+}

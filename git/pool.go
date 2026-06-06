@@ -89,21 +89,21 @@ type catFilePool struct {
 	bin      string
 	mu       sync.Mutex
 	procs    map[int64]*catProc
-	lru      *list.List            // front = MRU, back = LRU
+	lru      *list.List // front = MRU, back = LRU
 	lruIdx   map[int64]*list.Element
 	maxProcs int
 }
 
-func newCatFilePool(bin string, max int) *catFilePool {
-	if max <= 0 {
-		max = 64
+func newCatFilePool(bin string, limit int) *catFilePool {
+	if limit <= 0 {
+		limit = 64
 	}
 	return &catFilePool{
 		bin:      bin,
 		procs:    make(map[int64]*catProc),
 		lru:      list.New(),
 		lruIdx:   make(map[int64]*list.Element),
-		maxProcs: max,
+		maxProcs: limit,
 	}
 }
 
@@ -198,7 +198,7 @@ func (pool *catFilePool) close() {
 // Eviction is LRU; entry count (not byte size) bounds the cache since type
 // strings are short and object sizes are metadata, not content.
 const (
-	objCacheMaxEntries = 4096
+	objCacheMaxEntries   = 4096
 	objCacheMaxBlobBytes = 10 << 20 // blobs > 10 MB are not cached
 )
 
@@ -214,11 +214,11 @@ type cacheEntry struct {
 	info objInfo
 }
 
-func newObjCache(max int) *objCache {
-	if max <= 0 {
-		max = objCacheMaxEntries
+func newObjCache(limit int) *objCache {
+	if limit <= 0 {
+		limit = objCacheMaxEntries
 	}
-	return &objCache{list: list.New(), entries: make(map[string]*list.Element), max: max}
+	return &objCache{list: list.New(), entries: make(map[string]*list.Element), max: limit}
 }
 
 func (c *objCache) get(sha string) (objInfo, bool) {

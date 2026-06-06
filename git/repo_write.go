@@ -155,7 +155,9 @@ func (s *Store) catFileLookup(ctx context.Context, pk int64, sha string) (objInf
 			info = objInfo{missing: true}
 		} else if len(parts) == 3 {
 			var sz int64
-			fmt.Sscanf(parts[2], "%d", &sz)
+			if _, err := fmt.Sscanf(parts[2], "%d", &sz); err != nil {
+				return objInfo{}, fmt.Errorf("git cat-file: bad size %q: %w", parts[2], err)
+			}
 			info = objInfo{typ: parts[1], size: sz}
 		} else {
 			return objInfo{}, fmt.Errorf("git cat-file: unexpected %q", line)
