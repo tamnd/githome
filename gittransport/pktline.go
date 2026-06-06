@@ -14,6 +14,7 @@ package gittransport
 import (
 	"fmt"
 	"io"
+	"sync"
 )
 
 // flushPkt is the pkt-line that marks a section boundary: the four bytes "0000".
@@ -22,6 +23,17 @@ const flushPkt = "0000"
 // maxPktLen is the largest a pkt-line may be, including its 4-byte length prefix
 // (protocol-common). The payload may therefore be at most maxPktLen-4 bytes.
 const maxPktLen = 65520
+
+// hexDigits is the lowercase hex alphabet used by the pkt-line length header.
+const hexDigits = "0123456789abcdef"
+
+// pktPool pools pkt-line frame buffers. Each buffer holds a complete pkt-line
+// (4-byte hex length prefix + payload) so writePktString performs a single
+// Write call with no per-invocation allocation once the pool is warm.
+var pktPool = sync.Pool{New: func() any {
+	b := make([]byte, 0, 64)
+	return &b
+}}
 
 // writePktString frames s as a single data pkt-line: a four-hex length prefix
 // (the payload length plus the four prefix bytes) followed by the payload. Any
@@ -33,10 +45,18 @@ func writePktString(w io.Writer, s string) error {
 	if n > maxPktLen {
 		return fmt.Errorf("gittransport: pkt-line payload exceeds %d bytes", maxPktLen-4)
 	}
-	if _, err := fmt.Fprintf(w, "%04x", n); err != nil {
-		return err
-	}
-	_, err := io.WriteString(w, s)
+	bp := pktPool.Get().(*[]byte)
+	b := (*bp)[:0]
+	b = append(b,
+		hexDigits[(n>>12)&0xf],
+		hexDigits[(n>>8)&0xf],
+		hexDigits[(n>>4)&0xf],
+		hexDigits[n&0xf],
+	)
+	b = append(b, s...)
+	*bp = b
+	_, err := w.Write(b)
+	pktPool.Put(bp)
 	return err
 }
 
