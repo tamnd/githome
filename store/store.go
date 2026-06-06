@@ -34,7 +34,9 @@ type Store struct {
 
 // Open resolves the dialect from the DSN, opens a pooled *sql.DB with the right
 // driver, applies dialect-specific pool tuning, and verifies connectivity.
-func Open(ctx context.Context, dsn string) (*Store, error) {
+// pgPoolSize sets the Postgres max-open-connections limit; pass 0 (or use the
+// default config value of 25) for the built-in default.
+func Open(ctx context.Context, dsn string, pgPoolSize ...int) (*Store, error) {
 	dialect, driver, normalized, err := parseDSN(dsn)
 	if err != nil {
 		return nil, err
@@ -43,7 +45,11 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", dialect, err)
 	}
-	tunePool(db, dialect)
+	poolSize := 25
+	if len(pgPoolSize) > 0 && pgPoolSize[0] > 0 {
+		poolSize = pgPoolSize[0]
+	}
+	tunePool(db, dialect, poolSize)
 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -87,11 +93,11 @@ func (s *Store) AllocDBID(ctx context.Context) (int64, error) {
 	return id, nil
 }
 
-func tunePool(db *sql.DB, d Dialect) {
+func tunePool(db *sql.DB, d Dialect, pgPoolSize int) {
 	switch d {
 	case DialectPostgres:
-		db.SetMaxOpenConns(25)
-		db.SetMaxIdleConns(25)
+		db.SetMaxOpenConns(pgPoolSize)
+		db.SetMaxIdleConns(pgPoolSize)
 		db.SetConnMaxIdleTime(5 * time.Minute)
 		db.SetConnMaxLifetime(time.Hour)
 	case DialectSQLite:
@@ -122,6 +128,10 @@ func parseDSN(dsn string) (d Dialect, driver, normalized string, err error) {
 		ensurePragma(vals, "busy_timeout", "5000")
 		ensurePragma(vals, "foreign_keys", "ON")
 		ensurePragma(vals, "synchronous", "NORMAL")
+		// Negative cache_size means kilobytes; -65536 = 64 MB page cache.
+		ensurePragma(vals, "cache_size", "-65536")
+		// 256 MB memory-mapped I/O for read-heavy workloads.
+		ensurePragma(vals, "mmap_size", "268435456")
 		return DialectSQLite, "sqlite", "file:" + base + "?" + vals.Encode(), nil
 
 	default:
