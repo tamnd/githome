@@ -149,6 +149,10 @@ type IssueQuery struct {
 	Direction       string
 	Page            int
 	PerPage         int
+	// Cursor is an opaque token from the previous page's Link header. When set
+	// and the sort is "created" DESC (the default), the store uses a keyset
+	// seek instead of OFFSET so deep pages are O(1) in depth.
+	Cursor string
 }
 
 // CreateIssue opens an issue in the repository after authorizing write access.
@@ -488,6 +492,14 @@ func (s *IssueService) buildFilter(ctx context.Context, repo *Repo, q IssueQuery
 			return f, err
 		}
 		f.MilestonePK = &m.PK
+	}
+	// Decode the opaque cursor from the REST layer. A malformed cursor is
+	// silently ignored and falls back to the OFFSET path, so a corrupted URL
+	// still returns a (possibly incorrect) page rather than a hard error.
+	if q.Cursor != "" {
+		if cur, err := store.DecodeCursor(q.Cursor); err == nil {
+			f.Cursor = &cur
+		}
 	}
 	return f, nil
 }

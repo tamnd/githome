@@ -25,6 +25,16 @@ type Page struct {
 // Offset is the row offset this page starts at, the value the store query takes.
 func (p Page) Offset() int { return (p.Page - 1) * p.PerPage }
 
+// HasNextPage reports whether there is at least one more page after this one,
+// using the Total set by the handler. It is called before finalize so the
+// handler can decide whether to build a cursor before writing the Link header.
+func (p Page) HasNextPage() bool {
+	if p.Total <= 0 {
+		return false
+	}
+	return p.Page*p.PerPage < p.Total
+}
+
 // parsePage reads the page and per_page query parameters with GitHub's bounds: a
 // missing value defaults (page 1, per_page 30), a per_page above 100 is clamped
 // rather than rejected, and anything non-integer or below 1 is a 422 before any
@@ -69,6 +79,15 @@ func (p *Page) finalize() {
 // last, first. Every other query parameter rides through unchanged; only page
 // is rewritten, and the URL is rebuilt on the configured API host.
 func writeLinkHeader(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, p Page) {
+	writeLinkHeaderCursor(w, r, ub, p, "")
+}
+
+// writeLinkHeaderCursor is writeLinkHeader with an optional keyset cursor for
+// the next-page link. When nextCursor is non-empty the rel="next" URL carries
+// ?cursor=... instead of ?page=N+1, enabling index-seek pagination on the
+// follow-up request. All other rels (prev, last, first) keep the page-number
+// form so random access and backward navigation remain possible.
+func writeLinkHeaderCursor(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, p Page, nextCursor string) {
 	p.finalize()
 	if !p.HasPrev && !p.HasNext {
 		return
@@ -76,18 +95,22 @@ func writeLinkHeader(w http.ResponseWriter, r *http.Request, ub *presenter.URLBu
 	path := r.URL.Path
 	raw := r.URL.RawQuery
 	var parts []string
-	add := func(rel string, page int) {
+	addPage := func(rel string, page int) {
 		parts = append(parts, "<"+ub.PageLink(path, raw, page)+`>; rel="`+rel+`"`)
 	}
 	if p.HasPrev {
-		add("prev", p.Page-1)
+		addPage("prev", p.Page-1)
 	}
 	if p.HasNext {
-		add("next", p.Page+1)
-		add("last", p.Last)
+		if nextCursor != "" {
+			parts = append(parts, "<"+ub.CursorLink(path, raw, nextCursor)+`>; rel="next"`)
+		} else {
+			addPage("next", p.Page+1)
+		}
+		addPage("last", p.Last)
 	}
 	if p.HasPrev {
-		add("first", 1)
+		addPage("first", 1)
 	}
 	w.Header().Set("Link", strings.Join(parts, ", "))
 }
