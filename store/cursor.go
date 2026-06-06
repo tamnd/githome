@@ -20,7 +20,7 @@ type IssueCursor struct {
 	Number    int64
 }
 
-// EncodeCursor serialises the cursor to a URL-safe base64 string.
+// EncodeCursor serializes the cursor to a URL-safe base64 string.
 func EncodeCursor(c IssueCursor) string {
 	raw := fmt.Sprintf("%d:%d", c.CreatedAt.UnixNano(), c.Number)
 	return base64.RawURLEncoding.EncodeToString([]byte(raw))
