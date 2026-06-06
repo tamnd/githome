@@ -46,6 +46,7 @@ type checksStore interface {
 	GetCheckRun(ctx context.Context, dbID int64) (*store.CheckRunRow, error)
 	ListCheckRunsForRef(ctx context.Context, repoPK int64, headSHA string) ([]store.CheckRunRow, error)
 	ListCheckRunsForSuite(ctx context.Context, suitePK int64) ([]store.CheckRunRow, error)
+	ListCheckRunsForSuites(ctx context.Context, suitePKs []int64) (map[int64][]store.CheckRunRow, error)
 
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 }
@@ -273,12 +274,18 @@ func (s *ChecksService) ListCheckSuites(ctx context.Context, viewerPK int64, own
 	if err != nil {
 		return nil, "", err
 	}
+	// Batch-load all check runs for the page of suites in one query.
+	suitePKs := make([]int64, len(rows))
+	for i := range rows {
+		suitePKs[i] = rows[i].PK
+	}
+	runsBySuite, err := s.store.ListCheckRunsForSuites(ctx, suitePKs)
+	if err != nil {
+		return nil, "", err
+	}
 	out := make([]*CheckSuite, 0, len(rows))
 	for i := range rows {
-		runRows, err := s.store.ListCheckRunsForSuite(ctx, rows[i].PK)
-		if err != nil {
-			return nil, "", err
-		}
+		runRows := runsBySuite[rows[i].PK]
 		runs := make([]*CheckRun, 0, len(runRows))
 		for j := range runRows {
 			runs = append(runs, s.assembleRun(&runRows[j]))
