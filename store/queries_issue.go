@@ -54,6 +54,11 @@ type IssueFilter struct {
 	Direction    string // "asc" | "desc"; "" means "desc"
 	Limit        int    // 0 means the default page of 30
 	Offset       int
+	// Cursor, when non-nil, switches the data query from OFFSET to a keyset
+	// seek: WHERE (created_at, number) < cursor. Only effective when Sort is
+	// "created" (or ""); ignored for other sort columns since the cursor encodes
+	// created_at. CountIssues always uses OFFSET so the total stays correct.
+	Cursor *IssueCursor
 }
 
 // GetIssueByNumber resolves an issue by its per-repo number, skipping soft
@@ -138,16 +143,59 @@ func (f IssueFilter) orderBy() string {
 }
 
 // ListIssues returns a repository's issues matching the filter, one page at a
-// time.
+// time. When the filter carries a Cursor and the sort is "created" (default),
+// the query is a keyset seek instead of OFFSET, so deep pages are O(1) in
+// page depth rather than O(page*per_page).
 func (s *Store) ListIssues(ctx context.Context, repoPK int64, f IssueFilter) ([]IssueRow, error) {
-	where, args := f.where()
 	limit := f.Limit
 	if limit <= 0 {
 		limit = 30
 	}
+
+	useKeyset := f.Cursor != nil && (f.Sort == "" || f.Sort == "created") &&
+		(f.Direction == "" || strings.EqualFold(f.Direction, "desc"))
+
+	if useKeyset {
+		return s.listIssuesKeyset(ctx, repoPK, f, limit)
+	}
+
+	where, args := f.where()
 	full := append([]any{repoPK}, args...)
 	full = append(full, limit, f.Offset)
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues i` + where + f.orderBy() + ` LIMIT ? OFFSET ?`)
+	rows, err := s.db.QueryContext(ctx, q, full...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []IssueRow
+	for rows.Next() {
+		iss, err := scanIssueRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *iss)
+	}
+	return out, rows.Err()
+}
+
+// listIssuesKeyset is the keyset variant of ListIssues used when a cursor is
+// present. It appends a seek predicate:
+//
+//	AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))
+//
+// which is index-seekable on (created_at, number) and flat in page depth. The
+// expanded form avoids dialect differences around row-value comparisons.
+func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilter, limit int) ([]IssueRow, error) {
+	where, args := f.where()
+	cur := f.Cursor
+	// Append the seek predicate after the other WHERE clauses.
+	where += ` AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))`
+	// Order by (created_at DESC, number DESC) — keyset only applies for this order.
+	order := ` ORDER BY i.created_at DESC, i.number DESC`
+	full := append([]any{repoPK}, args...)
+	full = append(full, s.timeArg(cur.CreatedAt), s.timeArg(cur.CreatedAt), cur.Number, limit)
+	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues i` + where + order + ` LIMIT ?`)
 	rows, err := s.db.QueryContext(ctx, q, full...)
 	if err != nil {
 		return nil, err

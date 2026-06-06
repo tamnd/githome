@@ -130,6 +130,23 @@ func argTime(p *time.Time) any {
 	return *p
 }
 
+// sqliteTimeFmt is the format CURRENT_TIMESTAMP uses in SQLite: no timezone
+// suffix, UTC assumed. Comparing a bound time.Time (which modernc renders with
+// a " +0000 UTC" suffix) against a column stored in this format always returns
+// less-than for every row because the shorter string is lexicographically
+// smaller. Formatting explicitly in this layout makes the strings match.
+const sqliteTimeFmt = "2006-01-02 15:04:05"
+
+// timeArg returns t formatted for a bound query parameter. For SQLite it uses
+// the bare YYYY-MM-DD HH:MM:SS layout that CURRENT_TIMESTAMP stores; for
+// Postgres it passes time.Time directly so pgx handles timezone encoding.
+func (s *Store) timeArg(t time.Time) any {
+	if s.dialect == DialectSQLite {
+		return t.UTC().Format(sqliteTimeFmt)
+	}
+	return t
+}
+
 // affectedOrNotFound maps an UPDATE/DELETE that touched no row to ErrNotFound,
 // so a call against a missing primary key reads as a not-found rather than a
 // silent success.

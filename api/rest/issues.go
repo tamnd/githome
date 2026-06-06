@@ -4,12 +4,14 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/store"
 )
 
 // issueCreateBody is the POST /issues request. milestone is the milestone
@@ -64,6 +66,9 @@ type reactionBody struct {
 
 // handleIssuesList serves GET /repos/{owner}/{repo}/issues. The state, labels,
 // creator, assignee, milestone, sort, and direction queries narrow the page.
+// An opaque ?cursor= token (from a previous response's Link rel="next") switches
+// the store query to a keyset seek instead of OFFSET, so deep-page walks are
+// O(1) in page depth rather than degrading linearly.
 func handleIssuesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
@@ -81,6 +86,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 			Direction:     c.Query("direction"),
 			Page:          page.Page,
 			PerPage:       page.PerPage,
+			Cursor:        c.Query("cursor"),
 		}
 		if n, ok := queryInt64(c, "milestone"); ok {
 			q.MilestoneNumber = &n
@@ -97,7 +103,21 @@ func handleIssuesList(d Deps) mizu.Handler {
 			out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		}
 		page.Total = total
-		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+
+		// Emit a cursor-based next URL when using the default sort (created
+		// DESC): following it uses a keyset seek instead of OFFSET.
+		// For explicit custom sorts or reverse direction, fall back to page numbers.
+		var nextCursor string
+		if len(issues) > 0 && page.HasNextPage() &&
+			(q.Sort == "" || q.Sort == "created") &&
+			(q.Direction == "" || strings.EqualFold(q.Direction, "desc")) {
+			last := issues[len(issues)-1]
+			nextCursor = store.EncodeCursor(store.IssueCursor{
+				CreatedAt: last.CreatedAt,
+				Number:    last.Number,
+			})
+		}
+		writeLinkHeaderCursor(c.Writer(), c.Request(), d.URLs, page, nextCursor)
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}

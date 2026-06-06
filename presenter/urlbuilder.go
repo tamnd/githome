@@ -65,6 +65,18 @@ func (b *URLBuilder) PageLink(path, rawQuery string, page int) string {
 	return u.String()
 }
 
+// CursorLink returns the URL for the next page identified by an opaque cursor.
+// It carries per_page through from the original query and drops the page and
+// cursor parameters so the link is a clean cursor reference.
+func (b *URLBuilder) CursorLink(path, rawQuery, cursor string) string {
+	u := url.URL{Scheme: b.api.Scheme, Host: b.api.Host, Path: path}
+	q, _ := url.ParseQuery(rawQuery)
+	q.Del("page")
+	q.Set("cursor", cursor)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 // UserAPI returns the API URL for a user, e.g. {api}/users/{login}.
 func (b *URLBuilder) UserAPI(login string) string { return b.API("users", login) }
 

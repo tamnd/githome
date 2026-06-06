@@ -19,8 +19,10 @@ func seedIssues(t *testing.T, fx issueFixture, n int) {
 	}
 }
 
-// linkRels parses a Link header into a rel -> page map, reading the page query
-// of each link target so a test asserts navigation without pinning the host.
+// linkRels parses a Link header into a rel -> value map. For page-number URLs
+// the value is the page number string ("2"). For cursor URLs the value is the
+// literal string "cursor" so tests can assert that cursor pagination is in use
+// without pinning the opaque token value.
 func linkRels(t *testing.T, header string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
@@ -41,13 +43,16 @@ func linkRels(t *testing.T, header string) map[string]string {
 			rel = rest[:strings.IndexByte(rest, '"')]
 		}
 		q := target[strings.IndexByte(target, '?')+1:]
-		page := ""
+		value := ""
 		for _, kv := range strings.Split(q, "&") {
 			if strings.HasPrefix(kv, "page=") {
-				page = strings.TrimPrefix(kv, "page=")
+				value = strings.TrimPrefix(kv, "page=")
+			}
+			if strings.HasPrefix(kv, "cursor=") {
+				value = "cursor" // opaque token; tests assert presence, not value
 			}
 		}
-		out[rel] = page
+		out[rel] = value
 	}
 	return out
 }
@@ -56,24 +61,31 @@ func TestPaginationLinkHeader(t *testing.T) {
 	fx := issueServer(t)
 	seedIssues(t, fx, 5) // 5 issues, per_page 2 -> 3 pages
 
-	// First page: next and last, no prev/first.
+	// First page: rel="next" is a cursor URL (keyset), rel="last" is page-based.
 	resp, _ := get(t, fx.srv, "/repos/octocat/hello/issues?per_page=2&page=1")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("page 1 status %d", resp.StatusCode)
 	}
 	rels := linkRels(t, resp.Header.Get("Link"))
-	if rels["next"] != "2" || rels["last"] != "3" {
-		t.Errorf("page 1 rels = %+v, want next=2 last=3", rels)
+	if rels["next"] != "cursor" {
+		t.Errorf("page 1 next = %q, want cursor-based URL", rels["next"])
+	}
+	if rels["last"] != "3" {
+		t.Errorf("page 1 last = %q, want 3", rels["last"])
 	}
 	if _, ok := rels["prev"]; ok {
 		t.Errorf("page 1 should have no prev, got %+v", rels)
 	}
 
-	// Middle page: all four rels.
+	// Middle page accessed via explicit ?page=2: uses OFFSET, page-number rels.
 	resp, _ = get(t, fx.srv, "/repos/octocat/hello/issues?per_page=2&page=2")
 	rels = linkRels(t, resp.Header.Get("Link"))
-	if rels["prev"] != "1" || rels["next"] != "3" || rels["last"] != "3" || rels["first"] != "1" {
-		t.Errorf("page 2 rels = %+v, want prev=1 next=3 last=3 first=1", rels)
+	if rels["prev"] != "1" || rels["last"] != "3" || rels["first"] != "1" {
+		t.Errorf("page 2 rels = %+v, want prev=1 last=3 first=1", rels)
+	}
+	// next is cursor-based since default sort applies
+	if rels["next"] != "cursor" {
+		t.Errorf("page 2 next = %q, want cursor-based URL", rels["next"])
 	}
 
 	// Last page: prev and first, no next/last.
