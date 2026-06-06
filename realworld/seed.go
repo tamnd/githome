@@ -46,7 +46,8 @@ func SeedCorpus(ctx context.Context, st *store.Store, c *Corpus, reactor Reactor
 		s := &seeder{tx: tx, ctx: ctx, c: c, reactor: reactor, res: res,
 			userPK: map[string]int64{}, labelPK: map[string]int64{},
 			milestonePK: map[int64]int64{}, issuePK: map[int64]int64{},
-			pullPK: map[int64]int64{}, reviewPK: map[int64]int64{},
+			issueStamp: map[int64][2]time.Time{},
+			pullPK:     map[int64]int64{}, reviewPK: map[int64]int64{},
 			reviewCommentPK: map[int64]int64{}}
 		return s.run()
 	})
@@ -81,12 +82,13 @@ type seeder struct {
 
 	userPK          map[string]int64
 	reactorPKs      []int64
-	labelPK         map[string]int64 // lower(name) -> pk
-	milestonePK     map[int64]int64  // number -> pk
-	issuePK         map[int64]int64  // issue number -> pk
-	pullPK          map[int64]int64  // pr number -> pull_requests.pk
-	reviewPK        map[int64]int64  // review id -> pk
-	reviewCommentPK map[int64]int64  // review-comment id -> pk
+	labelPK         map[string]int64       // lower(name) -> pk
+	milestonePK     map[int64]int64        // number -> pk
+	issuePK         map[int64]int64        // issue number -> pk
+	issueStamp      map[int64][2]time.Time // issue number -> {created, updated}
+	pullPK          map[int64]int64        // pr number -> pull_requests.pk
+	reviewPK        map[int64]int64        // review id -> pk
+	reviewCommentPK map[int64]int64        // review-comment id -> pk
 	repoPK          int64
 }
 
@@ -253,6 +255,7 @@ func (s *seeder) seedIssues() error {
 			return fmt.Errorf("seed issue %d: %w", iss.Number, err)
 		}
 		s.issuePK[iss.Number] = row.PK
+		s.issueStamp[iss.Number] = [2]time.Time{iss.CreatedAt, iss.UpdatedAt}
 
 		if len(iss.Labels) > 0 {
 			pks := make([]int64, 0, len(iss.Labels))
@@ -300,8 +303,8 @@ func (s *seeder) seedPulls() error {
 			Deletions: pr.Deletions, ChangedFiles: pr.ChangedFiles,
 			CreatedAt: userEpoch, UpdatedAt: userEpoch,
 		}
-		if iss := s.issueByNumber(pr.Number); iss != nil {
-			row.CreatedAt, row.UpdatedAt = iss.CreatedAt, iss.UpdatedAt
+		if ts, ok := s.issueStamp[pr.Number]; ok {
+			row.CreatedAt, row.UpdatedAt = ts[0], ts[1]
 		}
 		if pr.MergedBy != "" {
 			if pk, ok := s.userPK[pr.MergedBy]; ok {
@@ -504,15 +507,6 @@ func (s *seeder) expandReactions(subjectType string, subjectPK int64, counts map
 			if err := s.tx.SeedReaction(s.ctx, row); err != nil {
 				return fmt.Errorf("seed reaction: %w", err)
 			}
-		}
-	}
-	return nil
-}
-
-func (s *seeder) issueByNumber(n int64) *Issue {
-	for i := range s.c.Issues {
-		if s.c.Issues[i].Number == n {
-			return &s.c.Issues[i]
 		}
 	}
 	return nil
