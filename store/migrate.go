@@ -63,6 +63,82 @@ func (s *Store) Migrate(ctx context.Context) error {
 	})
 }
 
+// Install provisions a fresh database from the consolidated schema file rather
+// than replaying the incremental migrations one by one. It applies
+// schema.<dialect>.sql in a single transaction, then stamps schema_migrations
+// with every known version and its checksum so a subsequent Migrate sees the
+// database as fully up to date and does nothing.
+//
+// Install refuses to run on a database that already carries applied migrations:
+// it is a fresh-install fast path, not a substitute for Migrate on an existing
+// database. Callers that are unsure should call Migrate, which is always safe.
+func (s *Store) Install(ctx context.Context) error {
+	return s.withMigrationLock(ctx, func(conn *sql.Conn) error {
+		if err := s.ensureLedger(ctx, conn); err != nil {
+			return err
+		}
+		applied, err := s.loadApplied(ctx, conn)
+		if err != nil {
+			return err
+		}
+		if len(applied) > 0 {
+			return fmt.Errorf("store: Install requires an empty database (found %d applied migrations); use Migrate", len(applied))
+		}
+		migs, err := s.loadMigrations()
+		if err != nil {
+			return err
+		}
+		schema, err := s.loadSchema()
+		if err != nil {
+			return err
+		}
+		return s.installSchema(ctx, conn, schema, migs)
+	})
+}
+
+// loadSchema reads the consolidated schema file for the active dialect.
+func (s *Store) loadSchema() (string, error) {
+	name := "schema.pg.sql"
+	if s.dialect == DialectSQLite {
+		name = "schema.sqlite.sql"
+	}
+	body, err := fs.ReadFile(migrations.FS, name)
+	if err != nil {
+		return "", fmt.Errorf("store: read %s: %w", name, err)
+	}
+	return string(body), nil
+}
+
+// installSchema applies the schema body and stamps every migration version in a
+// single transaction, so a fresh install is all-or-nothing.
+func (s *Store) installSchema(ctx context.Context, conn *sql.Conn, schema string, migs []migration) error {
+	begin := "BEGIN"
+	if s.dialect == DialectSQLite {
+		begin = "BEGIN EXCLUSIVE"
+	}
+	if _, err := conn.ExecContext(ctx, begin); err != nil {
+		return err
+	}
+	rollback := func() { _, _ = conn.ExecContext(context.Background(), "ROLLBACK") }
+
+	if _, err := conn.ExecContext(ctx, schema); err != nil {
+		rollback()
+		return fmt.Errorf("store: apply schema: %w", err)
+	}
+	stamp := s.rebind(`INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)`)
+	for _, m := range migs {
+		if _, err := conn.ExecContext(ctx, stamp, m.version, m.name, m.checksum); err != nil {
+			rollback()
+			return fmt.Errorf("store: stamp %04d_%s: %w", m.version, m.name, err)
+		}
+	}
+	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
+		rollback()
+		return err
+	}
+	return nil
+}
+
 // Rollback reverts the last n applied migrations, most recent first. A zero or
 // negative n is treated as 1.
 func (s *Store) Rollback(ctx context.Context, n int) error {
