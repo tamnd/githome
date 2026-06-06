@@ -29,7 +29,7 @@ type issueFixture struct {
 // issueServer mounts the full authenticated REST surface over a fresh store with
 // the issue service wired, returning the server, the owner's plaintext token,
 // and the store so a test can read back the durable job queue.
-func issueServer(t *testing.T) issueFixture {
+func issueServer(t testing.TB) issueFixture {
 	t.Helper()
 	ctx := context.Background()
 

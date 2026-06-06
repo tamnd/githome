@@ -143,7 +143,7 @@ func gitExec(t *testing.T, dir string, args ...string) string {
 
 // authedSend issues method with a JSON body and bearer token, returning the
 // response and its body.
-func authedSend(t *testing.T, srv *httptest.Server, method, path, token, body string) (*http.Response, []byte) {
+func authedSend(t testing.TB, srv *httptest.Server, method, path, token, body string) (*http.Response, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(method, srv.URL+path, strings.NewReader(body))
 	if err != nil {

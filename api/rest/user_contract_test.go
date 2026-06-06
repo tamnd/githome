@@ -21,7 +21,7 @@ import (
 
 // authConfig is testConfig plus the resolved base URLs the presenter needs to
 // build a user's links.
-func authConfig(t *testing.T) config.Config {
+func authConfig(t testing.TB) config.Config {
 	t.Helper()
 	cfg := testConfig()
 	mustURL := func(s string) *url.URL {
