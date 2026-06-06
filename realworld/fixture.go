@@ -73,6 +73,17 @@ func WriteCorpus(root string, c *Corpus) error {
 	return nil
 }
 
+// ReadRepoRef reads only the pinned RepoRef (repo.json) for one repo in a
+// snapshot, without loading any table. It lets a streaming caller record the
+// pinned git side in a manifest without materializing the corpus; a missing or
+// unreadable repo.json falls back to the ref passed in.
+func ReadRepoRef(root string, ref RepoRef) RepoRef {
+	if stored, err := readJSON[RepoRef](filepath.Join(repoDir(root, ref), fileRepo)); err == nil {
+		return stored
+	}
+	return ref
+}
+
 // ReadCorpus reads one repo's corpus back from a snapshot directory.
 func ReadCorpus(root string, ref RepoRef) (*Corpus, error) {
 	dir := repoDir(root, ref)
@@ -159,6 +170,88 @@ func readJSONL[T any](path string) ([]T, error) {
 		out = append(out, row)
 	}
 	return out, sc.Err()
+}
+
+// streamJSONL decodes a JSON-lines file one row at a time, handing each to fn,
+// so a caller can process a table without ever materializing the whole slice.
+// This is the bounded-memory counterpart to readJSONL: the seeder uses it so a
+// million-row table costs one row of memory at a time, not the whole table. A
+// missing file streams as no rows, matching readJSONL.
+func streamJSONL[T any](path string, fn func(T) error) error {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	line := 0
+	for sc.Scan() {
+		line++
+		b := sc.Bytes()
+		if len(b) == 0 {
+			continue
+		}
+		var row T
+		if err := json.Unmarshal(b, &row); err != nil {
+			return fmt.Errorf("realworld: %s line %d: %w", filepath.Base(path), line, err)
+		}
+		if err := fn(row); err != nil {
+			return err
+		}
+	}
+	return sc.Err()
+}
+
+// streamLogins collects the distinct set of every login named anywhere in a
+// repo's snapshot, in the same first-seen order as Corpus.Logins, by streaming
+// each table a row at a time. It holds only the login strings, so the user
+// prepass of a streaming seed costs the distinct-user set, not the rows. dir is
+// the per-repo snapshot directory; owner is seeded first so the repo owner
+// always has a user row.
+func streamLogins(dir, owner string) ([]string, error) {
+	seen := map[string]bool{}
+	var out []string
+	add := func(login string) {
+		if login == "" || seen[login] {
+			return
+		}
+		seen[login] = true
+		out = append(out, login)
+	}
+	add(owner)
+	if err := streamJSONL(filepath.Join(dir, fileIssues), func(iss Issue) error {
+		add(iss.Author)
+		for _, a := range iss.Assignees {
+			add(a)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := streamJSONL(filepath.Join(dir, filePulls), func(pr PullRequest) error { add(pr.MergedBy); return nil }); err != nil {
+		return nil, err
+	}
+	if err := streamJSONL(filepath.Join(dir, fileComments), func(cm Comment) error { add(cm.Author); return nil }); err != nil {
+		return nil, err
+	}
+	if err := streamJSONL(filepath.Join(dir, fileReviews), func(r Review) error { add(r.Author); return nil }); err != nil {
+		return nil, err
+	}
+	if err := streamJSONL(filepath.Join(dir, fileReviewComments), func(rc ReviewComment) error { add(rc.Author); return nil }); err != nil {
+		return nil, err
+	}
+	if err := streamJSONL(filepath.Join(dir, fileTimeline), func(ev TimelineEvent) error {
+		add(ev.Actor)
+		add(ev.Assignee)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func writeJSON(path string, v any) error {

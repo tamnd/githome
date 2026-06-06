@@ -3,6 +3,7 @@ package realworld
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -37,39 +38,82 @@ type SeedResult struct {
 // reactor pool with a fixed assignment, so two seeds of the same corpus produce
 // identical databases.
 func SeedCorpus(ctx context.Context, st *store.Store, c *Corpus, reactor ReactorPool) (*SeedResult, error) {
-	res := &SeedResult{Rows: map[string]int{}}
-	if reactor.Size <= 0 {
-		reactor = DefaultReactorPool
-	}
+	s := newSeeder(ctx, c, reactor)
 
-	err := st.WithTx(ctx, func(tx *store.Tx) error {
-		s := &seeder{tx: tx, ctx: ctx, c: c, reactor: reactor, res: res,
-			userPK: map[string]int64{}, labelPK: map[string]int64{},
-			milestonePK: map[int64]int64{}, issuePK: map[int64]int64{},
-			issueStamp: map[int64][2]time.Time{},
-			pullPK:     map[int64]int64{}, reviewPK: map[int64]int64{},
-			reviewCommentPK: map[int64]int64{}}
-		return s.run()
+	// The whole-repo insert runs under the bulk-load pragmas: on SQLite that
+	// trades per-commit durability for throughput during the load, which is the
+	// right trade for a re-runnable seed and is what makes a million-row corpus
+	// land in feasible time. BulkLoad restores the serving pragmas afterward.
+	err := st.BulkLoad(ctx, func() error {
+		return st.WithTx(ctx, func(tx *store.Tx) error {
+			s.tx = tx
+			return s.run()
+		})
 	})
 	if err != nil {
 		return nil, err
 	}
+	if err := s.finish(st); err != nil {
+		return nil, err
+	}
+	return s.res, nil
+}
 
-	// The number allocator must sit past the highest seeded number so the first
-	// live issue created after the seed does not collide with a preserved one.
-	maxNumber := int64(0)
-	for _, iss := range c.Issues {
-		if iss.Number > maxNumber {
-			maxNumber = iss.Number
-		}
+// SeedSnapshot seeds one repo's corpus straight from its on-disk snapshot,
+// streaming each table from disk and releasing it before the next, so the seeder
+// never holds the whole corpus in memory at once. Peak memory is one table plus
+// the foreign-key resolution maps, not the sum of every table's rows, which is
+// what lets a multi-hundred-thousand-row repo seed without loading gigabytes of
+// bodies into RAM. It is the scale counterpart to SeedCorpus, which takes an
+// already-materialized corpus and is the path the in-memory and pseudonymized
+// flows use.
+func SeedSnapshot(ctx context.Context, st *store.Store, root string, ref RepoRef, reactor ReactorPool) (*SeedResult, error) {
+	// The repo.json carries the pinned git side the manifest entry may not.
+	repo := ref
+	if stored, err := readJSON[RepoRef](filepath.Join(repoDir(root, ref), fileRepo)); err == nil {
+		repo = stored
 	}
-	if err := st.SetNextIssueNumber(ctx, res.RepoPK, maxNumber+1); err != nil {
+	s := newSeeder(ctx, &Corpus{Repo: repo}, reactor)
+
+	err := st.BulkLoad(ctx, func() error {
+		return st.WithTx(ctx, func(tx *store.Tx) error {
+			s.tx = tx
+			return s.runStreaming(root, ref)
+		})
+	})
+	if err != nil {
 		return nil, err
 	}
-	if err := st.RecomputeIssueCommentCounts(ctx, res.RepoPK); err != nil {
+	if err := s.finish(st); err != nil {
 		return nil, err
 	}
-	return res, nil
+	return s.res, nil
+}
+
+// newSeeder builds a seeder with empty resolution maps. The caller attaches the
+// transaction (s.tx) inside BulkLoad before calling run or runStreaming.
+func newSeeder(ctx context.Context, c *Corpus, reactor ReactorPool) *seeder {
+	if reactor.Size <= 0 {
+		reactor = DefaultReactorPool
+	}
+	return &seeder{
+		ctx: ctx, c: c, reactor: reactor, res: &SeedResult{Rows: map[string]int{}},
+		userPK: map[string]int64{}, labelPK: map[string]int64{},
+		milestonePK: map[int64]int64{}, issuePK: map[int64]int64{},
+		issueStamp: map[int64][2]time.Time{},
+		pullPK:     map[int64]int64{}, reviewPK: map[int64]int64{},
+		reviewCommentPK: map[int64]int64{},
+	}
+}
+
+// finish runs the post-load store maintenance both seed paths share: advance the
+// number allocator past the highest seeded number so the first live issue does
+// not collide with a preserved one, and recompute the cached comment counts.
+func (s *seeder) finish(st *store.Store) error {
+	if err := st.SetNextIssueNumber(s.ctx, s.res.RepoPK, s.maxIssueNumber+1); err != nil {
+		return err
+	}
+	return st.RecomputeIssueCommentCounts(s.ctx, s.res.RepoPK)
 }
 
 // seeder holds the resolution maps for one repository's load.
@@ -90,6 +134,13 @@ type seeder struct {
 	reviewPK        map[int64]int64        // review id -> pk
 	reviewCommentPK map[int64]int64        // review-comment id -> pk
 	repoPK          int64
+	maxIssueNumber  int64 // highest issue number seen, for the post-load allocator reset
+
+	// reactionBuf accumulates the materialized reactor-pool rows as issues and
+	// comments are seeded, so they load through the chunked bulk path in one
+	// flush instead of a round trip apiece. Reactions are leaf rows (no children
+	// reference their pk), which is what makes the bulk insert safe here.
+	reactionBuf []store.ReactionRow
 }
 
 func (s *seeder) run() error {
@@ -126,11 +177,98 @@ func (s *seeder) run() error {
 	if err := s.seedTimeline(); err != nil {
 		return err
 	}
-	return s.seedStatuses()
+	if err := s.seedStatuses(); err != nil {
+		return err
+	}
+	// Reactions buffered while seeding issues and comments flush last, in one
+	// chunked bulk insert over a single batch-allocated id range.
+	return s.flushReactions()
 }
 
-func (s *seeder) seedUsers() error {
-	for _, login := range s.c.Logins() {
+// runStreaming seeds straight from a snapshot directory, loading one table into
+// the corpus at a time and releasing it before the next so peak memory is one
+// table plus the resolution maps, not the whole corpus. The phase order matches
+// run; each table feeds exactly one consecutive group of phases, so loading and
+// releasing it around that group preserves the same deterministic db_id order.
+func (s *seeder) runStreaming(root string, ref RepoRef) error {
+	dir := repoDir(root, ref)
+
+	// Users come first and need every login named anywhere, so collect the
+	// distinct set in a streaming prepass that holds only the login strings, not
+	// the rows they came from.
+	logins, err := streamLogins(dir, s.c.Repo.Owner)
+	if err != nil {
+		return err
+	}
+	if err := s.seedUsersFrom(logins); err != nil {
+		return err
+	}
+	if err := s.seedReactorPool(); err != nil {
+		return err
+	}
+	if err := s.seedRepo(); err != nil {
+		return err
+	}
+
+	// Issues feed labels, milestones, and issues; load once for the three.
+	if s.c.Issues, err = readJSONL[Issue](filepath.Join(dir, fileIssues)); err != nil {
+		return err
+	}
+	if err := s.seedLabels(); err != nil {
+		return err
+	}
+	if err := s.seedMilestones(); err != nil {
+		return err
+	}
+	if err := s.seedIssues(); err != nil {
+		return err
+	}
+	s.c.Issues = nil
+
+	for _, phase := range []struct {
+		load func() error
+		seed func() error
+	}{
+		{func() (err error) {
+			s.c.PullRequests, err = readJSONL[PullRequest](filepath.Join(dir, filePulls))
+			return
+		}, s.seedPulls},
+		{func() (err error) { s.c.Comments, err = readJSONL[Comment](filepath.Join(dir, fileComments)); return }, s.seedComments},
+		{func() (err error) { s.c.Reviews, err = readJSONL[Review](filepath.Join(dir, fileReviews)); return }, s.seedReviews},
+		{func() (err error) {
+			s.c.ReviewComments, err = readJSONL[ReviewComment](filepath.Join(dir, fileReviewComments))
+			return
+		}, s.seedReviewComments},
+		{func() (err error) {
+			s.c.TimelineEvents, err = readJSONL[TimelineEvent](filepath.Join(dir, fileTimeline))
+			return
+		}, s.seedTimeline},
+		{func() (err error) {
+			s.c.CommitStatuses, err = readJSONL[CommitStatus](filepath.Join(dir, fileStatuses))
+			return
+		}, s.seedStatuses},
+	} {
+		if err := phase.load(); err != nil {
+			return err
+		}
+		if err := phase.seed(); err != nil {
+			return err
+		}
+		// Release this table before loading the next so they never coexist.
+		s.c.PullRequests, s.c.Comments, s.c.Reviews = nil, nil, nil
+		s.c.ReviewComments, s.c.TimelineEvents, s.c.CommitStatuses = nil, nil, nil
+	}
+
+	return s.flushReactions()
+}
+
+func (s *seeder) seedUsers() error { return s.seedUsersFrom(s.c.Logins()) }
+
+// seedUsersFrom seeds the user table from an already-collected, ordered login
+// set. Both seed paths funnel through here: the in-memory path passes
+// Corpus.Logins, the streaming path passes the prepass result.
+func (s *seeder) seedUsersFrom(logins []string) error {
+	for _, login := range logins {
 		u := &store.UserRow{Login: login, Type: "User", CreatedAt: userEpoch, UpdatedAt: userEpoch}
 		if isBot(login) {
 			u.Type = "Bot"
@@ -256,6 +394,9 @@ func (s *seeder) seedIssues() error {
 		}
 		s.issuePK[iss.Number] = row.PK
 		s.issueStamp[iss.Number] = [2]time.Time{iss.CreatedAt, iss.UpdatedAt}
+		if iss.Number > s.maxIssueNumber {
+			s.maxIssueNumber = iss.Number
+		}
 
 		if len(iss.Labels) > 0 {
 			pks := make([]int64, 0, len(iss.Labels))
@@ -423,28 +564,32 @@ func (s *seeder) seedReviewComments() error {
 func (s *seeder) seedTimeline() error {
 	order := slices.Clone(s.c.TimelineEvents)
 	slices.SortFunc(order, func(a, b TimelineEvent) int { return int(a.ID - b.ID) })
-	n := 0
+	// The timeline is the largest table in an automation-heavy corpus, so it
+	// loads through the chunked bulk path. Events are leaf rows; nothing
+	// references their pk, so they need neither RETURNING nor a per-row id call.
+	rows := make([]store.IssueEventRow, 0, len(order))
 	for _, ev := range order {
 		issuePK, ok := s.issuePK[ev.IssueNumber]
 		if !ok {
 			s.drop("timeline_event", "no issue row for event", 1)
 			continue
 		}
-		row := &store.IssueEventRow{
+		row := store.IssueEventRow{
 			RepoPK: s.repoPK, IssuePK: issuePK, Event: ev.EventType,
 			Payload: renderEventPayload(ev), CreatedAt: ev.CreatedAt,
 		}
 		if ev.Actor != "" {
 			if pk, ok := s.userPK[ev.Actor]; ok {
-				row.ActorPK = &pk
+				actor := pk
+				row.ActorPK = &actor
 			}
 		}
-		if err := s.tx.SeedIssueEvent(s.ctx, row); err != nil {
-			return fmt.Errorf("seed timeline event %d: %w", ev.ID, err)
-		}
-		n++
+		rows = append(rows, row)
 	}
-	s.res.Rows["timeline_events"] = n
+	if err := s.tx.SeedIssueEventsBulk(s.ctx, rows); err != nil {
+		return fmt.Errorf("seed timeline: %w", err)
+	}
+	s.res.Rows["timeline_events"] = len(rows)
 	return nil
 }
 
@@ -500,15 +645,23 @@ func (s *seeder) expandReactions(subjectType string, subjectPK int64, counts map
 			if idx < 0 {
 				idx += len(s.reactorPKs)
 			}
-			row := &store.ReactionRow{
+			s.reactionBuf = append(s.reactionBuf, store.ReactionRow{
 				SubjectType: subjectType, SubjectPK: subjectPK,
 				UserPK: s.reactorPKs[idx], Content: content, CreatedAt: createdAt,
-			}
-			if err := s.tx.SeedReaction(s.ctx, row); err != nil {
-				return fmt.Errorf("seed reaction: %w", err)
-			}
+			})
 		}
 	}
+	return nil
+}
+
+// flushReactions loads the buffered reactor-pool rows through the chunked bulk
+// path. The buffer was filled in issue-then-comment order with a deterministic
+// reactor assignment, so the load is reproducible across runs.
+func (s *seeder) flushReactions() error {
+	if err := s.tx.SeedReactionsBulk(s.ctx, s.reactionBuf); err != nil {
+		return fmt.Errorf("seed reactions: %w", err)
+	}
+	s.res.Rows["reactions"] = len(s.reactionBuf)
 	return nil
 }
 

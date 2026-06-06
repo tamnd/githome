@@ -141,19 +141,12 @@ func doSeed(ctx context.Context, o options) error {
 	m.Repos = nil
 
 	for _, ref := range repos {
-		c, err := realworld.ReadCorpus(o.data, ref)
-		if err != nil {
-			return err
-		}
-		if o.pseudonymize {
-			c = realworld.NewPseudonymizer(true).Apply(c)
-		}
-		res, err := realworld.SeedCorpus(ctx, st, c, m.Reactor)
+		res, repo, err := seedOne(ctx, st, o, ref, m.Reactor)
 		if err != nil {
 			return fmt.Errorf("seed %s: %w", ref.NWO(), err)
 		}
 		m.Repos = append(m.Repos, realworld.RepoManifest{
-			Repo:       c.Repo,
+			Repo:       repo,
 			Provenance: provenanceFor(o.pseudonymize),
 			Rows:       res.Rows,
 		})
@@ -170,6 +163,29 @@ func doSeed(ctx context.Context, o options) error {
 	}
 	fmt.Printf("wrote manifest %s (tier %s, %d repo(s))\n", o.manifest, m.FixtureTier, len(m.Repos))
 	return nil
+}
+
+// seedOne seeds a single repo and returns the measured result and the repo ref
+// to record in the manifest. The pseudonymized path must hold the whole corpus
+// in memory because the login bijection and body redaction span every row, so it
+// reads, rewrites, and seeds the materialized corpus. The official path streams
+// the snapshot table by table through SeedSnapshot, so a scale repo never loads
+// its whole body set into RAM at once.
+func seedOne(ctx context.Context, st *store.Store, o options, ref realworld.RepoRef, reactor realworld.ReactorPool) (*realworld.SeedResult, realworld.RepoRef, error) {
+	if o.pseudonymize {
+		c, err := realworld.ReadCorpus(o.data, ref)
+		if err != nil {
+			return nil, ref, err
+		}
+		c = realworld.NewPseudonymizer(true).Apply(c)
+		res, err := realworld.SeedCorpus(ctx, st, c, reactor)
+		return res, c.Repo, err
+	}
+	res, err := realworld.SeedSnapshot(ctx, st, o.data, ref, reactor)
+	if err != nil {
+		return nil, ref, err
+	}
+	return res, realworld.ReadRepoRef(o.data, ref), nil
 }
 
 // loadOrNewManifest reuses an existing manifest's pins if one is present so the
