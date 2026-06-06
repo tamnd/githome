@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -158,7 +157,11 @@ func run() error {
 	srv := &http.Server{
 		Addr:              cfg.Listen.HTTP,
 		Handler:           root,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
+		ReadTimeout:       cfg.Server.ReadTimeout,
+		WriteTimeout:      cfg.Server.WriteTimeout,
+		IdleTimeout:       cfg.Server.IdleTimeout,
+		MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 

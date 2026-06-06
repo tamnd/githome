@@ -58,6 +58,13 @@ func applyEnv(c *Config) {
 	setDur(&c.Worker.PollEvery, "GITHOME_WORKER_POLL")
 	setDur(&c.ShutdownTimeout, "GITHOME_SHUTDOWN_TIMEOUT")
 
+	setDur(&c.Server.ReadHeaderTimeout, "GITHOME_HTTP_READ_HEADER_TIMEOUT")
+	setDur(&c.Server.ReadTimeout, "GITHOME_HTTP_READ_TIMEOUT")
+	setDur(&c.Server.WriteTimeout, "GITHOME_HTTP_WRITE_TIMEOUT")
+	setDur(&c.Server.IdleTimeout, "GITHOME_HTTP_IDLE_TIMEOUT")
+	setInt(&c.Server.MaxHeaderBytes, "GITHOME_HTTP_MAX_HEADER_BYTES")
+	setInt64(&c.Server.MaxBodyBytes, "GITHOME_HTTP_MAX_BODY_BYTES")
+
 	c.URLs.rawAPI = firstNonEmpty(os.Getenv("GITHOME_API_BASE_URL"), c.URLs.rawAPI)
 	c.URLs.rawHTML = firstNonEmpty(os.Getenv("GITHOME_HTML_BASE_URL"), c.URLs.rawHTML)
 	c.URLs.rawGraphQL = firstNonEmpty(os.Getenv("GITHOME_GRAPHQL_URL"), c.URLs.rawGraphQL)
@@ -126,6 +133,14 @@ func setStr(dst *string, key string) {
 func setInt(dst *int, key string) {
 	if v, ok := os.LookupEnv(key); ok {
 		if n, err := strconv.Atoi(v); err == nil {
+			*dst = n
+		}
+	}
+}
+
+func setInt64(dst *int64, key string) {
+	if v, ok := os.LookupEnv(key); ok {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			*dst = n
 		}
 	}

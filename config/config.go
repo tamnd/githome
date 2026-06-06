@@ -32,6 +32,7 @@ type Config struct {
 	Secrets         Secrets
 	Worker          Worker
 	Log             Log
+	Server          Server
 	ShutdownTimeout time.Duration // GITHOME_SHUTDOWN_TIMEOUT; default 30s
 	Env             string        // GITHOME_ENV; "production" switches slog to JSON
 }
@@ -81,6 +82,22 @@ type Worker struct {
 	PollEvery   time.Duration // GITHOME_WORKER_POLL         default 2s
 }
 
+// Server holds the HTTP server hardening knobs. The two whole-request deadlines
+// default to zero on purpose: git smart-HTTP clone and push stream a single
+// response or request body for as long as a multi-gigabyte transfer takes, and a
+// blanket ReadTimeout or WriteTimeout would sever those mid-transfer. An operator
+// who fronts the JSON API on a separate listener with no git traffic can set
+// them. The always-safe guards (header read deadline, idle keep-alive reaping,
+// header size cap, and the JSON request-body cap) are on by default.
+type Server struct {
+	ReadHeaderTimeout time.Duration // GITHOME_HTTP_READ_HEADER_TIMEOUT  default 10s
+	ReadTimeout       time.Duration // GITHOME_HTTP_READ_TIMEOUT         default 0 (off; git streams)
+	WriteTimeout      time.Duration // GITHOME_HTTP_WRITE_TIMEOUT        default 0 (off; git streams)
+	IdleTimeout       time.Duration // GITHOME_HTTP_IDLE_TIMEOUT         default 120s
+	MaxHeaderBytes    int           // GITHOME_HTTP_MAX_HEADER_BYTES     default 1 MiB
+	MaxBodyBytes      int64         // GITHOME_HTTP_MAX_BODY_BYTES       default 25 MiB; JSON API only
+}
+
 // Log configures the structured logger.
 type Log struct {
 	Level  string // GITHOME_LOG_LEVEL   debug|info|warn|error  default info
@@ -107,5 +124,11 @@ func defaults() Config {
 		},
 		Worker: Worker{Concurrency: runtime.GOMAXPROCS(0), PollEvery: 2 * time.Second},
 		Log:    Log{Level: "info"},
+		Server: Server{
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
+			MaxHeaderBytes:    1 << 20,
+			MaxBodyBytes:      25 << 20,
+		},
 	}
 }
