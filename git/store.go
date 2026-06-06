@@ -15,14 +15,27 @@ import (
 type Store struct {
 	root   string
 	gitBin string // git binary for the write path; empty means "git" on PATH
+
+	// pool holds long-lived cat-file --batch-check processes for ObjectExists
+	// and ObjectType lookups, eliminating per-call spawn overhead on hot repos.
+	pool  *catFilePool
+	cache *objCache
 }
 
 // NewStore builds a Store rooted at dir (typically config.RepoRoot()).
-func NewStore(dir string) *Store { return &Store{root: dir} }
+func NewStore(dir string) *Store {
+	s := &Store{root: dir}
+	s.pool = newCatFilePool("git", 64)
+	s.cache = newObjCache(objCacheMaxEntries)
+	return s
+}
 
 // SetGitBin overrides the git binary the write path execs. An empty value (the
 // default) resolves "git" on PATH. The server sets this from configuration.
-func (s *Store) SetGitBin(bin string) { s.gitBin = bin }
+func (s *Store) SetGitBin(bin string) {
+	s.gitBin = bin
+	s.pool = newCatFilePool(s.bin(), 64)
+}
 
 // Dir returns the on-disk path of the bare repository for pk. Repositories are
 // sharded by pk%256 to keep any single directory from holding the whole fleet:
@@ -54,4 +67,12 @@ func (s *Store) Init(pk int64) (*Repo, error) {
 		}
 	}
 	return &Repo{repo: r}, nil
+}
+
+// Close shuts down the long-lived cat-file processes the pool holds. The server
+// calls it on shutdown so the helper processes do not outlive the store.
+func (s *Store) Close() {
+	if s.pool != nil {
+		s.pool.close()
+	}
 }

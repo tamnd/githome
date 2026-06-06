@@ -134,29 +134,60 @@ func (s *Store) RefSnapshot(ctx context.Context, pk int64) (map[string]SHA, erro
 	return out, nil
 }
 
+// catFileLookup is the shared helper for ObjectExists and ObjectType. It
+// queries the pool (a long-lived cat-file --batch-check process) and caches
+// results by SHA, falling back to a fresh spawn on pool failure.
+func (s *Store) catFileLookup(ctx context.Context, pk int64, sha string) (objInfo, error) {
+	if info, ok := s.cache.get(sha); ok {
+		return info, nil
+	}
+	info, err := s.pool.lookup(s.Dir(pk), pk, sha)
+	if err != nil {
+		// Pool failed (process died or not started); fall back to single spawn.
+		args := []string{"cat-file", "--batch-check"}
+		r, rerr := s.run(ctx, pk, strings.NewReader(sha+"\n"), args...)
+		if rerr != nil {
+			return objInfo{}, rerr
+		}
+		line := strings.TrimRight(string(r.stdout), "\n")
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[1] == "missing" {
+			info = objInfo{missing: true}
+		} else if len(parts) == 3 {
+			var sz int64
+			if _, err := fmt.Sscanf(parts[2], "%d", &sz); err != nil {
+				return objInfo{}, fmt.Errorf("git cat-file: bad size %q: %w", parts[2], err)
+			}
+			info = objInfo{typ: parts[1], size: sz}
+		} else {
+			return objInfo{}, fmt.Errorf("git cat-file: unexpected %q", line)
+		}
+	}
+	s.cache.put(sha, info)
+	return info, nil
+}
+
 // ObjectExists reports whether the object id is present in the repository.
 func (s *Store) ObjectExists(ctx context.Context, pk int64, sha SHA) (bool, error) {
-	args := []string{"cat-file", "-e", sha}
-	r, err := s.run(ctx, pk, nil, args...)
+	info, err := s.catFileLookup(ctx, pk, sha)
 	if err != nil {
 		return false, err
 	}
-	return r.code == 0, nil
+	return !info.missing, nil
 }
 
 // ObjectType returns the git type of the object ("commit", "tag", "tree",
 // "blob"), or ErrObjectNotFound when it is absent. A reference's wire model
 // reports the type of the object it points at.
 func (s *Store) ObjectType(ctx context.Context, pk int64, sha SHA) (string, error) {
-	args := []string{"cat-file", "-t", sha}
-	r, err := s.run(ctx, pk, nil, args...)
+	info, err := s.catFileLookup(ctx, pk, sha)
 	if err != nil {
 		return "", err
 	}
-	if r.code != 0 {
+	if info.missing {
 		return "", ErrObjectNotFound
 	}
-	return strings.TrimSpace(string(r.stdout)), nil
+	return info.typ, nil
 }
 
 // IsAncestor reports whether ancestor is reachable from descendant, the
