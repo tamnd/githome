@@ -27,9 +27,13 @@ autobind:
 models:
   Issue:
     fields:
-      # comments are paged through the domain on demand rather than embedded, so
-      # the field needs its own resolver. labels stay bound to the struct field
-      # the presenter fills.
+      # author and labels are resolved through per-request dataloaders so that
+      # concurrent nested field resolutions batch into one load per field per
+      # request. comments are paged through the domain on demand.
+      author:
+        resolver: true
+      labels:
+        resolver: true
       comments:
         resolver: true
   PullRequest:

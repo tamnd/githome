@@ -18,6 +18,25 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+// setThreadResolved marks a review thread resolved or unresolved through the
+// review service and returns the updated thread for the mutation payload.
+func (r *mutationResolver) setThreadResolved(ctx context.Context, threadID string, resolved bool) (*gqlmodel.PullRequestReviewThread, error) {
+	dbID, err := threadDBIDFromID(threadID)
+	if err != nil {
+		return nil, err
+	}
+	viewer := viewerID(ctx)
+	owner, name, number, err := r.Reviews.ThreadRef(ctx, viewer, dbID)
+	if err != nil {
+		return nil, unresolvable("PullRequestReviewThread", threadID)
+	}
+	thread, err := r.Reviews.ResolveThread(ctx, viewer, owner, name, number, dbID, resolved)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.URLs.GQLReviewThread(owner, name, thread, r.NodeFormat), nil
+}
+
 // buildIssueConnection renders a page of domain issues into the GraphQL
 // connection, cursoring each edge at its absolute offset so a follow-up after:
 // cursor resumes past it.

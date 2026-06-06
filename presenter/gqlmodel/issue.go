@@ -48,11 +48,11 @@ type Issue struct {
 	URL         URI               // the issue's HTML URL
 	Locked      bool              // whether the conversation is locked
 	Closed      bool              // whether the issue is closed
-	Author      *Actor            // null for a ghost author
+	Author      *Actor            // null for a ghost author (resolved by dataloader)
 	CreatedAt   DateTime          // creation instant
 	UpdatedAt   DateTime          // last-update instant
 	ClosedAt    *DateTime         // null while open
-	Labels      *LabelConnection  // the attached labels
+	Labels      *LabelConnection  // the attached labels (resolved by dataloader)
 	Comments    *IssueCommentConnection
 
 	// RepoOwner and RepoName carry the repository coordinates so the comments
@@ -60,6 +60,12 @@ type Issue struct {
 	// GraphQL schema, so gqlgen ignores them; the presenter fills them.
 	RepoOwner string
 	RepoName  string
+
+	// PK and UserPK are not part of the GraphQL schema. They carry the database
+	// primary keys the per-request dataloaders use to look up Author and Labels
+	// without re-hitting the pre-assembled domain data.
+	PK     int64
+	UserPK int64
 }
 
 // IssueConnection is the Relay connection over a repository's issues.

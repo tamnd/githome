@@ -30,6 +30,8 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		Comments:  &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
 		RepoOwner: owner,
 		RepoName:  repo,
+		PK:        iss.PK,
+		UserPK:    iss.UserPK,
 	}
 	if sr := issueStateReason(iss.StateReason); sr != nil {
 		out.StateReason = sr

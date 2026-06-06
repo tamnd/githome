@@ -142,6 +142,7 @@ func run() error {
 		Pulls:      pullSvc,
 		Reviews:    reviewSvc,
 		Checks:     checksSvc,
+		Batch:      domain.NewBatcher(st),
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
