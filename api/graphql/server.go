@@ -47,7 +47,7 @@ const maxQueryDepth = 10
 // per-request dataloader middleware, and complexity + depth guards.
 func NewHandler(d Deps) http.Handler {
 	es := generated.NewExecutableSchema(generated.Config{
-		Resolvers:  &Resolver{
+		Resolvers: &Resolver{
 			Repos:      d.Repos,
 			Issues:     d.Issues,
 			Pulls:      d.Pulls,

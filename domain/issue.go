@@ -22,7 +22,7 @@ type Issue struct {
 	Locked      bool
 
 	User          *User
-	UserPK        int64  // internal PK for the author; zero for a ghost
+	UserPK        int64 // internal PK for the author; zero for a ghost
 	Assignees     []*User
 	Labels        []*Label
 	Milestone     *Milestone

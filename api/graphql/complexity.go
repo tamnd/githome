@@ -67,7 +67,7 @@ var _ interface {
 	gqlruntime.OperationContextMutator
 } = depthLimit{}
 
-func (depthLimit) ExtensionName() string                            { return "QueryDepthLimit" }
+func (depthLimit) ExtensionName() string                      { return "QueryDepthLimit" }
 func (depthLimit) Validate(gqlruntime.ExecutableSchema) error { return nil }
 
 func (d depthLimit) MutateOperationContext(_ context.Context, opCtx *gqlruntime.OperationContext) *gqlerror.Error {
@@ -89,8 +89,8 @@ func (d depthLimit) MutateOperationContext(_ context.Context, opCtx *gqlruntime.
 
 // depthLimitExtension returns a gqlgen extension that rejects queries deeper
 // than max selection-set levels.
-func depthLimitExtension(max int) gqlruntime.HandlerExtension {
-	return depthLimit{max: max}
+func depthLimitExtension(limit int) gqlruntime.HandlerExtension {
+	return depthLimit{max: limit}
 }
 
 // selectionDepth returns the maximum selection-set nesting depth, counting
@@ -99,7 +99,7 @@ func selectionDepth(sel ast.SelectionSet, current int) int {
 	if len(sel) == 0 {
 		return current
 	}
-	max := current
+	deepest := current
 	for _, s := range sel {
 		var child ast.SelectionSet
 		switch f := s.(type) {
@@ -112,9 +112,9 @@ func selectionDepth(sel ast.SelectionSet, current int) int {
 				child = f.Definition.SelectionSet
 			}
 		}
-		if d := selectionDepth(child, current+1); d > max {
-			max = d
+		if d := selectionDepth(child, current+1); d > deepest {
+			deepest = d
 		}
 	}
-	return max
+	return deepest
 }

@@ -12,7 +12,7 @@ import (
 
 func TestLoaderBatchesMultipleCalls(t *testing.T) {
 	var fetchCount atomic.Int32
-	l := dataloader.New(func(ctx context.Context, pks []int64) (map[int64]string, error) {
+	l := dataloader.New(func(_ context.Context, pks []int64) (map[int64]string, error) {
 		fetchCount.Add(1)
 		m := make(map[int64]string, len(pks))
 		for _, pk := range pks {
@@ -49,7 +49,7 @@ func TestLoaderBatchesMultipleCalls(t *testing.T) {
 
 func TestLoaderPrimePreventsDBCall(t *testing.T) {
 	var fetchCount atomic.Int32
-	l := dataloader.New(func(ctx context.Context, pks []int64) (map[int64]string, error) {
+	l := dataloader.New(func(_ context.Context, pks []int64) (map[int64]string, error) {
 		fetchCount.Add(1)
 		m := make(map[int64]string, len(pks))
 		for _, pk := range pks {
@@ -74,7 +74,7 @@ func TestLoaderPrimePreventsDBCall(t *testing.T) {
 }
 
 func TestLoaderMissReturnsZero(t *testing.T) {
-	l := dataloader.New(func(_ context.Context, pks []int64) (map[int64]string, error) {
+	l := dataloader.New(func(_ context.Context, _ []int64) (map[int64]string, error) {
 		return map[int64]string{}, nil // nothing found
 	}, 5*time.Millisecond)
 

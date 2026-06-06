@@ -17,9 +17,9 @@ type Loader[K comparable, V any] struct {
 	wait  time.Duration
 
 	mu       sync.Mutex
-	primed   map[K]result[V]           // values seeded by Prime
-	pending  map[K][]chan result[V]    // in-flight waiters per key
-	keys     []K                       // ordered, deduped keys for next batch
+	primed   map[K]result[V]        // values seeded by Prime
+	pending  map[K][]chan result[V] // in-flight waiters per key
+	keys     []K                    // ordered, deduped keys for next batch
 	timer    *time.Timer
 	batchCtx context.Context
 }
