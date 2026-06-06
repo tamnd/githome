@@ -82,6 +82,7 @@ func run() error {
 	if cfg.GitBinaryPath != "" {
 		gitStore.SetGitBin(cfg.GitBinaryPath)
 	}
+	gitStore.SetMaxBlobBytes(cfg.Server.MaxBlobBytes)
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)

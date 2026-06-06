@@ -150,6 +150,10 @@ func handleContents(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
+		if errors.Is(err, domain.ErrBlobTooLarge) {
+			writeError(c.Writer(), errBlobTooLarge())
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -173,6 +177,10 @@ func handleBlob(d Deps) mizu.Handler {
 		blob, err := d.Repos.GetBlob(repo, c.Param("sha"))
 		if gitNotFound(err) {
 			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrBlobTooLarge) {
+			writeError(c.Writer(), errBlobTooLarge())
 			return nil
 		}
 		if err != nil {

@@ -64,6 +64,7 @@ func applyEnv(c *Config) {
 	setDur(&c.Server.IdleTimeout, "GITHOME_HTTP_IDLE_TIMEOUT")
 	setInt(&c.Server.MaxHeaderBytes, "GITHOME_HTTP_MAX_HEADER_BYTES")
 	setInt64(&c.Server.MaxBodyBytes, "GITHOME_HTTP_MAX_BODY_BYTES")
+	setInt64(&c.Server.MaxBlobBytes, "GITHOME_GIT_MAX_BLOB_BYTES")
 
 	c.URLs.rawAPI = firstNonEmpty(os.Getenv("GITHOME_API_BASE_URL"), c.URLs.rawAPI)
 	c.URLs.rawHTML = firstNonEmpty(os.Getenv("GITHOME_HTML_BASE_URL"), c.URLs.rawHTML)

@@ -20,6 +20,11 @@ const maxTreeEntries = 100000
 // Repo is a single bare repository opened for reading.
 type Repo struct {
 	repo *gogit.Repository
+
+	// maxBlobBytes caps the size of a blob blobByHash will read into memory.
+	// A positive value rejects larger blobs with ErrBlobTooLarge before the
+	// read; zero or negative disables the guard.
+	maxBlobBytes int64
 }
 
 // HEAD resolves the repository's default branch to its short name and head
@@ -348,14 +353,29 @@ func (r *Repo) blobByHash(h plumbing.Hash) (Blob, error) {
 	if err != nil {
 		return Blob{}, ErrObjectNotFound
 	}
+	// The blob header carries the true size, so reject an oversized object before
+	// reading a single byte rather than after buffering it.
+	if r.maxBlobBytes > 0 && b.Size > r.maxBlobBytes {
+		return Blob{}, ErrBlobTooLarge
+	}
 	reader, err := b.Reader()
 	if err != nil {
 		return Blob{}, err
 	}
 	defer func() { _ = reader.Close() }()
-	content, err := io.ReadAll(reader)
+	// Bound the read as a backstop in case the header size understates the stream:
+	// LimitReader at the cap plus one byte lets a truthful blob through whole while
+	// a lying one trips the ceiling check below instead of exhausting memory.
+	rd := io.Reader(reader)
+	if r.maxBlobBytes > 0 {
+		rd = io.LimitReader(reader, r.maxBlobBytes+1)
+	}
+	content, err := io.ReadAll(rd)
 	if err != nil {
 		return Blob{}, err
+	}
+	if r.maxBlobBytes > 0 && int64(len(content)) > r.maxBlobBytes {
+		return Blob{}, ErrBlobTooLarge
 	}
 	return Blob{SHA: h.String(), Size: b.Size, Content: content}, nil
 }

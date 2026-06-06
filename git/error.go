@@ -31,4 +31,9 @@ var (
 	// ErrNotFastForward is returned by UpdateRef when a non-force update would
 	// not be a fast-forward (the new commit is not a descendant of the old).
 	ErrNotFastForward = errors.New("git: update is not a fast-forward")
+
+	// ErrBlobTooLarge is returned when a blob's size exceeds the configured
+	// ceiling, before its bytes are read into memory. Callers translate it into a
+	// 403 too_large at the API edge, matching GitHub's contents and blob limits.
+	ErrBlobTooLarge = errors.New("git: blob exceeds size limit")
 )

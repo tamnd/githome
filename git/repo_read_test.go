@@ -279,6 +279,36 @@ func TestBlob(t *testing.T) {
 	}
 }
 
+func TestBlobSizeGuard(t *testing.T) {
+	fx := buildFixture(t)
+	res, err := fx.repo.PathAt("HEAD", "README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A cap below the blob size rejects the read before any bytes are buffered.
+	fx.repo.maxBlobBytes = 1
+	if _, err := fx.repo.Blob(res.Entry.SHA); !errors.Is(err, ErrBlobTooLarge) {
+		t.Fatalf("Blob over cap err = %v, want ErrBlobTooLarge", err)
+	}
+
+	// A cap at the exact size still serves the blob whole.
+	fx.repo.maxBlobBytes = int64(len("# Hello\n"))
+	blob, err := fx.repo.Blob(res.Entry.SHA)
+	if err != nil {
+		t.Fatalf("Blob at cap: %v", err)
+	}
+	if string(blob.Content) != "# Hello\n" {
+		t.Errorf("blob at cap = %q, want the full content", blob.Content)
+	}
+
+	// A disabled cap (negative) reads regardless of size.
+	fx.repo.maxBlobBytes = -1
+	if _, err := fx.repo.Blob(res.Entry.SHA); err != nil {
+		t.Fatalf("Blob with cap disabled: %v", err)
+	}
+}
+
 func TestStoreLayoutAndOpen(t *testing.T) {
 	root := t.TempDir()
 	st := NewStore(root)

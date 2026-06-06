@@ -44,6 +44,14 @@ var fixedWhen = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
 func repoServer(t *testing.T) repoFixture {
 	t.Helper()
+	return repoServerCap(t, 0)
+}
+
+// repoServerCap is repoServer with an optional blob size cap on the git store.
+// A zero cap leaves the store's built-in default; a positive cap lets a test
+// exercise the 403 too_large path on an otherwise small fixture.
+func repoServerCap(t *testing.T, blobCap int64) repoFixture {
+	t.Helper()
 	ctx := context.Background()
 
 	st, err := store.Open(ctx, "sqlite://"+filepath.Join(t.TempDir(), "githome.db"))
@@ -93,6 +101,12 @@ func repoServer(t *testing.T) repoFixture {
 	fx.headSHA = head.Commit
 	fx.treeSHA = commit.Tree
 	fx.blobSHA = readme.Entry.SHA
+
+	// Apply the cap only after the fixture metadata is resolved, so request-time
+	// reads enforce it while the setup reads above stay unaffected.
+	if blobCap != 0 {
+		gitStore.SetMaxBlobBytes(blobCap)
+	}
 
 	authSvc := auth.NewService(st, "https://git.test.internal")
 	t.Cleanup(authSvc.Close)
@@ -216,6 +230,22 @@ func TestGitDataContract(t *testing.T) {
 	fx.assertGolden(t, "blob.golden.json", "/repos/octocat/hello/git/blobs/"+fx.blobSHA)
 	fx.assertGolden(t, "tree.golden.json", "/repos/octocat/hello/git/trees/"+fx.treeSHA+"?recursive=1")
 	fx.assertGolden(t, "git_commit.golden.json", "/repos/octocat/hello/git/commits/"+fx.headSHA)
+}
+
+// TestBlobTooLarge confirms a blob past the server's size ceiling comes back as
+// a 403 on both the contents and git blob endpoints, rather than buffering the
+// whole object. The fixture's README is eight bytes, so a one-byte cap trips it.
+func TestBlobTooLarge(t *testing.T) {
+	fx := repoServerCap(t, 1)
+
+	resp, body := authedGet(t, fx.srv, "/repos/octocat/hello/contents/README.md", fx.token)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("oversized contents status %d, want 403, body %s", resp.StatusCode, body)
+	}
+	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello/git/blobs/"+fx.blobSHA, fx.token)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("oversized blob status %d, want 403, body %s", resp.StatusCode, body)
+	}
 }
 
 // TestPrivateRepoHidden confirms a private repo the actor cannot see is a 404,

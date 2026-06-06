@@ -96,6 +96,7 @@ type Server struct {
 	IdleTimeout       time.Duration // GITHOME_HTTP_IDLE_TIMEOUT         default 120s
 	MaxHeaderBytes    int           // GITHOME_HTTP_MAX_HEADER_BYTES     default 1 MiB
 	MaxBodyBytes      int64         // GITHOME_HTTP_MAX_BODY_BYTES       default 25 MiB; JSON API only
+	MaxBlobBytes      int64         // GITHOME_GIT_MAX_BLOB_BYTES        default 100 MiB; -1 disables
 }
 
 // Log configures the structured logger.
@@ -129,6 +130,7 @@ func defaults() Config {
 			IdleTimeout:       120 * time.Second,
 			MaxHeaderBytes:    1 << 20,
 			MaxBodyBytes:      25 << 20,
+			MaxBlobBytes:      100 << 20,
 		},
 	}
 }
