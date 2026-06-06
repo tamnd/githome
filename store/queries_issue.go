@@ -200,15 +200,20 @@ func (s *Store) ListIssuesPage(ctx context.Context, repoPK int64, f IssueFilter)
 }
 
 // listIssuesKeyset is the keyset variant of ListIssues used when a cursor is
-// present. It appends a seek predicate:
+// present. It appends a row-value seek predicate:
 //
-//	AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))
+//	AND (i.created_at, i.number) < (?, ?)
 //
-// which is index-seekable on (created_at, number) and flat in page depth. The
-// expanded form avoids dialect differences around row-value comparisons. It
-// fetches limit+1 rows and returns at most limit, with hasMore true when the
-// extra row was present, so the caller learns there is a next page without a
-// separate COUNT.
+// The tuple comparison is what the query planner turns into an index range bound
+// on (created_at DESC, number DESC): on SQLite the plan becomes
+// "SEARCH ... (repo_pk=? AND (created_at,number)<(?,?))" and on Postgres a row
+// constructor comparison drives the same btree range scan, so the page is a seek
+// flat in page depth rather than an OFFSET walk. An earlier form spelled this as
+// "created_at < ? OR (created_at = ? AND number < ?)"; that disjunction is
+// logically identical but neither planner converts it into a range bound, so it
+// silently degraded to a full scan of every skipped row. It fetches limit+1 rows
+// and returns at most limit, with hasMore true when the extra row was present, so
+// the caller learns there is a next page without a separate COUNT.
 func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilter, limit int) ([]IssueRow, bool, error) {
 	where, args := f.where()
 	full := append([]any{repoPK}, args...)
@@ -216,8 +221,8 @@ func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilte
 	// first page, or a cursor that failed to decode) omits the seek and returns
 	// the newest page, so a malformed token degrades to the first page.
 	if cur := f.Cursor; cur != nil {
-		where += ` AND (i.created_at < ? OR (i.created_at = ? AND i.number < ?))`
-		full = append(full, s.timeArg(cur.CreatedAt), s.timeArg(cur.CreatedAt), cur.Number)
+		where += ` AND (i.created_at, i.number) < (?, ?)`
+		full = append(full, s.timeArg(cur.CreatedAt), cur.Number)
 	}
 	// Order by (created_at DESC, number DESC) — keyset only applies for this order.
 	order := ` ORDER BY i.created_at DESC, i.number DESC`
