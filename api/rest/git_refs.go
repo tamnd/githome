@@ -130,6 +130,15 @@ func refWriteError(err error) *apiError {
 func decodeJSON(c *mizu.Ctx, v any) bool {
 	dec := json.NewDecoder(c.Request().Body)
 	if err := dec.Decode(v); err != nil && !errors.Is(err, io.EOF) {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(c.Writer(), &apiError{
+				Status:  http.StatusRequestEntityTooLarge,
+				Message: "Request body is too large",
+				DocURL:  docRoot,
+			})
+			return false
+		}
 		writeError(c.Writer(), &apiError{Status: http.StatusBadRequest, Message: "Problems parsing JSON", DocURL: docRoot})
 		return false
 	}

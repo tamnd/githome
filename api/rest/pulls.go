@@ -10,6 +10,7 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/presenter/restmodel"
+	"github.com/tamnd/githome/store"
 )
 
 // pullCreateBody is the POST /pulls request. head and base are branch names in
@@ -38,7 +39,34 @@ func handlePullsList(d Deps) mizu.Handler {
 			State:   c.Query("state"),
 			Page:    page.Page,
 			PerPage: page.PerPage,
+			Cursor:  c.Query("cursor"),
 		}
+
+		// Flat read path: a cursor follow-up seeks on the per-repo number
+		// (newest first, the only order this list offers) and skips the COUNT
+		// that page-number navigation needs for rel="last". Only rel="next" is
+		// offered, so deep walks cost the page, not a count plus a deep OFFSET.
+		if q.Cursor != "" {
+			prs, hasMore, err := d.Pulls.ListPRsPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+			if pullError(c.Writer(), err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			out := make([]any, 0, len(prs))
+			for _, pr := range prs {
+				out = append(out, d.URLs.PullRequest(c.Param("owner"), c.Param("repo"), pr, d.NodeFormat, false))
+			}
+			var nextCursor string
+			if hasMore && len(prs) > 0 {
+				nextCursor = store.EncodePullCursor(store.PullCursor{Number: prs[len(prs)-1].Number})
+			}
+			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, nextCursor)
+			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+			return nil
+		}
+
 		prs, total, err := d.Pulls.ListPRs(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if pullError(c.Writer(), err) {
 			return nil
@@ -51,7 +79,14 @@ func handlePullsList(d Deps) mizu.Handler {
 			out = append(out, d.URLs.PullRequest(c.Param("owner"), c.Param("repo"), pr, d.NodeFormat, false))
 		}
 		page.Total = total
-		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+
+		// Hand off a cursor on the next-link so a client can switch from
+		// page-number navigation to the flat keyset path after the first page.
+		var nextCursor string
+		if len(prs) > 0 && page.HasNextPage() {
+			nextCursor = store.EncodePullCursor(store.PullCursor{Number: prs[len(prs)-1].Number})
+		}
+		writeLinkHeaderCursor(c.Writer(), c.Request(), d.URLs, page, nextCursor)
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}

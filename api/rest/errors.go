@@ -95,6 +95,17 @@ func errForbidden(message string) *apiError {
 	return &apiError{Status: http.StatusForbidden, Message: message, DocURL: docRoot}
 }
 
+// errBlobTooLarge is the 403 for a blob or file whose size exceeds the server's
+// ceiling. GitHub returns this status with a too_large explanation rather than a
+// truncated body when a blob is too big to serve over the API.
+func errBlobTooLarge() *apiError {
+	return &apiError{
+		Status:  http.StatusForbidden,
+		Message: "This API returns blobs up to a configured size limit. The requested blob is too large to fetch via the API.",
+		DocURL:  docRoot,
+	}
+}
+
 // errBadCredentials is the 401 for a credential that was presented but is
 // invalid, expired, or revoked. GitHub uses the exact message "Bad credentials".
 func errBadCredentials() *apiError {

@@ -16,18 +16,38 @@ type Store struct {
 	root   string
 	gitBin string // git binary for the write path; empty means "git" on PATH
 
+	// maxBlobBytes caps the size of a blob a read may materialize into memory.
+	// Zero leaves the built-in default; a negative value disables the cap.
+	maxBlobBytes int64
+
 	// pool holds long-lived cat-file --batch-check processes for ObjectExists
 	// and ObjectType lookups, eliminating per-call spawn overhead on hot repos.
 	pool  *catFilePool
 	cache *objCache
 }
 
+// defaultMaxBlobBytes is the blob size ceiling a fresh Store applies until the
+// server overrides it. It matches GitHub's 100 MiB blob API limit, keeping a
+// single oversized object from being read whole into server memory.
+const defaultMaxBlobBytes = 100 << 20
+
 // NewStore builds a Store rooted at dir (typically config.RepoRoot()).
 func NewStore(dir string) *Store {
-	s := &Store{root: dir}
+	s := &Store{root: dir, maxBlobBytes: defaultMaxBlobBytes}
 	s.pool = newCatFilePool("git", 64)
 	s.cache = newObjCache(objCacheMaxEntries)
 	return s
+}
+
+// SetMaxBlobBytes overrides the blob size ceiling reads enforce. A positive
+// value caps materialization at that many bytes; a negative value disables the
+// cap; zero restores the built-in default. The server sets this from
+// configuration.
+func (s *Store) SetMaxBlobBytes(n int64) {
+	if n == 0 {
+		n = defaultMaxBlobBytes
+	}
+	s.maxBlobBytes = n
 }
 
 // SetGitBin overrides the git binary the write path execs. An empty value (the
@@ -52,7 +72,7 @@ func (s *Store) Open(pk int64) (*Repo, error) {
 	if err != nil {
 		return nil, ErrRepoNotFound
 	}
-	return &Repo{repo: r}, nil
+	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes}, nil
 }
 
 // Init creates an empty bare repository for pk and returns it. It is used by
@@ -66,7 +86,7 @@ func (s *Store) Init(pk int64) (*Repo, error) {
 			return nil, err
 		}
 	}
-	return &Repo{repo: r}, nil
+	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes}, nil
 }
 
 // Close shuts down the long-lived cat-file processes the pool holds. The server

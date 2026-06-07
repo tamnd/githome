@@ -27,6 +27,10 @@ var (
 	// ErrEmptyRepo is returned by head-dependent reads on a repository that has
 	// no commits yet.
 	ErrEmptyRepo = errors.New("domain: repository is empty")
+
+	// ErrBlobTooLarge is returned when a blob or file read exceeds the server's
+	// blob size ceiling. The REST layer maps it to a 403 too_large.
+	ErrBlobTooLarge = errors.New("domain: blob exceeds size limit")
 )
 
 // RepoStore is the slice of the store the repo service needs. The write path
@@ -324,6 +328,8 @@ func gitErr(err error) error {
 		return ErrEmptyRepo
 	case errors.Is(err, git.ErrObjectNotFound), errors.Is(err, git.ErrPathNotFound):
 		return ErrGitNotFound
+	case errors.Is(err, git.ErrBlobTooLarge):
+		return ErrBlobTooLarge
 	default:
 		return err
 	}

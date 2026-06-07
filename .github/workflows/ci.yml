@@ -36,8 +36,10 @@ jobs:
           fi
       - name: no leaked upstream hosts in served code
         run: |
-          # Cassettes and tests legitimately mention github.com; served Go code must not.
-          if git ls-files '*.go' | grep -vE '(_test\.go|/testdata/)' | xargs --no-run-if-empty grep -nE 'api\.github\.com|//github\.com'; then
+          # Cassettes and tests legitimately mention github.com, and the realworld
+          # ingest tooling mirrors real upstream repos so it names github.com on
+          # purpose; the served forge code must not.
+          if git ls-files '*.go' | grep -vE '(_test\.go|/testdata/|^realworld/)' | xargs --no-run-if-empty grep -nE 'api\.github\.com|//github\.com'; then
             echo "::error::served code references an upstream GitHub host"
             exit 1
           fi
@@ -49,8 +51,11 @@ jobs:
       matrix:
         dialect: [sqlite, postgres]
     services:
+      # Keep this image, env, and the DSN below in sync with
+      # docker/postgres/compose.yaml so a local `make test-postgres` run and
+      # this CI leg exercise the same Postgres.
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: githome
           POSTGRES_PASSWORD: githome

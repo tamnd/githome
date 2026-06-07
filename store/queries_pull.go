@@ -70,6 +70,58 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 	return out, rows.Err()
 }
 
+// ListPullsPage serves a keyset-paginated pull-request page and reports whether
+// a further page exists, without a COUNT. The list orders by number descending,
+// so a cursor seeks number < cursor.Number, served by the (repo_pk, number)
+// unique index in one step regardless of page depth. It fetches one row beyond
+// the page and uses its presence as the has-next signal, so a list request on a
+// repo with hundreds of thousands of pulls costs the page, not a full count plus
+// a deep OFFSET scan. A nil cursor starts from the highest number.
+func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *PullCursor, limit int) ([]PullRow, bool, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	switch state {
+	case "", "open":
+		where += ` AND i.state = 'open'`
+	case "closed":
+		where += ` AND i.state = 'closed'`
+	case "all":
+		// no state predicate
+	}
+	args := []any{repoPK}
+	if cursor != nil {
+		where += ` AND i.number < ?`
+		args = append(args, cursor.Number)
+	}
+	args = append(args, limit+1)
+	q := s.rebind(`SELECT ` + pullPrefixed + ` FROM pull_requests pr
+		JOIN issues i ON i.pk = pr.issue_pk` + where + `
+		ORDER BY i.number DESC LIMIT ?`)
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []PullRow
+	for rows.Next() {
+		p, err := scanPullRows(rows)
+		if err != nil {
+			return nil, false, err
+		}
+		out = append(out, *p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+	hasMore := len(out) > limit
+	if hasMore {
+		out = out[:limit]
+	}
+	return out, hasMore, nil
+}
+
 // CountPulls counts a repository's pull requests matching the state filter.
 func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int, error) {
 	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`

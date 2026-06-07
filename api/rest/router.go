@@ -59,7 +59,7 @@ func Mount(root *mizu.Router, d Deps) {
 		mountOAuth(root, d.Auth)
 	}
 
-	api := root.With(apiVersion, mediaType)
+	api := root.With(apiVersion, mediaType, maxBody(d.Config.Server.MaxBodyBytes))
 	if d.Auth != nil {
 		api = api.With(authMiddleware(d.Auth))
 	}

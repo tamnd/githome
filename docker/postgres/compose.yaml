@@ -1,0 +1,39 @@
+# Postgres for the githome test suite and local development.
+#
+# This is the same Postgres the CI test matrix runs against (see
+# .github/workflows/ci.yml), pinned to the same major version with the same
+# credentials and database name, so a green run here means the same thing a
+# green run in CI does. The store tests reach it through
+# GITHOME_TEST_POSTGRES_DSN; see docker/postgres/README.md.
+#
+# Local engine is podman:
+#
+#	podman compose -f docker/postgres/compose.yaml up -d
+#
+# docker users override the engine with COMPOSE="docker compose" in make, or
+# run docker compose against this same file unchanged.
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: githome-postgres
+    environment:
+      POSTGRES_USER: githome
+      POSTGRES_PASSWORD: githome
+      POSTGRES_DB: githome_test
+    ports:
+      - "5432:5432"
+    volumes:
+      # Postgres 18 stores data in a major-version subdirectory and wants the
+      # volume at /var/lib/postgresql, not the .../data path the 17 and earlier
+      # images used. Mounting the old path makes an 18 container refuse to start.
+      - githome-pg-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U githome -d githome_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  githome-pg-data:
