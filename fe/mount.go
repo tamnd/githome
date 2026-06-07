@@ -47,7 +47,7 @@ func Mount(root *mizu.Router, d Deps) {
 	page.Get("/{$}", handleHome(d))
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
-	asset.Get("/assets/{file...}", d.Render.AssetHandler())
+	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

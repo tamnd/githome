@@ -36,25 +36,32 @@ func (s *Set) loadManifest() error {
 	return nil
 }
 
-// asset resolves a logical asset name to its public URL under /assets/. An
+// AssetURLPrefix is the public path the hashed asset tree is served under.
+// "assets" is a reserved top-level name (2005/02 section 2.3), so the static
+// prefix wins over the dynamic "/{owner}" namespace by ServeMux specificity and
+// no owner login can shadow it. The route builder and the mount both read this
+// one constant so the served path and the generated URLs cannot drift.
+const AssetURLPrefix = "/assets/"
+
+// asset resolves a logical asset name to its public URL under AssetURLPrefix. An
 // unknown name returns a path that 404s rather than a silent empty string, so a
 // missing bundle is loud. In dev it re-reads the manifest first.
 func (s *Set) asset(logical string) string {
 	if s.dev {
 		if err := s.loadManifest(); err != nil {
-			return "/assets/" + logical + "?manifest-error"
+			return AssetURLPrefix + logical + "?manifest-error"
 		}
 	}
 	s.manMu.Lock()
 	hashed, ok := s.man[logical]
 	s.manMu.Unlock()
 	if !ok {
-		return "/assets/" + logical + "?missing"
+		return AssetURLPrefix + logical + "?missing"
 	}
-	return "/assets/" + hashed
+	return AssetURLPrefix + hashed
 }
 
-// AssetHandler serves files from the asset tree under /assets/{file...}. Hashed
+// AssetHandler serves files from the asset tree under AssetURLPrefix. Hashed
 // files are immutable, so the production build sends a far-future cache header;
 // the dev build sends no-cache so an edit is always picked up. The handler never
 // serves the manifest itself or escapes the asset root.
