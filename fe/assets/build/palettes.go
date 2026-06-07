@@ -70,6 +70,17 @@ var functionalTokens = []string{
 	"borderColor-success-muted",
 	"borderColor-danger-muted",
 	"borderColor-onEmphasis-muted",
+	// The prettylights syntax tokens back the code highlighter (highlight.css maps
+	// the chroma-emitted pl-* classes onto these). F2 adds the focused subset the
+	// chroma backend emits: comment, keyword, string, constant, entity, entity tag,
+	// and the variable/import color. See implementation/10 section 6.2.
+	"color-prettylights-syntax-comment",
+	"color-prettylights-syntax-keyword",
+	"color-prettylights-syntax-string",
+	"color-prettylights-syntax-constant",
+	"color-prettylights-syntax-entity",
+	"color-prettylights-syntax-entity-tag",
+	"color-prettylights-syntax-storage-modifier-import",
 }
 
 // base light and dark palettes; the variant themes start from these and override
@@ -94,6 +105,14 @@ var lightBase = map[string]string{
 	"borderColor-success-muted":    "#4ac26b66",
 	"borderColor-danger-muted":     "#ff818266",
 	"borderColor-onEmphasis-muted": "#ffffff4d",
+
+	"color-prettylights-syntax-comment":                 "#59636e",
+	"color-prettylights-syntax-keyword":                 "#cf222e",
+	"color-prettylights-syntax-string":                  "#0a3069",
+	"color-prettylights-syntax-constant":                "#0550ae",
+	"color-prettylights-syntax-entity":                  "#8250df",
+	"color-prettylights-syntax-entity-tag":              "#116329",
+	"color-prettylights-syntax-storage-modifier-import": "#1f2328",
 }
 
 var darkBase = map[string]string{
@@ -116,6 +135,14 @@ var darkBase = map[string]string{
 	"borderColor-success-muted":    "#2ea04366",
 	"borderColor-danger-muted":     "#f8514966",
 	"borderColor-onEmphasis-muted": "#ffffff33",
+
+	"color-prettylights-syntax-comment":                 "#9198a1",
+	"color-prettylights-syntax-keyword":                 "#ff7b72",
+	"color-prettylights-syntax-string":                  "#a5d6ff",
+	"color-prettylights-syntax-constant":                "#79c0ff",
+	"color-prettylights-syntax-entity":                  "#d2a8ff",
+	"color-prettylights-syntax-entity-tag":              "#7ee787",
+	"color-prettylights-syntax-storage-modifier-import": "#f0f6fc",
 }
 
 // derive copies base and applies overrides, returning a complete token map.

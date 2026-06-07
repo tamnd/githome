@@ -20,6 +20,13 @@
   --borderColor-success-muted: #4ac26b66;
   --borderColor-danger-muted: #ff818266;
   --borderColor-onEmphasis-muted: #ffffff4d;
+  --color-prettylights-syntax-comment: #59636e;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-storage-modifier-import: #1f2328;
 }
 @media (prefers-color-scheme: light) {
   [data-color-mode="auto"][data-light-theme="light"] {
@@ -43,6 +50,13 @@
     --borderColor-success-muted: #4ac26b66;
     --borderColor-danger-muted: #ff818266;
     --borderColor-onEmphasis-muted: #ffffff4d;
+    --color-prettylights-syntax-comment: #59636e;
+    --color-prettylights-syntax-keyword: #cf222e;
+    --color-prettylights-syntax-string: #0a3069;
+    --color-prettylights-syntax-constant: #0550ae;
+    --color-prettylights-syntax-entity: #8250df;
+    --color-prettylights-syntax-entity-tag: #116329;
+    --color-prettylights-syntax-storage-modifier-import: #1f2328;
   }
 }
 [data-color-mode="light"][data-light-theme="light_high_contrast"] {
@@ -66,6 +80,13 @@
   --borderColor-success-muted: #4ac26b66;
   --borderColor-danger-muted: #ff818266;
   --borderColor-onEmphasis-muted: #ffffff4d;
+  --color-prettylights-syntax-comment: #59636e;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-storage-modifier-import: #1f2328;
 }
 @media (prefers-color-scheme: light) {
   [data-color-mode="auto"][data-light-theme="light_high_contrast"] {
@@ -89,6 +110,13 @@
     --borderColor-success-muted: #4ac26b66;
     --borderColor-danger-muted: #ff818266;
     --borderColor-onEmphasis-muted: #ffffff4d;
+    --color-prettylights-syntax-comment: #59636e;
+    --color-prettylights-syntax-keyword: #cf222e;
+    --color-prettylights-syntax-string: #0a3069;
+    --color-prettylights-syntax-constant: #0550ae;
+    --color-prettylights-syntax-entity: #8250df;
+    --color-prettylights-syntax-entity-tag: #116329;
+    --color-prettylights-syntax-storage-modifier-import: #1f2328;
   }
 }
 [data-color-mode="light"][data-light-theme="light_colorblind"] {
@@ -112,6 +140,13 @@
   --borderColor-success-muted: #54aeff66;
   --borderColor-danger-muted: #ff818266;
   --borderColor-onEmphasis-muted: #ffffff4d;
+  --color-prettylights-syntax-comment: #59636e;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-storage-modifier-import: #1f2328;
 }
 @media (prefers-color-scheme: light) {
   [data-color-mode="auto"][data-light-theme="light_colorblind"] {
@@ -135,6 +170,13 @@
     --borderColor-success-muted: #54aeff66;
     --borderColor-danger-muted: #ff818266;
     --borderColor-onEmphasis-muted: #ffffff4d;
+    --color-prettylights-syntax-comment: #59636e;
+    --color-prettylights-syntax-keyword: #cf222e;
+    --color-prettylights-syntax-string: #0a3069;
+    --color-prettylights-syntax-constant: #0550ae;
+    --color-prettylights-syntax-entity: #8250df;
+    --color-prettylights-syntax-entity-tag: #116329;
+    --color-prettylights-syntax-storage-modifier-import: #1f2328;
   }
 }
 [data-color-mode="light"][data-light-theme="light_tritanopia"] {
@@ -158,6 +200,13 @@
   --borderColor-success-muted: #54aeff66;
   --borderColor-danger-muted: #ff818266;
   --borderColor-onEmphasis-muted: #ffffff4d;
+  --color-prettylights-syntax-comment: #59636e;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-storage-modifier-import: #1f2328;
 }
 @media (prefers-color-scheme: light) {
   [data-color-mode="auto"][data-light-theme="light_tritanopia"] {
@@ -181,6 +230,13 @@
     --borderColor-success-muted: #54aeff66;
     --borderColor-danger-muted: #ff818266;
     --borderColor-onEmphasis-muted: #ffffff4d;
+    --color-prettylights-syntax-comment: #59636e;
+    --color-prettylights-syntax-keyword: #cf222e;
+    --color-prettylights-syntax-string: #0a3069;
+    --color-prettylights-syntax-constant: #0550ae;
+    --color-prettylights-syntax-entity: #8250df;
+    --color-prettylights-syntax-entity-tag: #116329;
+    --color-prettylights-syntax-storage-modifier-import: #1f2328;
   }
 }
 [data-color-mode="dark"][data-dark-theme="dark"] {
@@ -204,6 +260,13 @@
   --borderColor-success-muted: #2ea04366;
   --borderColor-danger-muted: #f8514966;
   --borderColor-onEmphasis-muted: #ffffff33;
+  --color-prettylights-syntax-comment: #9198a1;
+  --color-prettylights-syntax-keyword: #ff7b72;
+  --color-prettylights-syntax-string: #a5d6ff;
+  --color-prettylights-syntax-constant: #79c0ff;
+  --color-prettylights-syntax-entity: #d2a8ff;
+  --color-prettylights-syntax-entity-tag: #7ee787;
+  --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
 }
 @media (prefers-color-scheme: dark) {
   [data-color-mode="auto"][data-dark-theme="dark"] {
@@ -227,6 +290,13 @@
     --borderColor-success-muted: #2ea04366;
     --borderColor-danger-muted: #f8514966;
     --borderColor-onEmphasis-muted: #ffffff33;
+    --color-prettylights-syntax-comment: #9198a1;
+    --color-prettylights-syntax-keyword: #ff7b72;
+    --color-prettylights-syntax-string: #a5d6ff;
+    --color-prettylights-syntax-constant: #79c0ff;
+    --color-prettylights-syntax-entity: #d2a8ff;
+    --color-prettylights-syntax-entity-tag: #7ee787;
+    --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
   }
 }
 [data-color-mode="dark"][data-dark-theme="dark_dimmed"] {
@@ -250,6 +320,13 @@
   --borderColor-success-muted: #2ea04366;
   --borderColor-danger-muted: #f8514966;
   --borderColor-onEmphasis-muted: #ffffff33;
+  --color-prettylights-syntax-comment: #9198a1;
+  --color-prettylights-syntax-keyword: #ff7b72;
+  --color-prettylights-syntax-string: #a5d6ff;
+  --color-prettylights-syntax-constant: #79c0ff;
+  --color-prettylights-syntax-entity: #d2a8ff;
+  --color-prettylights-syntax-entity-tag: #7ee787;
+  --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
 }
 @media (prefers-color-scheme: dark) {
   [data-color-mode="auto"][data-dark-theme="dark_dimmed"] {
@@ -273,6 +350,13 @@
     --borderColor-success-muted: #2ea04366;
     --borderColor-danger-muted: #f8514966;
     --borderColor-onEmphasis-muted: #ffffff33;
+    --color-prettylights-syntax-comment: #9198a1;
+    --color-prettylights-syntax-keyword: #ff7b72;
+    --color-prettylights-syntax-string: #a5d6ff;
+    --color-prettylights-syntax-constant: #79c0ff;
+    --color-prettylights-syntax-entity: #d2a8ff;
+    --color-prettylights-syntax-entity-tag: #7ee787;
+    --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
   }
 }
 [data-color-mode="dark"][data-dark-theme="dark_high_contrast"] {
@@ -296,6 +380,13 @@
   --borderColor-success-muted: #2ea04366;
   --borderColor-danger-muted: #f8514966;
   --borderColor-onEmphasis-muted: #ffffff33;
+  --color-prettylights-syntax-comment: #9198a1;
+  --color-prettylights-syntax-keyword: #ff7b72;
+  --color-prettylights-syntax-string: #a5d6ff;
+  --color-prettylights-syntax-constant: #79c0ff;
+  --color-prettylights-syntax-entity: #d2a8ff;
+  --color-prettylights-syntax-entity-tag: #7ee787;
+  --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
 }
 @media (prefers-color-scheme: dark) {
   [data-color-mode="auto"][data-dark-theme="dark_high_contrast"] {
@@ -319,6 +410,13 @@
     --borderColor-success-muted: #2ea04366;
     --borderColor-danger-muted: #f8514966;
     --borderColor-onEmphasis-muted: #ffffff33;
+    --color-prettylights-syntax-comment: #9198a1;
+    --color-prettylights-syntax-keyword: #ff7b72;
+    --color-prettylights-syntax-string: #a5d6ff;
+    --color-prettylights-syntax-constant: #79c0ff;
+    --color-prettylights-syntax-entity: #d2a8ff;
+    --color-prettylights-syntax-entity-tag: #7ee787;
+    --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
   }
 }
 [data-color-mode="dark"][data-dark-theme="dark_colorblind"] {
@@ -342,6 +440,13 @@
   --borderColor-success-muted: #4493f866;
   --borderColor-danger-muted: #f8514966;
   --borderColor-onEmphasis-muted: #ffffff33;
+  --color-prettylights-syntax-comment: #9198a1;
+  --color-prettylights-syntax-keyword: #ff7b72;
+  --color-prettylights-syntax-string: #a5d6ff;
+  --color-prettylights-syntax-constant: #79c0ff;
+  --color-prettylights-syntax-entity: #d2a8ff;
+  --color-prettylights-syntax-entity-tag: #7ee787;
+  --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
 }
 @media (prefers-color-scheme: dark) {
   [data-color-mode="auto"][data-dark-theme="dark_colorblind"] {
@@ -365,6 +470,13 @@
     --borderColor-success-muted: #4493f866;
     --borderColor-danger-muted: #f8514966;
     --borderColor-onEmphasis-muted: #ffffff33;
+    --color-prettylights-syntax-comment: #9198a1;
+    --color-prettylights-syntax-keyword: #ff7b72;
+    --color-prettylights-syntax-string: #a5d6ff;
+    --color-prettylights-syntax-constant: #79c0ff;
+    --color-prettylights-syntax-entity: #d2a8ff;
+    --color-prettylights-syntax-entity-tag: #7ee787;
+    --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
   }
 }
 [data-color-mode="dark"][data-dark-theme="dark_tritanopia"] {
@@ -388,6 +500,13 @@
   --borderColor-success-muted: #4493f866;
   --borderColor-danger-muted: #f8514966;
   --borderColor-onEmphasis-muted: #ffffff33;
+  --color-prettylights-syntax-comment: #9198a1;
+  --color-prettylights-syntax-keyword: #ff7b72;
+  --color-prettylights-syntax-string: #a5d6ff;
+  --color-prettylights-syntax-constant: #79c0ff;
+  --color-prettylights-syntax-entity: #d2a8ff;
+  --color-prettylights-syntax-entity-tag: #7ee787;
+  --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
 }
 @media (prefers-color-scheme: dark) {
   [data-color-mode="auto"][data-dark-theme="dark_tritanopia"] {
@@ -411,5 +530,12 @@
     --borderColor-success-muted: #4493f866;
     --borderColor-danger-muted: #f8514966;
     --borderColor-onEmphasis-muted: #ffffff33;
+    --color-prettylights-syntax-comment: #9198a1;
+    --color-prettylights-syntax-keyword: #ff7b72;
+    --color-prettylights-syntax-string: #a5d6ff;
+    --color-prettylights-syntax-constant: #79c0ff;
+    --color-prettylights-syntax-entity: #d2a8ff;
+    --color-prettylights-syntax-entity-tag: #7ee787;
+    --color-prettylights-syntax-storage-modifier-import: #f0f6fc;
   }
 }

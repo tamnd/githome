@@ -1,0 +1,277 @@
+/*
+ * Rendered GFM: the markdown-body container the README partial and the markdown
+ * blob view wrap around the trusted HTML the markup package produces. The styles
+ * cover the GitHub-equivalent element set the renderer emits (headings with their
+ * hover anchors, lists, tables, blockquotes, code, task lists, and the alert
+ * callouts) using the functional theme tokens, so a rendered document reads the
+ * same on both the web front and the REST text/html surface. See implementation/10.
+ */
+
+.markdown-body {
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lineHeight);
+  word-wrap: break-word;
+  text-align: left;
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+/* A rendered markdown blob sits inside .blob-render, which centers its body; the
+   document itself reads left-aligned with normal padding. */
+.blob-render.markdown-body {
+  padding: var(--base-size-32);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: var(--base-size-24);
+  margin-bottom: var(--base-size-16);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body h1 {
+  font-size: var(--text-title-size-large);
+  padding-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.markdown-body h2 {
+  font-size: var(--text-title-size-medium);
+  padding-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.markdown-body h3 {
+  font-size: var(--text-title-size-small);
+}
+
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: var(--text-body-size);
+}
+
+/* The heading anchor the post-process stage prepends: hidden until the heading
+   is hovered or the link itself is focused, so the document stays clean. */
+.markdown-body .anchor {
+  float: left;
+  margin-left: calc(-1 * var(--base-size-20));
+  padding-right: var(--base-size-4);
+  line-height: 1;
+  opacity: 0;
+}
+
+.markdown-body .anchor::before {
+  content: "#";
+  color: var(--fgColor-muted);
+}
+
+.markdown-body h1:hover .anchor,
+.markdown-body h2:hover .anchor,
+.markdown-body h3:hover .anchor,
+.markdown-body h4:hover .anchor,
+.markdown-body h5:hover .anchor,
+.markdown-body h6:hover .anchor,
+.markdown-body .anchor:focus {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.markdown-body p,
+.markdown-body blockquote,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body dl,
+.markdown-body table,
+.markdown-body pre {
+  margin-top: 0;
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body a {
+  color: var(--fgColor-accent);
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: var(--base-size-32);
+}
+
+.markdown-body li + li {
+  margin-top: var(--base-size-4);
+}
+
+.markdown-body blockquote {
+  padding: 0 var(--base-size-16);
+  color: var(--fgColor-muted);
+  border-left: 0.25em solid var(--borderColor-default);
+}
+
+/* Inline code and fenced blocks. A fenced block carries its own .highlight
+   container (highlight.css); a bare code element is the inline form. */
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  font-family: var(--fontStack-monospace);
+  font-size: 85%;
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.markdown-body pre {
+  padding: var(--base-size-16);
+  overflow: auto;
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  line-height: 1.45;
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.markdown-body pre code {
+  padding: 0;
+  font-size: 100%;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: var(--base-size-4) var(--base-size-12);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.markdown-body th {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+.markdown-body tr:nth-child(2n) {
+  background-color: var(--bgColor-subtle);
+}
+
+.markdown-body img {
+  max-width: 100%;
+  box-sizing: content-box;
+}
+
+.markdown-body hr {
+  height: 0.25em;
+  margin: var(--base-size-24) 0;
+  background-color: var(--borderColor-default);
+  border: 0;
+}
+
+/* Task lists: the renderer marks the list and each checkbox item so the bullet
+   is dropped and the checkbox aligns with the text. */
+.markdown-body .contains-task-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.markdown-body .task-list-item {
+  margin-left: var(--base-size-20);
+}
+
+.markdown-body .task-list-item input {
+  margin: 0 var(--base-size-4) 0.25em calc(-1 * var(--base-size-20));
+  vertical-align: middle;
+}
+
+/*
+ * Alert callouts (> [!NOTE] and friends). The transform stage emits a
+ * markdown-alert block with a kind modifier and a title paragraph; each kind
+ * tints its left border and title with a functional color. The data-octicon
+ * attribute is reserved for the icon the title carries once the octicon sprite
+ * is wired into rendered markup.
+ */
+.markdown-body .markdown-alert {
+  padding: 0 var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  border-left: 0.25em solid var(--borderColor-default);
+}
+
+.markdown-body .markdown-alert > :first-child {
+  margin-top: var(--base-size-8);
+}
+
+.markdown-body .markdown-alert > :last-child {
+  margin-bottom: var(--base-size-8);
+}
+
+.markdown-body .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.markdown-body .markdown-alert-note {
+  border-left-color: var(--fgColor-accent);
+}
+
+.markdown-body .markdown-alert-note .markdown-alert-title {
+  color: var(--fgColor-accent);
+}
+
+.markdown-body .markdown-alert-tip {
+  border-left-color: var(--bgColor-success-emphasis);
+}
+
+.markdown-body .markdown-alert-tip .markdown-alert-title {
+  color: var(--bgColor-success-emphasis);
+}
+
+.markdown-body .markdown-alert-important {
+  border-left-color: var(--color-prettylights-syntax-entity);
+}
+
+.markdown-body .markdown-alert-important .markdown-alert-title {
+  color: var(--color-prettylights-syntax-entity);
+}
+
+.markdown-body .markdown-alert-warning {
+  border-left-color: var(--color-prettylights-syntax-keyword);
+}
+
+.markdown-body .markdown-alert-warning .markdown-alert-title {
+  color: var(--color-prettylights-syntax-keyword);
+}
+
+.markdown-body .markdown-alert-caution {
+  border-left-color: var(--color-prettylights-syntax-keyword);
+}
+
+.markdown-body .markdown-alert-caution .markdown-alert-title {
+  color: var(--color-prettylights-syntax-keyword);
+}
+
+/* A fenced code block inside rendered markdown drops the extra paragraph margin
+   its highlight container already carries. */
+.markdown-body .highlight pre {
+  margin-bottom: 0;
+}
