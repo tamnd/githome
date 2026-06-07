@@ -64,6 +64,10 @@ var functionalTokens = []string{
 	"bgColor-success-muted",
 	"bgColor-success-emphasis",
 	"bgColor-danger-muted",
+	// done is the purple "completed" accent: a closed-as-completed issue badge,
+	// and later the merged-pull-request badge. not-planned reuses the neutral
+	// emphasis, so it needs no token of its own. See implementation/08 section 4.
+	"bgColor-done-emphasis",
 	"borderColor-default",
 	"borderColor-muted",
 	"borderColor-accent-muted",
@@ -99,6 +103,7 @@ var lightBase = map[string]string{
 	"bgColor-success-muted":        "#dafbe1",
 	"bgColor-success-emphasis":     "#1f883d",
 	"bgColor-danger-muted":         "#ffebe9",
+	"bgColor-done-emphasis":        "#8250df",
 	"borderColor-default":          "#d1d9e0",
 	"borderColor-muted":            "#d1d9e0b3",
 	"borderColor-accent-muted":     "#54aeff66",
@@ -129,6 +134,7 @@ var darkBase = map[string]string{
 	"bgColor-success-muted":        "#2ea04326",
 	"bgColor-success-emphasis":     "#238636",
 	"bgColor-danger-muted":         "#f851491a",
+	"bgColor-done-emphasis":        "#8957e5",
 	"borderColor-default":          "#3d444d",
 	"borderColor-muted":            "#3d444db3",
 	"borderColor-accent-muted":     "#4493f866",
