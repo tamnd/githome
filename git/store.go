@@ -105,7 +105,46 @@ func (s *Store) Open(pk int64) (*Repo, error) {
 	if err != nil {
 		return nil, ErrRepoNotFound
 	}
-	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes}, nil
+	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes, store: s, pk: pk}, nil
+}
+
+// blobSizes resolves the byte size of each sha, serving cache hits directly and
+// resolving the rest in one pipelined cat-file --batch-check pass. It is the
+// batch counterpart of catFileLookup, used by the recursive tree walk to avoid a
+// per-entry object decode. Resolved sizes are memoized in the SHA cache (a git
+// object id is a permanent content address). A sha that does not resolve is
+// simply absent from the returned map; the caller leaves that entry's size zero.
+func (s *Store) blobSizes(pk int64, shas []string) (map[string]int64, error) {
+	out := make(map[string]int64, len(shas))
+	var miss []string
+	seen := make(map[string]struct{}, len(shas))
+	for _, sha := range shas {
+		if _, ok := seen[sha]; ok {
+			continue
+		}
+		seen[sha] = struct{}{}
+		if info, ok := s.cache.get(sha); ok {
+			if !info.missing {
+				out[sha] = info.size
+			}
+			continue
+		}
+		miss = append(miss, sha)
+	}
+	if len(miss) == 0 {
+		return out, nil
+	}
+	infos, err := s.pool.lookupBatch(s.Dir(pk), pk, miss)
+	if err != nil {
+		return nil, err
+	}
+	for i, sha := range miss {
+		s.cache.put(sha, infos[i])
+		if !infos[i].missing {
+			out[sha] = infos[i].size
+		}
+	}
+	return out, nil
 }
 
 // Init creates an empty bare repository for pk and returns it. It is used by
@@ -119,7 +158,7 @@ func (s *Store) Init(pk int64) (*Repo, error) {
 			return nil, err
 		}
 	}
-	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes}, nil
+	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes, store: s, pk: pk}, nil
 }
 
 // Close shuts down the long-lived cat-file processes the pool holds. The server

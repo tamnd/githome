@@ -27,6 +27,14 @@ type Repo struct {
 	// A positive value rejects larger blobs with ErrBlobTooLarge before the
 	// read; zero or negative disables the guard.
 	maxBlobBytes int64
+
+	// store and pk let a recursive tree walk resolve blob sizes in one pipelined
+	// cat-file --batch-check pass through the store's pooled process (which reads
+	// the pack indexes and commit-graph the ingest maintenance builds) instead of
+	// decoding every blob object through go-git one at a time. A Repo built
+	// without a store (some tests) falls back to the per-object go-git lookup.
+	store *Store
+	pk    int64
 }
 
 // HEAD resolves the repository's default branch to its short name and head
@@ -174,8 +182,9 @@ func (r *Repo) Tree(rev string, recursive bool) (Tree, error) {
 	out := Tree{SHA: t.Hash.String()}
 	if !recursive {
 		for _, e := range t.Entries {
-			out.Entries = append(out.Entries, r.entryValue(e.Name, e))
+			out.Entries = append(out.Entries, treeEntryValue(e.Name, e))
 		}
+		r.fillTreeSizes(out.Entries)
 		return out, nil
 	}
 	walker := object.NewTreeWalker(t, true, nil)
@@ -192,8 +201,9 @@ func (r *Repo) Tree(rev string, recursive bool) (Tree, error) {
 			out.Truncated = true
 			break
 		}
-		out.Entries = append(out.Entries, r.entryValue(name, entry))
+		out.Entries = append(out.Entries, treeEntryValue(name, entry))
 	}
+	r.fillTreeSizes(out.Entries)
 	return out, nil
 }
 
@@ -383,9 +393,11 @@ func (r *Repo) blobByHash(h plumbing.Hash) (Blob, error) {
 }
 
 // listTree turns a tree's immediate entries into PathEntry values rooted at
-// prefix (the tree's own path, empty for the root).
+// prefix (the tree's own path, empty for the root). Blob sizes are filled in one
+// batch (see blobSizeMap) rather than a per-entry object decode.
 func (r *Repo) listTree(t *object.Tree, prefix string) []PathEntry {
 	out := make([]PathEntry, 0, len(t.Entries))
+	var blobShas []string
 	for _, e := range t.Entries {
 		full := e.Name
 		if prefix != "" {
@@ -399,29 +411,68 @@ func (r *Repo) listTree(t *object.Tree, prefix string) []PathEntry {
 			SHA:  e.Hash.String(),
 		}
 		if pe.Type == ObjectBlob {
-			if b, err := r.repo.BlobObject(e.Hash); err == nil {
-				pe.Size = b.Size
-			}
+			blobShas = append(blobShas, pe.SHA)
 		}
 		out = append(out, pe)
+	}
+	sizes := r.blobSizeMap(blobShas)
+	for i := range out {
+		if out[i].Type == ObjectBlob {
+			out[i].Size = sizes[out[i].SHA]
+		}
 	}
 	return out
 }
 
-// entryValue builds a TreeEntry, filling the blob size with an object lookup.
-func (r *Repo) entryValue(path string, e object.TreeEntry) TreeEntry {
-	te := TreeEntry{
+// treeEntryValue builds a TreeEntry without its blob size; Tree fills sizes in
+// one batch pass afterward via fillTreeSizes.
+func treeEntryValue(path string, e object.TreeEntry) TreeEntry {
+	return TreeEntry{
 		Path: path,
 		Mode: modeString(e.Mode),
 		Type: entryType(e.Mode),
 		SHA:  e.Hash.String(),
 	}
-	if te.Type == ObjectBlob {
-		if b, err := r.repo.BlobObject(e.Hash); err == nil {
-			te.Size = b.Size
+}
+
+// fillTreeSizes populates the Size of every blob entry in place, resolving all
+// blob sizes in one batch (see blobSizeMap).
+func (r *Repo) fillTreeSizes(entries []TreeEntry) {
+	var blobShas []string
+	for i := range entries {
+		if entries[i].Type == ObjectBlob {
+			blobShas = append(blobShas, entries[i].SHA)
 		}
 	}
-	return te
+	sizes := r.blobSizeMap(blobShas)
+	for i := range entries {
+		if entries[i].Type == ObjectBlob {
+			entries[i].Size = sizes[entries[i].SHA]
+		}
+	}
+}
+
+// blobSizeMap resolves the byte size of each blob sha. With a store it uses one
+// pipelined cat-file --batch-check pass through the pooled process (which reads
+// the pack indexes and commit-graph the ingest maintenance builds, and caches by
+// content address); without one, or if that pass errors, it falls back to a
+// per-blob go-git object decode. Shas that do not resolve are absent from the map.
+func (r *Repo) blobSizeMap(shas []string) map[string]int64 {
+	if len(shas) == 0 {
+		return nil
+	}
+	if r.store != nil {
+		if sizes, err := r.store.blobSizes(r.pk, shas); err == nil {
+			return sizes
+		}
+	}
+	sizes := make(map[string]int64, len(shas))
+	for _, sha := range shas {
+		if b, err := r.repo.BlobObject(plumbing.NewHash(sha)); err == nil {
+			sizes[sha] = b.Size
+		}
+	}
+	return sizes
 }
 
 func commitValue(c *object.Commit) Commit {
