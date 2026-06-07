@@ -20,8 +20,10 @@ import (
 //
 //	GITHOME_SCALE=300000 go test ./store -run TestScalePagination -v -timeout 30m
 //
-// SQLite only: the sandbox carries no Postgres DSN, so the Postgres dialect of
-// these same queries is code-reviewed, not measured here.
+// Defaults to a throwaway SQLite file. Point GITHOME_SCALE_DSN at a running
+// Postgres (the docker/postgres compose) to measure the same sweep on that
+// engine; the keyset index is declared on both dialects, so the flat-vs-linear
+// shape holds on each.
 func TestScalePagination(t *testing.T) {
 	raw := os.Getenv("GITHOME_SCALE")
 	if raw == "" {

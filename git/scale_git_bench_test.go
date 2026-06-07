@@ -14,12 +14,13 @@ import (
 // TestScaleGitRead drives the git read layer against a real, large repository
 // rather than a hand-built fixture, so the tree walk, blob materialization, and
 // history walk are measured at a scale the small contract fixtures never reach
-// (cpython carries about 166k commits and a HEAD tree of several thousand
-// files). The real repositories cannot be cloned from the network in the
-// sandbox, so the test takes a repository already on disk and makes a real
-// local bare clone of it into the store's own on-disk layout. Point it at one:
+// (a full torvalds/linux carries about 1.45M commits and a HEAD tree just
+// under 100k files). The test takes a repository already on disk and makes a
+// real local bare clone of it into the store's own on-disk layout, so it works
+// the same whether the source was cloned from the network or is a local mirror.
+// Point it at one:
 //
-//	GITHOME_SCALE_GITREPO=/path/to/cpython \
+//	GITHOME_SCALE_GITREPO=/path/to/linux.git \
 //	  go test ./git -run TestScaleGitRead -v -timeout 20m
 //
 // It is skipped when the variable is unset, so an ordinary `go test ./...`
