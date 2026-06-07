@@ -121,6 +121,21 @@ func mountIssues(page *mizu.Router, d Deps) {
 	ig.Get("/{owner}/{repo}/issues", ih.Index)
 	ig.Get("/{owner}/{repo}/issues/new", ih.New)
 	ig.Get("/{owner}/{repo}/issues/{number}", ih.Show)
+
+	// The mutations all post and redirect, so a reload re-fetches with GET. The
+	// service re-authorizes every write, so an anonymous or read-only viewer who
+	// forges a POST gets the themed 403, not a silent success. The literal /new
+	// create route is registered before the {number} mutation routes for the same
+	// reason the GET routes are ordered: "new" is never read as a number.
+	ig.Post("/{owner}/{repo}/issues", ih.Create)
+	ig.Post("/{owner}/{repo}/issues/{number}/comments", ih.CreateComment)
+	ig.Post("/{owner}/{repo}/issues/{number}/state", ih.ToggleState)
+	ig.Post("/{owner}/{repo}/issues/{number}/title", ih.EditTitle)
+	ig.Post("/{owner}/{repo}/issues/{number}/edit", ih.EditSidebar)
+	ig.Post("/{owner}/{repo}/issues/{number}/reactions", ih.ToggleIssueReaction)
+	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}", ih.EditComment)
+	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}/delete", ih.DeleteComment)
+	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}/reactions", ih.ToggleCommentReaction)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard
