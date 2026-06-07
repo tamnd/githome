@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"errors"
 
 	"github.com/go-mizu/mizu"
@@ -39,7 +40,7 @@ func (h *Handlers) Home(c *mizu.Ctx) error {
 	if err != nil {
 		return err
 	}
-	tree := h.buildTreeFromDir(repo, ref, "", res.Dir, true)
+	tree := h.buildTreeFromDir(ctx, repo, ref, "", res.Dir, true)
 
 	vm := view.RepoHomeVM{
 		Chrome: h.chrome(c, repo.Name),
@@ -83,7 +84,7 @@ func (h *Handlers) about(repo *domain.Repo) view.AboutVM {
 // once (to tell a tree from a blob) and hands the listing here, so a tree page is
 // one Contents read plus the latest-commit walk. embedded marks the model as
 // rendered inside the home page so the home and tree pages share it.
-func (h *Handlers) buildTreeFromDir(repo *domain.Repo, ref view.Ref, p string, dir []git.PathEntry, embedded bool) view.TreeVM {
+func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, ref view.Ref, p string, dir []git.PathEntry, embedded bool) view.TreeVM {
 	return view.TreeVM{
 		Header:    h.header(repo, "code"),
 		Nav:       h.nav(repo, ref.Name),
@@ -94,7 +95,7 @@ func (h *Handlers) buildTreeFromDir(repo *domain.Repo, ref view.Ref, p string, d
 		RefPicker: h.refPicker(repo, ref.Name, route.KindTree, p),
 		Latest:    h.latestCommit(repo, ref.Name, p),
 		Entries:   treeEntries(repo, ref.Name, dir),
-		Readme:    h.readme(repo, ref.Name, dir),
+		Readme:    h.readme(ctx, repo, ref.Name, dir),
 		Clone:     h.clone(repo),
 		Embedded:  embedded,
 	}

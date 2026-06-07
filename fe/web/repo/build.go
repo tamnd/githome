@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/markup"
 )
 
 // build.go maps domain and git data into the fe/view models. It keeps fe/view a
@@ -214,19 +216,47 @@ func (h *Handlers) latestCommit(r *domain.Repo, ref, p string) view.CommitSummar
 }
 
 // readme finds and reads the preferred README in a directory listing and builds
-// its view model. F1 carries the decoded source for the template to escape; the
-// markup milestone renders Body to trusted GFM HTML. A directory with no README,
-// or a README that fails to read, yields nil so the template shows nothing.
-func (h *Handlers) readme(r *domain.Repo, ref string, listing []git.PathEntry) *view.ReadmeVM {
+// its view model. When a markdown README renders through the markup package, Body
+// carries the trusted GFM HTML and the template shows it; the decoded Source rides
+// along as the escaped fallback for the template (a non-markdown README, or markup
+// unconfigured). A directory with no README, or a README that fails to read, yields
+// nil so the template shows nothing.
+func (h *Handlers) readme(ctx context.Context, r *domain.Repo, ref string, listing []git.PathEntry) *view.ReadmeVM {
 	name := preferredReadme(listing)
 	if name == "" {
 		return nil
 	}
-	res, err := h.repos.Contents(r, joinPath(currentDir(listing), name), ref)
+	path := joinPath(currentDir(listing), name)
+	res, err := h.repos.Contents(r, path, ref)
 	if err != nil || res.IsDir || res.File == nil {
 		return nil
 	}
-	return &view.ReadmeVM{Name: name, Source: string(res.File.Content)}
+	source := string(res.File.Content)
+	vm := &view.ReadmeVM{Name: name, Source: source}
+	if h.markup != nil && isMarkdownName(name) {
+		vm.Body = h.markup.RenderFile(ctx, h.markupRepo(r), ref, path, source)
+	}
+	return vm
+}
+
+// isMarkdownName reports whether a file name carries a markdown extension, the
+// gate for rendering a README through the GFM pipeline. A plain README.txt or
+// README without an extension stays escaped source, matching how github.com only
+// auto-renders the markup variants.
+func isMarkdownName(name string) bool {
+	switch ext(name) {
+	case "md", "markdown", "mdown", "mkdn", "mkd":
+		return true
+	default:
+		return false
+	}
+}
+
+// markupRepo builds the small repo identity the markup package resolves
+// references and rewrites relative links against, keeping markup free of the
+// domain package.
+func (h *Handlers) markupRepo(r *domain.Repo) *markup.RepoRef {
+	return &markup.RepoRef{Owner: ownerLogin(r), Name: r.Name, ID: r.ID}
 }
 
 // preferredReadme picks the README to auto-render: a case-insensitive README with

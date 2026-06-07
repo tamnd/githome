@@ -1,17 +1,20 @@
 {{define "repo_readme" -}}
-{{/* The data is *ReadmeVM {Name, Source, Body}. F1 has no markup renderer yet, so
-     Body is empty and the README shows as escaped preformatted source: the bytes
-     are displayed, never interpreted, which is the safe default. The markup
-     milestone fills Body with trusted GFM HTML and this falls through to it. */ -}}
+{{/* The data is *ReadmeVM {Name, Source, Body}. A markdown README carries Body as
+     trusted GFM HTML the markup package produced (the one path from file content
+     to trusted HTML), rendered in a markdown-body container. A non-markdown README,
+     or markup unconfigured, leaves Body empty and the README shows as escaped
+     preformatted source: the bytes are displayed, never interpreted. */ -}}
 {{if . -}}
 <section class="readme" aria-label="README">
   <div class="readme-head">
     <span class="readme-icon" aria-hidden="true">{{octicon "file" 16}}</span>
     <h2 class="readme-name">{{.Name}}</h2>
   </div>
-  <div class="readme-body">
-    {{if .Body}}{{.Body}}{{else}}<pre class="readme-source">{{.Source}}</pre>{{end}}
-  </div>
+  {{if .Body -}}
+  <div class="readme-body markdown-body">{{.Body}}</div>
+  {{- else -}}
+  <div class="readme-body"><pre class="readme-source">{{.Source}}</pre></div>
+  {{- end}}
 </section>
 {{- end}}
 {{- end}}

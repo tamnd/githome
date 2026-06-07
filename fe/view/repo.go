@@ -106,14 +106,15 @@ type AboutVM struct {
 	Homepage    string
 }
 
-// ReadmeVM is the rendered README shown under a tree. F1 carries the decoded
-// source and renders it as escaped preformatted text; the markup milestone swaps
-// Body to GFM-rendered template.HTML through the markup package, the only path
-// from file content to trusted HTML. See implementation/07 section 3.2.
+// ReadmeVM is the rendered README shown under a tree. Body carries the
+// GFM-rendered, sanitized HTML the markup package produced (the only path from
+// file content to trusted HTML); Source is the decoded bytes the template falls
+// back to as escaped preformatted text when Body is empty (a non-markdown README,
+// or markup unconfigured). See implementation/07 section 3.2.
 type ReadmeVM struct {
 	Name   string
 	Source string
-	Body   template.HTML // empty in F1; the template falls back to Source
+	Body   template.HTML // empty for a non-markdown README; the template falls back to Source
 }
 
 // RepoHomeVM is the repo home: the header, the default-root tree, the About
@@ -166,10 +167,11 @@ type TreeEntryVM struct {
 	SubmoduleURL  string
 }
 
-// BlobVM is the single-file view. F1 classifies the blob into a kind and, for
-// text, carries the lines with stable ids so the line anchors resolve. The
-// highlighter is render-time once the markup milestone lands; F1 prints escaped
-// text. See implementation/07 sections 5.1 and 5.2.
+// BlobVM is the single-file view. The handler classifies the blob into a kind
+// that selects the body: text and svg carry the per-line highlighted HTML with
+// stable ids so the line anchors resolve, a markdown blob (not viewed with
+// ?plain=1) carries Body as rendered GFM, and an image or pdf embeds from the raw
+// URL. See implementation/07 sections 5.1 and 5.2.
 type BlobVM struct {
 	Chrome    Chrome
 	Header    RepoHeaderVM
@@ -180,9 +182,10 @@ type BlobVM struct {
 	Crumbs    []Crumb
 	RefPicker RefPickerVM
 	Name      string
-	Kind      string // text | image | pdf | binary | svg | toolarge
-	Lang      string
-	Lines     []BlobLine
+	Kind      string        // text | markdown | image | pdf | binary | svg | toolarge
+	Lang      string        // the highlighter grammar label, shown in the blob header
+	Lines     []BlobLine    // the highlighted source lines for a text or svg blob
+	Body      template.HTML // the rendered GFM for a markdown blob (Kind == "markdown")
 	RawText   string
 	LineCount int
 	Size      int64
@@ -193,10 +196,13 @@ type BlobVM struct {
 }
 
 // BlobLine is one source line: its 1-based number (the id="L{n}" anchor) and the
-// raw text. The template escapes Text; the highlighter wraps tokens later.
+// highlighted HTML the markup highlighter produced. Text is trusted markup: the
+// source text is HTML-escaped and only the pl-* token spans are raw, so the
+// template emits it without re-escaping. A blob in an unknown language degrades
+// to the escaped line with no spans.
 type BlobLine struct {
 	Number int
-	Text   string
+	Text   template.HTML
 }
 
 // CommitsVM is the history list, grouped by calendar date in the viewer's view.

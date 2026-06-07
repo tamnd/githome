@@ -39,7 +39,7 @@ func (h *Handlers) Tree(c *mizu.Ctx) error {
 	}
 
 	r := view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch}
-	vm := h.buildTreeFromDir(repo, r, path, res.Dir, false)
+	vm := h.buildTreeFromDir(ctx, repo, r, path, res.Dir, false)
 	vm.Chrome = h.chrome(c, treeTitle(repo, path))
 	return h.render.Page(c, "repo/tree", vm)
 }

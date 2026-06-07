@@ -1,9 +1,11 @@
 {{define "content" -}}
 {{/* The data is BlobVM. The handler classified the blob into a kind that selects
-     the body: text and svg show numbered lines (escaped in F1, highlighted once
-     the markup milestone lands), an image or pdf embeds from the raw URL, a binary
-     or too-large blob shows a blankslate with the download link. The line numbers
-     carry id="L{n}" anchors so a line link resolves with no JavaScript. */ -}}
+     the body: a markdown blob renders as GFM, text and svg show numbered lines
+     with per-line syntax highlighting, an image or pdf embeds from the raw URL,
+     and a binary or too-large blob shows a blankslate with the download link. The
+     line numbers carry id="L{n}" anchors so a line link resolves with no
+     JavaScript, and the highlighted line text is trusted markup the markup
+     package produced (the source escaped, only the pl-* token spans raw). */ -}}
 {{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
 <div class="repo-body">
   <div class="repo-subhead">
@@ -21,6 +23,7 @@
         {{if .Lang}}<span class="blob-lang">{{.Lang}}</span>{{end}}
       </div>
       <div class="blob-head-actions">
+        {{if eq .Kind "markdown"}}<a class="btn" href="?plain=1">Code</a>{{end}}
         {{if eq .Kind "text"}}
         {{if .Plain -}}
         <a class="btn" href="?">Rendered</a>
@@ -31,7 +34,9 @@
       </div>
     </div>
 
-    {{if or (eq .Kind "text") (eq .Kind "svg") -}}
+    {{if eq .Kind "markdown" -}}
+    <div class="blob-render markdown-body">{{.Body}}</div>
+    {{- else if or (eq .Kind "text") (eq .Kind "svg") -}}
     <table class="blob-code" aria-label="File content">
       <tbody>
         {{range .Lines -}}
