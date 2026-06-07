@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -34,10 +35,11 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 
 	q := ParseQuery(c.Query("q"))
 	if q.Type == "pr" {
-		// The pulls surface arrives with doc 09; until then a viewer who asks for
-		// pull requests on the issues index gets the issues index, not a 404. The
-		// redirect target is logged so the deferral is visible, not silent.
-		h.log.Info("issues index: is:pr query has no pulls surface yet, staying on issues", "repo", owner+"/"+repo.Name)
+		// An is:pr query on the issues index is not a filter here, it is a request
+		// for the pulls surface. F4 ships that surface, so the index hands the same
+		// query string off to /pulls rather than rendering pull requests under the
+		// issues shell. The redirect keeps a bookmarked is:pr URL working.
+		return c.Redirect(http.StatusSeeOther, route.Pulls(owner, repo.Name, c.Request().URL.RawQuery))
 	}
 
 	page := pageParam(c.Query("page"))
