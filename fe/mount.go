@@ -12,18 +12,24 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	webrepo "github.com/tamnd/githome/fe/web/repo"
 	"github.com/tamnd/githome/fe/webmw"
+	"github.com/tamnd/githome/presenter"
 )
 
 // Deps are the web front's dependencies. F0 needs the render set, the view
 // builder, and the three stateful middleware (session, CSRF, flash) plus a
-// logger. Later milestones add the domain services their handlers read; a zero
-// service leaves its routes unmounted, mirroring how the REST surface mounts.
+// logger. F1 adds the domain repo service and the presenter URL builder its
+// code-browsing handlers read; a zero service leaves its routes unmounted,
+// mirroring how the REST surface mounts.
 type Deps struct {
 	Render   *render.Set
 	View     *view.Builder
+	Repos    *domain.RepoService
+	URLs     *presenter.URLBuilder
 	Sessions *webmw.Sessions
 	CSRF     *webmw.CSRF
 	Flash    *webmw.Flash
@@ -46,8 +52,40 @@ func Mount(root *mizu.Router, d Deps) {
 	)
 	page.Get("/{$}", handleHome(d))
 
+	mountRepo(page, d)
+
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
 	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
+}
+
+// mountRepo registers the code-browsing routes under /{owner}/{repo}. Every route
+// runs the Resolve middleware first, which loads the repository read-gated for the
+// viewer (or a 404), so a handler only decides whether a ref, path, or object
+// inside a visible repo exists. The repo service is the gate: with no service the
+// routes stay unmounted, the same as the REST surface. The greedy {rest} routes
+// carry a ref and an optional path the handler splits with the repo's ref set. See
+// implementation/07.
+func mountRepo(page *mizu.Router, d Deps) {
+	if d.Repos == nil {
+		return
+	}
+	rh := webrepo.New(webrepo.Deps{
+		Repos:  d.Repos,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	rg := page.With(rh.Resolve)
+	rg.Get("/{owner}/{repo}", rh.Home)
+	rg.Get("/{owner}/{repo}/tree/{rest...}", rh.Tree)
+	rg.Get("/{owner}/{repo}/blob/{rest...}", rh.Blob)
+	rg.Get("/{owner}/{repo}/raw/{rest...}", rh.Raw)
+	rg.Get("/{owner}/{repo}/commits", rh.Commits)
+	rg.Get("/{owner}/{repo}/commits/{rest...}", rh.Commits)
+	rg.Get("/{owner}/{repo}/branches", rh.Branches)
+	rg.Get("/{owner}/{repo}/tags", rh.Tags)
+	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard
