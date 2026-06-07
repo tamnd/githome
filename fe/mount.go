@@ -15,6 +15,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	webissues "github.com/tamnd/githome/fe/web/issues"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
@@ -32,6 +33,7 @@ type Deps struct {
 	Render   *render.Set
 	View     *view.Builder
 	Repos    *domain.RepoService
+	Issues   *domain.IssueService
 	URLs     *presenter.URLBuilder
 	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
@@ -57,6 +59,7 @@ func Mount(root *mizu.Router, d Deps) {
 	page.Get("/{$}", handleHome(d))
 
 	mountRepo(page, d)
+	mountIssues(page, d)
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
 	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
@@ -91,6 +94,33 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
+}
+
+// mountIssues registers the issues routes under /{owner}/{repo}/issues. Like the
+// code-browsing routes every route runs the issues Resolve middleware first,
+// which loads the repository read-gated for the viewer (or a 404), so a handler
+// only decides whether an issue inside a visible repo exists. The issue service
+// is the gate: with no service the routes stay unmounted. The literal /issues/new
+// route is registered before the /issues/{number} route so "new" is never read as
+// a number. The mutation routes (create, comment, state, title, edit, reactions)
+// arrive with the write handlers. See implementation/08.
+func mountIssues(page *mizu.Router, d Deps) {
+	if d.Issues == nil || d.Repos == nil {
+		return
+	}
+	ih := webissues.New(webissues.Deps{
+		Issues: d.Issues,
+		Repos:  d.Repos,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Markup: d.Markup,
+		Logger: d.Logger,
+	})
+	ig := page.With(ih.Resolve)
+	ig.Get("/{owner}/{repo}/issues", ih.Index)
+	ig.Get("/{owner}/{repo}/issues/new", ih.New)
+	ig.Get("/{owner}/{repo}/issues/{number}", ih.Show)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

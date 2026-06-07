@@ -49,3 +49,59 @@ func IssuesQuery(owner, name, q string) string {
 	}
 	return Issues(owner, name, url.Values{"q": {q}}.Encode())
 }
+
+// The form-target builders below name the POST endpoints the no-JS forms submit
+// to. Every primary mutation has a plain HTML form whose action is one of these,
+// so the page works with JavaScript disabled; the htmx path posts to the same
+// URL. They mirror the routes mountIssues registers (implementation/08 section
+// 2.3, 9).
+
+// IssueComments is the new-comment POST target, /{owner}/{repo}/issues/{number}/comments.
+func IssueComments(owner, name string, number int64) string {
+	return Issue(owner, name, number) + "/comments"
+}
+
+// IssueState is the close/reopen POST target,
+// /{owner}/{repo}/issues/{number}/state. The form carries the target state and an
+// optional comment body so a viewer can close with a comment in one submit.
+func IssueState(owner, name string, number int64) string {
+	return Issue(owner, name, number) + "/state"
+}
+
+// IssueTitle is the edit-title POST target, /{owner}/{repo}/issues/{number}/title.
+func IssueTitle(owner, name string, number int64) string {
+	return Issue(owner, name, number) + "/title"
+}
+
+// IssueEdit is the sidebar edit POST target,
+// /{owner}/{repo}/issues/{number}/edit, which replaces the labels, assignees, or
+// milestone through the EditIssue patch.
+func IssueEdit(owner, name string, number int64) string {
+	return Issue(owner, name, number) + "/edit"
+}
+
+// IssueReactions is the reaction-toggle POST target for the issue body,
+// /{owner}/{repo}/issues/{number}/reactions. The form carries the reaction
+// content.
+func IssueReactions(owner, name string, number int64) string {
+	return Issue(owner, name, number) + "/reactions"
+}
+
+// CommentReactions is the reaction-toggle POST target for a comment,
+// /{owner}/{repo}/issues/{number}/comments/{id}/reactions.
+func CommentReactions(owner, name string, number, commentID int64) string {
+	return IssueComments(owner, name, number) + "/" + strconv.FormatInt(commentID, 10) + "/reactions"
+}
+
+// CommentEdit is the edit POST target for a comment,
+// /{owner}/{repo}/issues/{number}/comments/{id}.
+func CommentEdit(owner, name string, number, commentID int64) string {
+	return IssueComments(owner, name, number) + "/" + strconv.FormatInt(commentID, 10)
+}
+
+// CommentDelete is the delete POST target for a comment,
+// /{owner}/{repo}/issues/{number}/comments/{id}/delete (a POST, since an HTML
+// form cannot issue DELETE without JavaScript).
+func CommentDelete(owner, name string, number, commentID int64) string {
+	return CommentEdit(owner, name, number, commentID) + "/delete"
+}

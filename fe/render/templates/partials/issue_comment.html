@@ -1,0 +1,49 @@
+{{define "issue_comment" -}}
+{{/* The data is a dict {C: CommentVM, CSRF: token}. It renders one timeline item:
+     the author and timestamp header, the rendered Markdown body (with the escaped
+     source as the fallback when markup produced nothing), the reaction rollup, and
+     the edit and delete affordances when the viewer may use them. The opening body
+     (IsAuthor) is styled as the issue description. */ -}}
+{{$c := .C -}}
+{{$csrf := .CSRF -}}
+<article class="timeline-comment{{if $c.IsAuthor}} is-opening{{end}}" id="{{$c.Anchor}}">
+  <div class="timeline-avatar">
+    {{if $c.Author.AvatarURL}}<img class="avatar" src="{{$c.Author.AvatarURL}}" width="40" height="40" alt="" loading="lazy">{{else}}{{octicon "person" 24}}{{end}}
+  </div>
+  <div class="timeline-body">
+    <div class="comment-head">
+      <span class="comment-author"><a href="{{$c.Author.URL}}">{{$c.Author.Login}}</a></span>
+      <a class="comment-when" href="#{{$c.Anchor}}">commented <relative-time datetime="{{$c.CreatedISO}}">{{$c.CreatedAt}}</relative-time></a>
+      {{if $c.Edited}}<span class="comment-edited" title="This comment was edited">edited</span>{{end}}
+      {{if $c.CanEdit -}}
+      <details class="comment-actions">
+        <summary class="comment-actions-toggle" aria-label="Comment actions">{{octicon "kebab-horizontal" 16}}</summary>
+        <div class="comment-actions-menu">
+          <a href="#{{$c.Anchor}}-edit">{{octicon "pencil" 16}} Edit</a>
+          <form method="post" action="{{$c.DeleteURL}}" onsubmit="return confirm('Delete this comment?')">
+            {{if $csrf}}<input type="hidden" name="_csrf" value="{{$csrf}}">{{end}}
+            <button class="comment-delete" type="submit">{{octicon "trash" 16}} Delete</button>
+          </form>
+        </div>
+      </details>
+      {{- end}}
+    </div>
+    <div class="comment-body markdown-body">
+      {{if $c.Body}}{{$c.Body}}{{else if $c.BodySource}}<pre class="comment-raw">{{$c.BodySource}}</pre>{{else}}<p class="comment-empty">No description provided.</p>{{end}}
+    </div>
+    {{if $c.CanEdit -}}
+    <details class="comment-edit" id="{{$c.Anchor}}-edit">
+      <summary class="comment-edit-toggle">Edit comment</summary>
+      <form class="comment-edit-form" method="post" action="{{$c.EditURL}}">
+        {{if $csrf}}<input type="hidden" name="_csrf" value="{{$csrf}}">{{end}}
+        <textarea class="comment-edit-text" name="body" rows="6" aria-label="Edit comment">{{$c.BodySource}}</textarea>
+        <div class="comment-edit-actions">
+          <button class="btn btn-primary" type="submit">Update comment</button>
+        </div>
+      </form>
+    </details>
+    {{- end}}
+    {{template "issue_reactions" (dict "R" $c.Reactions "CSRF" $csrf)}}
+  </div>
+</article>
+{{- end}}

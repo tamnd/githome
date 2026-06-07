@@ -1,0 +1,38 @@
+{{define "issue_reactions" -}}
+{{/* The data is a dict {R: ReactionsVM, CSRF: token}. It renders the reaction
+     rollup: every content with a non-zero count shows as a toggle form, and when
+     the viewer may react a "+" details menu offers all eight. Each control is a
+     plain form POSTing the content to the subject's reactions endpoint, so a
+     reaction toggles with no JavaScript; the toggle handler resolves add-or-remove
+     on submit. */ -}}
+{{$r := .R -}}
+{{$csrf := .CSRF -}}
+<div class="reactions">
+  {{range $r.Items -}}
+  {{if gt .Count 0 -}}
+  <form class="reaction{{if .Reacted}} is-reacted{{end}}" method="post" action="{{.URL}}">
+    {{if $csrf}}<input type="hidden" name="_csrf" value="{{$csrf}}">{{end}}
+    <input type="hidden" name="content" value="{{.Content}}">
+    <input type="hidden" name="subject" value="{{$r.Subject}}">
+    <button class="reaction-btn" type="submit"{{if not $r.CanReact}} disabled{{end}}
+            aria-label="Toggle {{.Content}} reaction"><span class="reaction-emoji">{{.Emoji}}</span> {{.Count}}</button>
+  </form>
+  {{- end}}
+  {{- end}}
+  {{if $r.CanReact -}}
+  <details class="reaction-picker">
+    <summary class="reaction-add" aria-label="Add a reaction">{{octicon "smiley" 16}}</summary>
+    <div class="reaction-picker-menu">
+      {{range $r.Items -}}
+      <form method="post" action="{{.URL}}">
+        {{if $csrf}}<input type="hidden" name="_csrf" value="{{$csrf}}">{{end}}
+        <input type="hidden" name="content" value="{{.Content}}">
+        <input type="hidden" name="subject" value="{{$r.Subject}}">
+        <button class="reaction-pick" type="submit" aria-label="React with {{.Content}}">{{.Emoji}}</button>
+      </form>
+      {{- end}}
+    </div>
+  </details>
+  {{- end}}
+</div>
+{{- end}}
