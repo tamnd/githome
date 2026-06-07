@@ -2,7 +2,14 @@ GO       ?= go
 BIN      := bin
 PKGS     := ./...
 
-.PHONY: all build test lint vet fmt tidy gates clean
+# Local Postgres for the dual-dialect tests. podman is the default engine;
+# override with COMPOSE="docker compose" to use docker. The DSN matches the one
+# CI sets, so `make test-postgres` runs what the CI postgres leg runs.
+COMPOSE      ?= podman compose
+COMPOSE_FILE := docker/postgres/compose.yaml
+PG_DSN       ?= postgres://githome:githome@localhost:5432/githome_test?sslmode=disable
+
+.PHONY: all build test test-postgres lint vet fmt tidy gates clean pg-up pg-down pg-down-clean
 
 all: build
 
@@ -12,6 +19,23 @@ build:
 
 test:
 	$(GO) test $(PKGS)
+
+# test-postgres runs the suite against a running local Postgres (make pg-up),
+# so the Postgres dialect is exercised the way CI exercises it.
+test-postgres:
+	GITHOME_TEST_POSTGRES_DSN="$(PG_DSN)" $(GO) test $(PKGS)
+
+# pg-up starts Postgres 18 and blocks until its health check passes.
+pg-up:
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d --wait
+
+# pg-down stops and removes the container but keeps the data volume.
+pg-down:
+	$(COMPOSE) -f $(COMPOSE_FILE) down
+
+# pg-down-clean also drops the data volume for a clean slate.
+pg-down-clean:
+	$(COMPOSE) -f $(COMPOSE_FILE) down -v
 
 vet:
 	$(GO) vet $(PKGS)

@@ -49,8 +49,11 @@ jobs:
       matrix:
         dialect: [sqlite, postgres]
     services:
+      # Keep this image, env, and the DSN below in sync with
+      # docker/postgres/compose.yaml so a local `make test-postgres` run and
+      # this CI leg exercise the same Postgres.
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: githome
           POSTGRES_PASSWORD: githome
