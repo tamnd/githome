@@ -69,6 +69,12 @@ func applyEnv(c *Config) {
 	setBool(&c.Web.Enabled, "GITHOME_WEB_ENABLED")
 	setStr(&c.Web.SiteName, "GITHOME_WEB_SITE_NAME")
 
+	setStr(&c.Markup.CamoBaseURL, "GITHOME_CAMO_BASE_URL")
+	setInt(&c.Markup.MaxHighlightBytes, "GITHOME_MARKUP_MAX_HIGHLIGHT_BYTES")
+	if v := secretBytes("GITHOME_CAMO_SECRET"); v != nil {
+		c.Markup.CamoSecret = v
+	}
+
 	c.URLs.rawAPI = firstNonEmpty(os.Getenv("GITHOME_API_BASE_URL"), c.URLs.rawAPI)
 	c.URLs.rawHTML = firstNonEmpty(os.Getenv("GITHOME_HTML_BASE_URL"), c.URLs.rawHTML)
 	c.URLs.rawGraphQL = firstNonEmpty(os.Getenv("GITHOME_GRAPHQL_URL"), c.URLs.rawGraphQL)
