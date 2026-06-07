@@ -1,0 +1,48 @@
+/*
+ * Base scale tokens: the raw primitives the functional layer maps onto. These
+ * are mode-neutral values (sizes, spacing, radii, fonts, the color scale stops).
+ * Functional tokens in themes.css reference these; components reference the
+ * functional tokens, never these primitives directly. See implementation/04.
+ */
+
+:root {
+  /* Spacing scale, 4px base. */
+  --base-size-4: 4px;
+  --base-size-8: 8px;
+  --base-size-12: 12px;
+  --base-size-16: 16px;
+  --base-size-20: 20px;
+  --base-size-24: 24px;
+  --base-size-32: 32px;
+  --base-size-40: 40px;
+  --base-size-48: 48px;
+
+  /* Type scale. */
+  --text-body-size: 14px;
+  --text-body-lineHeight: 1.5;
+  --text-small-size: 12px;
+  --text-title-size-large: 32px;
+  --text-title-size-medium: 20px;
+  --text-title-size-small: 16px;
+
+  /* Radii. */
+  --borderRadius-small: 4px;
+  --borderRadius-medium: 6px;
+  --borderRadius-large: 12px;
+  --borderRadius-full: 9999px;
+
+  /* Border widths. */
+  --borderWidth-thin: 1px;
+  --borderWidth-thick: 2px;
+
+  /* Font stacks. */
+  --fontStack-system: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --fontStack-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  /* Container widths. */
+  --container-md: 768px;
+  --container-lg: 1012px;
+  --container-xl: 1280px;
+}

@@ -66,6 +66,9 @@ func applyEnv(c *Config) {
 	setInt64(&c.Server.MaxBodyBytes, "GITHOME_HTTP_MAX_BODY_BYTES")
 	setInt64(&c.Server.MaxBlobBytes, "GITHOME_GIT_MAX_BLOB_BYTES")
 
+	setBool(&c.Web.Enabled, "GITHOME_WEB_ENABLED")
+	setStr(&c.Web.SiteName, "GITHOME_WEB_SITE_NAME")
+
 	c.URLs.rawAPI = firstNonEmpty(os.Getenv("GITHOME_API_BASE_URL"), c.URLs.rawAPI)
 	c.URLs.rawHTML = firstNonEmpty(os.Getenv("GITHOME_HTML_BASE_URL"), c.URLs.rawHTML)
 	c.URLs.rawGraphQL = firstNonEmpty(os.Getenv("GITHOME_GRAPHQL_URL"), c.URLs.rawGraphQL)
@@ -143,6 +146,17 @@ func setInt64(dst *int64, key string) {
 	if v, ok := os.LookupEnv(key); ok {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			*dst = n
+		}
+	}
+}
+
+// setBool parses a boolean variable, accepting the forms strconv.ParseBool takes
+// (1, t, true, 0, f, false, and their cases). An unparseable value leaves the
+// default intact rather than guessing.
+func setBool(dst *bool, key string) {
+	if v, ok := os.LookupEnv(key); ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			*dst = b
 		}
 	}
 }

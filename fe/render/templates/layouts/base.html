@@ -1,0 +1,22 @@
+{{define "base" -}}
+<!DOCTYPE html>
+<html lang="en" {{colorModeAttrs .Chrome.ColorMode.Mode .Chrome.ColorMode.Light .Chrome.ColorMode.Dark}}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{if .Chrome.Title}}{{.Chrome.Title}} · {{end}}{{.Chrome.SiteName}}</title>
+  <link rel="stylesheet" href="{{asset "app.css"}}">
+  <script type="module" src="{{asset "app.js"}}" defer></script>
+</head>
+<body>
+  <a class="skip-to-content" href="#main-content">Skip to content</a>
+  {{template "app_header" .Chrome}}
+  <div class="flash-region container-xl">{{template "flash" .Chrome.Flashes}}</div>
+  <main id="main-content" class="page-main container-xl" tabindex="-1">
+    {{template "content" .}}
+  </main>
+  {{template "app_footer" .Chrome}}
+</body>
+</html>
+{{- end}}

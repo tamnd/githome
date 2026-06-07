@@ -1,0 +1,94 @@
+/*
+ * Base element styles. Resets and the document-level defaults the shell builds
+ * on. References functional tokens only (themes.gen.css), never base primitives
+ * except sizing. See implementation/04.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fontStack-system);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lineHeight);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-default);
+}
+
+a {
+  color: var(--fgColor-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 0;
+  margin-bottom: var(--base-size-16);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+code,
+pre {
+  font-family: var(--fontStack-monospace);
+  font-size: 12px;
+}
+
+img {
+  max-width: 100%;
+}
+
+hr {
+  height: 0;
+  margin: var(--base-size-24) 0;
+  border: 0;
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+:focus-visible {
+  outline: var(--borderWidth-thick) solid var(--fgColor-accent);
+  outline-offset: -1px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+  padding: var(--base-size-8) var(--base-size-16);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.skip-to-content:focus {
+  left: var(--base-size-8);
+  top: var(--base-size-8);
+}

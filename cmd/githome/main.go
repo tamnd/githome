@@ -30,6 +30,11 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/fe"
+	"github.com/tamnd/githome/fe/assets"
+	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/gittransport"
 	"github.com/tamnd/githome/nodeid"
@@ -155,6 +160,18 @@ func run() error {
 		Log:    logger,
 	})
 
+	// The server-rendered web front mounts beside the APIs on the same router,
+	// sharing the domain services and the session secret. It owns its own
+	// middleware chain (recover, session, color mode, CSRF, flash) through scoped
+	// subrouters, so the API surface keeps its own. A build error in the template
+	// set or asset manifest is fatal: the front cannot serve a page without them.
+	if cfg.Web.Enabled {
+		if err := mountWeb(root, cfg, logger, userSvc); err != nil {
+			return fmt.Errorf("web front: %w", err)
+		}
+		logger.Info("web front mounted", "site", cfg.Web.SiteName, "dev_assets", assets.Dev())
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.Listen.HTTP,
 		Handler:           root,
@@ -189,6 +206,42 @@ func run() error {
 		return err
 	}
 	logger.Info("shutdown complete")
+	return nil
+}
+
+// mountWeb builds the web front's render set, view builder and middleware, then
+// mounts it on root. The viewer lookup adapts the user service to the front's
+// Viewer model; a user the session names but the store no longer has resolves to
+// anonymous, not an error, so a stale session cookie degrades gracefully.
+func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService) error {
+	renderSet, err := render.New(assets.FS(), assets.Dev())
+	if err != nil {
+		return err
+	}
+
+	lookup := func(ctx context.Context, pk int64) (*view.Viewer, error) {
+		u, err := users.Viewer(ctx, pk)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		v := &view.Viewer{Login: u.Login, SiteAdmin: u.SiteAdmin}
+		if u.Name != nil {
+			v.Name = *u.Name
+		}
+		return v, nil
+	}
+
+	fe.Mount(root, fe.Deps{
+		Render:   renderSet,
+		View:     view.NewBuilder(cfg.Web.SiteName),
+		Sessions: webmw.NewSessions(cfg.Secrets.SessionKey, 0, lookup),
+		CSRF:     webmw.NewCSRF(renderSet),
+		Flash:    webmw.NewFlash(cfg.Secrets.SessionKey),
+		Logger:   logger,
+	})
 	return nil
 }
 

@@ -1,0 +1,14 @@
+{{define "content" -}}
+{{/* The data is errorVM {Chrome, Status, Title, Detail}. The shell renders around
+     this exactly as around any page, so an error keeps the header, footer and the
+     viewer's theme. The 404 message is deliberately identical for missing and for
+     private resources, so the page never reveals that a private one exists. */ -}}
+<div class="error-page blankslate">
+  <p class="error-status">{{.Status}}</p>
+  <h1 class="error-heading">{{.Title}}</h1>
+  <p class="error-detail">{{.Detail}}</p>
+  <div class="home-actions">
+    <a class="btn" href="/">Back to home</a>
+  </div>
+</div>
+{{- end}}

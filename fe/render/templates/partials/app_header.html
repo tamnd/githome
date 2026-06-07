@@ -1,0 +1,50 @@
+{{define "app_header" -}}
+{{/* The data here is Chrome. The header is a plain set of links and a GET search
+     form, so every control works with scripting off; the avatar menu is a
+     <details> element, which discloses without JavaScript. */ -}}
+<header class="AppHeader">
+  <div class="AppHeader-inner container-xl">
+    <a class="AppHeader-logo" href="/" aria-label="{{.SiteName}} home">
+      {{octicon "mark-github" 32}}
+    </a>
+    <form class="AppHeader-search" action="/search" method="get" role="search">
+      <label class="visually-hidden" for="header-search">Search</label>
+      <span class="AppHeader-search-icon" aria-hidden="true">{{octicon "search" 16}}</span>
+      <input class="input" id="header-search" type="search" name="q"
+             placeholder="Search or jump to..." autocomplete="off">
+    </form>
+    <nav class="AppHeader-nav" aria-label="Global">
+      {{if .Viewer}}
+        <a class="AppHeader-item" href="/notifications" aria-label="Notifications">
+          {{octicon "bell" 16}}
+        </a>
+        <a class="AppHeader-item" href="/new" aria-label="Create new">
+          {{octicon "plus" 16}}
+        </a>
+        <details class="AppHeader-menu">
+          <summary class="AppHeader-avatar" aria-label="View profile and more">
+            {{if .Viewer.AvatarURL}}
+              <img class="avatar" src="{{.Viewer.AvatarURL}}" width="24" height="24"
+                   alt="" loading="lazy">
+            {{else}}
+              {{octicon "mark-github" 24}}
+            {{end}}
+          </summary>
+          <div class="AppHeader-menu-list">
+            <a href="/{{.Viewer.Login}}">Signed in as <strong>{{.Viewer.Login}}</strong></a>
+            <a href="/settings/profile">{{octicon "gear" 16}} Settings</a>
+            <form action="/logout" method="post">
+              {{if .CSRFToken}}<input type="hidden" name="_csrf" value="{{.CSRFToken}}">{{end}}
+              <button class="AppHeader-menu-signout" type="submit">
+                {{octicon "sign-out" 16}} Sign out
+              </button>
+            </form>
+          </div>
+        </details>
+      {{else}}
+        <a class="btn" href="/login{{if .CurrentPath}}?return_to={{.CurrentPath}}{{end}}">Sign in</a>
+      {{end}}
+    </nav>
+  </div>
+</header>
+{{- end}}
