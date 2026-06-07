@@ -53,15 +53,16 @@ func (h *Handlers) header(r *domain.Repo, activeTab string) view.RepoHeaderVM {
 	return hdr
 }
 
-// nav builds the repo underline-nav link set. The Code, Issues, Commits,
-// Branches, and Tags tabs are the surface so far; the rest arrive with their
-// milestones. The Issues link is the bare index URL, which the default-filter
-// view canonicalizes to.
+// nav builds the repo underline-nav link set. The Code, Issues, Pull requests,
+// Commits, Branches, and Tags tabs are the surface so far; the rest arrive with
+// their milestones. The Issues and Pull requests links are the bare index URLs,
+// which the default-filter views canonicalize to.
 func (h *Handlers) nav(r *domain.Repo, ref string) view.TreeNav {
 	owner := ownerLogin(r)
 	return view.TreeNav{
 		CodeURL:     route.Repo(owner, r.Name),
 		IssuesURL:   route.Issues(owner, r.Name, ""),
+		PullsURL:    route.Pulls(owner, r.Name, ""),
 		CommitsURL:  route.Commits(owner, r.Name, ref, ""),
 		BranchesURL: route.Branches(owner, r.Name),
 		TagsURL:     route.Tags(owner, r.Name),

@@ -29,6 +29,9 @@
       <li><a class="reponav-item{{if eq $h.ActiveTab "issues"}} is-current{{end}}"
              href="{{$nav.IssuesURL}}"{{if eq $h.ActiveTab "issues"}} aria-current="page"{{end}}>
         {{octicon "issue-opened" 16}} Issues</a></li>
+      <li><a class="reponav-item{{if eq $h.ActiveTab "pulls"}} is-current{{end}}"
+             href="{{$nav.PullsURL}}"{{if eq $h.ActiveTab "pulls"}} aria-current="page"{{end}}>
+        {{octicon "git-pull-request" 16}} Pull requests</a></li>
       <li><a class="reponav-item{{if eq $h.ActiveTab "commits"}} is-current{{end}}"
              href="{{$nav.CommitsURL}}"{{if eq $h.ActiveTab "commits"}} aria-current="page"{{end}}>
         {{octicon "git-commit" 16}} Commits</a></li>
