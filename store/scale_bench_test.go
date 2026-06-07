@@ -33,15 +33,26 @@ func TestScalePagination(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	dsn := "sqlite://" + filepath.Join(t.TempDir(), "scale.db")
+	// Default to a throwaway SQLite file. Point GITHOME_SCALE_DSN at a running
+	// Postgres (the docker/postgres compose, say) to measure the same sweep on
+	// the engine the keyset fix's range-scan claim is about; the keyset index is
+	// declared on both dialects, so the flat-vs-linear shape should hold on each.
+	dsn := os.Getenv("GITHOME_SCALE_DSN")
+	if dsn == "" {
+		dsn = "sqlite://" + filepath.Join(t.TempDir(), "scale.db")
+	}
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
+	// Start from a clean schema even on a reused Postgres database, the way the
+	// dual-dialect store tests do, so a prior run's rows do not skew the seed.
+	_ = st.Rollback(ctx, 1<<20)
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	t.Logf("engine: %s", st.Dialect())
 
 	repo := seedRepo(t, st, "octocat", &store.RepoRow{Name: "scale", DefaultBranch: "main"})
 
