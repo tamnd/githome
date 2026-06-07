@@ -1,0 +1,39 @@
+{{define "repo_tree" -}}
+{{/* The data is TreeVM. This renders the file table: a latest-commit header bar
+     over the rows, then one row per entry (directories first, sorted by the
+     handler). Each row's URL is precomputed, a directory linking to /tree and a
+     file to /blob; a submodule has no in-repo tree, so it shows without a link.
+     An empty directory renders a blankslate rather than an empty table. */ -}}
+<div class="filetable" role="table" aria-label="Files">
+  {{with .Latest}}{{if .Present -}}
+  <div class="filetable-head" role="row">
+    <span class="filetable-head-author">{{.AuthorName}}</span>
+    <span class="filetable-head-message">{{.Title}}</span>
+    <span class="filetable-head-meta">
+      <span class="filetable-head-sha">{{.ShortSHA}}</span>
+      <span class="filetable-head-when">{{.When}}</span>
+    </span>
+  </div>
+  {{- end}}{{end}}
+  {{if .Entries -}}
+  <ul class="filetable-list">
+    {{range .Entries -}}
+    <li class="filetable-row" role="row">
+      <span class="filetable-icon filetable-icon-{{.Type}}" aria-hidden="true">{{octicon .Icon 16}}</span>
+      {{if .Href -}}
+      <a class="filetable-name" href="{{.Href}}">{{.Name}}</a>
+      {{- else -}}
+      <span class="filetable-name filetable-name-plain">{{.Name}}</span>
+      {{- end}}
+      {{if eq .Type "submodule"}}<span class="filetable-tag">submodule</span>{{end}}
+      {{if eq .Type "symlink"}}<span class="filetable-tag">symlink</span>{{end}}
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="filetable-empty blankslate">
+    <p class="blankslate-text">This directory is empty.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

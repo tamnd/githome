@@ -1,0 +1,15 @@
+{{define "repo_breadcrumb" -}}
+{{/* The data is a slice of Crumb {Name, URL, Last}. The handler precomputes the
+     URL of every crumb, so this only chooses link versus plain text and marks the
+     last crumb as the current location. */ -}}
+<nav class="repo-breadcrumb" aria-label="Breadcrumb">
+  {{range $i, $c := . -}}
+  {{if $i}}<span class="repo-breadcrumb-sep" aria-hidden="true">/</span>{{end -}}
+  {{if $c.Last -}}
+  <span class="repo-breadcrumb-item is-current" aria-current="page">{{$c.Name}}</span>
+  {{- else -}}
+  <a class="repo-breadcrumb-item" href="{{$c.URL}}">{{$c.Name}}</a>
+  {{- end}}
+  {{- end}}
+</nav>
+{{- end}}

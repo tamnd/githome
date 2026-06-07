@@ -1,0 +1,34 @@
+{{define "repo_clone" -}}
+{{/* The data is CloneVM {HTTP, SSH}. It is a <details> disclosure so the clone
+     URLs open with no JavaScript. The fields are read-only inputs the viewer can
+     select and copy; the copy button is progressively enhanced and the input
+     stands on its own when scripting is off. */ -}}
+<details class="clone">
+  <summary class="clone-summary btn btn-primary">
+    {{octicon "code" 16}} Code
+    <span class="clone-caret" aria-hidden="true">{{octicon "triangle-down" 16}}</span>
+  </summary>
+  <div class="clone-menu">
+    <div class="clone-field">
+      <label class="clone-label" for="clone-http">HTTPS</label>
+      <div class="clone-row">
+        <input class="input clone-input" id="clone-http" type="text" value="{{.HTTP}}" readonly
+               aria-label="Clone with HTTPS">
+        <button class="btn clone-copy" type="button" data-copy-target="#clone-http" aria-label="Copy HTTPS clone URL">
+          {{octicon "copy" 16}}
+        </button>
+      </div>
+    </div>
+    <div class="clone-field">
+      <label class="clone-label" for="clone-ssh">SSH</label>
+      <div class="clone-row">
+        <input class="input clone-input" id="clone-ssh" type="text" value="{{.SSH}}" readonly
+               aria-label="Clone with SSH">
+        <button class="btn clone-copy" type="button" data-copy-target="#clone-ssh" aria-label="Copy SSH clone URL">
+          {{octicon "copy" 16}}
+        </button>
+      </div>
+    </div>
+  </div>
+</details>
+{{- end}}

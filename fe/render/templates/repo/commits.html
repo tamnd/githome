@@ -1,0 +1,43 @@
+{{define "content" -}}
+{{/* The data is CommitsVM. The history is grouped by calendar date; each group is
+     a date heading over its commits in newest-first order. A row shows the title,
+     the author, the abbreviated sha that links to the tree at that commit, and the
+     expandable body when the message has one. An empty history renders a
+     blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="repo-subhead">
+    <div class="repo-subhead-left">
+      <span class="commits-ref">{{octicon "git-branch" 16}} {{.Ref.Name}}</span>
+      {{if .Path}}<span class="commits-path">{{octicon "file" 16}} {{.Path}}</span>{{end}}
+    </div>
+  </div>
+  {{if .Groups -}}
+  <div class="commits">
+    {{range .Groups -}}
+    <div class="commits-group">
+      <h2 class="commits-date">{{octicon "git-commit" 16}} Commits on {{.Date}}</h2>
+      <ul class="commits-list">
+        {{range .Commits -}}
+        <li class="commit-row">
+          <div class="commit-main">
+            <a class="commit-title" href="{{.BrowseURL}}">{{.Title}}</a>
+            {{if .Body}}<details class="commit-body"><summary class="commit-body-toggle" aria-label="Toggle commit description">…</summary><pre class="commit-body-text">{{.Body}}</pre></details>{{end}}
+            <p class="commit-meta"><span class="commit-author">{{.AuthorName}}</span> committed on {{.When}}</p>
+          </div>
+          <div class="commit-aside">
+            <a class="commit-sha" href="{{.BrowseURL}}" aria-label="Browse the repository at {{.ShortSHA}}">{{.ShortSHA}}</a>
+          </div>
+        </li>
+        {{- end}}
+      </ul>
+    </div>
+    {{- end}}
+  </div>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">No commits to show.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

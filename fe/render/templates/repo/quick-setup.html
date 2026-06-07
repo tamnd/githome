@@ -1,0 +1,31 @@
+{{define "content" -}}
+{{/* The data is QuickSetupVM. An empty repository (no commits) has no tree to
+     show, so the home renders the quick-setup instead: the clone URLs and the
+     copy-and-paste blocks that push a first commit. The commands are static text
+     in <pre> blocks so they work with no JavaScript. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body quick-setup">
+  <div class="quick-setup-head">
+    <h1 class="quick-setup-title">Quick setup</h1>
+    <div class="quick-setup-clone">{{template "repo_clone" .Clone}}</div>
+  </div>
+
+  <section class="quick-setup-block">
+    <h2 class="quick-setup-heading">Create a new repository on the command line</h2>
+    <pre class="quick-setup-pre"><code>echo "# {{.Header.Name}}" &gt;&gt; README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin {{.Clone.HTTP}}
+git push -u origin main</code></pre>
+  </section>
+
+  <section class="quick-setup-block">
+    <h2 class="quick-setup-heading">Push an existing repository from the command line</h2>
+    <pre class="quick-setup-pre"><code>git remote add origin {{.Clone.HTTP}}
+git branch -M main
+git push -u origin main</code></pre>
+  </section>
+</div>
+{{- end}}

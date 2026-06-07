@@ -1,0 +1,17 @@
+{{define "repo_readme" -}}
+{{/* The data is *ReadmeVM {Name, Source, Body}. F1 has no markup renderer yet, so
+     Body is empty and the README shows as escaped preformatted source: the bytes
+     are displayed, never interpreted, which is the safe default. The markup
+     milestone fills Body with trusted GFM HTML and this falls through to it. */ -}}
+{{if . -}}
+<section class="readme" aria-label="README">
+  <div class="readme-head">
+    <span class="readme-icon" aria-hidden="true">{{octicon "file" 16}}</span>
+    <h2 class="readme-name">{{.Name}}</h2>
+  </div>
+  <div class="readme-body">
+    {{if .Body}}{{.Body}}{{else}}<pre class="readme-source">{{.Source}}</pre>{{end}}
+  </div>
+</section>
+{{- end}}
+{{- end}}

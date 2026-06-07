@@ -1,0 +1,33 @@
+{{define "content" -}}
+{{/* The data is RepoHomeVM. The repo home renders the default-branch root in
+     place: the bare /{owner}/{repo} URL stays in the address bar, so this is the
+     tree at the root plus the About sidebar and the auto-rendered README. The ref
+     picker and clone block sit in the subhead. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="repo-subhead">
+    <div class="repo-subhead-left">{{template "repo_refpicker" .Tree.RefPicker}}</div>
+    <div class="repo-subhead-right">
+      <a class="btn" href="{{.Nav.CommitsURL}}">{{octicon "history" 16}} History</a>
+      {{template "repo_clone" .Tree.Clone}}
+    </div>
+  </div>
+  <div class="repo-columns">
+    <div class="repo-main">
+      {{template "repo_tree" .Tree}}
+      {{template "repo_readme" .Readme}}
+    </div>
+    <aside class="repo-sidebar" aria-label="About">
+      <h2 class="repo-sidebar-title">About</h2>
+      {{if .About.Description -}}
+      <p class="repo-about-description">{{.About.Description}}</p>
+      {{- else -}}
+      <p class="repo-about-empty">No description provided.</p>
+      {{- end}}
+      {{if .About.Homepage -}}
+      <p class="repo-about-homepage">{{octicon "link-external" 16}} <a href="{{.About.Homepage}}" rel="nofollow">{{.About.Homepage}}</a></p>
+      {{- end}}
+    </aside>
+  </div>
+</div>
+{{- end}}

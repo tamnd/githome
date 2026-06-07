@@ -1,0 +1,24 @@
+{{define "content" -}}
+{{/* The data is TagsVM, version-aware descending so the newest release is first.
+     Each row links the tree at the tag and shows the annotated message when the
+     tag carries one. An empty list renders a blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  {{if .Items -}}
+  <ul class="ref-list" aria-label="Tags">
+    {{range .Items -}}
+    <li class="ref-list-row">
+      <span class="ref-list-icon" aria-hidden="true">{{octicon "tag" 16}}</span>
+      <a class="ref-list-name" href="{{.TreeURL}}">{{.Name}}</a>
+      <span class="ref-list-sha">{{.ShortSHA}}</span>
+      {{if .Message}}<span class="ref-list-message">{{.Message}}</span>{{end}}
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">This repository has no tags yet.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

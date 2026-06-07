@@ -1,0 +1,27 @@
+{{define "content" -}}
+{{/* The data is BranchesVM. The default branch is listed first with a marker, then
+     the rest in name order. Each row links the tree at the branch and its history.
+     The ahead/behind counts and per-branch PR status arrive with the compare
+     domain; F1 lists the branches with their navigation links. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  {{if .Items -}}
+  <ul class="ref-list" aria-label="Branches">
+    {{range .Items -}}
+    <li class="ref-list-row">
+      <span class="ref-list-icon" aria-hidden="true">{{octicon "git-branch" 16}}</span>
+      <a class="ref-list-name" href="{{.TreeURL}}">{{.Name}}</a>
+      {{if .IsDefault}}<span class="ref-list-badge">default</span>{{end}}
+      <span class="ref-list-actions">
+        <a class="ref-list-link" href="{{.CommitsURL}}" aria-label="History of {{.Name}}">{{octicon "history" 16}}</a>
+      </span>
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">This repository has no branches yet.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}
