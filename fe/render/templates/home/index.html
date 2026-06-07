@@ -1,0 +1,25 @@
+{{define "title"}}Home{{end}}
+{{define "content" -}}
+{{/* The data is HomeVM. F0 ships a real but minimal landing: a signed-in viewer
+     sees a dashboard shell, an anonymous viewer sees a sign-in blankslate. Later
+     milestones fill the dashboard with feeds and the viewer's repositories. */ -}}
+{{if .Chrome.Viewer -}}
+<div class="home-dashboard">
+  <h1 class="home-heading">Welcome back, {{.Chrome.Viewer.Login}}</h1>
+  <p class="home-lede">Your dashboard is taking shape. Jump to a repository from the search bar above.</p>
+  <div class="home-actions">
+    <a class="btn btn-primary" href="/new">{{octicon "repo" 16}} New repository</a>
+    <a class="btn" href="/{{.Chrome.Viewer.Login}}?tab=repositories">Your repositories</a>
+  </div>
+</div>
+{{- else -}}
+<div class="blankslate home-landing">
+  <span class="blankslate-icon" aria-hidden="true">{{octicon "mark-github" 48}}</span>
+  <h1 class="blankslate-heading">{{.Chrome.SiteName}}</h1>
+  <p class="blankslate-text">A self-hosted home for your code, issues, and pull requests.</p>
+  <div class="home-actions">
+    <a class="btn btn-primary" href="/login">Sign in</a>
+  </div>
+</div>
+{{- end}}
+{{- end}}

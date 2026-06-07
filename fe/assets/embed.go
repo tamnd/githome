@@ -1,11 +1,9 @@
-// Package assets owns the Githome web front's built static assets: the
-// content-hashed CSS and JS bundles, the manifest that maps a logical name to
-// its hashed file, and the Octicon-equivalent icon registry the render layer
-// inlines. The bundles are produced by the build command in ./build and embedded
-// here; nothing in this package imports the web front or the persistence layer.
-// See implementation/01 and implementation/04.
-//
 //go:build !fedev
+
+// This file holds the production asset access: the built tree is embedded into
+// the binary and served immutable. The fedev build (embed_dev.go) reads the same
+// tree from disk instead. The package doc lives in icons.go, the only
+// non-build-tagged file. See implementation/01 and implementation/04.
 
 package assets
 
