@@ -73,7 +73,9 @@ func (s *Sessions) Middleware() mizu.Middleware {
 				return err
 			}
 			if v != nil {
-				setCtx(view.WithViewer(c.Context(), v), c)
+				ctx := view.WithViewer(c.Context(), v)
+				ctx = withViewerID(ctx, pk)
+				setCtx(ctx, c)
 			}
 			return next(c)
 		}
