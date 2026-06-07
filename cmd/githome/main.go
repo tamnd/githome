@@ -37,6 +37,7 @@ import (
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/gittransport"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
@@ -219,6 +220,19 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 		return err
 	}
 
+	// The markup renderer is the one path from file or comment content to trusted
+	// HTML. It is built here and shared by the web front (and later the REST
+	// text/html media type) so both surfaces apply the same allowlist and link
+	// rules. It reads links and anchors against the configured HTML base and
+	// proxies off-host images through camo when a secret is set.
+	markupRenderer := markup.New(markup.Config{
+		BaseURL:           cfg.URLs.HTML.String(),
+		CamoSecret:        cfg.Markup.CamoSecret,
+		CamoBaseURL:       cfg.Markup.CamoBaseURL,
+		MaxHighlightBytes: cfg.Markup.MaxHighlightBytes,
+		Logger:            logger,
+	})
+
 	lookup := func(ctx context.Context, pk int64) (*view.Viewer, error) {
 		u, err := users.Viewer(ctx, pk)
 		if err != nil {
@@ -239,6 +253,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 		View:     view.NewBuilder(cfg.Web.SiteName),
 		Repos:    repos,
 		URLs:     urls,
+		Markup:   markupRenderer,
 		Sessions: webmw.NewSessions(cfg.Secrets.SessionKey, 0, lookup),
 		CSRF:     webmw.NewCSRF(renderSet),
 		Flash:    webmw.NewFlash(cfg.Secrets.SessionKey),

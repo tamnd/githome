@@ -22,19 +22,23 @@ import (
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/presenter"
 )
 
 // Deps are the code-browsing handlers' dependencies: the domain repo service for
 // every git read, the presenter for clone URLs, the render set, the view builder
-// for the shell chrome, and a logger for the truncation notices the heavy views
-// emit. The handler package maps domain data into fe/view models itself, so the
-// view builder is needed only for Chrome.
+// for the shell chrome, the shared markup renderer for the README and Markdown
+// blob views, and a logger for the truncation notices the heavy views emit. The
+// handler package maps domain data into fe/view models itself, so the view
+// builder is needed only for Chrome. A nil markup renderer falls back to the
+// escaped-source view.
 type Deps struct {
 	Repos  *domain.RepoService
 	URLs   *presenter.URLBuilder
 	Render *render.Set
 	View   *view.Builder
+	Markup *markup.Renderer
 	Logger *slog.Logger
 }
 
@@ -45,6 +49,7 @@ type Handlers struct {
 	urls   *presenter.URLBuilder
 	render *render.Set
 	view   *view.Builder
+	markup *markup.Renderer
 	log    *slog.Logger
 }
 
@@ -55,6 +60,7 @@ func New(d Deps) *Handlers {
 		urls:   d.URLs,
 		render: d.Render,
 		view:   d.View,
+		markup: d.Markup,
 		log:    d.Logger,
 	}
 }
