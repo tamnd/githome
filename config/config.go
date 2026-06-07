@@ -33,8 +33,17 @@ type Config struct {
 	Worker          Worker
 	Log             Log
 	Server          Server
+	Web             Web
 	ShutdownTimeout time.Duration // GITHOME_SHUTDOWN_TIMEOUT; default 30s
 	Env             string        // GITHOME_ENV; "production" switches slog to JSON
+}
+
+// Web configures the server-rendered HTML front. It is enabled by default and
+// shares the process, the domain layer, and the session secret with the API;
+// disabling it leaves only the REST, GraphQL, and git surfaces mounted.
+type Web struct {
+	Enabled  bool   // GITHOME_WEB_ENABLED   default true
+	SiteName string // GITHOME_WEB_SITE_NAME default "Githome"
 }
 
 // URLs are the resolved external base URLs. API and GraphQL default to the HTML
@@ -132,5 +141,6 @@ func defaults() Config {
 			MaxBodyBytes:      25 << 20,
 			MaxBlobBytes:      100 << 20,
 		},
+		Web: Web{Enabled: true, SiteName: "Githome"},
 	}
 }
