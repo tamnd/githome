@@ -9,9 +9,26 @@ COMPOSE      ?= podman compose
 COMPOSE_FILE := docker/postgres/compose.yaml
 PG_DSN       ?= postgres://githome:githome@localhost:5432/githome_test?sslmode=disable
 
-.PHONY: all build test test-postgres lint vet fmt tidy gates clean pg-up pg-down pg-down-clean
+.PHONY: all build test test-postgres lint vet fmt tidy gates clean pg-up pg-down pg-down-clean assets assets-check
 
 all: build
+
+# assets regenerates the embedded web front bundle: it runs the esbuild-based
+# builder (no Node), which generates the theme CSS from the Go palettes, bundles
+# and content-hashes the CSS and TS entries, and writes fe/assets/dist plus the
+# manifest. Run it after editing anything under fe/assets/src.
+assets:
+	$(GO) run ./fe/assets/build
+
+# assets-check re-runs the builder and fails if the committed dist tree or the
+# generated CSS drifts from source, so the embedded assets stay reproducible.
+assets-check: assets
+	@if [ -n "$$(git status --porcelain -- fe/assets/dist fe/assets/src/css/themes.gen.css)" ]; then \
+		echo "asset build is not reproducible: dist or generated CSS drifted from source"; \
+		git status --porcelain -- fe/assets/dist fe/assets/src/css/themes.gen.css; \
+		exit 1; \
+	fi
+	@echo "assets reproducible"
 
 build:
 	$(GO) build -o $(BIN)/githome ./cmd/githome
