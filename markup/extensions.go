@@ -55,7 +55,7 @@ func (n *alertNode) Dump(source []byte, level int) {
 // alertNode, stripping the marker.
 type alertTransformer struct{}
 
-func (t *alertTransformer) Transform(doc *ast.Document, reader text.Reader, pc parser.Context) {
+func (t *alertTransformer) Transform(doc *ast.Document, reader text.Reader, _ parser.Context) {
 	source := reader.Source()
 	var quotes []*ast.Blockquote
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -140,8 +140,8 @@ func (r *alertRenderer) render(w util.BufWriter, _ []byte, node ast.Node, enteri
 	n := node.(*alertNode)
 	if entering {
 		title := strings.ToUpper(n.alertType[:1]) + n.alertType[1:]
-		fmt.Fprintf(w, `<div class="markdown-alert markdown-alert-%s" data-octicon=%q>`, n.alertType, alertOcticon[n.alertType])
-		fmt.Fprintf(w, `<p class="markdown-alert-title">%s</p>`, html.EscapeString(title))
+		_, _ = fmt.Fprintf(w, `<div class="markdown-alert markdown-alert-%s" data-octicon=%q>`, n.alertType, alertOcticon[n.alertType])
+		_, _ = fmt.Fprintf(w, `<p class="markdown-alert-title">%s</p>`, html.EscapeString(title))
 	} else {
 		_, _ = w.WriteString("</div>\n")
 	}
@@ -177,9 +177,9 @@ func (r *mathRenderer) render(w util.BufWriter, _ []byte, node ast.Node, enterin
 	}
 	n := node.(*mathNode)
 	if n.display {
-		fmt.Fprintf(w, `<div class="math math-display">%s</div>`, html.EscapeString(n.latex))
+		_, _ = fmt.Fprintf(w, `<div class="math math-display">%s</div>`, html.EscapeString(n.latex))
 	} else {
-		fmt.Fprintf(w, `<span class="math math-inline">%s</span>`, html.EscapeString(n.latex))
+		_, _ = fmt.Fprintf(w, `<span class="math math-inline">%s</span>`, html.EscapeString(n.latex))
 	}
 	return ast.WalkSkipChildren, nil
 }
@@ -279,7 +279,7 @@ func (r *refRenderer) render(w util.BufWriter, _ []byte, node ast.Node, entering
 		_, _ = w.WriteString(html.EscapeString(n.text))
 		return ast.WalkSkipChildren, nil
 	}
-	fmt.Fprintf(w, `<a href=%q class=%q>%s</a>`, n.href, n.class, html.EscapeString(n.text))
+	_, _ = fmt.Fprintf(w, `<a href=%q class=%q>%s</a>`, n.href, n.class, html.EscapeString(n.text))
 	return ast.WalkSkipChildren, nil
 }
 
@@ -318,7 +318,7 @@ func (t *autolinkTransformer) Transform(doc *ast.Document, reader text.Reader, p
 		return ast.WalkContinue, nil
 	})
 	for _, tn := range targets {
-		t.splitText(tn, source, rc, ctx)
+		t.splitText(ctx, tn, source, rc)
 	}
 }
 
@@ -328,10 +328,10 @@ type match struct {
 	node       ast.Node
 }
 
-func (t *autolinkTransformer) splitText(tn *ast.Text, source []byte, rc RenderContext, goCtx context.Context) {
+func (t *autolinkTransformer) splitText(goCtx context.Context, tn *ast.Text, source []byte, rc RenderContext) {
 	val := tn.Segment.Value(source)
 	s := string(val)
-	matches := t.scan(s, rc, goCtx)
+	matches := t.scan(goCtx, s, rc)
 	if len(matches) == 0 {
 		return
 	}
@@ -360,7 +360,7 @@ func (t *autolinkTransformer) splitText(tn *ast.Text, source []byte, rc RenderCo
 }
 
 // scan returns the non-overlapping leftmost token matches in priority order.
-func (t *autolinkTransformer) scan(s string, rc RenderContext, goCtx context.Context) []match {
+func (t *autolinkTransformer) scan(goCtx context.Context, s string, rc RenderContext) []match {
 	type cand struct {
 		loc  []int
 		make func(loc []int) ast.Node
@@ -490,9 +490,9 @@ func (cr *codeBlockRenderer) renderFenced(w util.BufWriter, source []byte, node 
 	code := codeText(node, source)
 	switch {
 	case lang == "math":
-		fmt.Fprintf(w, `<div class="math math-display">%s</div>`+"\n", html.EscapeString(string(code)))
+		_, _ = fmt.Fprintf(w, `<div class="math math-display">%s</div>`+"\n", html.EscapeString(string(code)))
 	case diagramLangs[lang]:
-		fmt.Fprintf(w, `<div class="render-diagram" data-diagram-type=%q><pre>%s</pre></div>`+"\n", lang, html.EscapeString(string(code)))
+		_, _ = fmt.Fprintf(w, `<div class="render-diagram" data-diagram-type=%q><pre>%s</pre></div>`+"\n", lang, html.EscapeString(string(code)))
 	default:
 		cr.writeHighlighted(w, code, lang)
 	}
@@ -515,7 +515,7 @@ func (cr *codeBlockRenderer) writeHighlighted(w util.BufWriter, code []byte, lan
 	if lang != "" {
 		class += " highlight-source-" + lang
 	}
-	fmt.Fprintf(w, `<div class=%q><pre>`, class)
+	_, _ = fmt.Fprintf(w, `<div class=%q><pre>`, class)
 	lines, _ := cr.r.highlightLines(code, lang)
 	for i, ln := range lines {
 		if i > 0 {
