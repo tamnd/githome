@@ -8,7 +8,8 @@
  * the asset build from the palettes in fe/assets/build; do not edit it by hand.
  * The search sheet follows the surface sheets it borrows row idioms from (issues,
  * pulls); the profile sheet follows search since its repository rows share the same
- * idiom. See implementation/04.
+ * idiom; the settings sheet follows the profile since it lays out the same
+ * sidebar-beside-a-body shell. See implementation/04.
  */
 
 @import "./tokens.css";
@@ -20,5 +21,6 @@
 @import "./pulls.css";
 @import "./search.css";
 @import "./profile.css";
+@import "./settings.css";
 @import "./markdown.css";
 @import "./highlight.css";

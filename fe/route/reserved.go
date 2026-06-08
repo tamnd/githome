@@ -31,6 +31,12 @@ var reservedTop = map[string]bool{
 	"orgs":          true,
 	"about":         true,
 
+	// The site-administration surface. Reserved now so an instance admin panel
+	// can mount under them later without a login ever shadowing the route;
+	// Githome does not back them yet, so nothing is mounted there.
+	"stafftools": true,
+	"admin":      true,
+
 	// Cross-cutting resource roots that are not a single owner.
 	"issues": true,
 	"pulls":  true,

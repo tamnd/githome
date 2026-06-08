@@ -1,0 +1,12 @@
+{{define "settings_nav" -}}
+<nav class="settings-nav" aria-label="Settings sections">
+  <h2 class="settings-nav-heading"><a href="{{.HeadingURL}}">{{.Heading}}</a></h2>
+  <ul class="settings-nav-list">
+    {{range .Items -}}
+    <li>
+      <a class="settings-nav-item{{if .IsActive}} is-current{{end}}" href="{{.URL}}"{{if .IsActive}} aria-current="page"{{end}}>{{.Label}}</a>
+    </li>
+    {{end -}}
+  </ul>
+</nav>
+{{- end}}

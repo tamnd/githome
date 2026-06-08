@@ -1,0 +1,44 @@
+{{define "content" -}}
+{{/* The data is HookDeliveryDetailVM. The page is one recorded delivery in full:
+     the request Githome sent and the response the endpoint answered, each with its
+     headers and body, so an integrator can see exactly what crossed the wire. The
+     replay control re-sends the stored request through the worker. BackURL returns
+     to the hook. See implementation/13. */ -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <p class="settings-lead"><a href="{{.BackURL}}">{{octicon "chevron-left" 16}} Back to webhook</a></p>
+    <div class="settings-section-head">
+      <h1 class="settings-title">
+        <span class="hook-status-{{.Row.StatusKind}}" title="{{.Row.StatusLabel}}">{{octicon .Row.StatusIcon 16}}</span>
+        {{.Row.Event}}
+      </h1>
+      <form method="post" action="{{.Row.RedeliverAction}}">
+        {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+        <button class="btn" type="submit">{{octicon "history" 16}} Redeliver</button>
+      </form>
+    </div>
+    <p class="settings-hint">{{.Row.GUID}}{{if .Row.Redelivery}} &middot; redelivery{{end}} &middot; <relative-time datetime="{{.Row.DeliveredISO}}">{{.Row.DeliveredAt}}</relative-time> &middot; {{.Row.StatusLabel}}</p>
+
+    <h2 class="settings-nav-heading">Request</h2>
+    {{if .RequestHeaders -}}
+    <ul class="hook-deliveries">
+      {{range .RequestHeaders -}}
+      <li class="hook-delivery"><span class="hook-delivery-guid">{{.Name}}</span><span class="hook-row-meta">{{.Value}}</span></li>
+      {{end -}}
+    </ul>
+    {{- end}}
+    {{if .RequestBody}}<pre class="hook-payload">{{.RequestBody}}</pre>{{end}}
+
+    <h2 class="settings-nav-heading">Response</h2>
+    {{if .ResponseHeaders -}}
+    <ul class="hook-deliveries">
+      {{range .ResponseHeaders -}}
+      <li class="hook-delivery"><span class="hook-delivery-guid">{{.Name}}</span><span class="hook-row-meta">{{.Value}}</span></li>
+      {{end -}}
+    </ul>
+    {{- end}}
+    {{if .ResponseBody}}<pre class="hook-payload">{{.ResponseBody}}</pre>{{end}}
+  </section>
+</div>
+{{- end}}

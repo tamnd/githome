@@ -1,0 +1,261 @@
+/*
+ * settings.css styles the settings surfaces: the two-column shell both the
+ * account and the repository settings pages wear (a sidebar of section links
+ * beside the active section's body), the settings forms, and the webhooks list
+ * and delivery views. It uses only the functional theme tokens, never a base
+ * primitive, so it themes with the rest of the front. The shell follows the
+ * profile sheet in the cascade since both lay out a sidebar beside a body. See
+ * implementation/13.
+ */
+
+/* The two-column shell: a sidebar of section links beside the active body. It
+ * stacks to one column on a narrow viewport so the sidebar sits above the body. */
+.settings-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--base-size-24);
+  padding: var(--base-size-24) 0;
+}
+
+@media (min-width: 768px) {
+  .settings-shell {
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  }
+}
+
+/* The sidebar. */
+.settings-nav-heading {
+  margin: 0 0 var(--base-size-8);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.settings-nav-heading a {
+  color: inherit;
+}
+
+.settings-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-nav-item {
+  display: block;
+  padding: 6px var(--base-size-8);
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.settings-nav-item:hover {
+  text-decoration: none;
+  background-color: var(--bgColor-muted);
+}
+
+.settings-nav-item.is-current {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+/* The active section body. */
+.settings-body {
+  min-width: 0;
+}
+
+.settings-title {
+  margin: 0 0 var(--base-size-4);
+  padding-bottom: var(--base-size-8);
+  font-size: var(--text-title-size-medium);
+  font-weight: 400;
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.settings-lead,
+.settings-hint {
+  margin: var(--base-size-8) 0 var(--base-size-16);
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+.settings-hint {
+  margin: var(--base-size-4) 0 var(--base-size-8);
+}
+
+/* Forms. */
+.settings-form {
+  max-width: 544px;
+}
+
+.settings-field {
+  margin-bottom: var(--base-size-16);
+}
+
+.settings-label {
+  display: block;
+  margin-bottom: var(--base-size-4);
+  font-weight: 600;
+}
+
+.settings-select {
+  max-width: 320px;
+}
+
+.settings-group {
+  margin: 0 0 var(--base-size-16);
+  padding: 0;
+  border: 0;
+}
+
+.settings-legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-4) 0;
+}
+
+.settings-actions {
+  display: flex;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-16);
+  padding-top: var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* The webhooks list. */
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+}
+
+.hook-list {
+  list-style: none;
+  margin: var(--base-size-16) 0 0;
+  padding: 0;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.hook-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-12) var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.hook-row:first-child {
+  border-top: 0;
+}
+
+.hook-row-main {
+  min-width: 0;
+}
+
+.hook-row-target {
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  word-break: break-all;
+}
+
+.hook-row-meta {
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+.hook-row-status {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.hook-status-success {
+  color: var(--fgColor-success, #1a7f37);
+}
+
+.hook-status-danger {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.hook-status-muted {
+  color: var(--fgColor-muted);
+}
+
+.hook-inactive {
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+/* The webhook form's event checkboxes and the secret hint. */
+.hook-events {
+  display: grid;
+  gap: var(--base-size-4);
+  margin: var(--base-size-8) 0;
+}
+
+.hook-event {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.hook-secret-state {
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+/* The delivery history and the delivery detail's request and response panes. */
+.hook-deliveries {
+  list-style: none;
+  margin: var(--base-size-8) 0 0;
+  padding: 0;
+}
+
+.hook-delivery {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) 0;
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.hook-delivery-guid {
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+}
+
+.hook-delivery-when {
+  margin-left: auto;
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+.hook-payload {
+  margin: var(--base-size-8) 0 var(--base-size-16);
+  padding: var(--base-size-12);
+  overflow-x: auto;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-muted);
+  border-radius: var(--borderRadius-medium);
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+}
+
+.settings-danger {
+  margin-top: var(--base-size-24);
+  padding: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-danger-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.settings-danger-title {
+  margin: 0 0 var(--base-size-8);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}

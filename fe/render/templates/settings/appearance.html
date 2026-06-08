@@ -1,0 +1,46 @@
+{{define "content" -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <h1 class="settings-title">Appearance</h1>
+    <p class="settings-lead">Choose how Githome looks to you. Your choice rides a cookie, so it follows this browser and needs no JavaScript.</p>
+
+    <form class="settings-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+      <fieldset class="settings-group">
+        <legend class="settings-legend">Theme mode</legend>
+        <p class="settings-hint">Sync with system follows your device between its light and dark settings.</p>
+        {{range .Modes -}}
+        <label class="settings-radio">
+          <input type="radio" name="mode" value="{{.Value}}"{{if .Selected}} checked{{end}}>
+          <span>{{.Label}}</span>
+        </label>
+        {{end -}}
+      </fieldset>
+
+      <div class="settings-field">
+        <label class="settings-label" for="light_theme">Day theme</label>
+        <select class="input settings-select" id="light_theme" name="light_theme">
+          {{range .LightThemes -}}
+          <option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+          {{end -}}
+        </select>
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="dark_theme">Night theme</label>
+        <select class="input settings-select" id="dark_theme" name="dark_theme">
+          {{range .DarkThemes -}}
+          <option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+          {{end -}}
+        </select>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" type="submit">Update preferences</button>
+      </div>
+    </form>
+  </section>
+</div>
+{{- end}}
