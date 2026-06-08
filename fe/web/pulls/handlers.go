@@ -35,40 +35,43 @@ import (
 // for comment bodies; and a logger for the notices the views emit. A nil markup
 // renderer falls back to escaped comment source.
 type Deps struct {
-	Pulls  *domain.PRService
-	Issues *domain.IssueService
-	Repos  *domain.RepoService
-	URLs   *presenter.URLBuilder
-	Render *render.Set
-	View   *view.Builder
-	Markup *markup.Renderer
-	Logger *slog.Logger
+	Pulls   *domain.PRService
+	Issues  *domain.IssueService
+	Reviews *domain.ReviewService
+	Repos   *domain.RepoService
+	URLs    *presenter.URLBuilder
+	Render  *render.Set
+	View    *view.Builder
+	Markup  *markup.Renderer
+	Logger  *slog.Logger
 }
 
 // Handlers is the pulls handler set. One is built at boot and shared; it holds no
 // per-request state.
 type Handlers struct {
-	pulls  *domain.PRService
-	issues *domain.IssueService
-	repos  *domain.RepoService
-	urls   *presenter.URLBuilder
-	render *render.Set
-	view   *view.Builder
-	markup *markup.Renderer
-	log    *slog.Logger
+	pulls   *domain.PRService
+	issues  *domain.IssueService
+	reviews *domain.ReviewService
+	repos   *domain.RepoService
+	urls    *presenter.URLBuilder
+	render  *render.Set
+	view    *view.Builder
+	markup  *markup.Renderer
+	log     *slog.Logger
 }
 
 // New wires the handler set from its dependencies.
 func New(d Deps) *Handlers {
 	return &Handlers{
-		pulls:  d.Pulls,
-		issues: d.Issues,
-		repos:  d.Repos,
-		urls:   d.URLs,
-		render: d.Render,
-		view:   d.View,
-		markup: d.Markup,
-		log:    d.Logger,
+		pulls:   d.Pulls,
+		issues:  d.Issues,
+		reviews: d.Reviews,
+		repos:   d.Repos,
+		urls:    d.URLs,
+		render:  d.Render,
+		view:    d.View,
+		markup:  d.Markup,
+		log:     d.Logger,
 	}
 }
 

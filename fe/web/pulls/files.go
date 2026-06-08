@@ -1,11 +1,13 @@
 package pulls
 
 import (
+	"context"
 	"log/slog"
 	"strconv"
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/view"
 )
 
@@ -56,8 +58,17 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 	files := diffFiles(changes)
 	sortFilesByPath(files)
 
+	vc := h.viewer(c)
+	// Hang the review threads off the rows they anchor to, by the persisted
+	// (path, line, side), so a thread opened in the browser and one opened with the
+	// API land on the same line. A thread that no longer maps onto the diff renders
+	// in its file's outdated group. A read error on the threads degrades to the diff
+	// without them rather than failing the whole page.
+	threads := h.loadThreadVMs(ctx, repo, pr, vc)
+	files = h.attachThreads(files, threads, owner, repo.Name, pr.Number)
+
 	title := pr.Title + " #" + strconv.FormatInt(pr.Number, 10)
-	shell := h.shell(c, repo, pr, h.viewer(c).pk, "files", title)
+	shell := h.shell(c, repo, pr, vc.pk, "files", title)
 	vm := view.PRFilesVM{
 		Chrome:       shell.Chrome,
 		Shell:        shell,
@@ -66,8 +77,37 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 		Deletions:    pr.Deletions,
 		Files:        files,
 		Truncated:    truncated,
+		Review:       h.reviewSurface(ctx, repo, pr, vc),
 	}
 	return h.render.Page(c, "pulls/files", vm)
+}
+
+// loadThreadVMs reads the pull request's review threads and maps them into view
+// models. With no review service wired, or on a read error, it returns no threads so
+// the diff still renders read-only; the error is logged rather than failing the page,
+// since the diff is the load-bearing content and the threads are an overlay on it.
+func (h *Handlers) loadThreadVMs(ctx context.Context, repo *domain.Repo, pr *domain.PullRequest, vc viewerCtx) []view.ReviewThreadVM {
+	if h.reviews == nil {
+		return nil
+	}
+	owner := ownerLogin(repo)
+	threads, err := h.reviews.ReviewThreads(ctx, vc.pk, owner, repo.Name, pr.Number)
+	if err != nil {
+		if h.log != nil {
+			h.log.Warn("pulls: loading review threads failed",
+				slog.String("owner", owner),
+				slog.String("repo", repo.Name),
+				slog.Int64("number", pr.Number),
+				slog.Any("err", err),
+			)
+		}
+		return nil
+	}
+	out := make([]view.ReviewThreadVM, 0, len(threads))
+	for _, t := range threads {
+		out = append(out, h.reviewThread(ctx, repo, pr, t, vc))
+	}
+	return out
 }
 
 // logTruncatedDiff records a Files-tab cap so a truncated diff is auditable rather
