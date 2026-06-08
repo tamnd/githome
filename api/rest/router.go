@@ -37,12 +37,24 @@ type Deps struct {
 	Search     *domain.SearchService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
+
+	// WebFront reports that the server-rendered web front is mounted on the same
+	// router and owns the bare root namespace (/{owner}/{repo}). When set, the
+	// dotcom-style root API mount and the root catch-all 404 are omitted: the API
+	// answers only under the GHES /api/v3 prefix (GraphQL under /api/graphql),
+	// which is the single-host layout GHES itself uses. Without it the API also
+	// answers at the bare root, the github.com-style shape, but those wildcard
+	// routes cannot coexist with the web front's own /{owner}/{repo} wildcards on
+	// one net/http mux: the mux rejects the overlapping patterns at registration.
+	WebFront bool
 }
 
-// Mount wires the REST routes onto root. The API is served both at the
-// GHES-style /api/v3 prefix and at the bare github.com-style root, sharing one
-// set of handlers and the version/media-type middleware. Health probes sit
-// outside that chain, and any unmatched path returns the GitHub-shaped 404.
+// Mount wires the REST routes onto root. The API is served at the GHES-style
+// /api/v3 prefix and, unless the web front owns the root (Deps.WebFront), also at
+// the bare github.com-style root, sharing one set of handlers and the
+// version/media-type middleware. Health probes sit outside that chain, and any
+// unmatched path returns the GitHub-shaped 404 (again, unless the web front owns
+// the root and supplies its own).
 func Mount(root *mizu.Router, d Deps) {
 	// Drop mizu's default stderr request logger; Githome logs through its own
 	// configured slog handler and error handler.
@@ -64,9 +76,14 @@ func Mount(root *mizu.Router, d Deps) {
 		api = api.With(authMiddleware(d.Auth))
 	}
 	mountAPI(api.Prefix("/api/v3"), d)
-	mountAPI(api, d)
-
-	root.Compat.Handle("/", http.HandlerFunc(notFoundHandler))
+	if !d.WebFront {
+		// The bare-root, github.com-style API and its root catch-all only mount
+		// when the web front is not sharing this router. With the front present
+		// these wildcards would collide with /{owner}/{repo}, and the front owns
+		// the root 404.
+		mountAPI(api, d)
+		root.Compat.Handle("/", http.HandlerFunc(notFoundHandler))
+	}
 }
 
 // mountAPI registers the versioned API endpoints on r, which already carries the
