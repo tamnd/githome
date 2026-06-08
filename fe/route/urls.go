@@ -59,6 +59,13 @@ func Commits(owner, name, ref, path string) string {
 	return refPathURL(owner, name, "commits", ref, path)
 }
 
+// Checks is the commit checks page, /{owner}/{repo}/checks/{ref}. ref is a branch,
+// tag, or sha; its segments are escaped and rejoined with literal slashes so a
+// branch with slashes round-trips through the same ref split the code views use.
+func Checks(owner, name, ref string) string {
+	return refPathURL(owner, name, "checks", ref, "")
+}
+
 // Branches is the branch overview, /{owner}/{repo}/branches.
 func Branches(owner, name string) string {
 	return Repo(owner, name) + "/branches"

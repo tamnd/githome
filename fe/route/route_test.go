@@ -7,6 +7,20 @@ import "testing"
 // ref/path split) that the dispatcher and the tree and blob handlers depend on.
 // See implementation/15 section 2.
 
+func TestChecks(t *testing.T) {
+	cases := map[string]string{
+		"main":      "/octocat/hello/checks/main",
+		"feature/x": "/octocat/hello/checks/feature/x",
+		"deadbeef":  "/octocat/hello/checks/deadbeef",
+		"a b":       "/octocat/hello/checks/a%20b",
+	}
+	for ref, want := range cases {
+		if got := Checks("octocat", "hello", ref); got != want {
+			t.Errorf("Checks(ref=%q) = %q, want %q", ref, got, want)
+		}
+	}
+}
+
 func TestIsReservedTop(t *testing.T) {
 	reserved := []string{"login", "settings", "search", "notifications", "new",
 		"assets", "gist", "favicon.ico", "robots.txt"}
