@@ -65,10 +65,10 @@ func (h *Handlers) NewHook(c *mizu.Ctx) error {
 		events:      []string{domain.EventPush},
 	}
 	vm := h.formVM(c, formContext{
-		title:   "Add webhook",
-		action:  route.RepoHooks(owner, name),
-		isNew:   true,
-		form:    f,
+		title:     "Add webhook",
+		action:    route.RepoHooks(owner, name),
+		isNew:     true,
+		form:      f,
 		hasSecret: false,
 	})
 	return h.render.Page(c, "settings/hook_form", vm)
