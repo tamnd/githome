@@ -1,0 +1,161 @@
+{{define "content" -}}
+{{/* The data is ProfilePageVM. The profile is a two-column page: a sidebar with
+     the identity card (avatar, name, bio, the follower counts, and the vcard of
+     company, location, email, website, social, and the joined date) and a main
+     column with the tab strip and exactly one tab body. The overview pairs a short
+     grid of recently updated repositories with the activity timeline; the
+     repositories tab lists every visible repository with a sort menu and a pager.
+     Every control is a plain link the handler composed server-side, so the whole
+     surface navigates with no JavaScript. An organization swaps the identity glyph
+     and drops the person-only vcard rows. See implementation/12 sections 5, 6, and
+     7. */ -}}
+<div class="profile">
+  <aside class="profile-sidebar">
+    <img class="profile-avatar" src="{{.Header.AvatarURL}}" alt="{{.Header.Login}}" width="260" height="260">
+    <div class="profile-identity">
+      {{if .Header.Name}}<h1 class="profile-name">{{.Header.Name}}</h1>{{end}}
+      <p class="profile-login">{{.Header.Login}}</p>
+    </div>
+    {{if .Header.IsOrg}}<p class="profile-kind">{{octicon "organization" 16}} Organization</p>{{end}}
+    {{if .Header.Bio}}<p class="profile-bio">{{.Header.Bio}}</p>{{end}}
+
+    <p class="profile-social">
+      <span class="profile-social-item">{{octicon "person" 16}} <strong>{{.Header.Followers}}</strong> follower{{if ne .Header.Followers 1}}s{{end}}</span>
+      <span class="profile-social-sep" aria-hidden="true">·</span>
+      <span class="profile-social-item"><strong>{{.Header.Following}}</strong> following</span>
+    </p>
+
+    <ul class="profile-vcard">
+      {{if .Header.Company}}<li class="profile-vcard-row">{{octicon "organization" 16}} <span>{{.Header.Company}}</span></li>{{end}}
+      {{if .Header.Location}}<li class="profile-vcard-row">{{octicon "location" 16}} <span>{{.Header.Location}}</span></li>{{end}}
+      {{if .Header.Email}}<li class="profile-vcard-row">{{octicon "mail" 16}} <a href="mailto:{{.Header.Email}}">{{.Header.Email}}</a></li>{{end}}
+      {{if .Header.BlogURL}}<li class="profile-vcard-row">{{octicon "link" 16}} <a href="{{.Header.BlogURL}}" rel="nofollow me">{{.Header.Blog}}</a></li>{{end}}
+      {{if .Header.TwitterURL}}<li class="profile-vcard-row">{{octicon "link" 16}} <a href="{{.Header.TwitterURL}}" rel="nofollow me">@{{.Header.TwitterHandle}}</a></li>{{end}}
+      {{if .Header.Joined}}<li class="profile-vcard-row">{{octicon "calendar" 16}} <relative-time datetime="{{.Header.JoinedISO}}">{{.Header.Joined}}</relative-time></li>{{end}}
+    </ul>
+  </aside>
+
+  <div class="profile-main">
+    <nav class="profile-tabs" aria-label="Profile">
+      {{range .Tabs -}}
+      <a class="profile-tab{{if .IsActive}} is-current{{end}}" href="{{.URL}}"{{if .IsActive}} aria-current="page"{{end}}>
+        <span class="profile-tab-icon" aria-hidden="true">{{octicon .Icon 16}}</span>
+        <span class="profile-tab-label">{{.Label}}</span>
+        {{if .HasCount}}<span class="profile-tab-count">{{.Count}}</span>{{end}}
+      </a>
+      {{- end}}
+    </nav>
+
+    {{if eq .ActiveTab "repositories" -}}
+    {{with .Repos -}}
+    <div class="profile-repos">
+      {{if .Sorts -}}
+      <div class="profile-repos-head">
+        <details class="profile-sort">
+          <summary class="profile-sort-summary">Sort {{octicon "triangle-down" 16}}</summary>
+          <div class="profile-sort-menu" role="menu">
+            {{range .Sorts -}}
+            <a class="profile-sort-option{{if .IsActive}} is-current{{end}}" href="{{.URL}}"
+               role="menuitem"{{if .IsActive}} aria-current="true"{{end}}>{{.Label}}</a>
+            {{- end}}
+          </div>
+        </details>
+      </div>
+      {{- end}}
+
+      {{if .Empty -}}
+      <div class="blankslate profile-empty">
+        <span class="blankslate-icon" aria-hidden="true">{{octicon "repo" 24}}</span>
+        <p class="blankslate-text">{{.EmptyReason}}</p>
+      </div>
+      {{- else -}}
+      <ul class="profile-repo-list">
+        {{range .Items -}}
+        <li class="profile-repo">
+          <div class="profile-repo-head">
+            <a class="profile-repo-name" href="{{.URL}}">{{.FullName}}</a>
+            {{if .Private}}<span class="profile-pill">Private</span>{{end}}
+            {{if .Fork}}<span class="profile-pill">Fork</span>{{end}}
+            {{if .Archived}}<span class="profile-pill profile-pill-archived">Archived</span>{{end}}
+          </div>
+          {{if .Description}}<p class="profile-repo-desc">{{.Description}}</p>{{end}}
+          {{if .UpdatedAt}}<p class="profile-repo-meta">Updated <relative-time datetime="{{.UpdatedISO}}">{{.UpdatedAt}}</relative-time></p>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- end}}
+
+      {{if or .Pager.PrevURL .Pager.NextURL -}}
+      <nav class="paginate" aria-label="Pagination">
+        {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+        {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
+    </div>
+    {{- end}}
+    {{- else -}}
+    {{with .Overview -}}
+    <div class="profile-overview">
+      {{if .Empty -}}
+      <div class="blankslate profile-empty">
+        <span class="blankslate-icon" aria-hidden="true">{{octicon "book" 24}}</span>
+        <h2 class="blankslate-heading">Nothing to show yet</h2>
+        <p class="blankslate-text">This account has no public repositories or activity yet.</p>
+      </div>
+      {{- else -}}
+      {{if .PopularRepos -}}
+      <section class="profile-section">
+        <div class="profile-section-head">
+          <h2 class="profile-section-title">Repositories</h2>
+          <a class="profile-section-link" href="{{.ReposURL}}">Show all</a>
+        </div>
+        <ul class="profile-repo-grid">
+          {{range .PopularRepos -}}
+          <li class="profile-card">
+            <div class="profile-card-head">
+              <a class="profile-card-name" href="{{.URL}}">{{.FullName}}</a>
+              {{if .Private}}<span class="profile-pill">Private</span>{{else if .Fork}}<span class="profile-pill">Fork</span>{{end}}
+            </div>
+            {{if .Description}}<p class="profile-card-desc">{{.Description}}</p>{{end}}
+          </li>
+          {{- end}}
+        </ul>
+      </section>
+      {{- end}}
+
+      <section class="profile-section">
+        <h2 class="profile-section-title">Activity</h2>
+        {{if .ActivityEmpty -}}
+        <div class="blankslate profile-empty">
+          <span class="blankslate-icon" aria-hidden="true">{{octicon "history" 24}}</span>
+          <p class="blankslate-text">No public activity to show.</p>
+        </div>
+        {{- else -}}
+        <ul class="profile-feed">
+          {{range .Activity -}}
+          <li class="profile-feed-item">
+            <span class="profile-feed-icon" aria-hidden="true">{{octicon .Icon 16}}</span>
+            <div class="profile-feed-body">
+              <p class="profile-feed-line">
+                <a class="profile-feed-actor" href="{{.ActorURL}}">{{.ActorLogin}}</a>
+                {{.Verb}}
+                <a class="profile-feed-repo" href="{{.RepoURL}}">{{.RepoFullName}}</a>
+              </p>
+              {{if .Target}}
+              {{if .TargetURL}}<a class="profile-feed-target" href="{{.TargetURL}}">{{.Target}}</a>
+              {{else}}<span class="profile-feed-target">{{.Target}}</span>{{end}}
+              {{end}}
+              <p class="profile-feed-time"><relative-time datetime="{{.CreatedISO}}">{{.CreatedAt}}</relative-time></p>
+            </div>
+          </li>
+          {{- end}}
+        </ul>
+        {{- end}}
+      </section>
+      {{- end}}
+    </div>
+    {{- end}}
+    {{- end}}
+  </div>
+</div>
+{{- end}}

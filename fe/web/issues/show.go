@@ -97,12 +97,10 @@ func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, i
 		URL:        route.Issue(owner, repo.Name, iss.Number),
 		Reactions:  reactionsRollup("issue", route.IssueReactions(owner, repo.Name, iss.Number), iss.Reactions, vc.pk != 0),
 	}
-	if write {
-		// The opening body is edited through the issue, not as a comment, so it
-		// reuses the title edit target's neighbor: the body edit posts to the same
-		// edit endpoint as the title. Until the body editor lands, only the title
-		// pencil shows, so leave CanEdit off here.
-	}
+	// The opening body is edited through the issue, not as a comment, so it reuses
+	// the title edit target's neighbor: the body edit posts to the same edit endpoint
+	// as the title. Until the body editor lands, only the title pencil shows, so the
+	// opening comment leaves CanEdit off regardless of write access.
 	vm.Timeline = append(vm.Timeline, opening)
 	for _, cm := range comments {
 		vm.Timeline = append(vm.Timeline, h.comment(ctx, repo, iss.Number, cm, vc))

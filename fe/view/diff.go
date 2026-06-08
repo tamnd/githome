@@ -31,6 +31,8 @@ import (
 // DiffMode is the page-level rendering mode. The same rows render either way.
 type DiffMode int
 
+// DiffMode values: DiffUnified stacks deletions and additions in one column;
+// DiffSplit shows base and head side by side.
 const (
 	DiffUnified DiffMode = iota
 	DiffSplit
@@ -41,6 +43,8 @@ const (
 // expander) belongs to neither.
 type Side int
 
+// Side values: SideNone is a structural row that belongs to neither column,
+// SideLeft is the base column, and SideRight is the head column.
 const (
 	SideNone Side = iota
 	SideLeft
@@ -51,6 +55,8 @@ const (
 // deletion with the addition opposite it; Expander is a collapsed-context gap.
 type RowKind int
 
+// RowKind values: RowContext is an unchanged line shown for context, and the rest
+// tag additions, deletions, hunk headers, split replacements, and collapsed gaps.
 const (
 	RowContext RowKind = iota
 	RowAddition
@@ -64,6 +70,8 @@ const (
 // and the added/removed styling.
 type FileStatus string
 
+// FileStatus values follow GitHub's change vocabulary, from a newly added file to a
+// type change.
 const (
 	StatusAdded      FileStatus = "added"
 	StatusModified   FileStatus = "modified"

@@ -16,6 +16,7 @@ import (
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
 	webissues "github.com/tamnd/githome/fe/web/issues"
+	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
 	websearch "github.com/tamnd/githome/fe/web/search"
@@ -39,6 +40,8 @@ type Deps struct {
 	Pulls    *domain.PRService
 	Reviews  *domain.ReviewService
 	Search   *domain.SearchService
+	Users    *domain.UserService
+	Events   *domain.EventService
 	URLs     *presenter.URLBuilder
 	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
@@ -67,6 +70,7 @@ func Mount(root *mizu.Router, d Deps) {
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountProfile(page, d)
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
 	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
@@ -217,6 +221,35 @@ func mountSearch(page *mizu.Router, d Deps) {
 
 	sg := page.With(sh.Resolve)
 	sg.Get("/{owner}/{repo}/search", sh.Scoped)
+}
+
+// mountProfile registers the user and organization profile at /{owner}, the
+// root-level catch-all. It is mounted last, after every owned top-level name
+// (/search and the rest of the reserved set) and every /{owner}/{repo} surface is
+// registered, so a single-segment reserved name is never read as a login; the
+// profile Resolve middleware double-checks the reserved set as a backstop and 404s
+// a reserved name rather than resolving it. The user service is the gate that
+// resolves the account; the event service backs the activity feed and the search
+// service backs the repositories tab and the overview grid (the same search the
+// search page reads, scoped to the owner). With the user service missing the route
+// stays unmounted, the same as the other surfaces; a missing event or search
+// service degrades a tab body rather than the whole profile. See implementation/12
+// sections 5, 6, and 7.
+func mountProfile(page *mizu.Router, d Deps) {
+	if d.Users == nil {
+		return
+	}
+	ph := webprofile.New(webprofile.Deps{
+		Users:  d.Users,
+		Events: d.Events,
+		Search: d.Search,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	pg := page.With(ph.Resolve)
+	pg.Get("/{owner}", ph.Show)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

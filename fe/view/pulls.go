@@ -26,6 +26,7 @@ package view
 // never drift.
 type PRState int
 
+// PRState values: open, draft, merged, and closed, the four-way display state.
 const (
 	PRStateOpen   PRState = iota // green,  git-pull-request
 	PRStateDraft                 // gray,   git-pull-request-draft
@@ -246,6 +247,8 @@ type PRFilesVM struct {
 // own control cluster.
 type MergeBoxState int
 
+// MergeBoxState values: from the still-computing spinner through the clean, behind,
+// dirty, blocked, and unstable states the merge box renders.
 const (
 	MergeComputing MergeBoxState = iota // mergeable_state unknown: spinner, poll
 	MergeDraft                          // a draft PR: Ready-for-review control

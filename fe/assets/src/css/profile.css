@@ -1,0 +1,386 @@
+/*
+ * Profile sheet (F7): the user and organization profile. A two-column page pairs
+ * the identity sidebar (avatar, name, bio, follower counts, and the vcard of
+ * company, location, email, website, social, and joined date) with the main column
+ * (the tab strip and one tab body). The overview pairs a repository grid with the
+ * activity timeline; the repositories tab is a list with a sort menu and a pager.
+ * It references the functional tokens only, never the base primitives, and the
+ * layout is plain flex/grid so every surface degrades to a readable single column
+ * with no JavaScript: the tabs, the sort options, and the pager are all plain
+ * links. See implementation/12 sections 5, 6, and 7.
+ */
+
+.profile {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--base-size-24);
+}
+
+@media (min-width: 768px) {
+  .profile {
+    grid-template-columns: minmax(0, 296px) minmax(0, 1fr);
+  }
+}
+
+/* The identity sidebar. */
+.profile-avatar {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border: var(--borderWidth-thin) solid var(--borderColor-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+@media (min-width: 768px) {
+  .profile-avatar {
+    max-width: 100%;
+  }
+}
+
+.profile-identity {
+  margin-top: var(--base-size-16);
+}
+
+.profile-name {
+  font-size: var(--text-title-size-medium, 24px);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.profile-login {
+  font-size: var(--text-subtitle-size, 20px);
+  font-weight: 300;
+  color: var(--fgColor-muted);
+}
+
+.profile-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.profile-bio {
+  margin-top: var(--base-size-8);
+}
+
+.profile-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-12);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.profile-social-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+.profile-social-item strong {
+  color: var(--fgColor-default);
+}
+
+.profile-social-sep {
+  color: var(--fgColor-muted);
+}
+
+.profile-vcard {
+  list-style: none;
+  margin-top: var(--base-size-16);
+}
+
+.profile-vcard-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-4) 0;
+  color: var(--fgColor-default);
+}
+
+.profile-vcard-row svg {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+.profile-vcard-row span,
+.profile-vcard-row a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The main column: the tab strip and the tab body. */
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-4);
+  padding-bottom: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12);
+  color: var(--fgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.profile-tab:hover {
+  text-decoration: none;
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-muted);
+}
+
+.profile-tab.is-current {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.profile-tab-icon {
+  color: var(--fgColor-muted);
+}
+
+.profile-tab-count {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-neutral-muted);
+  border-radius: var(--borderRadius-full);
+  padding: 0 var(--base-size-8);
+  line-height: 20px;
+}
+
+/* Overview sections: a titled block for the repository grid and the activity. */
+.profile-section + .profile-section {
+  margin-top: var(--base-size-24);
+}
+
+.profile-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+}
+
+.profile-section-title {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  margin-bottom: var(--base-size-8);
+}
+
+.profile-section-link {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-accent);
+}
+
+/* The overview repository grid: two cards per row on a wide column. */
+.profile-repo-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--base-size-16);
+}
+
+@media (min-width: 544px) {
+  .profile-repo-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.profile-card {
+  padding: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.profile-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.profile-card-name {
+  font-weight: 600;
+  color: var(--fgColor-accent);
+}
+
+.profile-card-desc {
+  margin-top: var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The activity timeline: an icon gutter beside the line and its subject. */
+.profile-feed {
+  list-style: none;
+}
+
+.profile-feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+  padding: var(--base-size-12) 0;
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.profile-feed-item:last-child {
+  border-bottom: 0;
+}
+
+.profile-feed-icon {
+  margin-top: 2px;
+  color: var(--fgColor-muted);
+}
+
+.profile-feed-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-feed-line {
+  color: var(--fgColor-muted);
+}
+
+.profile-feed-actor,
+.profile-feed-repo {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.profile-feed-repo:hover,
+.profile-feed-actor:hover {
+  color: var(--fgColor-accent);
+}
+
+.profile-feed-target {
+  display: inline-block;
+  margin-top: var(--base-size-4);
+  color: var(--fgColor-accent);
+}
+
+.profile-feed-time {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The repositories tab: the sort menu and the repository list. */
+.profile-repos-head {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: var(--base-size-8);
+  margin-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.profile-sort {
+  position: relative;
+}
+
+.profile-sort-summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.profile-sort-summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-sort-menu {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  min-width: 200px;
+  margin-top: var(--base-size-4);
+  padding: var(--base-size-4);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.profile-sort-option {
+  display: block;
+  padding: var(--base-size-4) var(--base-size-8);
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.profile-sort-option:hover {
+  text-decoration: none;
+  background-color: var(--bgColor-muted);
+}
+
+.profile-sort-option.is-current {
+  font-weight: 600;
+}
+
+.profile-repo-list {
+  list-style: none;
+}
+
+.profile-repo {
+  padding: var(--base-size-16) 0;
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.profile-repo:last-child {
+  border-bottom: 0;
+}
+
+.profile-repo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.profile-repo-name {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--fgColor-accent);
+}
+
+.profile-repo-desc {
+  margin-top: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.profile-repo-meta {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The state pills the repository rows and cards wear. */
+.profile-pill {
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  padding: 0 var(--base-size-8);
+  color: var(--fgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.profile-pill-archived {
+  color: var(--fgColor-attention);
+  border-color: var(--borderColor-attention-muted);
+}
+
+.profile-empty {
+  margin-top: var(--base-size-8);
+}

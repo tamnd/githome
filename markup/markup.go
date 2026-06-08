@@ -97,6 +97,8 @@ func camoBase(cfg Config) string {
 // RenderMode selects reference resolution and link rewriting.
 type RenderMode int
 
+// RenderMode values: comment, file, gist, wiki, and plain, each selecting its own
+// reference resolution and link rewriting.
 const (
 	ModeComment RenderMode = iota // issue/PR/commit comments, releases, descriptions
 	ModeFile                      // a rendered README/Markdown file in the blob view
@@ -109,6 +111,7 @@ const (
 // resolve.
 type RefKind int
 
+// RefKind values: a mention, an issue or PR reference, and a bare commit SHA.
 const (
 	RefMention RefKind = iota // @user or @org/team
 	RefIssue                  // #123, GH-123, owner/repo#123
