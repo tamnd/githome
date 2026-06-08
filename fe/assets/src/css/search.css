@@ -1,0 +1,311 @@
+/*
+ * Search sheet (F6): the search box, the result-type rail, the sort menu, and the
+ * four result-row shapes (repositories, code, issues, pull requests), plus the
+ * landing and empty blankslates. Global search renders the box and the rail as a
+ * full page; in-repo search wears the shared repo header above the same layout.
+ * It references the functional tokens only, never the base primitives, and the
+ * layout is plain flex/grid so every surface degrades to a readable column with no
+ * JavaScript: the rail tabs, the sort options, and the pager are all plain links.
+ * See implementation/12 section 2.
+ */
+
+.search-page {
+  max-width: 1012px;
+}
+
+/* The search box: an icon, the input, and the submit, on one row. */
+.search-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+}
+
+.search-form-icon {
+  position: absolute;
+  left: var(--base-size-8);
+  color: var(--fgColor-muted);
+  pointer-events: none;
+}
+
+.search-form-input {
+  flex: 1 1 auto;
+  padding-left: var(--base-size-32);
+}
+
+.search-form-submit {
+  flex: 0 0 auto;
+}
+
+/* Two columns on wide viewports: the type rail, then the results. The rail wraps
+ * above the results on a narrow viewport so nothing is hidden. */
+.search-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--base-size-24);
+}
+
+@media (min-width: 768px) {
+  .search-layout {
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  }
+}
+
+/* The result-type rail: one link per type, with its icon, label, and count. */
+.search-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-4);
+}
+
+.search-rail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-4) var(--base-size-8);
+  color: var(--fgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.search-rail-item:hover {
+  text-decoration: none;
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-muted);
+}
+
+.search-rail-item.is-current {
+  font-weight: 600;
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-muted);
+}
+
+.search-rail-icon {
+  color: var(--fgColor-muted);
+}
+
+.search-rail-label {
+  flex: 1 1 auto;
+}
+
+.search-rail-count {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-neutral-muted);
+  border-radius: var(--borderRadius-full);
+  padding: 0 var(--base-size-8);
+  line-height: 20px;
+}
+
+/* The results column: the count head with the sort menu, then the rows. */
+.search-results {
+  min-width: 0;
+}
+
+.search-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+  padding-bottom: var(--base-size-8);
+  margin-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.search-results-count {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+
+/* The sort menu is a native details disclosure, so it opens with no JavaScript. */
+.search-sort {
+  position: relative;
+}
+
+.search-sort-summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.search-sort-summary::-webkit-details-marker {
+  display: none;
+}
+
+.search-sort-menu {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  min-width: 200px;
+  margin-top: var(--base-size-4);
+  padding: var(--base-size-4);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.search-sort-option {
+  display: block;
+  padding: var(--base-size-4) var(--base-size-8);
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.search-sort-option:hover {
+  text-decoration: none;
+  background-color: var(--bgColor-muted);
+}
+
+.search-sort-option.is-current {
+  font-weight: 600;
+}
+
+/* A note above the rows (a capped code walk, a missing scope). */
+.search-note {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-bottom: var(--base-size-12);
+}
+
+/* The result list shared by every row shape. */
+.search-list {
+  list-style: none;
+}
+
+.search-repo,
+.search-code,
+.search-issue {
+  padding: var(--base-size-12) 0;
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.search-repo:last-child,
+.search-code:last-child,
+.search-issue:last-child {
+  border-bottom: 0;
+}
+
+/* Repository row: the name, the state pills, the description, the updated line. */
+.search-repo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.search-repo-name {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--fgColor-accent);
+}
+
+.search-pill {
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  padding: 0 var(--base-size-8);
+  color: var(--fgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.search-pill-archived {
+  color: var(--fgColor-attention);
+  border-color: var(--borderColor-attention-muted);
+}
+
+.search-repo-desc {
+  margin-top: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.search-repo-meta {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* Code row: the repository context line above the file path. */
+.search-code-repo {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.search-code-path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-4);
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-accent);
+}
+
+.search-code-icon {
+  color: var(--fgColor-muted);
+}
+
+/* Issue and pull-request row: the state icon, the title and meta, the comments. */
+.search-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+}
+
+.search-issue-icon {
+  margin-top: 2px;
+  color: var(--fgColor-muted);
+}
+
+.search-issue-icon.is-open {
+  color: var(--fgColor-success);
+}
+
+.search-issue-icon.is-closed {
+  color: var(--fgColor-done);
+}
+
+.search-issue-icon.is-not-planned {
+  color: var(--fgColor-muted);
+}
+
+.search-issue-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-issue-title {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.search-issue-title:hover {
+  color: var(--fgColor-accent);
+}
+
+.search-issue-meta {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.search-issue-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The landing (empty query) and the empty-result blankslate reuse the shared
+ * blankslate shell; only the search landing widens its measure for the copy. */
+.search-landing {
+  max-width: 544px;
+  margin: 0 auto;
+}
