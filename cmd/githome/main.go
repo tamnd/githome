@@ -126,6 +126,7 @@ func run() error {
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{
 		Config:     cfg,
+		WebFront:   cfg.Web.Enabled,
 		Logger:     logger,
 		Ready:      st,
 		Auth:       authSvc,
@@ -166,16 +167,22 @@ func run() error {
 	// middleware chain (recover, session, color mode, CSRF, flash) through scoped
 	// subrouters, so the API surface keeps its own. A build error in the template
 	// set or asset manifest is fatal: the front cannot serve a page without them.
+	// The web front, when enabled, wraps root: it serves its asset tree ahead of
+	// the shared router (the two cannot live on one mux) and delegates every
+	// dynamic route back to root, where the APIs and git transport also sit.
+	var handler http.Handler = root
 	if cfg.Web.Enabled {
-		if err := mountWeb(root, cfg, logger, userSvc, repoSvc, hookSvc, checksSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls); err != nil {
+		webHandler, err := mountWeb(root, cfg, logger, userSvc, repoSvc, hookSvc, checksSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls)
+		if err != nil {
 			return fmt.Errorf("web front: %w", err)
 		}
+		handler = webHandler
 		logger.Info("web front mounted", "site", cfg.Web.SiteName, "dev_assets", assets.Dev())
 	}
 
 	srv := &http.Server{
 		Addr:              cfg.Listen.HTTP,
-		Handler:           root,
+		Handler:           handler,
 		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 		ReadTimeout:       cfg.Server.ReadTimeout,
 		WriteTimeout:      cfg.Server.WriteTimeout,
@@ -214,10 +221,10 @@ func run() error {
 // mounts it on root. The viewer lookup adapts the user service to the front's
 // Viewer model; a user the session names but the store no longer has resolves to
 // anonymous, not an error, so a stale session cookie degrades gracefully.
-func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, checks *domain.ChecksService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) error {
+func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, checks *domain.ChecksService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) (http.Handler, error) {
 	renderSet, err := render.New(assets.FS(), assets.Dev())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// The markup renderer is the one path from file or comment content to trusted
@@ -248,7 +255,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 		return v, nil
 	}
 
-	fe.Mount(root, fe.Deps{
+	return fe.Mount(root, fe.Deps{
 		Render:   renderSet,
 		View:     view.NewBuilder(cfg.Web.SiteName),
 		Repos:    repos,
@@ -266,8 +273,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 		CSRF:     webmw.NewCSRF(renderSet),
 		Flash:    webmw.NewFlash(cfg.Secrets.SessionKey),
 		Logger:   logger,
-	})
-	return nil
+	}), nil
 }
 
 func newLogger(cfg config.Config) *slog.Logger {
