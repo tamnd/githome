@@ -192,6 +192,7 @@ type PRShellVM struct {
 // The timeline is the same CommentVM stream the issue detail renders, because a PR
 // shares its number and its comments with an issue.
 type PRConversationVM struct {
+	Chrome    Chrome
 	Shell     PRShellVM
 	Timeline  []CommentVM
 	Composer  ComposerVM
@@ -203,6 +204,7 @@ type PRConversationVM struct {
 // PRCommitsVM is the Commits tab: the shell plus the PR's commits grouped by
 // calendar date, each row a short sha, a title, and an author.
 type PRCommitsVM struct {
+	Chrome Chrome
 	Shell  PRShellVM
 	Groups []PRCommitDateGroup
 }
@@ -229,6 +231,7 @@ type PRCommitRow struct {
 // component built. The Files tab is read-only in F4; the inline review threads and
 // the review state machine arrive in F5 over this same model.
 type PRFilesVM struct {
+	Chrome       Chrome
 	Shell        PRShellVM
 	ChangedFiles int
 	Additions    int
