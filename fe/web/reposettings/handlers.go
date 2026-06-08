@@ -19,7 +19,6 @@
 package reposettings
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -78,19 +77,13 @@ func New(d Deps) *Handlers {
 	}
 }
 
-// repoCtxKey carries the resolved repository on the request context between the
-// Resolve middleware and the handlers.
-type repoCtxKey int
-
-const keyRepo repoCtxKey = iota
-
 // Resolve loads the repository named by the {owner} and {repo} path parameters,
-// read-gated for the viewer, then gates it to an administrator and stores it on
-// the context. A missing repository, a private one the viewer cannot see, and one
-// the viewer can see but not administer all render the same 404, so the settings
-// surface never leaks a repository's existence or its administrability through the
-// status code. It is the one place the repo is loaded and authorized; every
-// handler reads it back with repoFromContext and trusts the gate.
+// read-gated for the viewer, then gates it to an administrator. A missing
+// repository, a private one the viewer cannot see, and one the viewer can see but
+// not administer all render the same 404, so the settings surface never leaks a
+// repository's existence or its administrability through the status code. It is the
+// one place the repo is loaded and authorized; the handlers re-derive owner and
+// name from the path parameters and trust the gate.
 func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Context()
@@ -105,16 +98,8 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		if !canAdminister(repo, viewerPK) {
 			return h.notFound(c)
 		}
-		r := c.Request()
-		*r = *r.WithContext(context.WithValue(ctx, keyRepo, repo))
 		return next(c)
 	}
-}
-
-// repoFromContext returns the repository the Resolve middleware stored.
-func repoFromContext(ctx context.Context) (*domain.Repo, bool) {
-	repo, ok := ctx.Value(keyRepo).(*domain.Repo)
-	return repo, ok
 }
 
 // canAdminister reports whether the viewer administers the repository. It is the
