@@ -20,6 +20,7 @@ import (
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
 	websearch "github.com/tamnd/githome/fe/web/search"
+	websettings "github.com/tamnd/githome/fe/web/settings"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/presenter"
@@ -70,6 +71,7 @@ func Mount(root *mizu.Router, d Deps) {
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountSettings(page, d)
 	mountProfile(page, d)
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
@@ -221,6 +223,28 @@ func mountSearch(page *mizu.Router, d Deps) {
 
 	sg := page.With(sh.Resolve)
 	sg.Get("/{owner}/{repo}/search", sh.Scoped)
+}
+
+// mountSettings registers the account settings tree under /settings. The bare
+// /settings redirects to the first backed section, and /settings/appearance is
+// the appearance preference (the color mode and the light and dark themes). Each
+// handler gates on the signed-in viewer itself and 404s an anonymous request, so
+// the surface needs no domain service and mounts unconditionally; it depends only
+// on the render set, the view builder and the flash store the page chain already
+// carries. The /settings literal is a reserved top-level name (fe/route), so it
+// can never be read as a /{owner} profile, and it is registered before the
+// profile catch-all for the same reason /search is. The appearance save writes
+// the cookies the color-mode middleware reads. See implementation/13 section 2.
+func mountSettings(page *mizu.Router, d Deps) {
+	sh := websettings.New(websettings.Deps{
+		Render: d.Render,
+		View:   d.View,
+		Flash:  d.Flash,
+		Logger: d.Logger,
+	})
+	page.Get("/settings", sh.Index)
+	page.Get("/settings/appearance", sh.Appearance)
+	page.Post("/settings/appearance", sh.SaveAppearance)
 }
 
 // mountProfile registers the user and organization profile at /{owner}, the
