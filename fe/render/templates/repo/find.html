@@ -1,0 +1,33 @@
+{{define "content" -}}
+{{/* The data is FileFinderVM. The page lists every file in the recursive tree at
+     a ref as a plain blob link, so it works with no JavaScript; the client filter
+     input narrows the list as the viewer types. When the recursive tree hit its
+     cap the handler logged it and set Truncated, which this surfaces so the viewer
+     knows the list is partial rather than believing it is complete. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body file-finder">
+  <div class="file-finder-head">
+    <label class="visually-hidden" for="file-finder-input">Filter files</label>
+    <input class="input file-finder-input" id="file-finder-input" type="search"
+           placeholder="Go to file" autocomplete="off" data-filter-target=".file-finder-row">
+    <span class="file-finder-ref">{{octicon "git-branch" 16}} {{.Ref}}</span>
+  </div>
+  {{if .Truncated -}}
+  <p class="file-finder-truncated flash">This list is capped and does not show every file.</p>
+  {{- end}}
+  {{if .Files -}}
+  <ul class="file-finder-list">
+    {{range .Files -}}
+    <li class="file-finder-row" data-filter-text="{{.Path}}">
+      <span class="file-finder-icon" aria-hidden="true">{{octicon "file" 16}}</span>
+      <a class="file-finder-link" href="{{.URL}}">{{.Path}}</a>
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">No files at this ref.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

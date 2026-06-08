@@ -1,0 +1,285 @@
+package view
+
+import "html/template"
+
+// This file holds the repo-area view models the code-browsing handlers render:
+// the repo home, the tree listing, the blob view, and the commits, branches,
+// tags, and file-finder lists. They are flat presentation structs with no
+// behavior and no domain import: the handler package maps domain and git data
+// into them and precomputes every URL through fe/route, so a template never
+// reaches past its view model. Each full-page model embeds a Chrome for the
+// shell. See implementation/07 sections 3 to 11.
+
+// RepoRef is the small identity every repo view carries: the owner login, the
+// repo name, and the precomputed home URL. Templates use it for the breadcrumb
+// root and the clone block heading.
+type RepoRef struct {
+	Owner string
+	Name  string
+	URL   string
+}
+
+// Ref is the resolved-ref context shared by the tree, blob, and commits views:
+// the ref as it appears in the URL (a branch, tag, or sha) and the commit it
+// resolves to, which the permalink and the "browse at this commit" links use.
+type Ref struct {
+	Name      string
+	CommitSHA string
+	IsDefault bool
+}
+
+// Crumb is one path breadcrumb: a label and the tree URL it links to. The last
+// crumb in a list is the current location and is rendered without a link.
+type Crumb struct {
+	Name string
+	URL  string
+	Last bool
+}
+
+// RepoHeaderVM is the context bar above every repo page: the owner/name with the
+// visibility pill and the fork-of line. The social counts ride here too, zero
+// until the domain tracks them (implementation/07 section 3.1 notes the gap).
+type RepoHeaderVM struct {
+	Owner       string
+	Name        string
+	OwnerURL    string
+	URL         string
+	Description string
+	Private     bool
+	Fork        bool
+	ParentName  string // owner/name of the fork parent, empty when not a fork
+	ParentURL   string
+	ActiveTab   string // code | commits | branches | tags, drives the underline nav
+}
+
+// TreeNav is the per-tab link set the repo underline nav renders. It is computed
+// once per repo so every repo page shows the same tabs with the same URLs.
+type TreeNav struct {
+	CodeURL     string
+	CommitsURL  string
+	BranchesURL string
+	TagsURL     string
+}
+
+// RefPickerVM is the branch/tag switcher. It lists the refs inline (bounded) and
+// each entry carries the URL that keeps the viewer on the same view kind and
+// path. F1 renders the full bounded set as plain links so it works with no JS.
+type RefPickerVM struct {
+	Current  string
+	IsTag    bool
+	Branches []RefChoice
+	Tags     []RefChoice
+}
+
+// RefChoice is one entry in the ref picker: the ref name and the URL that
+// switches to it while keeping the current view kind and path.
+type RefChoice struct {
+	Name      string
+	URL       string
+	IsCurrent bool
+}
+
+// CloneVM carries the clone URLs the home and tree views show. F1 fills the HTTP
+// and SSH forms from the presenter; the web download link is added with archives.
+type CloneVM struct {
+	HTTP string
+	SSH  string
+}
+
+// CommitSummary is the latest-commit bar over a tree and each row in the commits
+// list: the author, the abbreviated sha, the title, and the precomputed URLs.
+type CommitSummary struct {
+	SHA        string
+	ShortSHA   string
+	Title      string
+	AuthorName string
+	When       string // already formatted for the row; relativeTime handles the page
+	URL        string // the single-commit URL, linked once that view ships
+	Present    bool
+}
+
+// AboutVM is the repo home sidebar: the description and homepage. Topics, the
+// license chip, and the languages bar are left for the milestones that add their
+// domain fields (implementation/07 section 3.1).
+type AboutVM struct {
+	Description string
+	Homepage    string
+}
+
+// ReadmeVM is the rendered README shown under a tree. F1 carries the decoded
+// source and renders it as escaped preformatted text; the markup milestone swaps
+// Body to GFM-rendered template.HTML through the markup package, the only path
+// from file content to trusted HTML. See implementation/07 section 3.2.
+type ReadmeVM struct {
+	Name   string
+	Source string
+	Body   template.HTML // empty in F1; the template falls back to Source
+}
+
+// RepoHomeVM is the repo home: the header, the default-root tree, the About
+// sidebar, and the README.
+type RepoHomeVM struct {
+	Chrome Chrome
+	Header RepoHeaderVM
+	Nav    TreeNav
+	Tree   TreeVM
+	About  AboutVM
+	Readme *ReadmeVM // nil when the root has no README
+}
+
+// QuickSetupVM is the empty-repo home: the header plus the clone-and-push setup
+// blocks instead of a tree. See implementation/07 section 1.11.
+type QuickSetupVM struct {
+	Chrome Chrome
+	Header RepoHeaderVM
+	Nav    TreeNav
+	Clone  CloneVM
+}
+
+// TreeVM is a directory listing at a ref: the breadcrumb, the ref picker, the
+// latest-commit bar, the entries (directories first), and an optional README.
+type TreeVM struct {
+	Chrome    Chrome
+	Header    RepoHeaderVM
+	Nav       TreeNav
+	Repo      RepoRef
+	Ref       Ref
+	Path      string
+	Crumbs    []Crumb
+	RefPicker RefPickerVM
+	Latest    CommitSummary
+	Entries   []TreeEntryVM
+	Readme    *ReadmeVM
+	Clone     CloneVM
+	Embedded  bool // true when rendered inside the home page (skips the shell parts)
+}
+
+// TreeEntryVM is one row in a tree listing: the name, the type-driven octicon,
+// and the precomputed URL (a directory links to /tree, a file to /blob).
+type TreeEntryVM struct {
+	Name          string
+	Path          string
+	Type          string // dir | file | symlink | submodule
+	Icon          string // the octicon name for the type
+	Href          string
+	SymlinkTarget string
+	SubmoduleURL  string
+}
+
+// BlobVM is the single-file view. F1 classifies the blob into a kind and, for
+// text, carries the lines with stable ids so the line anchors resolve. The
+// highlighter is render-time once the markup milestone lands; F1 prints escaped
+// text. See implementation/07 sections 5.1 and 5.2.
+type BlobVM struct {
+	Chrome    Chrome
+	Header    RepoHeaderVM
+	Nav       TreeNav
+	Repo      RepoRef
+	Ref       Ref
+	Path      string
+	Crumbs    []Crumb
+	RefPicker RefPickerVM
+	Name      string
+	Kind      string // text | image | pdf | binary | svg | toolarge
+	Lang      string
+	Lines     []BlobLine
+	RawText   string
+	LineCount int
+	Size      int64
+	SizeLabel string
+	RawURL    string
+	Plain     bool
+	Truncated bool
+}
+
+// BlobLine is one source line: its 1-based number (the id="L{n}" anchor) and the
+// raw text. The template escapes Text; the highlighter wraps tokens later.
+type BlobLine struct {
+	Number int
+	Text   string
+}
+
+// CommitsVM is the history list, grouped by calendar date in the viewer's view.
+type CommitsVM struct {
+	Chrome Chrome
+	Header RepoHeaderVM
+	Nav    TreeNav
+	Repo   RepoRef
+	Ref    Ref
+	Path   string
+	Groups []CommitDateGroup
+}
+
+// CommitDateGroup is one day's heading and the commits authored that day.
+type CommitDateGroup struct {
+	Date    string
+	Commits []CommitRowVM
+}
+
+// CommitRowVM is one row in the history: the message title and body, the author,
+// the abbreviated sha, and the precomputed browse and copy URLs.
+type CommitRowVM struct {
+	SHA         string
+	ShortSHA    string
+	Title       string
+	Body        string
+	AuthorName  string
+	AuthorEmail string
+	When        string
+	BrowseURL   string // tree at this commit
+}
+
+// BranchesVM is the branch overview: the default branch first, then the rest.
+type BranchesVM struct {
+	Chrome  Chrome
+	Header  RepoHeaderVM
+	Nav     TreeNav
+	Repo    RepoRef
+	Default string
+	Items   []BranchRowVM
+}
+
+// BranchRowVM is one branch row: the name and the precomputed tree and history
+// URLs. The ahead/behind counts and PR status arrive with the compare domain.
+type BranchRowVM struct {
+	Name       string
+	IsDefault  bool
+	TreeURL    string
+	CommitsURL string
+}
+
+// TagsVM is the tag overview, version-aware descending.
+type TagsVM struct {
+	Chrome Chrome
+	Header RepoHeaderVM
+	Nav    TreeNav
+	Repo   RepoRef
+	Items  []TagRowVM
+}
+
+// TagRowVM is one tag row: the name, the commit it points at, and the tree URL.
+type TagRowVM struct {
+	Name     string
+	ShortSHA string
+	Message  string
+	TreeURL  string
+}
+
+// FileFinderVM is the fuzzy file index at a ref: the flattened file list as plain
+// links, plus a truncation flag the handler logs when the recursive tree is
+// capped. See implementation/07 section 10.4.
+type FileFinderVM struct {
+	Chrome    Chrome
+	Header    RepoHeaderVM
+	Nav       TreeNav
+	Repo      RepoRef
+	Ref       string
+	Files     []FinderEntry
+	Truncated bool
+}
+
+// FinderEntry is one file in the finder: the path and its blob URL.
+type FinderEntry struct {
+	Path string
+	URL  string
+}

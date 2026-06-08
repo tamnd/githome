@@ -9,6 +9,9 @@ import (
 	"github.com/tamnd/githome/fe/assets"
 )
 
+// dictError is returned when dict is called with an odd number of arguments.
+const dictError = "dict: want an even count of key/value arguments"
+
 // funcMap is the template FuncMap, bound to a Set so asset and octicon can reach
 // the manifest and icon registry. It is installed before parsing, so a template
 // that names an absent helper fails the build, not a request. The helpers here
@@ -22,7 +25,28 @@ func (s *Set) funcMap() template.FuncMap {
 		"relativeTime":   relativeTime,
 		"pluralize":      pluralize,
 		"hasPrefix":      strings.HasPrefix,
+		"dict":           dict,
 	}
+}
+
+// dict builds a map from an alternating key/value argument list so a template can
+// pass more than one value to a partial that takes a single data argument (for
+// example the repo header partial, which needs both the header model and the nav
+// model). Keys must be strings. It returns an error on an odd argument count so a
+// malformed call fails the render rather than dropping a value silently.
+func dict(pairs ...any) (map[string]any, error) {
+	if len(pairs)%2 != 0 {
+		return nil, fmt.Errorf("%s", dictError)
+	}
+	m := make(map[string]any, len(pairs)/2)
+	for i := 0; i < len(pairs); i += 2 {
+		key, ok := pairs[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("dict: key %d is not a string", i)
+		}
+		m[key] = pairs[i+1]
+	}
+	return m, nil
 }
 
 // octicon renders the named icon as an inline <svg>. An unknown name renders a

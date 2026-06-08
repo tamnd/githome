@@ -1,0 +1,68 @@
+{{define "content" -}}
+{{/* The data is BlobVM. The handler classified the blob into a kind that selects
+     the body: text and svg show numbered lines (escaped in F1, highlighted once
+     the markup milestone lands), an image or pdf embeds from the raw URL, a binary
+     or too-large blob shows a blankslate with the download link. The line numbers
+     carry id="L{n}" anchors so a line link resolves with no JavaScript. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="repo-subhead">
+    <div class="repo-subhead-left">
+      {{template "repo_refpicker" .RefPicker}}
+      {{template "repo_breadcrumb" .Crumbs}}
+    </div>
+  </div>
+
+  <div class="blob">
+    <div class="blob-head">
+      <div class="blob-head-meta">
+        {{if .LineCount}}<span class="blob-lines">{{.LineCount}} {{pluralize .LineCount "line" "lines"}}</span>{{end}}
+        <span class="blob-size">{{.SizeLabel}}</span>
+        {{if .Lang}}<span class="blob-lang">{{.Lang}}</span>{{end}}
+      </div>
+      <div class="blob-head-actions">
+        {{if eq .Kind "text"}}
+        {{if .Plain -}}
+        <a class="btn" href="?">Rendered</a>
+        {{- else -}}
+        <a class="btn" href="?plain=1">Raw text</a>
+        {{- end}}{{end}}
+        <a class="btn" href="{{.RawURL}}">{{octicon "download" 16}} Raw</a>
+      </div>
+    </div>
+
+    {{if or (eq .Kind "text") (eq .Kind "svg") -}}
+    <table class="blob-code" aria-label="File content">
+      <tbody>
+        {{range .Lines -}}
+        <tr class="blob-line" id="L{{.Number}}">
+          <td class="blob-num"><a class="blob-num-link" href="#L{{.Number}}" aria-label="Line {{.Number}}">{{.Number}}</a></td>
+          <td class="blob-text"><span class="blob-code-inner">{{.Text}}</span></td>
+        </tr>
+        {{- end}}
+      </tbody>
+    </table>
+    {{- else if eq .Kind "image" -}}
+    <div class="blob-render blob-image">
+      <img src="{{.RawURL}}" alt="{{.Name}}">
+    </div>
+    {{- else if eq .Kind "pdf" -}}
+    <div class="blob-render blob-pdf">
+      <p><a class="btn" href="{{.RawURL}}">{{octicon "download" 16}} View PDF</a></p>
+    </div>
+    {{- else if eq .Kind "toolarge" -}}
+    <div class="blob-render blankslate">
+      <span class="blankslate-icon" aria-hidden="true">{{octicon "file-binary" 48}}</span>
+      <p class="blankslate-text">This file is too large to display.</p>
+      <a class="btn" href="{{.RawURL}}">{{octicon "download" 16}} View raw</a>
+    </div>
+    {{- else -}}
+    <div class="blob-render blankslate">
+      <span class="blankslate-icon" aria-hidden="true">{{octicon "file-binary" 48}}</span>
+      <p class="blankslate-text">This file is a binary and cannot be shown.</p>
+      <a class="btn" href="{{.RawURL}}">{{octicon "download" 16}} View raw</a>
+    </div>
+    {{- end}}
+  </div>
+</div>
+{{- end}}

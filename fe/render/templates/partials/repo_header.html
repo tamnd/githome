@@ -1,0 +1,41 @@
+{{define "repo_header" -}}
+{{/* The data is a dict {Header: RepoHeaderVM, Nav: TreeNav}. It renders the repo
+     context bar (owner / name with the visibility pill and the fork-of line) and
+     the underline nav. Header.ActiveTab drives which tab is current; the nav URLs
+     come from Nav. Every repo page renders this same partial so the header is
+     identical across the code, commits, branches and tags views. */ -}}
+{{$h := .Header -}}
+{{$nav := .Nav -}}
+<div class="repohead">
+  <div class="repohead-title">
+    <span class="repohead-icon" aria-hidden="true">
+      {{if $h.Private}}{{octicon "lock" 16}}{{else if $h.Fork}}{{octicon "repo-forked" 16}}{{else}}{{octicon "repo" 16}}{{end}}
+    </span>
+    <span class="repohead-path">
+      <a class="repohead-owner" href="{{$h.OwnerURL}}">{{$h.Owner}}</a>
+      <span class="repohead-slash" aria-hidden="true">/</span>
+      <a class="repohead-name" href="{{$h.URL}}">{{$h.Name}}</a>
+    </span>
+    <span class="repohead-pill">{{if $h.Private}}Private{{else}}Public{{end}}</span>
+  </div>
+  {{if and $h.Fork $h.ParentName -}}
+  <p class="repohead-forkof">Forked from <a href="{{$h.ParentURL}}">{{$h.ParentName}}</a></p>
+  {{- end}}
+  <nav class="reponav" aria-label="Repository">
+    <ul class="reponav-list">
+      <li><a class="reponav-item{{if eq $h.ActiveTab "code"}} is-current{{end}}"
+             href="{{$nav.CodeURL}}"{{if eq $h.ActiveTab "code"}} aria-current="page"{{end}}>
+        {{octicon "code" 16}} Code</a></li>
+      <li><a class="reponav-item{{if eq $h.ActiveTab "commits"}} is-current{{end}}"
+             href="{{$nav.CommitsURL}}"{{if eq $h.ActiveTab "commits"}} aria-current="page"{{end}}>
+        {{octicon "git-commit" 16}} Commits</a></li>
+      <li><a class="reponav-item{{if eq $h.ActiveTab "branches"}} is-current{{end}}"
+             href="{{$nav.BranchesURL}}"{{if eq $h.ActiveTab "branches"}} aria-current="page"{{end}}>
+        {{octicon "git-branch" 16}} Branches</a></li>
+      <li><a class="reponav-item{{if eq $h.ActiveTab "tags"}} is-current{{end}}"
+             href="{{$nav.TagsURL}}"{{if eq $h.ActiveTab "tags"}} aria-current="page"{{end}}>
+        {{octicon "tag" 16}} Tags</a></li>
+    </ul>
+  </nav>
+</div>
+{{- end}}

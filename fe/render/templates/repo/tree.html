@@ -1,0 +1,22 @@
+{{define "content" -}}
+{{/* The data is TreeVM rendered standalone (not embedded in the home). It adds
+     the breadcrumb and the ref picker above the file table, since a sub-directory
+     URL carries a ref and a path the viewer can navigate. The file table, README,
+     and clone block are the same partials the home renders, so a directory page
+     and the root look identical. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="repo-subhead">
+    <div class="repo-subhead-left">
+      {{template "repo_refpicker" .RefPicker}}
+      {{template "repo_breadcrumb" .Crumbs}}
+    </div>
+    <div class="repo-subhead-right">
+      <a class="btn" href="{{.Nav.CommitsURL}}">{{octicon "history" 16}} History</a>
+      {{template "repo_clone" .Clone}}
+    </div>
+  </div>
+  {{template "repo_tree" .}}
+  {{template "repo_readme" .Readme}}
+</div>
+{{- end}}

@@ -166,7 +166,7 @@ func run() error {
 	// subrouters, so the API surface keeps its own. A build error in the template
 	// set or asset manifest is fatal: the front cannot serve a page without them.
 	if cfg.Web.Enabled {
-		if err := mountWeb(root, cfg, logger, userSvc); err != nil {
+		if err := mountWeb(root, cfg, logger, userSvc, repoSvc, urls); err != nil {
 			return fmt.Errorf("web front: %w", err)
 		}
 		logger.Info("web front mounted", "site", cfg.Web.SiteName, "dev_assets", assets.Dev())
@@ -213,7 +213,7 @@ func run() error {
 // mounts it on root. The viewer lookup adapts the user service to the front's
 // Viewer model; a user the session names but the store no longer has resolves to
 // anonymous, not an error, so a stale session cookie degrades gracefully.
-func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService) error {
+func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, urls *presenter.URLBuilder) error {
 	renderSet, err := render.New(assets.FS(), assets.Dev())
 	if err != nil {
 		return err
@@ -237,6 +237,8 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 	fe.Mount(root, fe.Deps{
 		Render:   renderSet,
 		View:     view.NewBuilder(cfg.Web.SiteName),
+		Repos:    repos,
+		URLs:     urls,
 		Sessions: webmw.NewSessions(cfg.Secrets.SessionKey, 0, lookup),
 		CSRF:     webmw.NewCSRF(renderSet),
 		Flash:    webmw.NewFlash(cfg.Secrets.SessionKey),

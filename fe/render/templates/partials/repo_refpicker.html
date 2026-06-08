@@ -1,0 +1,35 @@
+{{define "repo_refpicker" -}}
+{{/* The data is RefPickerVM {Current, IsTag, Branches, Tags}. It is a <details>
+     disclosure, so it opens the branch and tag menu with no JavaScript; each
+     entry is a plain link the handler precomputed to keep the viewer on the same
+     view kind and path. The current ref shows in the summary. */ -}}
+<details class="ref-picker">
+  <summary class="ref-picker-summary btn">
+    <span class="ref-picker-icon" aria-hidden="true">{{if .IsTag}}{{octicon "tag" 16}}{{else}}{{octicon "git-branch" 16}}{{end}}</span>
+    <span class="ref-picker-current">{{.Current}}</span>
+    <span class="ref-picker-caret" aria-hidden="true">{{octicon "triangle-down" 16}}</span>
+  </summary>
+  <div class="ref-picker-menu">
+    {{if .Branches -}}
+    <div class="ref-picker-group">
+      <p class="ref-picker-group-title">Branches</p>
+      <ul class="ref-picker-list">
+        {{range .Branches -}}
+        <li><a class="ref-picker-item{{if .IsCurrent}} is-current{{end}}" href="{{.URL}}">{{.Name}}</a></li>
+        {{- end}}
+      </ul>
+    </div>
+    {{- end}}
+    {{if .Tags -}}
+    <div class="ref-picker-group">
+      <p class="ref-picker-group-title">Tags</p>
+      <ul class="ref-picker-list">
+        {{range .Tags -}}
+        <li><a class="ref-picker-item{{if .IsCurrent}} is-current{{end}}" href="{{.URL}}">{{.Name}}</a></li>
+        {{- end}}
+      </ul>
+    </div>
+    {{- end}}
+  </div>
+</details>
+{{- end}}
