@@ -5,6 +5,8 @@ operator tools `githome-migrate` and `githome-conform`). Every artifact below
 comes out of one tagged release, built by [GoReleaser](https://goreleaser.com)
 from [`.goreleaser.yaml`](.goreleaser.yaml).
 
+Available right now: the container image, `go install`, and the prebuilt archives and `deb`/`rpm`/`apk` packages attached to each release. The package-manager channels (Homebrew, Scoop, winget, the AUR, Nix) are built by the release pipeline but only publish once their taps exist and their tokens are set, which the [maintainers section](#for-maintainers-wiring-up-each-package-manager) at the end covers.
+
 Two notes that apply to all methods:
 
 - The server shells out to a `git` binary for the smart-HTTP transport, so keep
