@@ -1,0 +1,559 @@
+/*
+ * Pull-request sheet (F4): the index (open/closed state tabs and the rows with the
+ * four-state mini-icon), the PR shell (title block, the state pill, the "wants to
+ * merge" byline, the tab bar shared across every tab), the Conversation tab (which
+ * reuses the issue timeline and composer styles, adding only the close/reopen
+ * toggle), the Commits tab (commits grouped by authored date), the Files tab (the
+ * unified diff: file headers, the hunk table, the add and remove rows), and the
+ * merge box. It references the functional tokens only, never the base primitives,
+ * and the layout is plain flex/grid so every surface degrades to a readable column
+ * with no JavaScript. See implementation/09.
+ */
+
+/* The four pull-request states color the index mini-icon and the shell pill. */
+.pr-state-open {
+  color: var(--bgColor-success-emphasis);
+}
+
+.pr-state-closed {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.pr-state-merged {
+  color: var(--bgColor-done-emphasis);
+}
+
+.pr-state-draft {
+  color: var(--fgColor-muted);
+}
+
+/* Index list: the open/closed tabs and the rows, the issue list frame in spirit. */
+.pulls-list {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.pulls-list-head {
+  padding: var(--base-size-8) var(--base-size-16);
+  background-color: var(--bgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.pulls-tabs {
+  display: flex;
+  gap: var(--base-size-16);
+}
+
+.pulls-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+  font-weight: 500;
+}
+
+.pulls-tab:hover {
+  color: var(--fgColor-default);
+  text-decoration: none;
+}
+
+.pulls-tab.is-current {
+  color: var(--fgColor-default);
+}
+
+.pulls-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pull-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.pull-row:first-child {
+  border-top: 0;
+}
+
+.pull-row-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.pull-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pull-row-title {
+  font-size: var(--text-body-size-large);
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.pull-row-title:hover {
+  color: var(--fgColor-accent);
+  text-decoration: none;
+}
+
+.pull-row-meta {
+  margin: var(--base-size-4) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.pull-row-author {
+  color: var(--fgColor-muted);
+  font-weight: 500;
+}
+
+.pull-row-aside {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+.pull-row-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+/* The PR shell: title block, state pill, byline, and the tab bar. */
+.pr-detail {
+  display: block;
+}
+
+.pr-title-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--base-size-8);
+}
+
+.pr-title {
+  flex: 1 1 auto;
+  font-size: var(--text-title-size-large, 24px);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.pr-number {
+  color: var(--fgColor-muted);
+  font-weight: 300;
+}
+
+.pr-title-form {
+  display: flex;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-8);
+}
+
+.pr-title-input {
+  flex: 1 1 auto;
+}
+
+.pr-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin: var(--base-size-12) 0 var(--base-size-16);
+  padding-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.pr-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: var(--base-size-4) var(--base-size-12);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  color: var(--fgColor-onEmphasis);
+  border-radius: var(--borderRadius-full);
+}
+
+.pr-state-badge.pr-state-open {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-success-emphasis);
+}
+
+.pr-state-badge.pr-state-closed {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-danger-emphasis, #cf222e);
+}
+
+.pr-state-badge.pr-state-merged {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-done-emphasis);
+}
+
+.pr-state-badge.pr-state-draft {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-emphasis);
+}
+
+.pr-subhead-meta {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.pr-ref {
+  padding: 0 var(--base-size-4);
+  font-family: var(--fontStack-monospace, monospace);
+  font-size: var(--text-small-size);
+  background-color: var(--bgColor-accent-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+/* The tab bar that every tab shares, underline marking the current tab. */
+.pr-tabs {
+  display: flex;
+  gap: var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.pr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: var(--base-size-8) var(--base-size-4);
+  margin-bottom: -1px;
+  color: var(--fgColor-muted);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.pr-tab:hover {
+  color: var(--fgColor-default);
+  text-decoration: none;
+}
+
+.pr-tab.is-current {
+  color: var(--fgColor-default);
+  border-bottom-color: var(--bgColor-attention-emphasis, #fb8500);
+}
+
+.pr-tab-count {
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+.pr-tab-content {
+  margin-bottom: var(--base-size-24);
+}
+
+/* Conversation tab: the timeline and composer come from the issues sheet; the
+   close/reopen toggle sits to the left of the Comment button. */
+.pr-state-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+/* Commits tab: commits grouped by the day they were authored. */
+.pr-commit-group {
+  margin-bottom: var(--base-size-16);
+}
+
+.pr-commit-date {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  font-size: var(--text-body-size-medium);
+  font-weight: 600;
+  color: var(--fgColor-muted);
+  margin: 0 0 var(--base-size-8);
+}
+
+.pr-commit-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.pr-commit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.pr-commit-row:first-child {
+  border-top: 0;
+}
+
+.pr-commit-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pr-commit-title {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.pr-commit-author {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.pr-commit-sha {
+  flex: 0 0 auto;
+  padding: 0 var(--base-size-4);
+  font-family: var(--fontStack-monospace, monospace);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+/* Files tab: the summary line, the per-file diffs, and the hunk table. */
+.diff-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-12);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.diff-summary-files {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.diff-count-add {
+  color: var(--fgColor-success, #1a7f37);
+  font-weight: 600;
+}
+
+.diff-count-del {
+  color: var(--fgColor-danger, #cf222e);
+  font-weight: 600;
+}
+
+.diff-truncated {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12);
+  margin-bottom: var(--base-size-12);
+  font-size: var(--text-small-size);
+  background-color: var(--bgColor-attention-muted, #fff8c5);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.diff-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-16);
+}
+
+.diff-file {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.diff-file-head {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12);
+  background-color: var(--bgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.diff-file-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.diff-status-added {
+  color: var(--fgColor-success, #1a7f37);
+}
+
+.diff-status-removed {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.diff-status-renamed {
+  color: var(--fgColor-accent);
+}
+
+.diff-status-modified {
+  color: var(--fgColor-muted);
+}
+
+.diff-file-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--fontStack-monospace, monospace);
+  font-size: var(--text-small-size);
+  word-break: break-all;
+}
+
+.diff-file-oldpath {
+  color: var(--fgColor-muted);
+  text-decoration: line-through;
+}
+
+.diff-file-counts {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--base-size-8);
+  font-size: var(--text-small-size);
+}
+
+.diff-file-note {
+  margin: 0;
+  padding: var(--base-size-16);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--fontStack-monospace, monospace);
+  font-size: var(--text-small-size);
+  tab-size: 4;
+}
+
+.diff-gutter {
+  width: 1%;
+  min-width: 40px;
+  padding: 0 var(--base-size-8);
+  text-align: right;
+  color: var(--fgColor-muted);
+  white-space: nowrap;
+  vertical-align: top;
+  user-select: none;
+  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.diff-code {
+  padding: 0 var(--base-size-8);
+  white-space: pre-wrap;
+  word-break: break-word;
+  vertical-align: top;
+}
+
+.diff-row-hunk .diff-code-hunk,
+.diff-code-hunk {
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-accent-muted);
+}
+
+.diff-row-hunk .diff-gutter {
+  background-color: var(--bgColor-accent-muted);
+  border-right-color: transparent;
+}
+
+.diff-code-addition,
+.diff-row-addition .diff-gutter {
+  background-color: var(--bgColor-success-muted);
+}
+
+.diff-code-deletion,
+.diff-row-deletion .diff-gutter {
+  background-color: var(--bgColor-danger-muted);
+}
+
+/* The merge box at the foot of the Conversation tab. */
+.merge-box {
+  margin-top: var(--base-size-16);
+  padding: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-subtle);
+}
+
+.merge-box-status {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  font-weight: 600;
+}
+
+.merge-box-clean .merge-box-icon {
+  color: var(--bgColor-success-emphasis);
+}
+
+.merge-box-blocked .merge-box-icon,
+.merge-box-unstable .merge-box-icon {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.merge-box-merged .merge-box-icon {
+  color: var(--bgColor-done-emphasis);
+}
+
+.merge-box-computing .merge-box-icon {
+  color: var(--fgColor-muted);
+}
+
+.merge-box-reasons {
+  list-style: none;
+  margin: var(--base-size-8) 0 0;
+  padding: 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.merge-box-reasons li {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+.merge-box-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-12);
+}
+
+.merge-box-methods {
+  display: flex;
+  gap: var(--base-size-12);
+  flex: 1 1 100%;
+}
+
+.merge-box-method {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+}
+
+.merge-box-commit-title {
+  flex: 1 1 240px;
+}
+
+.merge-box-note {
+  margin: var(--base-size-12) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
