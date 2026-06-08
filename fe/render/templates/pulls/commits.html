@@ -1,0 +1,33 @@
+{{define "content" -}}
+{{/* The data is a PRCommitsVM. The page is the PR shell followed by the pull
+     request's own commits grouped by authored calendar date, newest day first. Each
+     row links nowhere yet (the single-commit view arrives with the review milestone);
+     it shows the short SHA, the title, and the author, the same grouping the
+     code-browsing history uses so the two commit lists read alike. */ -}}
+{{template "pr_shell" .Shell}}
+  <div class="pr-tab-content pr-commits">
+    {{if .Groups -}}
+    {{range .Groups -}}
+    <div class="pr-commit-group">
+      <h3 class="pr-commit-date">{{octicon "git-commit" 16}} Commits on {{.Date}}</h3>
+      <ul class="pr-commit-rows">
+        {{range .Commits -}}
+        <li class="pr-commit-row">
+          <div class="pr-commit-main">
+            <span class="pr-commit-title">{{.Title}}</span>
+            <span class="pr-commit-author">{{.AuthorName}} committed <relative-time datetime="{{.WhenISO}}">{{.When}}</relative-time></span>
+          </div>
+          <code class="pr-commit-sha">{{.ShortSHA}}</code>
+        </li>
+        {{- end}}
+      </ul>
+    </div>
+    {{- end}}
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">This pull request has no commits.</p>
+    </div>
+    {{- end}}
+  </div>
+{{template "pr_shell_end"}}
+{{- end}}

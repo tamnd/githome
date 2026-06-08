@@ -1,0 +1,52 @@
+{{define "pr_merge_box" -}}
+{{/* The data is a MergeBoxVM. It renders the merge box at the foot of the
+     Conversation tab: a state headline and, when the PR is mergeable and the viewer
+     may merge, the merge control with its method picker and the optimistic head-SHA
+     token. The box is derived once from the cached mergeability columns, so it agrees
+     with a concurrent API read. While Computing it re-fetches itself from PollURL on
+     a backoff (a <pr-merge-box> web component drives that with JS on); with JS off it
+     is the same static box the full page already shows. The blocked, unstable, and
+     queue states arrive with the review and check milestones; F4 renders the states
+     the live worker produces. */ -}}
+<section class="merge-box merge-box-{{.State.Modifier}}"
+         data-poll-url="{{.PollURL}}"{{if .State.IsComputing}} data-computing="true"{{end}}>
+  <div class="merge-box-status">
+    <span class="merge-box-icon" aria-hidden="true">{{octicon .State.MergeIcon 16}}</span>
+    <span class="merge-box-headline">{{.State.Headline}}</span>
+  </div>
+
+  {{if .BlockReasons -}}
+  <ul class="merge-box-reasons">
+    {{range .BlockReasons}}<li>{{octicon "alert" 16}} {{.}}</li>{{end}}
+  </ul>
+  {{- end}}
+
+  {{if and .State.Mergeable .ViewerCanMerge -}}
+  <form class="merge-box-form" method="post" action="{{.MergeURL}}">
+    {{if .CSRFToken}}<input type="hidden" name="_csrf" value="{{.CSRFToken}}">{{end}}
+    <input type="hidden" name="head_sha" value="{{.HeadSHA}}">
+    {{if gt (len .Methods) 1 -}}
+    <div class="merge-box-methods" role="radiogroup" aria-label="Merge method">
+      {{range .Methods -}}
+      <label class="merge-box-method">
+        <input type="radio" name="method" value="{{.Method}}"{{if .IsDefault}} checked{{end}}>
+        {{.Label}}
+      </label>
+      {{- end}}
+    </div>
+    {{- else if .Methods -}}
+    <input type="hidden" name="method" value="{{(index .Methods 0).Method}}">
+    {{- end}}
+    <input class="merge-box-commit-title" type="text" name="commit_title"
+           value="{{.DefaultCommitTitle}}" aria-label="Merge commit title">
+    <button class="btn btn-primary merge-box-submit" type="submit">
+      {{octicon "git-merge" 16}} Merge pull request
+    </button>
+  </form>
+  {{- else if .State.IsDirty -}}
+  <p class="merge-box-note">Resolve the conflicts on the command line, then push the branch.</p>
+  {{- else if .State.IsComputing -}}
+  <p class="merge-box-note">Checking whether this branch can be merged. This page updates when the check finishes.</p>
+  {{- end}}
+</section>
+{{- end}}

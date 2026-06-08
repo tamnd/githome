@@ -1,0 +1,52 @@
+{{define "pr_shell" -}}
+{{/* The data is a PRShellVM. It renders the context every /pull/{n} tab hangs off:
+     the repo header, the PR title with its number, the four-state pill, the "wants
+     to merge N commits into BASE from HEAD" byline, and the tab bar with its counts.
+     Every tab handler builds the same shell so the header and tabs are byte-identical
+     across tabs; only the slotted content below differs. ActiveTab drives which tab
+     is current. The tab URLs are precomputed, so this partial never builds a link. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body pr-detail">
+  <div class="pr-title-block">
+    <h1 class="pr-title">{{.Title}} <span class="pr-number">#{{.Number}}</span></h1>
+    {{if .CanEdit -}}
+    <details class="pr-title-edit">
+      <summary class="btn">Edit</summary>
+      <form class="pr-title-form" method="post" action="{{.EditURL}}">
+        {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+        <input class="pr-title-input" type="text" name="title" value="{{.Title}}" aria-label="Pull request title">
+        <button class="btn btn-primary" type="submit">Save</button>
+      </form>
+    </details>
+    {{- end}}
+  </div>
+
+  <div class="pr-subhead">
+    <span class="pr-state-badge pr-state-{{.State.Modifier}}">
+      {{octicon .State.Icon 16}} {{.State.Label}}
+    </span>
+    <span class="pr-subhead-meta">
+      <a href="{{.Author.URL}}">{{.Author.Login}}</a>
+      {{if .IsMerged}}merged {{.CommitCount}} commit{{if ne .CommitCount 1}}s{{end}}{{else}}wants to merge {{.CommitCount}} commit{{if ne .CommitCount 1}}s{{end}}{{end}}
+      into <span class="pr-ref pr-ref-base">{{.BaseRef}}</span>
+      from <span class="pr-ref pr-ref-head">{{.HeadLabel}}</span>
+      <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+    </span>
+  </div>
+
+  <nav class="pr-tabs" aria-label="Pull request">
+    <a class="pr-tab{{if eq .ActiveTab "conversation"}} is-current{{end}}" href="{{.ConversationURL}}"
+       {{if eq .ActiveTab "conversation"}}aria-current="page"{{end}}>
+      {{octicon "comment" 16}} Conversation <span class="pr-tab-count">{{.CommentCount}}</span></a>
+    <a class="pr-tab{{if eq .ActiveTab "commits"}} is-current{{end}}" href="{{.CommitsURL}}"
+       {{if eq .ActiveTab "commits"}}aria-current="page"{{end}}>
+      {{octicon "git-commit" 16}} Commits <span class="pr-tab-count">{{.CommitCount}}</span></a>
+    <a class="pr-tab{{if eq .ActiveTab "files"}} is-current{{end}}" href="{{.FilesURL}}"
+       {{if eq .ActiveTab "files"}}aria-current="page"{{end}}>
+      {{octicon "diff-modified" 16}} Files changed <span class="pr-tab-count">{{.ChangedFiles}}</span></a>
+  </nav>
+{{- end}}
+
+{{define "pr_shell_end" -}}
+</div>
+{{- end}}

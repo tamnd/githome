@@ -1,0 +1,55 @@
+{{define "content" -}}
+{{/* The data is a PRIndexVM. The page is the repo header, the open/closed state
+     tabs, then the pull-request list. The state tabs are plain links whose targets
+     the handler built server-side, so the list filters with no JavaScript. An empty
+     result renders a blankslate. The rows mirror the issue rows, with the four-state
+     pull-request pill standing in for the issue's open/closed badge. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="pulls-list">
+    <div class="pulls-list-head">
+      <nav class="pulls-tabs" aria-label="Pull request state">
+        <a class="pulls-tab{{if .OpenTab.IsActive}} is-current{{end}}" href="{{.OpenTab.URL}}"
+           {{if .OpenTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "git-pull-request" 16}} {{.OpenTab.Count}} Open</a>
+        <a class="pulls-tab{{if .ClosedTab.IsActive}} is-current{{end}}" href="{{.ClosedTab.URL}}"
+           {{if .ClosedTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "check" 16}} {{.ClosedTab.Count}} Closed</a>
+      </nav>
+    </div>
+
+    {{if .Rows -}}
+    <ul class="pulls-rows">
+      {{range .Rows -}}
+      <li class="pull-row">
+        <span class="pull-row-icon pr-state-{{.State.Modifier}}" aria-label="{{.State.Label}}">
+          {{octicon .State.Icon 16}}
+        </span>
+        <div class="pull-row-main">
+          <a class="pull-row-title" href="{{.URL}}">{{.Title}}</a>
+          <p class="pull-row-meta">
+            #{{.Number}} opened <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+            by <a class="pull-row-author" href="{{.Author.URL}}">{{.Author.Login}}</a>
+          </p>
+        </div>
+        <div class="pull-row-aside">
+          {{if gt .CommentCount 0}}<a class="pull-row-comments" href="{{.URL}}" aria-label="{{.CommentCount}} comments">{{octicon "comment" 16}} {{.CommentCount}}</a>{{end}}
+        </div>
+      </li>
+      {{- end}}
+    </ul>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">{{.EmptyReason}}</p>
+    </div>
+    {{- end}}
+  </div>
+
+  {{if or .Pager.PrevURL .Pager.NextURL -}}
+  <nav class="paginate" aria-label="Pagination">
+    {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+    {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+  </nav>
+  {{- end}}
+</div>
+{{- end}}
