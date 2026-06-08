@@ -15,6 +15,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	webchecks "github.com/tamnd/githome/fe/web/checks"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
@@ -39,6 +40,7 @@ type Deps struct {
 	View     *view.Builder
 	Repos    *domain.RepoService
 	Hooks    *domain.HookService
+	Checks   *domain.ChecksService
 	Issues   *domain.IssueService
 	Pulls    *domain.PRService
 	Reviews  *domain.ReviewService
@@ -70,6 +72,7 @@ func Mount(root *mizu.Router, d Deps) {
 	page.Get("/{$}", handleHome(d))
 
 	mountRepo(page, d)
+	mountChecks(page, d)
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
@@ -110,6 +113,32 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
+}
+
+// mountChecks registers the commit-checks page under /{owner}/{repo}/checks/{ref}.
+// Like the code-browsing routes it runs the checks Resolve middleware first, which
+// loads the repository read-gated for the viewer (or a 404), so the handler only
+// folds the ref's rollup for a visible repository and a private one the viewer
+// cannot see 404s rather than confirming its existence. The checks service is the
+// gate, and the repo service backs the header bar; with either missing the route
+// stays unmounted, the same as the other surfaces. The page renders the backed
+// checks signals (check runs, suites, commit statuses, and their rollup); the
+// full Actions run engine doc 11 sketches has no store, so it is absent rather
+// than faked. The greedy {rest} carries the whole ref so a branch with slashes
+// resolves as one ref. See implementation/11.
+func mountChecks(page *mizu.Router, d Deps) {
+	if d.Checks == nil || d.Repos == nil {
+		return
+	}
+	ch := webchecks.New(webchecks.Deps{
+		Checks: d.Checks,
+		Repos:  d.Repos,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	cg := page.With(ch.Resolve)
+	cg.Get("/{owner}/{repo}/checks/{rest...}", ch.Index)
 }
 
 // mountIssues registers the issues routes under /{owner}/{repo}/issues. Like the
@@ -174,6 +203,7 @@ func mountPulls(page *mizu.Router, d Deps) {
 		Pulls:   d.Pulls,
 		Issues:  d.Issues,
 		Reviews: d.Reviews,
+		Checks:  d.Checks,
 		Repos:   d.Repos,
 		URLs:    d.URLs,
 		Render:  d.Render,

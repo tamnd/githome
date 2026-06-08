@@ -167,7 +167,7 @@ func run() error {
 	// subrouters, so the API surface keeps its own. A build error in the template
 	// set or asset manifest is fatal: the front cannot serve a page without them.
 	if cfg.Web.Enabled {
-		if err := mountWeb(root, cfg, logger, userSvc, repoSvc, hookSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls); err != nil {
+		if err := mountWeb(root, cfg, logger, userSvc, repoSvc, hookSvc, checksSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls); err != nil {
 			return fmt.Errorf("web front: %w", err)
 		}
 		logger.Info("web front mounted", "site", cfg.Web.SiteName, "dev_assets", assets.Dev())
@@ -214,7 +214,7 @@ func run() error {
 // mounts it on root. The viewer lookup adapts the user service to the front's
 // Viewer model; a user the session names but the store no longer has resolves to
 // anonymous, not an error, so a stale session cookie degrades gracefully.
-func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) error {
+func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, checks *domain.ChecksService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) error {
 	renderSet, err := render.New(assets.FS(), assets.Dev())
 	if err != nil {
 		return err
@@ -253,6 +253,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 		View:     view.NewBuilder(cfg.Web.SiteName),
 		Repos:    repos,
 		Hooks:    hooks,
+		Checks:   checks,
 		Issues:   issues,
 		Pulls:    pulls,
 		Reviews:  reviews,
