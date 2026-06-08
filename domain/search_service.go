@@ -93,17 +93,28 @@ func (s *SearchService) SearchIssues(ctx context.Context, viewerPK int64, raw, s
 	if err != nil {
 		return nil, 0, err
 	}
-	out := make([]IssueHit, 0, len(rows))
+
+	// Deduplicate repo PKs and load each repo once, then batch-assemble issues.
+	repoMap := make(map[int64]*Repo, 4)
 	for i := range rows {
-		repo, err := s.repos.RepoForEvent(ctx, rows[i].RepoPK)
-		if err != nil {
-			return nil, 0, err
+		pk := rows[i].RepoPK
+		if _, ok := repoMap[pk]; !ok {
+			repo, err := s.repos.RepoForEvent(ctx, pk)
+			if err != nil {
+				return nil, 0, err
+			}
+			repoMap[pk] = repo
 		}
-		iss, err := s.issues.IssueForEvent(ctx, repo, rows[i].PK)
-		if err != nil {
-			return nil, 0, err
+	}
+	issues, err := s.issues.assembleIssueSearch(ctx, repoMap, rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]IssueHit, 0, len(issues))
+	for _, iss := range issues {
+		if repo, ok := repoMap[iss.RepoPK]; ok {
+			out = append(out, IssueHit{Issue: iss, Repo: repo})
 		}
-		out = append(out, IssueHit{Issue: iss, Repo: repo})
 	}
 	return out, total, nil
 }
