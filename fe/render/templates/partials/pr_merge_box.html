@@ -15,6 +15,14 @@
     <span class="merge-box-headline">{{.State.Headline}}</span>
   </div>
 
+  {{if .Checks.Present -}}
+  <div class="merge-box-checks">
+    <span class="merge-box-checks-icon check-state {{.Checks.ColorClass}}" aria-hidden="true">{{octicon .Checks.Icon 16}}</span>
+    <span class="merge-box-checks-headline">{{.Checks.Headline}}</span>
+    {{if .Checks.URL}}<a class="merge-box-checks-link" href="{{.Checks.URL}}">Details</a>{{end}}
+  </div>
+  {{- end}}
+
   {{if .Reviews.Present -}}
   <div class="merge-box-reviews">
     <span class="merge-box-review-icon" aria-hidden="true">{{octicon "eye" 16}}</span>

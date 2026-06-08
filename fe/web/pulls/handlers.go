@@ -38,6 +38,7 @@ type Deps struct {
 	Pulls   *domain.PRService
 	Issues  *domain.IssueService
 	Reviews *domain.ReviewService
+	Checks  *domain.ChecksService
 	Repos   *domain.RepoService
 	URLs    *presenter.URLBuilder
 	Render  *render.Set
@@ -52,6 +53,7 @@ type Handlers struct {
 	pulls   *domain.PRService
 	issues  *domain.IssueService
 	reviews *domain.ReviewService
+	checks  *domain.ChecksService
 	repos   *domain.RepoService
 	urls    *presenter.URLBuilder
 	render  *render.Set
@@ -66,6 +68,7 @@ func New(d Deps) *Handlers {
 		pulls:   d.Pulls,
 		issues:  d.Issues,
 		reviews: d.Reviews,
+		checks:  d.Checks,
 		repos:   d.Repos,
 		urls:    d.URLs,
 		render:  d.Render,

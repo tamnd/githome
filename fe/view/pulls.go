@@ -308,12 +308,18 @@ type MergeMethodVM struct {
 	IsDefault bool
 }
 
-// ChecksRollupVM is the status-checks summary the merge box and the list mini-icon
-// share. It is empty until the checks milestone (F9) fills it; the box renders its
-// merge control without it in F4.
+// ChecksRollupVM is the status-checks summary the merge box shows above its merge
+// control. F9 fills it from the head sha's status-check rollup: the shared status
+// token (so the icon and color match the checks page and every other check
+// surface), the worst-first headline, and the link to the full checks page at the
+// head sha. It stays empty (Present false) on a merged or closed PR and when no
+// checks have reported, which the box renders without a checks line.
 type ChecksRollupVM struct {
-	Headline string
-	Present  bool
+	Present    bool
+	Headline   string
+	Icon       string // octicon name from the rollup token
+	ColorClass string // a check-state-* class from the rollup token
+	URL        string // the checks page at the head sha
 }
 
 // ReviewRollupVM is the review-decision summary. It is empty until the code-review

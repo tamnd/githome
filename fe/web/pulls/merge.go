@@ -52,7 +52,33 @@ func (h *Handlers) mergeBox(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullReque
 		box.CanReopen = canWrite(repo, vc.pk)
 	}
 	box.Reviews = h.reviewRollup(c, repo, pr, vc)
+	box.Checks = h.checksRollup(c, repo, pr)
 	return box
+}
+
+// checksRollup builds the merge box's status-check summary from the rollup at the
+// pull request's head sha, so the box, the checks page, and a concurrent API read
+// all show the same verdict with the same shared token. An open PR with no checks
+// reported reads as empty (Present false), which the box renders without a checks
+// line; a merged or closed PR carries no live checks line. With no checks service
+// wired the rollup stays empty. The headline links to the full checks page at the
+// head.
+func (h *Handlers) checksRollup(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullRequest) view.ChecksRollupVM {
+	if h.checks == nil || pr.Merged || pr.State == "closed" || pr.Head.SHA == "" {
+		return view.ChecksRollupVM{}
+	}
+	rollup, err := h.checks.RollupForPull(c.Context(), repo, pr.Head.SHA)
+	if err != nil || rollup == nil || rollup.TotalCount == 0 {
+		return view.ChecksRollupVM{}
+	}
+	tok := view.RollupToken(rollup.State)
+	return view.ChecksRollupVM{
+		Present:    true,
+		Headline:   tok.Title,
+		Icon:       tok.Icon,
+		ColorClass: tok.ColorClass,
+		URL:        route.Checks(ownerLogin(repo), repo.Name, pr.Head.SHA),
+	}
 }
 
 // reviewRollup builds the merge box's review summary from the review decision the
