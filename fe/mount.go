@@ -19,6 +19,7 @@ import (
 	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
+	webreposettings "github.com/tamnd/githome/fe/web/reposettings"
 	websearch "github.com/tamnd/githome/fe/web/search"
 	websettings "github.com/tamnd/githome/fe/web/settings"
 	"github.com/tamnd/githome/fe/webmw"
@@ -37,6 +38,7 @@ type Deps struct {
 	Render   *render.Set
 	View     *view.Builder
 	Repos    *domain.RepoService
+	Hooks    *domain.HookService
 	Issues   *domain.IssueService
 	Pulls    *domain.PRService
 	Reviews  *domain.ReviewService
@@ -71,6 +73,7 @@ func Mount(root *mizu.Router, d Deps) {
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountRepoSettings(page, d)
 	mountSettings(page, d)
 	mountProfile(page, d)
 
@@ -223,6 +226,43 @@ func mountSearch(page *mizu.Router, d Deps) {
 
 	sg := page.With(sh.Resolve)
 	sg.Get("/{owner}/{repo}/search", sh.Scoped)
+}
+
+// mountRepoSettings registers the repository settings tree under
+// /{owner}/{repo}/settings. Githome backs one section, the webhooks, so the
+// routes are the bare-root redirect, the webhooks list, the shared create and
+// edit form, the delete, and a recorded delivery's detail and replay. Every route
+// runs the reposettings Resolve middleware first, which loads the repository
+// read-gated for the viewer and then gates it to an administrator, so a
+// repository the viewer cannot see and one they can see but not administer both
+// render the same 404 (the settings surface never confirms its own existence to
+// someone who cannot use it). The hook service and the repo service are the gate:
+// with either missing the routes stay unmounted, the same as the other surfaces.
+// The literal /hooks/new is registered before the /hooks/{hook} route so "new" is
+// never read as an id, and every mutation posts and redirects behind the CSRF
+// guard. See implementation/13 section 3.
+func mountRepoSettings(page *mizu.Router, d Deps) {
+	if d.Hooks == nil || d.Repos == nil {
+		return
+	}
+	rh := webreposettings.New(webreposettings.Deps{
+		Hooks:  d.Hooks,
+		Repos:  d.Repos,
+		Render: d.Render,
+		View:   d.View,
+		Flash:  d.Flash,
+		Logger: d.Logger,
+	})
+	rg := page.With(rh.Resolve)
+	rg.Get("/{owner}/{repo}/settings", rh.Root)
+	rg.Get("/{owner}/{repo}/settings/hooks", rh.Hooks)
+	rg.Get("/{owner}/{repo}/settings/hooks/new", rh.NewHook)
+	rg.Post("/{owner}/{repo}/settings/hooks", rh.CreateHook)
+	rg.Get("/{owner}/{repo}/settings/hooks/{hook}", rh.EditHook)
+	rg.Post("/{owner}/{repo}/settings/hooks/{hook}", rh.UpdateHook)
+	rg.Post("/{owner}/{repo}/settings/hooks/{hook}/delete", rh.DeleteHook)
+	rg.Get("/{owner}/{repo}/settings/hooks/{hook}/deliveries/{delivery}", rh.Delivery)
+	rg.Post("/{owner}/{repo}/settings/hooks/{hook}/deliveries/{delivery}/redeliver", rh.Redeliver)
 }
 
 // mountSettings registers the account settings tree under /settings. The bare

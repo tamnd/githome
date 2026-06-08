@@ -1,0 +1,116 @@
+{{define "content" -}}
+{{/* The data is HookFormVM, shared by the create and edit pages. IsNew picks the
+     heading, the submit label, and whether the delete control and the delivery
+     history show. The secret is write-only: the field is always blank and
+     HasSecret only tells the viewer whether one is set, so a save that leaves it
+     blank keeps the stored secret and the explicit remove control clears it. A
+     validation miss re-renders this same form with FormError and the typed values
+     intact. See implementation/13. */ -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <h1 class="settings-title">{{if .IsNew}}Add webhook{{else}}Manage webhook{{end}}</h1>
+
+    {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
+
+    <form class="settings-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+      <div class="settings-field">
+        <label class="settings-label" for="payload_url">Payload URL</label>
+        <input class="input" id="payload_url" type="url" name="payload_url" value="{{.PayloadURL}}"
+               placeholder="https://example.com/postreceive" required>
+        <p class="settings-hint">Githome will POST each selected event to this http or https address.</p>
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="content_type">Content type</label>
+        <select class="input settings-select" id="content_type" name="content_type">
+          {{range .ContentTypes -}}
+          <option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+          {{end -}}
+        </select>
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="secret">Secret</label>
+        <input class="input" id="secret" type="password" name="secret" autocomplete="new-password"
+               placeholder="{{if .HasSecret}}Leave blank to keep the current secret{{else}}Optional signing secret{{end}}">
+        <p class="settings-hint">Githome signs each delivery with this secret so your endpoint can verify it.</p>
+        {{if and .HasSecret (not .IsNew) -}}
+        <label class="hook-event">
+          <input type="checkbox" name="clear_secret" value="1">
+          <span class="hook-secret-state">Remove the current secret</span>
+        </label>
+        {{- end}}
+      </div>
+
+      <fieldset class="settings-group">
+        <legend class="settings-legend">Which events would you like to trigger this webhook?</legend>
+        <label class="settings-radio">
+          <input type="radio" name="subscribe" value="all"{{if .Everything}} checked{{end}}>
+          <span>Send me everything</span>
+        </label>
+        <label class="settings-radio">
+          <input type="radio" name="subscribe" value="choose"{{if not .Everything}} checked{{end}}>
+          <span>Let me select individual events</span>
+        </label>
+        <div class="hook-events">
+          {{range .Events -}}
+          <label class="hook-event">
+            <input type="checkbox" name="events" value="{{.Value}}"{{if .Checked}} checked{{end}}>
+            <span>{{.Label}}</span>
+          </label>
+          {{end -}}
+        </div>
+        <p class="settings-hint">The selected events apply only when you choose to select individual events.</p>
+      </fieldset>
+
+      <div class="settings-field">
+        <label class="hook-event">
+          <input type="checkbox" name="insecure_ssl" value="1"{{if .InsecureSSL}} checked{{end}}>
+          <span>Disable SSL verification</span>
+        </label>
+        <p class="settings-hint">We recommend you leave this on. Disable it only if your endpoint uses a self-signed certificate.</p>
+      </div>
+
+      <div class="settings-field">
+        <label class="hook-event">
+          <input type="checkbox" name="active" value="1"{{if .Active}} checked{{end}}>
+          <span>Active</span>
+        </label>
+        <p class="settings-hint">We will deliver event details when this hook is active.</p>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" type="submit">{{if .IsNew}}Add webhook{{else}}Update webhook{{end}}</button>
+      </div>
+    </form>
+
+    {{if not .IsNew -}}
+    {{if .Deliveries -}}
+    <h2 class="settings-nav-heading">Recent deliveries</h2>
+    <ul class="hook-deliveries">
+      {{range .Deliveries -}}
+      <li class="hook-delivery">
+        <span class="hook-status-{{.StatusKind}}" title="{{.StatusLabel}}">{{octicon .StatusIcon 16}}</span>
+        <a class="hook-delivery-guid" href="{{.URL}}">{{.GUID}}</a>
+        <span class="hook-row-meta">{{.Event}}{{if .Redelivery}} &middot; redelivery{{end}}</span>
+        <span class="hook-delivery-when"><relative-time datetime="{{.DeliveredISO}}">{{.DeliveredAt}}</relative-time></span>
+      </li>
+      {{end -}}
+    </ul>
+    {{- end}}
+
+    <div class="settings-danger">
+      <h2 class="settings-danger-title">Delete this webhook</h2>
+      <p class="settings-hint">Once deleted, this webhook and its delivery history cannot be recovered.</p>
+      <form method="post" action="{{.DeleteAction}}" onsubmit="return confirm('Delete this webhook? Its delivery history will be removed too.')">
+        {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+        <button class="btn" type="submit">{{octicon "trash" 16}} Delete webhook</button>
+      </form>
+    </div>
+    {{- end}}
+  </section>
+</div>
+{{- end}}

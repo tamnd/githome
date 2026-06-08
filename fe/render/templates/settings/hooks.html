@@ -1,0 +1,37 @@
+{{define "content" -}}
+{{/* The data is HookListVM. The page is the repository settings shell with the
+     webhooks section active: a row per hook linking to its edit page, with its
+     delivery target, its subscription summary, its active state, and a glyph for
+     its last-delivery health. An empty list renders a blankslate with the same
+     add affordance as the header. See implementation/13. */ -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <div class="settings-section-head">
+      <h1 class="settings-title">Webhooks</h1>
+      <a class="btn btn-primary" href="{{.NewURL}}">{{octicon "plus" 16}} Add webhook</a>
+    </div>
+    <p class="settings-lead">Webhooks deliver a payload to an external URL when something happens in {{.RepoFullName}}. You can choose which events to send and Githome will POST the payload to the URL you set.</p>
+
+    {{if .Empty -}}
+    <div class="blankslate">
+      <h2 class="blankslate-heading">No webhooks yet</h2>
+      <p class="blankslate-text">Create a webhook to be notified when events happen in this repository.</p>
+      <a class="btn btn-primary" href="{{.NewURL}}">{{octicon "plus" 16}} Add webhook</a>
+    </div>
+    {{- else -}}
+    <ul class="hook-list">
+      {{range .Hooks -}}
+      <li class="hook-row">
+        <div class="hook-row-main">
+          <a class="hook-row-target" href="{{.URL}}">{{.Target}}</a>
+          <div class="hook-row-meta">{{.Events}}{{if not .Active}} &middot; <span class="hook-inactive">inactive</span>{{end}}</div>
+        </div>
+        <span class="hook-row-status hook-status-{{.StatusKind}}" title="Last delivery: {{.StatusLabel}}">{{octicon .StatusIcon 16}}</span>
+      </li>
+      {{end -}}
+    </ul>
+    {{- end}}
+  </section>
+</div>
+{{- end}}
