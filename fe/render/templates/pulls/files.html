@@ -1,0 +1,36 @@
+{{define "content" -}}
+{{/* The data is a PRFilesVM. The page is the PR shell followed by a diff summary
+     line (N files changed, additions, deletions) and the per-file unified diffs.
+     The Files tab is read-only in F4: the rows mark anchorable lines for the review
+     composer that arrives in F5, but show no inline threads yet. A truncated list
+     (a very large diff) says so rather than dropping the tail in silence. */ -}}
+{{template "pr_shell" .Shell}}
+  <div class="pr-tab-content pr-files">
+    <div class="diff-summary">
+      <span class="diff-summary-files">{{.ChangedFiles}} changed file{{if ne .ChangedFiles 1}}s{{end}}</span>
+      <span class="diff-summary-counts">
+        <span class="diff-count-add">+{{.Additions}}</span>
+        <span class="diff-count-del">-{{.Deletions}}</span>
+      </span>
+    </div>
+
+    {{if .Truncated -}}
+    <div class="diff-truncated" role="status">
+      {{octicon "alert" 16}} This diff is large, so only the first files are shown here.
+    </div>
+    {{- end}}
+
+    {{if .Files -}}
+    <div class="diff-files">
+      {{range .Files -}}
+      {{template "pr_diff_file" .}}
+      {{- end}}
+    </div>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">This pull request has no file changes.</p>
+    </div>
+    {{- end}}
+  </div>
+{{template "pr_shell_end"}}
+{{- end}}

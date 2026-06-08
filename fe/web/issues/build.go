@@ -53,6 +53,7 @@ func (h *Handlers) nav(r *domain.Repo) view.TreeNav {
 	return view.TreeNav{
 		CodeURL:     route.Repo(owner, r.Name),
 		IssuesURL:   route.Issues(owner, r.Name, ""),
+		PullsURL:    route.Pulls(owner, r.Name, ""),
 		CommitsURL:  route.Commits(owner, r.Name, r.DefaultBranch, ""),
 		BranchesURL: route.Branches(owner, r.Name),
 		TagsURL:     route.Tags(owner, r.Name),

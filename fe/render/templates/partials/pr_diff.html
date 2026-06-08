@@ -1,0 +1,50 @@
+{{define "pr_diff_file" -}}
+{{/* The data is a DiffFileVM. It renders one file's diff: a header row with the
+     change-status badge, the path (the old path too for a rename), and the per-file
+     add/remove counts, then the unified hunk table. A binary or too-large file shows
+     a note instead of rows. The row math (Position) is computed in the builder; F4
+     renders the diff read-only, so the gutter marks anchorable lines but shows no
+     inline composer (that arrives in F5). */ -}}
+<section class="diff-file" id="{{.PathHash}}">
+  <div class="diff-file-head">
+    <span class="diff-file-status diff-status-{{.Status}}" title="{{.Status.StatusLabel}}" aria-label="{{.Status.StatusLabel}}">
+      {{octicon .Status.StatusIcon 16}}
+    </span>
+    <span class="diff-file-path">
+      {{if .OldPath}}<span class="diff-file-oldpath">{{.OldPath}}</span> {{octicon "arrow-right" 16}} {{end}}{{.Path}}
+    </span>
+    <span class="diff-file-counts">
+      <span class="diff-count-add">+{{.Additions}}</span>
+      <span class="diff-count-del">-{{.Deletions}}</span>
+    </span>
+  </div>
+
+  {{if .IsBinary -}}
+  <p class="diff-file-note">Binary file not shown.</p>
+  {{- else if .TooLarge -}}
+  <p class="diff-file-note">This file is too large to display.</p>
+  {{- else if .Rows -}}
+  <table class="diff-table" role="presentation">
+    <tbody>
+      {{range .Rows -}}
+      {{if .IsHunkHeader -}}
+      <tr class="diff-row diff-row-hunk">
+        <td class="diff-gutter diff-gutter-old" aria-hidden="true"></td>
+        <td class="diff-gutter diff-gutter-new" aria-hidden="true"></td>
+        <td class="diff-code diff-code-hunk">{{.Text}}</td>
+      </tr>
+      {{- else -}}
+      <tr class="diff-row diff-row-{{.CellClass}}">
+        <td class="diff-gutter diff-gutter-old">{{.OldLineLabel}}</td>
+        <td class="diff-gutter diff-gutter-new">{{.NewLineLabel}}</td>
+        <td class="diff-code diff-code-{{.CellClass}}"{{if .Commentable}} data-position="{{.Position}}"{{end}}>{{.Text}}</td>
+      </tr>
+      {{- end}}
+      {{- end}}
+    </tbody>
+  </table>
+  {{- else -}}
+  <p class="diff-file-note">No changes to display.</p>
+  {{- end}}
+</section>
+{{- end}}

@@ -1,0 +1,38 @@
+{{define "content" -}}
+{{/* The data is a PRConversationVM. The page is the PR shell (header, title, pill,
+     byline, tab bar) followed by the comment timeline, the new-comment composer with
+     its close/reopen toggle, and the merge box. The timeline is the same CommentVM
+     stream the issue detail renders, because a PR shares its number and its comments
+     with an issue. Every mutation is a plain form POST so the page works with no
+     JavaScript; the htmx path posts to the same URLs. */ -}}
+{{template "pr_shell" .Shell}}
+  <div class="pr-tab-content pr-conversation">
+    <div class="pr-timeline">
+      {{range .Timeline -}}
+      {{template "issue_comment" (dict "C" . "CSRF" $.Shell.Chrome.CSRFToken)}}
+      {{- end}}
+
+      {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
+
+      {{if .Composer.CanComment -}}
+      <form class="comment-composer" method="post" action="{{.Composer.Action}}">
+        {{if .Shell.Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Shell.Chrome.CSRFToken}}">{{end}}
+        <textarea class="comment-composer-text" name="body" rows="5" placeholder="Leave a comment" aria-label="Comment body"></textarea>
+        <div class="comment-composer-actions">
+          {{if .Composer.CanClose -}}
+          <button class="btn pr-state-toggle" type="submit" formaction="{{.Composer.CloseAction}}">
+            {{if .Composer.IssueOpen}}{{octicon "git-pull-request-closed" 16}}{{else}}{{octicon "git-pull-request" 16}}{{end}} {{.Composer.CloseLabel}}
+          </button>
+          {{- end}}
+          <button class="btn btn-primary" type="submit">Comment</button>
+        </div>
+      </form>
+      {{- else -}}
+      <p class="comment-signin"><a href="/login?return_to={{.Shell.Chrome.CurrentPath}}">Sign in</a> to comment.</p>
+      {{- end}}
+    </div>
+
+    {{template "pr_merge_box" .MergeBox}}
+  </div>
+{{template "pr_shell_end"}}
+{{- end}}

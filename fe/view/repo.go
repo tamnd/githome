@@ -49,16 +49,18 @@ type RepoHeaderVM struct {
 	Fork        bool
 	ParentName  string // owner/name of the fork parent, empty when not a fork
 	ParentURL   string
-	ActiveTab   string // code | commits | branches | tags, drives the underline nav
+	ActiveTab   string // code | issues | pulls | commits | branches | tags, drives the underline nav
 }
 
 // TreeNav is the per-tab link set the repo underline nav renders. It is computed
 // once per repo so every repo page shows the same tabs with the same URLs. The
-// Issues tab joins the set in F3, so the code, commits, branches, and tags views
-// all link into the issues surface with one shared header.
+// Issues tab joins the set in F3 and the Pull requests tab in F4, so the code,
+// commits, branches, and tags views all link into the issues and pulls surfaces
+// with one shared header.
 type TreeNav struct {
 	CodeURL     string
 	IssuesURL   string
+	PullsURL    string
 	CommitsURL  string
 	BranchesURL string
 	TagsURL     string

@@ -1,0 +1,8 @@
+{{define "content" -}}
+{{/* The data is a MergeBoxVM. This page exists so the merge box can be fetched on
+     its own: the Computing state re-fetches it from PollURL until the worker
+     resolves mergeability, and a direct GET (JS off) serves the same box as a
+     standalone page. The full Conversation tab embeds the identical pr_merge_box
+     partial, so the poll swap and the page render never diverge. */ -}}
+{{template "pr_merge_box" .}}
+{{- end}}
