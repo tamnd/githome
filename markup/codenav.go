@@ -19,6 +19,8 @@ import "context"
 // TagKind classifies a symbol occurrence.
 type TagKind int
 
+// TagKind values: TagDefinition is the site where a symbol is defined, TagReference
+// is a use of it.
 const (
 	TagDefinition TagKind = iota
 	TagReference

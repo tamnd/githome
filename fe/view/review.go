@@ -27,6 +27,8 @@ import "html/template"
 // its author until submitted), but it is in the enum so the mapping is total.
 type ReviewState int
 
+// ReviewState values: from a private pending draft through approved, changes
+// requested, commented, and dismissed.
 const (
 	ReviewStatePending          ReviewState = iota // a private draft, never shown
 	ReviewStateApproved                            // green check
