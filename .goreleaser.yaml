@@ -1,0 +1,370 @@
+# GoReleaser turns one tag push into every artifact a user might install from:
+# raw archives, Linux packages (deb, rpm, apk), a multi-arch container image,
+# and entries for the language-agnostic package managers (Homebrew, Scoop,
+# winget, the AUR, Nix). One `git tag vX.Y.Z && git push --tags` fans out to all
+# of them through the release workflow in .github/workflows/release.yml.
+#
+# Two ground rules shape this file:
+#
+#   1. The build stays pure Go with CGO disabled, exactly like the cross-build
+#      matrix in build.yml. The pure-Go SQLite driver (modernc.org/sqlite) is
+#      what makes the static, cross-compiled binaries possible, so the target
+#      list here is a subset of the one build.yml proves compiles.
+#
+#   2. The publish steps that push to a repository we do not own yet (the
+#      Homebrew tap, the Scoop bucket, the winget fork, the AUR, the Nix user
+#      repository) self-disable when their token is absent. A release with no
+#      secrets still produces every downloadable artifact and the container
+#      image; each manager lights up the moment its repository and token exist.
+#      INSTALL.md lists exactly which repository and which secret each one wants.
+version: 2
+
+project_name: githome
+
+before:
+  # Only fetch modules here; do not run `go mod tidy`, which would mutate go.mod
+  # during a release. The tree is kept tidy in CI instead.
+  hooks:
+    - go mod download
+
+builds:
+  # The server and the two operator tools ship together, the same three binaries
+  # build.yml compiles and smoke-tests. Each is its own build because a Go build
+  # produces one main package; archives and packages below pull all three in.
+  - id: githome
+    binary: githome
+    main: ./cmd/githome
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/tamnd/githome/config.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    targets: &targets
+      - linux_amd64
+      - linux_arm64
+      - linux_arm_7
+      - linux_386
+      - linux_ppc64le
+      - linux_s390x
+      - linux_riscv64
+      - darwin_amd64
+      - darwin_arm64
+      - windows_amd64
+      - windows_arm64
+      - windows_386
+      - freebsd_amd64
+      - freebsd_arm64
+      - openbsd_amd64
+      - openbsd_arm64
+
+  - id: githome-migrate
+    binary: githome-migrate
+    main: ./cmd/githome-migrate
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/tamnd/githome/config.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    targets: *targets
+
+  - id: githome-conform
+    binary: githome-conform
+    main: ./cmd/githome-conform
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/tamnd/githome/config.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    targets: *targets
+
+archives:
+  # One archive per platform carrying all three binaries plus the license and
+  # readme, tar.gz everywhere except a zip on Windows. The name matches what
+  # build.yml already produces so existing download tooling keeps working.
+  - id: default
+    ids:
+      - githome
+      - githome-migrate
+      - githome-conform
+    name_template: "githome_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - INSTALL.md
+
+nfpms:
+  # One nfpm definition emits the deb, rpm, and apk for every Linux build. nfpm
+  # is pure Go, so this needs no dpkg, rpmbuild, or abuild on the runner. The
+  # packages drop a systemd unit and a commented environment file, and the
+  # postinstall script provisions the service account and data directory so
+  # `apt install githome` leaves a unit ready to enable.
+  - id: linux-packages
+    package_name: githome
+    ids:
+      - githome
+      - githome-migrate
+      - githome-conform
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: tamnd
+    homepage: https://github.com/tamnd/githome
+    maintainer: Duc-Tam Nguyen <tamnd87@gmail.com>
+    description: Self-hosted software forge that speaks GitHub (REST v3, GraphQL v4, gh CLI, git transport).
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./packaging/githome.service
+        dst: /usr/lib/systemd/system/githome.service
+      - src: ./packaging/githome.env.example
+        dst: /etc/githome/githome.env
+        type: config|noreplace
+      - src: ./LICENSE
+        dst: /usr/share/doc/githome/LICENSE
+    scripts:
+      postinstall: ./packaging/postinstall.sh
+      preremove: ./packaging/preremove.sh
+    overrides:
+      apk:
+        # Alpine builds packages without systemd; ship only the binaries and the
+        # environment file there.
+        contents:
+          - src: ./packaging/githome.env.example
+            dst: /etc/githome/githome.env
+            type: config|noreplace
+          - src: ./LICENSE
+            dst: /usr/share/doc/githome/LICENSE
+
+dockers:
+  # Two single-arch images built with buildx, then stitched into one multi-arch
+  # tag by docker_manifests below. The image carries a git binary because the
+  # server shells out to git for transport and history.
+  - id: amd64
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    use: buildx
+    image_templates:
+      - "ghcr.io/tamnd/githome:{{ .Version }}-amd64"
+      - "ghcr.io/tamnd/githome:latest-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Self-hosted software forge that speaks GitHub"
+      - "--label=org.opencontainers.image.url=https://github.com/tamnd/githome"
+      - "--label=org.opencontainers.image.source=https://github.com/tamnd/githome"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+  - id: arm64
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    use: buildx
+    image_templates:
+      - "ghcr.io/tamnd/githome:{{ .Version }}-arm64"
+      - "ghcr.io/tamnd/githome:latest-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Self-hosted software forge that speaks GitHub"
+      - "--label=org.opencontainers.image.url=https://github.com/tamnd/githome"
+      - "--label=org.opencontainers.image.source=https://github.com/tamnd/githome"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+
+docker_manifests:
+  - name_template: "ghcr.io/tamnd/githome:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/tamnd/githome:{{ .Version }}-amd64"
+      - "ghcr.io/tamnd/githome:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/tamnd/githome:latest"
+    image_templates:
+      - "ghcr.io/tamnd/githome:latest-amd64"
+      - "ghcr.io/tamnd/githome:latest-arm64"
+
+brews:
+  # Homebrew formula pushed to the tap repository. It self-disables until
+  # HOMEBREW_TAP_GITHUB_TOKEN (a PAT with write to tamnd/homebrew-tap) is set, so
+  # a tokenless release still writes the formula into dist for inspection.
+  - repository:
+      owner: tamnd
+      name: homebrew-tap
+      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+    directory: Formula
+    homepage: https://github.com/tamnd/githome
+    description: Self-hosted software forge that speaks GitHub
+    license: Apache-2.0
+    # An unset secret arrives as an empty (but defined) env var in CI, so gate on
+    # the value being non-empty, not merely set.
+    skip_upload: '{{ if envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}false{{ else }}true{{ end }}'
+    dependencies:
+      - name: git
+    commit_author:
+      name: Duc-Tam Nguyen
+      email: tamnd87@gmail.com
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/githome -version")
+
+scoops:
+  # Scoop manifest for Windows, pushed to the bucket repository.
+  - repository:
+      owner: tamnd
+      name: scoop-bucket
+      token: '{{ envOrDefault "SCOOP_BUCKET_GITHUB_TOKEN" "" }}'
+    homepage: https://github.com/tamnd/githome
+    description: Self-hosted software forge that speaks GitHub
+    license: Apache-2.0
+    skip_upload: '{{ if envOrDefault "SCOOP_BUCKET_GITHUB_TOKEN" "" }}false{{ else }}true{{ end }}'
+    commit_author:
+      name: Duc-Tam Nguyen
+      email: tamnd87@gmail.com
+
+winget:
+  # winget manifest, opened as a pull request against a fork of microsoft's
+  # winget-pkgs. Self-disables until the fork token is present.
+  - name: githome
+    publisher: tamnd
+    publisher_url: https://github.com/tamnd
+    license: Apache-2.0
+    homepage: https://github.com/tamnd/githome
+    short_description: Self-hosted software forge that speaks GitHub
+    package_identifier: tamnd.githome
+    repository:
+      owner: tamnd
+      name: winget-pkgs
+      branch: "githome-{{ .Version }}"
+      token: '{{ envOrDefault "WINGET_GITHUB_TOKEN" "" }}'
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    skip_upload: '{{ if envOrDefault "WINGET_GITHUB_TOKEN" "" }}false{{ else }}true{{ end }}'
+    commit_author:
+      name: Duc-Tam Nguyen
+      email: tamnd87@gmail.com
+
+aurs:
+  # Arch User Repository PKGBUILD, pushed over SSH. Self-disables until AUR_KEY
+  # (the AUR account's private SSH key) is present.
+  - name: githome-bin
+    homepage: https://github.com/tamnd/githome
+    description: Self-hosted software forge that speaks GitHub
+    license: Apache-2.0
+    maintainers:
+      - "Duc-Tam Nguyen <tamnd87@gmail.com>"
+    private_key: '{{ envOrDefault "AUR_KEY" "" }}'
+    git_url: ssh://aur@aur.archlinux.org/githome-bin.git
+    skip_upload: '{{ if envOrDefault "AUR_KEY" "" }}false{{ else }}true{{ end }}'
+    provides:
+      - githome
+    conflicts:
+      - githome
+    package: |-
+      install -Dm755 "./githome" "${pkgdir}/usr/bin/githome"
+      install -Dm755 "./githome-migrate" "${pkgdir}/usr/bin/githome-migrate"
+      install -Dm755 "./githome-conform" "${pkgdir}/usr/bin/githome-conform"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/githome-bin/LICENSE"
+
+nix:
+  # Nix derivation pushed to the Nix user repository.
+  - name: githome
+    repository:
+      owner: tamnd
+      name: nur
+      token: '{{ envOrDefault "NUR_GITHUB_TOKEN" "" }}'
+    homepage: https://github.com/tamnd/githome
+    description: Self-hosted software forge that speaks GitHub
+    license: asl20
+    skip_upload: '{{ if envOrDefault "NUR_GITHUB_TOKEN" "" }}false{{ else }}true{{ end }}'
+    commit_author:
+      name: Duc-Tam Nguyen
+      email: tamnd87@gmail.com
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  # A CycloneDX SBOM per archive via syft. Skipped automatically when syft is
+  # not on the runner; the release workflow installs it.
+  - id: archive
+    artifacts: archive
+
+signs:
+  # Keyless cosign signature over the checksum file. It runs only on a real
+  # release in CI, where the workflow grants the OIDC token cosign needs; local
+  # snapshot builds skip it.
+  - cmd: cosign
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+docker_signs:
+  - cmd: cosign
+    artifacts: manifests
+    args:
+      - sign
+      - "${artifact}@${digest}"
+      - "--yes"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: tamnd
+    name: githome
+  prerelease: auto
+  footer: |
+    ## Install
+
+    See [INSTALL.md](https://github.com/tamnd/githome/blob/main/INSTALL.md) for
+    every package manager. The quickest paths:
+
+    ```sh
+    go install github.com/tamnd/githome/cmd/githome@{{ .Tag }}
+    docker pull ghcr.io/tamnd/githome:{{ .Version }}
+    ```
