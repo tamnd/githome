@@ -1,0 +1,69 @@
+{{define "content" -}}
+{{/* The data is a ChecksPageVM. The page shows the status-check rollup for a ref:
+     a verdict pill over the resolved commit, the check-run rows (each with the
+     shared status token, an output summary, and an optional details link out to
+     the reporting app), and the commit-status rows (the older flat signal, with an
+     optional target link). It is the backed slice of the Actions UI: Githome models
+     check runs, suites, and commit statuses, not the full run engine, so there is
+     no run list, job graph, or live log here. An empty ref renders a blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="repo-subhead">
+    <div class="repo-subhead-left">
+      <span class="checks-ref">{{octicon "git-commit" 16}} {{.Ref}}</span>
+      {{if .ShortSHA}}<span class="checks-sha">{{.ShortSHA}}</span>{{end}}
+    </div>
+  </div>
+
+  <div class="checks-rollup check-state {{.Rollup.ColorClass}}">
+    <span class="check-state-icon" aria-hidden="true">{{octicon .Rollup.Icon 16}}</span>
+    <span class="checks-rollup-title">{{.RollupTitle}}</span>
+  </div>
+
+  {{if .Empty -}}
+  <div class="blankslate">
+    <h2 class="blankslate-heading">No checks reported</h2>
+    <p class="blankslate-text">No check runs or commit statuses have been reported against this commit.</p>
+  </div>
+  {{- else -}}
+
+  {{if .Runs -}}
+  <section class="checks-section">
+    <h2 class="checks-section-heading">Check runs</h2>
+    <ul class="checks-list">
+      {{range .Runs -}}
+      <li class="check-row">
+        <span class="check-state-icon check-state {{.Token.ColorClass}}{{if .Token.Spin}} check-state-spin{{end}}" title="{{.Token.Title}}" aria-label="{{.Token.Title}}">{{octicon .Token.Icon 16}}</span>
+        <div class="check-row-main">
+          <span class="check-row-name">{{.Name}}</span>
+          {{if .Summary}}<span class="check-row-summary">{{.Summary}}</span>{{end}}
+          {{if .WhenISO}}<span class="check-row-when">{{.WhenVerb}} <relative-time datetime="{{.WhenISO}}">{{.WhenHuman}}</relative-time></span>{{end}}
+        </div>
+        {{if .HasDetails}}<a class="check-row-details" href="{{.DetailsURL}}" rel="nofollow noopener" target="_blank">Details {{octicon "link-external" 16}}</a>{{end}}
+      </li>
+      {{- end}}
+    </ul>
+  </section>
+  {{- end}}
+
+  {{if .Statuses -}}
+  <section class="checks-section">
+    <h2 class="checks-section-heading">Commit statuses</h2>
+    <ul class="checks-list">
+      {{range .Statuses -}}
+      <li class="check-row">
+        <span class="check-state-icon check-state {{.Token.ColorClass}}" title="{{.Token.Title}}" aria-label="{{.Token.Title}}">{{octicon .Token.Icon 16}}</span>
+        <div class="check-row-main">
+          <span class="check-row-name">{{.Context}}</span>
+          {{if .Description}}<span class="check-row-summary">{{.Description}}</span>{{end}}
+        </div>
+        {{if .HasTarget}}<a class="check-row-details" href="{{.TargetURL}}" rel="nofollow noopener" target="_blank">Details {{octicon "link-external" 16}}</a>{{end}}
+      </li>
+      {{- end}}
+    </ul>
+  </section>
+  {{- end}}
+
+  {{- end}}
+</div>
+{{- end}}
