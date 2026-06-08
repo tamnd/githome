@@ -18,6 +18,7 @@ import (
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
+	websearch "github.com/tamnd/githome/fe/web/search"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/presenter"
@@ -37,6 +38,7 @@ type Deps struct {
 	Issues   *domain.IssueService
 	Pulls    *domain.PRService
 	Reviews  *domain.ReviewService
+	Search   *domain.SearchService
 	URLs     *presenter.URLBuilder
 	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
@@ -64,6 +66,7 @@ func Mount(root *mizu.Router, d Deps) {
 	mountRepo(page, d)
 	mountIssues(page, d)
 	mountPulls(page, d)
+	mountSearch(page, d)
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
 	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
@@ -188,6 +191,32 @@ func mountPulls(page *mizu.Router, d Deps) {
 	pg.Post("/{owner}/{repo}/pull/{number}/review-comments/{comment}/replies", ph.ReplyReviewComment)
 	pg.Post("/{owner}/{repo}/pull/{number}/review-threads/{root}/resolve", ph.ToggleReviewThread)
 	pg.Post("/{owner}/{repo}/pull/{number}/reviews", ph.SubmitReview)
+}
+
+// mountSearch registers the search surface: the global /search page in the static
+// band and the in-repo /{owner}/{repo}/search page behind the search Resolve
+// middleware, which loads the repository read-gated for the viewer (or a 404) so
+// the scoped search never confirms a private repo's existence. The search service
+// is the gate, and the repo service backs the scoped resolve; with either missing
+// the routes stay unmounted, the same as the other surfaces. The /search literal
+// is a reserved top-level name (fe/route), so it can never be read as a /{owner}
+// profile. See implementation/12 section 2.
+func mountSearch(page *mizu.Router, d Deps) {
+	if d.Search == nil || d.Repos == nil {
+		return
+	}
+	sh := websearch.New(websearch.Deps{
+		Search: d.Search,
+		Repos:  d.Repos,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	page.Get("/search", sh.Global)
+
+	sg := page.With(sh.Resolve)
+	sg.Get("/{owner}/{repo}/search", sh.Scoped)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

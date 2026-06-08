@@ -1,0 +1,119 @@
+{{define "content" -}}
+{{/* The data is SearchPageVM. The page is the search box, a result-type rail, a
+     sort menu, and the rows for the active type. Inside a repository it wears the
+     repo header. Every control (the rail tabs, the sort options, the pager) is a
+     plain link whose target the handler composed server-side, and the box is a GET
+     form, so the whole surface filters and paginates with no JavaScript. An empty
+     query renders the landing; a query that matched nothing renders a blankslate.
+     See implementation/12 section 2. */ -}}
+{{if .Header.Name}}{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}{{end}}
+<div class="{{if .Header.Name}}repo-body {{end}}search-page">
+  <form class="search-form" method="get" action="{{.Action}}" role="search">
+    <span class="search-form-icon" aria-hidden="true">{{octicon "search" 16}}</span>
+    <input class="search-form-input" type="search" name="q" value="{{.QueryValue}}"
+           placeholder="Search Githome" aria-label="Search">
+    {{if .ActiveType}}<input type="hidden" name="type" value="{{.ActiveType}}">{{end}}
+    <button class="btn btn-primary search-form-submit" type="submit">Search</button>
+  </form>
+
+  {{if .Landing -}}
+  <div class="blankslate search-landing">
+    <span class="blankslate-icon" aria-hidden="true">{{octicon "search" 48}}</span>
+    <h1 class="blankslate-heading">Search Githome</h1>
+    <p class="blankslate-text">Find repositories, issues, pull requests, and code. Add a qualifier like
+      <code>repo:owner/name</code>, <code>author:login</code>, or <code>is:open</code> to narrow a search.</p>
+  </div>
+  {{- else -}}
+  <div class="search-layout">
+    <nav class="search-rail" aria-label="Result types">
+      {{range .Types -}}
+      <a class="search-rail-item{{if .IsActive}} is-current{{end}}" href="{{.URL}}"
+         {{if .IsActive}}aria-current="page"{{end}}>
+        <span class="search-rail-icon" aria-hidden="true">{{octicon .Icon 16}}</span>
+        <span class="search-rail-label">{{.Label}}</span>
+        {{if .HasCount}}<span class="search-rail-count">{{.Count}}</span>{{end}}
+      </a>
+      {{- end}}
+    </nav>
+
+    <div class="search-results">
+      <div class="search-results-head">
+        <h2 class="search-results-count">{{.Total}} result{{if ne .Total 1}}s{{end}}</h2>
+        {{if .Sorts -}}
+        <details class="search-sort">
+          <summary class="search-sort-summary">Sort {{octicon "triangle-down" 16}}</summary>
+          <div class="search-sort-menu" role="menu">
+            {{range .Sorts -}}
+            <a class="search-sort-option{{if .IsActive}} is-current{{end}}" href="{{.URL}}"
+               role="menuitem"{{if .IsActive}} aria-current="true"{{end}}>{{.Label}}</a>
+            {{- end}}
+          </div>
+        </details>
+        {{- end}}
+      </div>
+
+      {{range .Notes -}}
+      <div class="flash flash-warn search-note">{{octicon "alert" 16}} {{.}}</div>
+      {{- end}}
+
+      {{if .Empty -}}
+      <div class="blankslate search-empty">
+        <span class="blankslate-icon" aria-hidden="true">{{octicon "search" 24}}</span>
+        <p class="blankslate-text">{{.EmptyReason}}</p>
+      </div>
+      {{- else if eq .ActiveType "repositories" -}}
+      <ul class="search-list">
+        {{range .Repos -}}
+        <li class="search-repo">
+          <div class="search-repo-head">
+            <a class="search-repo-name" href="{{.URL}}">{{.FullName}}</a>
+            {{if .Private}}<span class="search-pill">Private</span>{{end}}
+            {{if .Fork}}<span class="search-pill">Fork</span>{{end}}
+            {{if .Archived}}<span class="search-pill search-pill-archived">Archived</span>{{end}}
+          </div>
+          {{if .Description}}<p class="search-repo-desc">{{.Description}}</p>{{end}}
+          {{if .UpdatedAt}}<p class="search-repo-meta">Updated <relative-time datetime="{{.UpdatedISO}}">{{.UpdatedAt}}</relative-time></p>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- else if eq .ActiveType "code" -}}
+      <ul class="search-list">
+        {{range .Code -}}
+        <li class="search-code">
+          <p class="search-code-repo"><a href="{{.RepoURL}}">{{.RepoFullName}}</a></p>
+          <a class="search-code-path" href="{{.BlobURL}}">
+            <span class="search-code-icon" aria-hidden="true">{{octicon "file-code" 16}}</span>{{.Path}}
+          </a>
+        </li>
+        {{- end}}
+      </ul>
+      {{- else -}}
+      <ul class="search-list">
+        {{range .Issues -}}
+        <li class="search-issue">
+          <span class="search-issue-icon is-{{.State.Modifier}}" aria-label="{{.State.Label}}">{{octicon .State.Icon 16}}</span>
+          <div class="search-issue-main">
+            <a class="search-issue-title" href="{{.URL}}">{{.Title}}</a>
+            <p class="search-issue-meta">
+              <a class="search-issue-repo" href="{{.RepoURL}}">{{.RepoFullName}}</a>
+              #{{.Number}} opened <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+              by <a class="search-issue-author" href="{{.Author.URL}}">{{.Author.Login}}</a>
+            </p>
+          </div>
+          {{if gt .CommentCount 0}}<a class="search-issue-comments" href="{{.URL}}" aria-label="{{.CommentCount}} comments">{{octicon "comment" 16}} {{.CommentCount}}</a>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- end}}
+
+      {{if or .Pager.PrevURL .Pager.NextURL -}}
+      <nav class="paginate" aria-label="Pagination">
+        {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+        {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
+    </div>
+  </div>
+  {{- end}}
+</div>
+{{- end}}
