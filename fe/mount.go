@@ -16,6 +16,7 @@ import (
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
 	webissues "github.com/tamnd/githome/fe/web/issues"
+	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
@@ -34,6 +35,7 @@ type Deps struct {
 	View     *view.Builder
 	Repos    *domain.RepoService
 	Issues   *domain.IssueService
+	Pulls    *domain.PRService
 	URLs     *presenter.URLBuilder
 	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
@@ -60,6 +62,7 @@ func Mount(root *mizu.Router, d Deps) {
 
 	mountRepo(page, d)
 	mountIssues(page, d)
+	mountPulls(page, d)
 
 	asset := root.With(webmw.Recover(d.Render, d.Logger))
 	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
@@ -136,6 +139,44 @@ func mountIssues(page *mizu.Router, d Deps) {
 	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}", ih.EditComment)
 	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}/delete", ih.DeleteComment)
 	ig.Post("/{owner}/{repo}/issues/{number}/comments/{comment}/reactions", ih.ToggleCommentReaction)
+}
+
+// mountPulls registers the pull-request routes under /{owner}/{repo}/pulls (the
+// plural index) and /{owner}/{repo}/pull/{number} (the singular detail, matching
+// the github.com URL split). Like the issues routes every route runs the pulls
+// Resolve middleware first, which loads the repository read-gated for the viewer
+// (or a 404), so a handler only decides whether a pull request inside a visible
+// repo exists. The PR service is the gate, and the issue service drives the shared
+// Conversation timeline; with either missing the routes stay unmounted. The
+// literal /partials/merge-box GET is registered under the {number} prefix; it
+// cannot collide with a tab name because the tabs are distinct literals. The
+// mutations all post and redirect, and the service re-authorizes every write, so a
+// forged POST from a read-only viewer gets the themed 403, not a silent success.
+// See implementation/09.
+func mountPulls(page *mizu.Router, d Deps) {
+	if d.Pulls == nil || d.Issues == nil || d.Repos == nil {
+		return
+	}
+	ph := webpulls.New(webpulls.Deps{
+		Pulls:  d.Pulls,
+		Issues: d.Issues,
+		Repos:  d.Repos,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Markup: d.Markup,
+		Logger: d.Logger,
+	})
+	pg := page.With(ph.Resolve)
+	pg.Get("/{owner}/{repo}/pulls", ph.Index)
+	pg.Get("/{owner}/{repo}/pull/{number}", ph.Conversation)
+	pg.Get("/{owner}/{repo}/pull/{number}/commits", ph.Commits)
+	pg.Get("/{owner}/{repo}/pull/{number}/files", ph.Files)
+	pg.Get("/{owner}/{repo}/pull/{number}/partials/merge-box", ph.MergeBox)
+
+	pg.Post("/{owner}/{repo}/pull/{number}/comments", ph.CreateComment)
+	pg.Post("/{owner}/{repo}/pull/{number}/state", ph.ToggleState)
+	pg.Post("/{owner}/{repo}/pull/{number}/merge", ph.Merge)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard
