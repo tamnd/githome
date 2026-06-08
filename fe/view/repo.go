@@ -53,9 +53,12 @@ type RepoHeaderVM struct {
 }
 
 // TreeNav is the per-tab link set the repo underline nav renders. It is computed
-// once per repo so every repo page shows the same tabs with the same URLs.
+// once per repo so every repo page shows the same tabs with the same URLs. The
+// Issues tab joins the set in F3, so the code, commits, branches, and tags views
+// all link into the issues surface with one shared header.
 type TreeNav struct {
 	CodeURL     string
+	IssuesURL   string
 	CommitsURL  string
 	BranchesURL string
 	TagsURL     string

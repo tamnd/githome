@@ -1,0 +1,25 @@
+{{define "content" -}}
+{{/* The data is NewIssueVM. The page is the repo header and the blank new-issue
+     form: a title field and a Markdown body, posting to the issues index with the
+     create method. The title and body are echoed back on a validation miss, and
+     FormError carries the message. A viewer who cannot create still sees the form;
+     the create handler authorizes the submit. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body issue-new">
+  <h1 class="issue-new-heading">New issue</h1>
+  {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
+  <form class="issue-new-form" method="post" action="{{.Action}}">
+    {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+    <label class="issue-new-label" for="issue-title">Title</label>
+    <input class="issue-new-title" id="issue-title" type="text" name="title" value="{{.Title}}"
+           placeholder="Title" required>
+    <label class="issue-new-label" for="issue-body">Description</label>
+    <textarea class="issue-new-body" id="issue-body" name="body" rows="10"
+              placeholder="Leave a comment">{{.Body}}</textarea>
+    <div class="issue-new-actions">
+      <button class="btn btn-primary" type="submit"{{if not .CanSubmit}} disabled{{end}}>Submit new issue</button>
+    </div>
+    {{if not .CanSubmit}}<p class="issue-new-note">You need write access to this repository to open an issue.</p>{{end}}
+  </form>
+</div>
+{{- end}}

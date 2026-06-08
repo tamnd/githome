@@ -1,0 +1,108 @@
+{{define "content" -}}
+{{/* The data is IssueDetailVM. The page is the repo header, the issue title with
+     its state badge and meta line, the comment timeline (the opening body first,
+     then the comments), the sidebar (labels, assignees, milestone), and the
+     composer. Every mutation is a plain form POST so the page works with no
+     JavaScript; the htmx path posts to the same URLs. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body issue-detail">
+  <div class="issue-title-block">
+    <h1 class="issue-title">{{.Title}} <span class="issue-number">#{{.Number}}</span></h1>
+    {{if .CanEdit -}}
+    <details class="issue-title-edit">
+      <summary class="btn">Edit</summary>
+      <form class="issue-title-form" method="post" action="{{.EditURL}}">
+        {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+        <input class="issue-title-input" type="text" name="title" value="{{.Title}}" aria-label="Issue title">
+        <button class="btn btn-primary" type="submit">Save</button>
+      </form>
+    </details>
+    {{- end}}
+  </div>
+  <div class="issue-subhead">
+    <span class="issue-state-badge issue-state-{{.State.Modifier}}">
+      {{octicon .State.Icon 16}} {{.State.Label}}
+    </span>
+    <span class="issue-subhead-meta">
+      <a href="{{.Author.URL}}">{{.Author.Login}}</a> opened this issue
+      <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+      <span class="issue-comment-count">{{octicon "comment" 16}} {{len .Timeline}}</span>
+    </span>
+    {{if .Locked}}<span class="issue-locked" title="This issue is locked">{{octicon "lock" 16}} Locked</span>{{end}}
+  </div>
+
+  <div class="issue-columns">
+    <div class="issue-timeline">
+      {{range .Timeline -}}
+      {{template "issue_comment" (dict "C" . "CSRF" $.Chrome.CSRFToken)}}
+      {{- end}}
+
+      {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
+
+      {{if .Composer.CanComment -}}
+      <form class="comment-composer" method="post" action="{{.Composer.Action}}">
+        {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+        <textarea class="comment-composer-text" name="body" rows="5" placeholder="Leave a comment" aria-label="Comment body"></textarea>
+        <div class="comment-composer-actions">
+          {{if .Composer.CanClose -}}
+          <button class="btn issue-state-toggle" type="submit" formaction="{{.Composer.CloseAction}}">
+            {{if .Composer.IssueOpen}}{{octicon "issue-closed" 16}}{{else}}{{octicon "issue-reopened" 16}}{{end}} {{.Composer.CloseLabel}}
+          </button>
+          {{- end}}
+          <button class="btn btn-primary" type="submit">Comment</button>
+        </div>
+      </form>
+      {{- else -}}
+      <p class="comment-signin"><a href="/login?return_to={{.Chrome.CurrentPath}}">Sign in</a> to comment.</p>
+      {{- end}}
+    </div>
+
+    <aside class="issue-sidebar">
+      <section class="sidebar-section">
+        <h2 class="sidebar-heading">Assignees</h2>
+        {{if .Sidebar.Assignees -}}
+        <ul class="sidebar-assignees">
+          {{range .Sidebar.Assignees -}}
+          <li><a href="{{.URL}}"><img class="avatar" src="{{.AvatarURL}}" width="20" height="20" alt="" loading="lazy"> {{.Login}}</a></li>
+          {{- end}}
+        </ul>
+        {{- else -}}
+        <p class="sidebar-empty">No one assigned</p>
+        {{- end}}
+      </section>
+      <section class="sidebar-section">
+        <h2 class="sidebar-heading">Labels</h2>
+        {{if .Sidebar.Labels -}}
+        <div class="sidebar-labels">
+          {{range .Sidebar.Labels -}}
+          <a class="issue-label" href="{{.URL}}" style="background-color:#{{.Color}};color:#{{.TextColor}}"
+             {{if .Description}}title="{{.Description}}"{{end}}>{{.Name}}</a>
+          {{- end}}
+        </div>
+        {{- else -}}
+        <p class="sidebar-empty">None yet</p>
+        {{- end}}
+        {{if .Sidebar.CanEdit -}}
+        <details class="sidebar-edit">
+          <summary class="sidebar-edit-toggle">Edit labels</summary>
+          <form class="sidebar-edit-form" method="post" action="{{.Sidebar.EditURL}}">
+            {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+            <input class="sidebar-edit-input" type="text" name="labels"
+                   placeholder="bug, enhancement" aria-label="Comma-separated labels">
+            <button class="btn" type="submit">Apply labels</button>
+          </form>
+        </details>
+        {{- end}}
+      </section>
+      <section class="sidebar-section">
+        <h2 class="sidebar-heading">Milestone</h2>
+        {{if .Sidebar.Milestone -}}
+        <a class="sidebar-milestone" href="{{.Sidebar.Milestone.URL}}">{{octicon "milestone" 16}} {{.Sidebar.Milestone.Title}}</a>
+        {{- else -}}
+        <p class="sidebar-empty">No milestone</p>
+        {{- end}}
+      </section>
+    </aside>
+  </div>
+</div>
+{{- end}}

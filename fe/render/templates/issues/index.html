@@ -1,0 +1,84 @@
+{{define "content" -}}
+{{/* The data is IssueIndexVM. The page is the repo header, the search-and-filter
+     bar (a state-tab pair, the active label chips, the q search box, and the New
+     issue button), then the issue list. Every filter control is a plain link or a
+     GET form whose target the Query composer built server-side, so the list
+     filters with no JavaScript. An empty result renders a blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="issues-bar">
+    <form class="issues-search" method="get" action="{{.Repo.URL}}/issues" role="search">
+      <span class="issues-search-icon" aria-hidden="true">{{octicon "search" 16}}</span>
+      <input class="issues-search-input" type="text" name="q" value="{{.QueryValue}}"
+             placeholder="Search issues" aria-label="Search issues">
+    </form>
+    <a class="btn btn-primary issues-new" href="{{.NewIssueURL}}">
+      {{octicon "issue-opened" 16}} New issue
+    </a>
+  </div>
+
+  {{if .ActiveChips -}}
+  <div class="issues-active-filters">
+    {{range .ActiveChips -}}
+    <a class="issues-chip-remove" href="{{.URL}}" aria-label="Remove label filter {{.Name}}">
+      {{octicon "x" 16}} {{.Name}}
+    </a>
+    {{- end}}
+  </div>
+  {{- end}}
+
+  <div class="issues-list">
+    <div class="issues-list-head">
+      <nav class="issues-tabs" aria-label="Issue state">
+        <a class="issues-tab{{if .OpenTab.IsActive}} is-current{{end}}" href="{{.OpenTab.URL}}"
+           {{if .OpenTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "issue-opened" 16}} {{.OpenTab.Count}} Open</a>
+        <a class="issues-tab{{if .ClosedTab.IsActive}} is-current{{end}}" href="{{.ClosedTab.URL}}"
+           {{if .ClosedTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "check" 16}} {{.ClosedTab.Count}} Closed</a>
+      </nav>
+    </div>
+
+    {{if .Rows -}}
+    <ul class="issues-rows">
+      {{range .Rows -}}
+      <li class="issue-row">
+        <span class="issue-row-icon issue-state-{{.State.Modifier}}" aria-label="{{.State.Label}}">
+          {{octicon .State.Icon 16}}
+        </span>
+        <div class="issue-row-main">
+          <a class="issue-row-title" href="{{.URL}}">{{.Title}}</a>
+          {{range .Labels -}}
+          <a class="issue-label" href="{{.URL}}" style="background-color:#{{.Color}};color:#{{.TextColor}}"
+             {{if .Description}}title="{{.Description}}"{{end}}>{{.Name}}</a>
+          {{- end}}
+          <p class="issue-row-meta">
+            #{{.Number}} opened <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+            by <a class="issue-row-author" href="{{.Author.URL}}">{{.Author.Login}}</a>
+            {{if .Milestone}}<a class="issue-row-milestone" href="{{.Milestone.URL}}">{{octicon "milestone" 16}} {{.Milestone.Title}}</a>{{end}}
+          </p>
+        </div>
+        <div class="issue-row-aside">
+          {{range .Assignees -}}
+          <a href="{{.URL}}" aria-label="Assigned to {{.Login}}"><img class="avatar" src="{{.AvatarURL}}" width="20" height="20" alt="" loading="lazy"></a>
+          {{- end}}
+          {{if gt .CommentCount 0}}<a class="issue-row-comments" href="{{.URL}}" aria-label="{{.CommentCount}} comments">{{octicon "comment" 16}} {{.CommentCount}}</a>{{end}}
+        </div>
+      </li>
+      {{- end}}
+    </ul>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">{{.EmptyReason}}</p>
+    </div>
+    {{- end}}
+  </div>
+
+  {{if or .Pager.PrevURL .Pager.NextURL -}}
+  <nav class="paginate" aria-label="Pagination">
+    {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+    {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+  </nav>
+  {{- end}}
+</div>
+{{- end}}

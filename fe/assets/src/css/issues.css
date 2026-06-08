@@ -1,0 +1,615 @@
+/*
+ * Issues sheet (F3): the index (search bar, state tabs, active-filter chips, the
+ * issue rows, the blankslate and pager), the detail page (the title block with
+ * inline rename, the state badge, the comment timeline, the reaction bars, the
+ * composer, the metadata sidebar), and the new-issue form. It references the
+ * functional tokens only, never the base primitives, and the layout is plain
+ * flex/grid so every surface degrades to a readable column with no JavaScript.
+ * The label chips carry their own background and text color inline (each label
+ * has an arbitrary hex), which is the one place a color is not a token. See
+ * implementation/08.
+ */
+
+/* Index bar: the search form and the New issue button. */
+.issues-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-8);
+  align-items: center;
+  margin-bottom: var(--base-size-16);
+}
+
+.issues-search {
+  position: relative;
+  flex: 1 1 320px;
+  display: flex;
+  align-items: center;
+}
+
+.issues-search-icon {
+  position: absolute;
+  left: var(--base-size-8);
+  color: var(--fgColor-muted);
+  pointer-events: none;
+}
+
+.issues-search-input {
+  width: 100%;
+  padding-left: var(--base-size-32);
+}
+
+/* Active-filter chips shown above the list when a qualifier narrows it. */
+.issues-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-8);
+  align-items: center;
+  margin-bottom: var(--base-size-12);
+}
+
+.issues-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  line-height: 22px;
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.issues-chip-remove:hover {
+  text-decoration: none;
+  color: var(--fgColor-default);
+}
+
+/* The list shell, with the tab head and the rows. */
+.issues-list {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.issues-list-head {
+  padding: var(--base-size-8) var(--base-size-16);
+  background-color: var(--bgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.issues-tabs {
+  display: flex;
+  gap: var(--base-size-16);
+}
+
+.issues-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  color: var(--fgColor-muted);
+}
+
+.issues-tab:hover {
+  text-decoration: none;
+  color: var(--fgColor-default);
+}
+
+.issues-tab.is-current {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.issues-rows {
+  list-style: none;
+}
+
+.issue-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.issue-row:last-child {
+  border-bottom: 0;
+}
+
+.issue-row-icon {
+  margin-top: 2px;
+  color: var(--fgColor-muted);
+}
+
+.issue-row.is-opening .issue-row-icon {
+  color: var(--bgColor-success-emphasis);
+}
+
+.issue-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.issue-row-title {
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.issue-row-title:hover {
+  color: var(--fgColor-accent);
+}
+
+.issue-row-meta {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.issue-row-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  color: var(--fgColor-muted);
+}
+
+.issue-row-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* A label chip carries the label color inline; only the shape is from tokens. */
+.issue-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--base-size-8);
+  margin-right: var(--base-size-4);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 20px;
+  border: var(--borderWidth-thin) solid transparent;
+  border-radius: var(--borderRadius-full);
+  white-space: nowrap;
+}
+
+/* Pagination row under the list. */
+.paginate {
+  display: flex;
+  gap: var(--base-size-8);
+  justify-content: center;
+  margin-top: var(--base-size-16);
+}
+
+/* Detail page: the title block and inline rename. */
+.issue-detail {
+  max-width: 100%;
+}
+
+.issue-title-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-8);
+}
+
+.issue-title {
+  font-size: var(--text-title-size-large);
+  font-weight: 400;
+}
+
+.issue-number {
+  font-size: var(--text-title-size-large);
+  font-weight: 300;
+  color: var(--fgColor-muted);
+}
+
+.issue-title-edit {
+  margin-left: auto;
+}
+
+.issue-title-form {
+  display: flex;
+  gap: var(--base-size-8);
+  align-items: center;
+  margin-bottom: var(--base-size-8);
+}
+
+.issue-title-input {
+  flex: 1 1 auto;
+  font-size: var(--text-title-size-medium);
+}
+
+/* The state badge and its three states. */
+.issue-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: var(--base-size-4) var(--base-size-12);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  color: var(--fgColor-onEmphasis);
+  border-radius: var(--borderRadius-full);
+}
+
+.issue-state-open {
+  background-color: var(--bgColor-success-emphasis);
+}
+
+.issue-state-closed {
+  background-color: var(--bgColor-done-emphasis);
+}
+
+.issue-state-not-planned {
+  background-color: var(--bgColor-emphasis);
+}
+
+.issue-subhead {
+  margin: var(--base-size-8) 0 var(--base-size-16);
+  padding-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.issue-subhead-meta {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.issue-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-left: var(--base-size-8);
+  color: var(--fgColor-muted);
+}
+
+/* Two-column body: timeline on the left, sidebar on the right. */
+.issue-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--base-size-24);
+}
+
+@media (min-width: 1012px) {
+  .issue-columns {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  }
+}
+
+.issue-timeline {
+  list-style: none;
+  min-width: 0;
+}
+
+/* A timeline comment: the avatar gutter and the bordered body. */
+.timeline-comment {
+  display: flex;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+}
+
+.timeline-avatar {
+  flex: 0 0 auto;
+}
+
+.timeline-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: var(--base-size-8) var(--base-size-16);
+  background-color: var(--bgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.timeline-comment.is-opening .comment-head {
+  background-color: var(--bgColor-accent-muted);
+}
+
+.comment-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.comment-when,
+.comment-edited {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.comment-actions {
+  position: relative;
+  margin-left: auto;
+}
+
+.comment-actions-toggle {
+  list-style: none;
+  cursor: pointer;
+  color: var(--fgColor-muted);
+}
+
+.comment-actions-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.comment-actions-menu {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  margin-top: var(--base-size-4);
+  padding: var(--base-size-4);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.comment-edit,
+.comment-delete {
+  display: block;
+  width: 100%;
+  padding: var(--base-size-4) var(--base-size-8);
+  text-align: left;
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.comment-edit:hover {
+  text-decoration: none;
+  background-color: var(--bgColor-muted);
+}
+
+.comment-body {
+  padding: var(--base-size-16);
+}
+
+.comment-raw {
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.comment-empty {
+  color: var(--fgColor-muted);
+  font-style: italic;
+}
+
+/* Inline comment editor. */
+.comment-edit-form {
+  padding: var(--base-size-16);
+}
+
+.comment-edit-text {
+  width: 100%;
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+}
+
+.comment-edit-actions {
+  display: flex;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-8);
+}
+
+/* Reaction bar under a comment body. */
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-4);
+  padding: 0 var(--base-size-16) var(--base-size-12);
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  line-height: 24px;
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.reaction.is-reacted {
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-accent-muted);
+  border-color: var(--borderColor-accent-muted);
+}
+
+.reaction-emoji {
+  font-size: var(--text-body-size);
+}
+
+.reaction-add {
+  position: relative;
+}
+
+.reaction-picker-menu {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-4);
+  padding: var(--base-size-8);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.reaction-pick {
+  padding: var(--base-size-4);
+  font-size: var(--text-body-size);
+  border-radius: var(--borderRadius-medium);
+}
+
+.reaction-pick:hover {
+  background-color: var(--bgColor-muted);
+}
+
+/* The composer: comment box plus close/reopen, or a sign-in prompt. */
+.comment-composer {
+  margin-top: var(--base-size-16);
+  padding: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.comment-composer-text {
+  width: 100%;
+}
+
+.comment-composer-actions {
+  display: flex;
+  gap: var(--base-size-8);
+  justify-content: flex-end;
+  margin-top: var(--base-size-8);
+}
+
+.comment-signin {
+  margin-top: var(--base-size-16);
+  padding: var(--base-size-16);
+  text-align: center;
+  color: var(--fgColor-muted);
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+/* Metadata sidebar. */
+.issue-sidebar {
+  min-width: 0;
+}
+
+.sidebar-section {
+  padding-bottom: var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.sidebar-section:last-child {
+  border-bottom: 0;
+}
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-small-size);
+  font-weight: 600;
+  color: var(--fgColor-muted);
+  margin-bottom: var(--base-size-8);
+}
+
+.sidebar-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-4);
+}
+
+.sidebar-assignees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-8);
+  align-items: center;
+}
+
+.sidebar-empty {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.sidebar-edit {
+  position: relative;
+}
+
+.sidebar-edit-toggle {
+  list-style: none;
+  cursor: pointer;
+  color: var(--fgColor-muted);
+}
+
+.sidebar-edit-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-edit-form {
+  margin-top: var(--base-size-8);
+}
+
+.sidebar-edit-input {
+  width: 100%;
+  margin-bottom: var(--base-size-8);
+}
+
+/* New-issue form. */
+.issue-new {
+  max-width: 860px;
+}
+
+.issue-new-heading {
+  font-size: var(--text-title-size-medium);
+  margin-bottom: var(--base-size-16);
+}
+
+.issue-new-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--base-size-4);
+}
+
+.issue-new-title {
+  width: 100%;
+  margin-bottom: var(--base-size-16);
+}
+
+.issue-new-body {
+  width: 100%;
+  font-family: var(--fontStack-monospace);
+}
+
+.issue-new-actions {
+  display: flex;
+  gap: var(--base-size-8);
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: var(--base-size-16);
+}
+
+.issue-new-note {
+  margin-right: auto;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* A failed mutation echoes its message inline above the form. */
+.form-error {
+  padding: var(--base-size-8) var(--base-size-12);
+  margin-bottom: var(--base-size-16);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-danger-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-danger-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+/* A disabled affordance (the new-issue submit for a viewer who cannot write). */
+.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
