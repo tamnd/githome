@@ -34,6 +34,7 @@ type Config struct {
 	Log             Log
 	Server          Server
 	Web             Web
+	Markup          Markup
 	ShutdownTimeout time.Duration // GITHOME_SHUTDOWN_TIMEOUT; default 30s
 	Env             string        // GITHOME_ENV; "production" switches slog to JSON
 }
@@ -44,6 +45,17 @@ type Config struct {
 type Web struct {
 	Enabled  bool   // GITHOME_WEB_ENABLED   default true
 	SiteName string // GITHOME_WEB_SITE_NAME default "Githome"
+}
+
+// Markup configures the shared GFM renderer and the off-host image proxy. The
+// renderer is built once at boot and shared by the web front and the REST
+// text/html media type, so both surfaces apply one allowlist and one set of link
+// rules. CamoSecret is the HMAC key for the camo image proxy: with it empty,
+// off-host images are left as direct links rather than proxied through camo.
+type Markup struct {
+	CamoSecret        []byte // GITHOME_CAMO_SECRET; empty disables off-host image proxying
+	CamoBaseURL       string // GITHOME_CAMO_BASE_URL; defaults to {HTML base}/camo
+	MaxHighlightBytes int    // GITHOME_MARKUP_MAX_HIGHLIGHT_BYTES; a larger blob renders unhighlighted (logged), default 5 MiB
 }
 
 // URLs are the resolved external base URLs. API and GraphQL default to the HTML
@@ -141,6 +153,7 @@ func defaults() Config {
 			MaxBodyBytes:      25 << 20,
 			MaxBlobBytes:      100 << 20,
 		},
-		Web: Web{Enabled: true, SiteName: "Githome"},
+		Web:    Web{Enabled: true, SiteName: "Githome"},
+		Markup: Markup{MaxHighlightBytes: 5 << 20},
 	}
 }

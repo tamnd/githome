@@ -17,6 +17,7 @@ import (
 	"github.com/tamnd/githome/fe/view"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
 	"github.com/tamnd/githome/fe/webmw"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/presenter"
 )
 
@@ -24,12 +25,15 @@ import (
 // builder, and the three stateful middleware (session, CSRF, flash) plus a
 // logger. F1 adds the domain repo service and the presenter URL builder its
 // code-browsing handlers read; a zero service leaves its routes unmounted,
-// mirroring how the REST surface mounts.
+// mirroring how the REST surface mounts. F2 adds the shared markup renderer the
+// README and Markdown blob views render through; a nil renderer falls back to
+// the escaped-source view, so the front still serves with markup unconfigured.
 type Deps struct {
 	Render   *render.Set
 	View     *view.Builder
 	Repos    *domain.RepoService
 	URLs     *presenter.URLBuilder
+	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
 	CSRF     *webmw.CSRF
 	Flash    *webmw.Flash
@@ -74,6 +78,7 @@ func mountRepo(page *mizu.Router, d Deps) {
 		URLs:   d.URLs,
 		Render: d.Render,
 		View:   d.View,
+		Markup: d.Markup,
 		Logger: d.Logger,
 	})
 	rg := page.With(rh.Resolve)

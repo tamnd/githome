@@ -1,0 +1,62 @@
+/*
+ * Syntax highlighting: the pl-* token classes the markup highlighter emits
+ * (markup/highlight_chroma.go), mapped onto the prettylights syntax tokens the
+ * theme generator defines (palettes.go). Only our spans are colored; the token
+ * text itself is HTML-escaped by the highlighter, so this file styles trusted
+ * markup. The chroma backend emits a conservative subset, so the categories
+ * github.com leaves uncolored are simply absent here. See implementation/10
+ * section 6.
+ */
+
+.pl-c {
+  color: var(--color-prettylights-syntax-comment);
+  font-style: italic;
+}
+
+.pl-k {
+  color: var(--color-prettylights-syntax-keyword);
+}
+
+.pl-s {
+  color: var(--color-prettylights-syntax-string);
+}
+
+.pl-c1 {
+  color: var(--color-prettylights-syntax-constant);
+}
+
+.pl-en {
+  color: var(--color-prettylights-syntax-entity);
+}
+
+.pl-e {
+  color: var(--color-prettylights-syntax-entity);
+}
+
+.pl-ent {
+  color: var(--color-prettylights-syntax-entity-tag);
+}
+
+.pl-smi {
+  color: var(--color-prettylights-syntax-storage-modifier-import);
+}
+
+/*
+ * The highlight container wraps a fenced code block inside rendered markdown.
+ * The markup renderer tags it with highlight-source-<lang>; the block scrolls
+ * horizontally rather than wrapping so code keeps its shape.
+ */
+.highlight {
+  margin-bottom: var(--base-size-16);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.highlight pre {
+  padding: var(--base-size-16);
+  overflow: auto;
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  line-height: 1.45;
+  tab-size: 4;
+}

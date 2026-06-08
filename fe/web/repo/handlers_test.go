@@ -26,6 +26,7 @@ import (
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
 )
@@ -109,6 +110,10 @@ func newFixture(t *testing.T) fixture {
 		URLs:   presenter.NewURLBuilder(testURLs(t)),
 		Render: renderSet,
 		View:   view.NewBuilder("Githome"),
+		Markup: markup.New(markup.Config{
+			BaseURL: testURLs(t).HTML.String(),
+			Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}),
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
@@ -154,6 +159,14 @@ func buildGitFixture(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if _, err := wt.Add("README.md"); err != nil {
+		t.Fatal(err)
+	}
+	// A Go source file gives the highlighted-source blob path a target with a real
+	// grammar, so the syntax highlighter is exercised through the handler.
+	if err := util.WriteFile(fs, "main.go", []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wt.Add("main.go"); err != nil {
 		t.Fatal(err)
 	}
 	first, err := wt.Commit("initial commit", &gogit.CommitOptions{Author: sig, Committer: sig})
@@ -221,9 +234,14 @@ func TestHomeRendersReadme(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d, want 200", resp.StatusCode)
 	}
-	// The F1 gate: the repo home renders the README text.
+	// The repo home renders the README as GFM through the markup package: the body
+	// text survives and the markdown-body container marks it as rendered, not the
+	// escaped-source fallback.
 	if !strings.Contains(body, "welcome aboard") {
 		t.Errorf("home is missing the README body:\n%s", body)
+	}
+	if !strings.Contains(body, "markdown-body") {
+		t.Errorf("home README did not render through markup:\n%s", body)
 	}
 	// The default-root listing shows the docs directory and the README entry.
 	if !strings.Contains(body, "docs") || !strings.Contains(body, "README.md") {
@@ -259,16 +277,60 @@ func TestTreeOnBlobRedirectsToBlob(t *testing.T) {
 
 func TestBlobShowsFileContent(t *testing.T) {
 	fx := newFixture(t)
-	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/README.md")
+	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/main.go")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d, want 200", resp.StatusCode)
 	}
-	if !strings.Contains(body, "welcome aboard") {
+	if !strings.Contains(body, "func") || !strings.Contains(body, "main") {
 		t.Errorf("blob is missing the file content:\n%s", body)
 	}
 	// Line numbers anchor the source lines.
 	if !strings.Contains(body, `id="L1"`) {
 		t.Errorf("blob is missing line anchors")
+	}
+	// A Go source blob is syntax-highlighted: the keyword spans carry the pl-k
+	// class the highlighter emits, so the source path runs through markup.
+	if !strings.Contains(body, `class="pl-k"`) {
+		t.Errorf("Go blob is not syntax-highlighted (no pl-k spans):\n%s", body)
+	}
+}
+
+func TestBlobRendersMarkdown(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/README.md")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// A markdown blob renders as GFM by default: the heading becomes an <h1> with
+	// the generated anchor id, inside the markdown-body container.
+	if !strings.Contains(body, "markdown-body") {
+		t.Errorf("markdown blob is missing the markdown-body container:\n%s", body)
+	}
+	if !strings.Contains(body, `id="user-content-hello"`) {
+		t.Errorf("markdown blob did not render the heading anchor:\n%s", body)
+	}
+	// The Code toggle drops to the plain source view.
+	if !strings.Contains(body, `href="?plain=1"`) {
+		t.Errorf("markdown blob is missing the plain-source toggle:\n%s", body)
+	}
+}
+
+func TestBlobPlainShowsSource(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/README.md?plain=1")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// ?plain=1 shows the escaped source in the line table, not the rendered GFM:
+	// the literal "# Hello" appears and there is no markdown-body container.
+	if !strings.Contains(body, "# Hello") {
+		t.Errorf("plain markdown blob is missing the raw source:\n%s", body)
+	}
+	if strings.Contains(body, "markdown-body") {
+		t.Errorf("plain markdown blob unexpectedly rendered GFM:\n%s", body)
+	}
+	if !strings.Contains(body, `id="L1"`) {
+		t.Errorf("plain markdown blob is missing line anchors:\n%s", body)
 	}
 }
 

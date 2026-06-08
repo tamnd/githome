@@ -2,7 +2,9 @@ package repo
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"html/template"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -46,7 +48,7 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 		return c.Redirect(http.StatusFound, route.Tree(ownerLogin(repo), repo.Name, ref, path))
 	}
 
-	vm := h.buildBlob(repo, ref, path, res.Entry, res.File, c.Query("plain") == "1")
+	vm := h.buildBlob(ctx, repo, ref, path, res.Entry, res.File, c.Query("plain") == "1")
 	vm.Chrome = h.chrome(c, blobTitle(repo, path))
 	return h.render.Page(c, "repo/blob", vm)
 }
@@ -77,14 +79,16 @@ func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, ref, path stri
 
 // buildBlob classifies a blob and builds its view model. The classification reads
 // the extension first (the unambiguous kinds: image, pdf, svg) and falls back to
-// a content sniff (a NUL byte or invalid UTF-8 marks a binary). Only a text blob
-// is split into lines; the other kinds carry just the size and the raw URL.
-func (h *Handlers) buildBlob(repo *domain.Repo, ref, path string, entry git.PathEntry, blob *git.Blob, plain bool) view.BlobVM {
+// a content sniff (a NUL byte or invalid UTF-8 marks a binary). A markdown blob
+// viewed without ?plain=1 renders as GFM; a text or svg blob is highlighted per
+// line; the other kinds carry just the size and the raw URL.
+func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, ref, path string, entry git.PathEntry, blob *git.Blob, plain bool) view.BlobVM {
 	content := blob.Content
 	size := entry.Size
 	if size == 0 {
 		size = int64(len(content))
 	}
+	grammar := languageForName(baseName(path))
 	vm := view.BlobVM{
 		Header:    h.header(repo, "code"),
 		Nav:       h.nav(repo, ref),
@@ -98,15 +102,58 @@ func (h *Handlers) buildBlob(repo *domain.Repo, ref, path string, entry git.Path
 		SizeLabel: humanizeBytes(size),
 		RawURL:    route.Raw(ownerLogin(repo), repo.Name, ref, path),
 		Plain:     plain,
-		Lang:      languageForName(baseName(path)),
+		Lang:      grammar,
 	}
 	vm.Kind = classifyBlob(path, content)
-	if vm.Kind == "text" || vm.Kind == "svg" {
+	switch {
+	case vm.Kind == "text" && !plain && h.markup != nil && isMarkdownName(baseName(path)):
+		// A markdown file renders to GFM by default; the Raw text toggle (?plain=1)
+		// drops back to the highlighted source path below.
+		vm.Kind = "markdown"
 		vm.RawText = string(content)
-		vm.Lines = splitLines(content)
+		vm.Body = h.markup.RenderFile(ctx, h.markupRepo(repo), ref, path, string(content))
+	case vm.Kind == "text" || vm.Kind == "svg":
+		vm.RawText = string(content)
+		vm.Lines = h.highlightLines(content, grammar)
 		vm.LineCount = len(vm.Lines)
 	}
 	return vm
+}
+
+// highlightLines turns blob content into the per-line highlighted HTML the blob
+// table renders, pairing each line with its 1-based number. It delegates to the
+// shared markup highlighter (the source text is escaped, only the pl-* spans are
+// raw); with markup unconfigured, or for an unknown grammar, it falls back to the
+// escaped line with no spans so the bytes are always shown, never interpreted.
+func (h *Handlers) highlightLines(content []byte, grammar string) []view.BlobLine {
+	if len(content) == 0 {
+		return nil
+	}
+	var html []template.HTML
+	if h.markup != nil {
+		html, _ = h.markup.HighlightLines(content, grammar)
+	} else {
+		html = escapeLines(content)
+	}
+	lines := make([]view.BlobLine, len(html))
+	for i, line := range html {
+		lines[i] = view.BlobLine{Number: i + 1, Text: line}
+	}
+	return lines
+}
+
+// escapeLines is the no-markup fallback: it splits content into HTML-escaped
+// per-line fragments with no spans, dropping a single trailing newline so the
+// line count matches the file. It mirrors the markup package's own fallback so
+// the blob view renders identically whether or not markup is configured.
+func escapeLines(content []byte) []template.HTML {
+	text := strings.TrimSuffix(string(content), "\n")
+	raw := strings.Split(text, "\n")
+	out := make([]template.HTML, len(raw))
+	for i, l := range raw {
+		out[i] = template.HTML(template.HTMLEscapeString(strings.TrimSuffix(l, "\r"))) // nolint:gosec // fully escaped
+	}
+	return out
 }
 
 // classifyBlob returns the blob kind: image, pdf, and svg are decided by
@@ -139,23 +186,6 @@ func isBinary(content []byte) bool {
 		return true
 	}
 	return len(head) > 0 && !utf8.Valid(head)
-}
-
-// splitLines splits file content into numbered lines for the blob view. A
-// trailing newline does not produce a final empty line, matching how an editor
-// counts lines.
-func splitLines(content []byte) []view.BlobLine {
-	if len(content) == 0 {
-		return nil
-	}
-	text := string(content)
-	text = strings.TrimSuffix(text, "\n")
-	raw := strings.Split(text, "\n")
-	lines := make([]view.BlobLine, len(raw))
-	for i, l := range raw {
-		lines[i] = view.BlobLine{Number: i + 1, Text: strings.TrimSuffix(l, "\r")}
-	}
-	return lines
 }
 
 // ext returns the lowercased file extension without the dot, or "" when none.
