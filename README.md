@@ -58,6 +58,21 @@ There are no Go `internal/` directories in this project on purpose; boundaries
 are enforced by the single-writer domain layer and by lint, not by the package
 system.
 
+## Install
+
+Tagged releases ship as static binaries for Linux, macOS, Windows and the BSDs,
+as Linux packages (deb, rpm, apk), and as a multi-arch container image. The
+common paths:
+
+```sh
+brew install tamnd/tap/githome                       # macOS
+docker pull ghcr.io/tamnd/githome:latest             # container
+go install github.com/tamnd/githome/cmd/githome@latest  # from source
+```
+
+[INSTALL.md](INSTALL.md) covers every method (Homebrew, Scoop, winget, deb, rpm,
+apk, the AUR, Nix, Docker, prebuilt archives) and the server configuration.
+
 ## Build
 
 Requires Go 1.26 or newer and a `git` binary on `PATH`.
