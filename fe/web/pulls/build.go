@@ -219,8 +219,8 @@ func commitGroups(commits []git.Commit) []view.PRCommitDateGroup {
 			order = append(order, day)
 		}
 		b.rows = append(b.rows, view.PRCommitRow{
-			SHA:        string(c.SHA),
-			ShortSHA:   shortSHA(string(c.SHA)),
+			SHA:        c.SHA,
+			ShortSHA:   shortSHA(c.SHA),
 			Title:      commitTitle(c.Message),
 			AuthorName: c.Author.Name,
 			When:       day,
