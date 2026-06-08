@@ -73,11 +73,20 @@ func NewHandler(d Deps) http.Handler {
 }
 
 // Mount registers the GraphQL endpoint at both the GHES-style /api/graphql and
-// the github.com-style /graphql, sharing one handler.
+// the github.com-style /graphql, sharing one handler. The routes are scoped to
+// the two methods the handler serves, GET and POST, rather than registered for
+// every method. That is not only tighter (a PUT to the endpoint is a clean 405
+// instead of reaching the gql transport), it is also what keeps /api/graphql
+// from colliding with the web front's greedy GET /{owner}/{repo} route: a
+// method-less pattern matches more methods but a more general path is also in
+// play, which the Go 1.22 mux cannot order and so rejects at registration.
+// Pinning the method makes GET /api/graphql win cleanly on path specificity.
 func Mount(root *mizu.Router, d Deps) {
 	h := NewHandler(d)
-	root.Compat.Handle("/graphql", h)
-	root.Compat.Handle("/api/graphql", h)
+	for _, p := range []string{"/graphql", "/api/graphql"} {
+		root.Compat.HandleMethod(http.MethodGet, p, h)
+		root.Compat.HandleMethod(http.MethodPost, p, h)
+	}
 }
 
 // authenticate resolves the Authorization header into an actor and stores it on
