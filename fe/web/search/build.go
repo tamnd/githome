@@ -56,7 +56,7 @@ func (h *Handlers) build(c *mizu.Ctx, r req) (view.SearchPageVM, error) {
 	vm.Types = h.rail(ctx, r, viewer, vm.Total, true)
 	vm.Sorts = h.sorts(r)
 	vm.Pager = h.pager(r, vm.Total)
-	if !vm.Landing && vm.Empty == false && vm.Total == 0 && len(vm.Notes) == 0 {
+	if !vm.Landing && !vm.Empty && vm.Total == 0 && len(vm.Notes) == 0 {
 		vm.Empty = true
 		vm.EmptyReason = emptyReason(r.active)
 	}

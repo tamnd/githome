@@ -163,9 +163,9 @@ func searchTitle(q, repoName string) string {
 // trimTitle bounds a query used in a title so a pathological query does not blow
 // up the title tag; the full query still drives the search.
 func trimTitle(q string) string {
-	const max = 60
-	if len(q) > max {
-		return q[:max] + "…"
+	const limit = 60
+	if len(q) > limit {
+		return q[:limit] + "…"
 	}
 	return q
 }
