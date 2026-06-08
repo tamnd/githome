@@ -36,6 +36,7 @@ type Deps struct {
 	Repos    *domain.RepoService
 	Issues   *domain.IssueService
 	Pulls    *domain.PRService
+	Reviews  *domain.ReviewService
 	URLs     *presenter.URLBuilder
 	Markup   *markup.Renderer
 	Sessions *webmw.Sessions
@@ -158,14 +159,15 @@ func mountPulls(page *mizu.Router, d Deps) {
 		return
 	}
 	ph := webpulls.New(webpulls.Deps{
-		Pulls:  d.Pulls,
-		Issues: d.Issues,
-		Repos:  d.Repos,
-		URLs:   d.URLs,
-		Render: d.Render,
-		View:   d.View,
-		Markup: d.Markup,
-		Logger: d.Logger,
+		Pulls:   d.Pulls,
+		Issues:  d.Issues,
+		Reviews: d.Reviews,
+		Repos:   d.Repos,
+		URLs:    d.URLs,
+		Render:  d.Render,
+		View:    d.View,
+		Markup:  d.Markup,
+		Logger:  d.Logger,
 	})
 	pg := page.With(ph.Resolve)
 	pg.Get("/{owner}/{repo}/pulls", ph.Index)
@@ -177,6 +179,15 @@ func mountPulls(page *mizu.Router, d Deps) {
 	pg.Post("/{owner}/{repo}/pull/{number}/comments", ph.CreateComment)
 	pg.Post("/{owner}/{repo}/pull/{number}/state", ph.ToggleState)
 	pg.Post("/{owner}/{repo}/pull/{number}/merge", ph.Merge)
+
+	// The code-review mutations (F5). Each posts and redirects, and the review
+	// service re-authorizes every write, so a forged POST from a read-only viewer
+	// gets the soft 404 or the themed 403, never a silent success. The reply and
+	// resolve routes carry the thread's root comment id in the path.
+	pg.Post("/{owner}/{repo}/pull/{number}/review-comments", ph.CreateReviewComment)
+	pg.Post("/{owner}/{repo}/pull/{number}/review-comments/{comment}/replies", ph.ReplyReviewComment)
+	pg.Post("/{owner}/{repo}/pull/{number}/review-threads/{root}/resolve", ph.ToggleReviewThread)
+	pg.Post("/{owner}/{repo}/pull/{number}/reviews", ph.SubmitReview)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard
