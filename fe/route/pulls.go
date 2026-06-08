@@ -69,6 +69,14 @@ func PullComments(owner, name string, number int64) string {
 	return Pull(owner, name, number) + "/comments"
 }
 
+// PullState is the close/reopen POST target on the Conversation tab,
+// /{owner}/{repo}/pull/{number}/state. It is the PR's own state toggle rather than
+// the issue's, so closing or reopening a pull request lands back on the PR page,
+// not the issue view of the same number.
+func PullState(owner, name string, number int64) string {
+	return Pull(owner, name, number) + "/state"
+}
+
 // PullMerge is the merge POST target, /{owner}/{repo}/pull/{number}/merge. The
 // form carries the merge method, the optional commit title and message, and the
 // expected head SHA for optimistic concurrency.
