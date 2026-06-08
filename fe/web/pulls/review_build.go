@@ -66,7 +66,7 @@ func (h *Handlers) reviewThread(ctx context.Context, repo *domain.Repo, pr *doma
 		vm.CanReply = true
 		vm.ReplyURL = route.PullReviewReply(owner, repo.Name, pr.Number, t.ID)
 	}
-	if canResolveThread(repo, pr, vc) {
+	if canResolveThread(repo, vc) {
 		vm.CanResolve = true
 		vm.ResolveURL = route.PullReviewThreadResolve(owner, repo.Name, pr.Number, t.ID)
 	}
@@ -90,7 +90,7 @@ func threadSide(t *domain.ReviewThread) string {
 // The service authorizes write (so the author of a pull request they cannot push
 // to does not get the toggle), and the display gate matches it rather than showing
 // an affordance the submit would reject. The service authorizes again on submit.
-func canResolveThread(repo *domain.Repo, pr *domain.PullRequest, vc viewerCtx) bool {
+func canResolveThread(repo *domain.Repo, vc viewerCtx) bool {
 	return canWrite(repo, vc.pk)
 }
 
@@ -106,7 +106,7 @@ func prAuthored(pr *domain.PullRequest, vc viewerCtx) bool {
 // can see the repo) and forbids self-approval, so a reader who is not the author
 // may submit a verdict, while the author sees the overlay with those options
 // disabled and only Comment live.
-func canApprove(repo *domain.Repo, pr *domain.PullRequest, vc viewerCtx) bool {
+func canApprove(pr *domain.PullRequest, vc viewerCtx) bool {
 	return vc.pk != 0 && !prAuthored(pr, vc)
 }
 
@@ -145,7 +145,7 @@ func (h *Handlers) reviewSurface(ctx context.Context, repo *domain.Repo, pr *dom
 		CSRFToken:     view.CSRFFrom(ctx),
 		Overlay: view.ReviewOverlayVM{
 			Action:     route.PullReviews(owner, repo.Name, pr.Number),
-			CanApprove: canApprove(repo, pr, vc),
+			CanApprove: canApprove(pr, vc),
 			CanComment: canComment(vc.pk),
 			CSRFToken:  view.CSRFFrom(ctx),
 		},
