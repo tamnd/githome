@@ -36,7 +36,7 @@ func buildServer(t *testing.T, lookup webmw.ViewerLookup) (*httptest.Server, *we
 	}
 	sessions := webmw.NewSessions(testKey, time.Hour, lookup)
 	root := mizu.NewRouter()
-	fe.Mount(root, fe.Deps{
+	handler := fe.Mount(root, fe.Deps{
 		Render:   rs,
 		View:     view.NewBuilder("Githome"),
 		Sessions: sessions,
@@ -44,7 +44,7 @@ func buildServer(t *testing.T, lookup webmw.ViewerLookup) (*httptest.Server, *we
 		Flash:    webmw.NewFlash(testKey),
 		Logger:   nil,
 	})
-	srv := httptest.NewServer(root)
+	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 	return srv, sessions
 }

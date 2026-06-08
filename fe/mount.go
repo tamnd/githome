@@ -9,6 +9,8 @@ package fe
 
 import (
 	"log/slog"
+	"net/http"
+	"strings"
 
 	"github.com/go-mizu/mizu"
 
@@ -55,13 +57,22 @@ type Deps struct {
 	Logger   *slog.Logger
 }
 
-// Mount registers the web front on root. It does not touch the global middleware
-// or the error handler the API surface installed: it registers its routes through
-// scoped subrouters, so the web middleware chain applies to web routes only and
-// the API keeps its own. The page chain carries recovery, the session, the color
-// mode, the CSRF guard and the flash reader; the asset chain carries only
-// recovery, so a static file does not pay for a session lookup.
-func Mount(root *mizu.Router, d Deps) {
+// Mount registers the web front's dynamic routes on root and returns the
+// servable handler: the asset tree peeled off in front of root. It does not touch
+// the global middleware or the error handler the API surface installed: it
+// registers its routes through scoped subrouters, so the web middleware chain
+// applies to web routes only and the API keeps its own. The page chain carries
+// recovery, the session, the color mode, the CSRF guard and the flash reader; the
+// asset chain carries only recovery, so a static file does not pay for a session
+// lookup.
+//
+// The returned handler, not root, is what the server must serve when the web
+// front is enabled. The static asset tree cannot share root's net/http mux: it is
+// served under a greedy /assets/{file...} pattern, and that overlaps the front's
+// own /{owner}/{repo}/... wildcards (an owner could be named "assets") in a way
+// the Go 1.22 mux refuses to register. So assets live on their own router and are
+// dispatched ahead of root by path prefix. See implementation/02.
+func Mount(root *mizu.Router, d Deps) http.Handler {
 	page := root.With(
 		webmw.Recover(d.Render, d.Logger),
 		d.Sessions.Middleware(),
@@ -80,8 +91,27 @@ func Mount(root *mizu.Router, d Deps) {
 	mountSettings(page, d)
 	mountProfile(page, d)
 
-	asset := root.With(webmw.Recover(d.Render, d.Logger))
-	asset.Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
+	assets := mizu.NewRouter()
+	assets.With(webmw.Recover(d.Render, d.Logger)).
+		Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
+
+	return assetDispatch(assets, root)
+}
+
+// assetDispatch serves the hashed asset tree under render.AssetURLPrefix from
+// assets and sends every other request to app. It joins the two routers by a path
+// prefix rather than registering both on one mux, which the overlapping
+// asset/owner-space patterns would make the Go 1.22 mux reject. The prefix test is
+// the same AssetURLPrefix the manifest emits, so a hashed URL the page renders
+// lands on the asset router and everything else falls through to the app.
+func assetDispatch(assets, app http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, render.AssetURLPrefix) {
+			assets.ServeHTTP(w, r)
+			return
+		}
+		app.ServeHTTP(w, r)
+	})
 }
 
 // mountRepo registers the code-browsing routes under /{owner}/{repo}. Every route
