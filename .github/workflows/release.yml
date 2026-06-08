@@ -75,7 +75,10 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          # The release body is the curated notes file for this tag, e.g.
+          # releases/v0.1.2.md, not the auto-generated changelog. Every tag is
+          # expected to have one, so a missing file fails the release on purpose.
+          args: release --clean --release-notes=releases/${{ github.ref_name }}.md
         env:
           # Creating the release and pushing the GHCR image use the built-in
           # token. The publish steps for the external package managers each read
