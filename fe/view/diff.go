@@ -90,23 +90,41 @@ type DiffFileVM struct {
 	TooLarge  bool
 	HeadSHA   string
 	URL       string // the head-side "View file" link
+
+	// OutdatedThreads are this file's review threads whose persisted anchor no
+	// longer maps onto a row in the current diff (the line moved or vanished under
+	// later commits). They are not placed against a row; the template renders them
+	// in a per-file outdated group so the conversation is not lost when the diff
+	// churns. The live-anchored threads hang off their DiffRow instead.
+	OutdatedThreads []ReviewThreadVM
 }
 
 // DiffRow is one rendered line. For unified, Text is the single code cell; for
 // split, OldText and NewText are the two code cells. OldLine and NewLine are the
 // base- and head-side line numbers (0 when the side does not apply). Position is
 // the diff offset; 0 means the row is not commentable.
+//
+// AnchorSide and AnchorLine are the (side, line) a review comment on this row
+// anchors to, the persisted anchor model (never Position). A deletion anchors
+// LEFT at its base line, an addition or a context line RIGHT at its head line, so
+// a thread the domain stores against (path, line, side) finds its row again.
+// Threads are the inline threads the build layer attaches at this row; the pure
+// builder leaves the slice nil and the handler fills it after it loads the
+// domain's resolved threads.
 type DiffRow struct {
-	Kind     RowKind
-	OldLine  int
-	NewLine  int
-	Text     template.HTML // unified single cell
-	OldText  template.HTML // split left cell
-	NewText  template.HTML // split right cell
-	Side     Side
-	Position int
-	Hunk     int
-	NoEOL    bool
+	Kind       RowKind
+	OldLine    int
+	NewLine    int
+	Text       template.HTML // unified single cell
+	OldText    template.HTML // split left cell
+	NewText    template.HTML // split right cell
+	Side       Side
+	Position   int
+	Hunk       int
+	NoEOL      bool
+	AnchorSide string // "LEFT", "RIGHT", or "" for a structural row
+	AnchorLine int    // file line the comment anchors to, 0 when not commentable
+	Threads    []ReviewThreadVM
 }
 
 // patchHunk is one @@ block parsed out of a file's patch text.
@@ -234,14 +252,14 @@ func buildRows(hunks []patchHunk, mode DiffMode) []DiffRow {
 			var r DiffRow
 			switch l.op {
 			case ' ':
-				r = DiffRow{Kind: RowContext, OldLine: oldLn, NewLine: newLn, Text: escapeHTML(" " + l.text), Side: SideNone, Position: pos, Hunk: hi}
+				r = DiffRow{Kind: RowContext, OldLine: oldLn, NewLine: newLn, Text: escapeHTML(" " + l.text), Side: SideNone, Position: pos, Hunk: hi, AnchorSide: "RIGHT", AnchorLine: newLn}
 				oldLn++
 				newLn++
 			case '-':
-				r = DiffRow{Kind: RowDeletion, OldLine: oldLn, Text: escapeHTML("-" + l.text), Side: SideLeft, Position: pos, Hunk: hi}
+				r = DiffRow{Kind: RowDeletion, OldLine: oldLn, Text: escapeHTML("-" + l.text), Side: SideLeft, Position: pos, Hunk: hi, AnchorSide: "LEFT", AnchorLine: oldLn}
 				oldLn++
 			case '+':
-				r = DiffRow{Kind: RowAddition, NewLine: newLn, Text: escapeHTML("+" + l.text), Side: SideRight, Position: pos, Hunk: hi}
+				r = DiffRow{Kind: RowAddition, NewLine: newLn, Text: escapeHTML("+" + l.text), Side: SideRight, Position: pos, Hunk: hi, AnchorSide: "RIGHT", AnchorLine: newLn}
 				newLn++
 			}
 			if l.noEOL {
@@ -296,15 +314,17 @@ func zipReplace(dels, adds []DiffRow) []DiffRow {
 	for k := range n {
 		d, a := dels[k], adds[k]
 		out = append(out, DiffRow{
-			Kind:     RowReplace,
-			OldLine:  d.OldLine,
-			NewLine:  a.NewLine,
-			OldText:  d.Text,
-			NewText:  a.Text,
-			Side:     SideRight,
-			Position: a.Position,
-			Hunk:     a.Hunk,
-			NoEOL:    a.NoEOL,
+			Kind:       RowReplace,
+			OldLine:    d.OldLine,
+			NewLine:    a.NewLine,
+			OldText:    d.Text,
+			NewText:    a.Text,
+			Side:       SideRight,
+			Position:   a.Position,
+			Hunk:       a.Hunk,
+			NoEOL:      a.NoEOL,
+			AnchorSide: a.AnchorSide,
+			AnchorLine: a.AnchorLine,
 		})
 	}
 	for k := n; k < len(dels); k++ {

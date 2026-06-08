@@ -1,0 +1,24 @@
+{{define "inline_composer" -}}
+{{/* The data is a dict {Review: ReviewSurfaceVM, Path, Side, Line}. It renders the
+     collapsed add-a-comment affordance on a commentable diff row: a toggle that
+     reveals a small composer posting to the review-comments endpoint with the anchor
+     fields (path, side, line) and the head commit id the comment pins to. The UI
+     never submits a diff position; the persisted anchor is (path, line, side), which
+     the domain validates against the diff for that commit. It works with no
+     JavaScript: the details element opens the form. */ -}}
+{{$r := .Review -}}
+<details class="inline-composer">
+  <summary class="inline-composer-toggle" aria-label="Add a review comment">{{octicon "plus" 16}}</summary>
+  <form class="inline-composer-form" method="post" action="{{$r.CommentAction}}">
+    {{if $r.CSRFToken}}<input type="hidden" name="_csrf" value="{{$r.CSRFToken}}">{{end}}
+    <input type="hidden" name="path" value="{{.Path}}">
+    <input type="hidden" name="side" value="{{.Side}}">
+    <input type="hidden" name="line" value="{{.Line}}">
+    <input type="hidden" name="commit_id" value="{{$r.CommitID}}">
+    <textarea class="inline-composer-text" name="body" rows="3" placeholder="Leave a comment on this line" aria-label="Review comment"></textarea>
+    <div class="inline-composer-actions">
+      <button class="btn btn-sm btn-primary" type="submit">Add review comment</button>
+    </div>
+  </form>
+</details>
+{{- end}}

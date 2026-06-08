@@ -248,6 +248,25 @@ func TestReviewThreadResolveByOwner(t *testing.T) {
 	}
 }
 
+func TestCommentLineOutOfRangeIsValidation(t *testing.T) {
+	f := newReviewFixture(t)
+	// A line past the anchor bound cannot land on any diff and must be rejected as a
+	// validation miss, not narrowed to int (where on a 32-bit build it could wrap
+	// onto a real position). The web inline composer feeds this straight from a form.
+	huge := int64(1) << 40
+	if _, err := f.reviews.CreateComment(f.ctx, f.reviewPK, "octocat", "hello", f.pr.Number, ReviewCommentInput{
+		Path: "b.txt", Body: "out of range", Line: &huge,
+	}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("out-of-range line err = %v, want ErrValidation", err)
+	}
+	// The same bound guards the legacy position anchor.
+	if _, err := f.reviews.CreateComment(f.ctx, f.reviewPK, "octocat", "hello", f.pr.Number, ReviewCommentInput{
+		Path: "b.txt", Body: "out of range", Position: &huge,
+	}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("out-of-range position err = %v, want ErrValidation", err)
+	}
+}
+
 func TestDismissClearsDecision(t *testing.T) {
 	f := newReviewFixture(t)
 	rev, err := f.reviews.CreateReview(f.ctx, f.reviewPK, "octocat", "hello", f.pr.Number, ReviewInput{

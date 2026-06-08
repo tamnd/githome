@@ -51,7 +51,40 @@ func (h *Handlers) mergeBox(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullReque
 	if pr.State == "closed" && !pr.Merged {
 		box.CanReopen = canWrite(repo, vc.pk)
 	}
+	box.Reviews = h.reviewRollup(c, repo, pr, vc)
 	return box
+}
+
+// reviewRollup builds the merge box's review summary from the review decision the
+// review service computes, so the box, the list mini-state, and a concurrent API
+// read all show the same verdict. An open PR with no decision yet reads as empty
+// (Present false), which the box renders without a review line; a merged or closed
+// PR carries no live decision. With no review service wired the rollup stays empty.
+func (h *Handlers) reviewRollup(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullRequest, vc viewerCtx) view.ReviewRollupVM {
+	if h.reviews == nil || pr.Merged || pr.State == "closed" {
+		return view.ReviewRollupVM{}
+	}
+	decision, err := h.reviews.ReviewDecision(c.Context(), vc.pk, ownerLogin(repo), repo.Name, pr.Number)
+	if err != nil || decision == nil || *decision == "" {
+		return view.ReviewRollupVM{}
+	}
+	return view.ReviewRollupVM{Decision: reviewDecisionLabel(*decision), Present: true}
+}
+
+// reviewDecisionLabel maps the review decision the service returns onto the phrase
+// the merge box shows, defaulting to the raw value so an unmapped decision still
+// renders rather than vanishing.
+func reviewDecisionLabel(decision string) string {
+	switch decision {
+	case "APPROVED":
+		return "Changes approved"
+	case "CHANGES_REQUESTED":
+		return "Changes requested"
+	case "REVIEW_REQUIRED":
+		return "Review required"
+	default:
+		return decision
+	}
 }
 
 // mergeMethods is the three git merge strategies the box offers, merge commit

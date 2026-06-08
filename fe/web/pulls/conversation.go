@@ -2,6 +2,7 @@ package pulls
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"time"
 
@@ -86,10 +87,15 @@ func (h *Handlers) conversation(ctx context.Context, c *mizu.Ctx, repo *domain.R
 		URL:        route.Pull(owner, repo.Name, pr.Number),
 		Reactions:  reactionsRollup("issue", route.IssueReactions(owner, repo.Name, pr.Number), iss.Reactions, vc.pk != 0),
 	}
-	vm.Timeline = append(vm.Timeline, opening)
-	for _, cm := range comments {
-		vm.Timeline = append(vm.Timeline, h.comment(ctx, repo, pr.Number, cm, vc))
+
+	// The timeline interleaves comments and submitted reviews by when they happened,
+	// not by type, so a review that landed between two comments reads in order. The
+	// opening body is pinned first (it is the PR's creation, earlier than any item).
+	reviews, err := h.submittedReviews(ctx, owner, repo.Name, pr.Number)
+	if err != nil {
+		return view.PRConversationVM{}, err
 	}
+	vm.Timeline = h.buildTimeline(ctx, repo, pr, opening, pr.CreatedAt, comments, reviews, vc)
 	vm.Reactions = opening.Reactions
 
 	open := pr.State == "open"
@@ -108,4 +114,64 @@ func (h *Handlers) conversation(ctx context.Context, c *mizu.Ctx, repo *domain.R
 
 	vm.MergeBox = h.mergeBox(c, repo, pr, vc)
 	return vm, nil
+}
+
+// submittedReviews lists the pull request's submitted reviews for the timeline. The
+// review service excludes a viewer's own pending draft, so a draft stays private
+// until its author submits it. With no review service wired (a partial test setup)
+// it returns no reviews rather than failing the page.
+func (h *Handlers) submittedReviews(ctx context.Context, owner, name string, number int64) ([]*domain.Review, error) {
+	if h.reviews == nil {
+		return nil, nil
+	}
+	reviews, err := h.reviews.ListReviews(ctx, 0, owner, name, number)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return reviews, nil
+}
+
+// buildTimeline merges the opening body, the comments, and the submitted reviews
+// into one timeline ordered by time. Each entry carries its own timestamp so a
+// review and a comment interleave by when they happened; the opening body is pinned
+// first since it is the pull request's creation. A review with no body and no inline
+// comments is dropped, since it carries nothing to show (a pending draft that was
+// discarded leaves no trace).
+func (h *Handlers) buildTimeline(ctx context.Context, repo *domain.Repo, pr *domain.PullRequest, opening view.CommentVM, openedAt time.Time, comments []*domain.Comment, reviews []*domain.Review, vc viewerCtx) []view.PRTimelineItem {
+	type entry struct {
+		when time.Time
+		item view.PRTimelineItem
+	}
+	entries := make([]entry, 0, 1+len(comments)+len(reviews))
+	entries = append(entries, entry{when: openedAt, item: view.PRTimelineItem{Kind: "comment", Comment: opening}})
+	for _, cm := range comments {
+		entries = append(entries, entry{
+			when: cm.CreatedAt,
+			item: view.PRTimelineItem{Kind: "comment", Comment: h.comment(ctx, repo, pr.Number, cm, vc)},
+		})
+	}
+	for _, r := range reviews {
+		if r.Body == "" && len(r.Comments) == 0 {
+			continue
+		}
+		when := r.CreatedAt
+		if r.SubmittedAt != nil {
+			when = *r.SubmittedAt
+		}
+		entries = append(entries, entry{
+			when: when,
+			item: view.PRTimelineItem{Kind: "review", Review: h.reviewSummary(ctx, repo, pr, r)},
+		})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].when.Before(entries[j].when)
+	})
+	out := make([]view.PRTimelineItem, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.item)
+	}
+	return out
 }

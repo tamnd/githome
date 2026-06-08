@@ -650,7 +650,11 @@ func (s *ReviewService) resolveComments(ctx context.Context, repoPK int64, pullR
 		var position *int64
 		switch {
 		case in.Line != nil:
-			pos, ok := fd.positionFor(int(*in.Line), side)
+			idx, ok := anchorIndex(*in.Line)
+			if !ok {
+				return nil, ErrValidation
+			}
+			pos, ok := fd.positionFor(idx, side)
 			if !ok {
 				return nil, ErrValidation
 			}
@@ -658,7 +662,11 @@ func (s *ReviewService) resolveComments(ctx context.Context, repoPK int64, pullR
 			p := int64(pos)
 			position = &p
 		case in.Position != nil:
-			ln, sd, ok := fd.lineFor(int(*in.Position))
+			idx, ok := anchorIndex(*in.Position)
+			if !ok {
+				return nil, ErrValidation
+			}
+			ln, sd, ok := fd.lineFor(idx)
 			if !ok {
 				return nil, ErrValidation
 			}
@@ -676,6 +684,24 @@ func (s *ReviewService) resolveComments(ctx context.Context, repoPK int64, pullR
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// maxAnchorValue bounds a review anchor's line or position before it is narrowed
+// to int for the diff lookup. A real diff line or position is a small positive
+// number; a value past this bound cannot land on any rendered diff. Guarding here
+// keeps the int64-to-int narrowing safe on a 32-bit build (where it could
+// otherwise wrap) and rejects an absurd value as a validation miss. The web inline
+// composer feeds these straight from a form, so the guard sits on user input.
+const maxAnchorValue = 1 << 30
+
+// anchorIndex bounds-checks a user-supplied 1-based line or position and narrows
+// it to int, reporting whether it is in range. An out-of-range value is a
+// validation miss, the same way an off-diff anchor is.
+func anchorIndex(v int64) (int, bool) {
+	if v < 1 || v > maxAnchorValue {
+		return 0, false
+	}
+	return int(v), true
 }
 
 // diffIndex parses the pull request's current diff into per-file position maps

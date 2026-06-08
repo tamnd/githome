@@ -1,0 +1,53 @@
+{{define "review_thread" -}}
+{{/* The data is a ReviewThreadVM. It renders one inline review conversation: the
+     comments in posting order, then the resolve toggle and the reply box when the
+     viewer may use them. The thread carries its own CSRF token so it renders the
+     same whether it is embedded in the full Files page or swapped in on its own. A
+     resolved thread collapses its body behind a summary; an outdated thread is
+     rendered the same but lives in the file's outdated group, off any row. */ -}}
+{{$t := . -}}
+<div class="review-thread{{if $t.IsResolved}} is-resolved{{end}}{{if $t.IsOutdated}} is-outdated{{end}}"{{with index $t.Comments 0}} id="{{.Anchor}}"{{end}}>
+  <details class="review-thread-detail"{{if not $t.IsResolved}} open{{end}}>
+    <summary class="review-thread-summary">
+      {{octicon "comment-discussion" 16}}
+      {{with index $t.Comments 0}}<a href="{{.Author.URL}}">{{.Author.Login}}</a>{{end}}
+      {{if $t.IsResolved}}<span class="review-thread-state">resolved</span>{{end}}
+      {{if $t.IsOutdated}}<span class="review-thread-state">outdated</span>{{end}}
+      {{if gt $t.ReplyCount 0}}<span class="review-thread-count">{{$t.ReplyCount}} repl{{if eq $t.ReplyCount 1}}y{{else}}ies{{end}}</span>{{end}}
+    </summary>
+
+    <div class="review-thread-comments">
+      {{range $t.Comments -}}
+      <article class="review-comment" id="{{.Anchor}}">
+        <div class="review-comment-head">
+          {{if .Author.AvatarURL}}<img class="avatar" src="{{.Author.AvatarURL}}" width="24" height="24" alt="" loading="lazy">{{else}}{{octicon "person" 16}}{{end}}
+          <span class="review-comment-author"><a href="{{.Author.URL}}">{{.Author.Login}}</a></span>
+          <a class="review-comment-when" href="#{{.Anchor}}"><relative-time datetime="{{.CreatedISO}}">{{.CreatedAt}}</relative-time></a>
+          {{if .Edited}}<span class="review-comment-edited" title="This comment was edited">edited</span>{{end}}
+        </div>
+        <div class="review-comment-body markdown-body">
+          {{if .Body}}{{.Body}}{{else if .BodySource}}<pre class="comment-raw">{{.BodySource}}</pre>{{else}}<p class="comment-empty">No comment.</p>{{end}}
+        </div>
+      </article>
+      {{- end}}
+    </div>
+
+    <div class="review-thread-actions">
+      {{if $t.CanResolve -}}
+      <form class="review-thread-resolve" method="post" action="{{$t.ResolveURL}}">
+        {{if $t.CSRFToken}}<input type="hidden" name="_csrf" value="{{$t.CSRFToken}}">{{end}}
+        <input type="hidden" name="resolved" value="{{if $t.IsResolved}}false{{else}}true{{end}}">
+        <button class="btn btn-sm" type="submit">{{$t.ResolveLabel}}</button>
+      </form>
+      {{- end}}
+      {{if $t.CanReply -}}
+      <form class="review-thread-reply" method="post" action="{{$t.ReplyURL}}">
+        {{if $t.CSRFToken}}<input type="hidden" name="_csrf" value="{{$t.CSRFToken}}">{{end}}
+        <textarea class="review-thread-reply-text" name="body" rows="2" placeholder="Reply" aria-label="Reply to review thread"></textarea>
+        <button class="btn btn-sm btn-primary" type="submit">Reply</button>
+      </form>
+      {{- end}}
+    </div>
+  </details>
+</div>
+{{- end}}

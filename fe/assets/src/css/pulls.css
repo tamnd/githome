@@ -557,3 +557,269 @@
   font-size: var(--text-small-size);
   color: var(--fgColor-muted);
 }
+
+/* Code review (F5): the merge-box review rollup, the inline composer and threads on
+   the Files tab, the per-file outdated group, and the submitted-review summaries the
+   Conversation timeline interleaves. The colors key off the same functional tokens
+   the rest of the surface uses, so the review states read consistently in light and
+   dark. */
+
+.merge-box-reviews {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The inline composer sits in the diff code cell, revealed by its details toggle so
+   it works with no JavaScript. The toggle is a small square the gutter aligns to. */
+.inline-composer {
+  display: inline-block;
+  margin-right: var(--base-size-8);
+  vertical-align: top;
+}
+
+.inline-composer-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-accent-muted);
+  color: var(--fgColor-accent);
+  list-style: none;
+}
+
+.inline-composer-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.inline-composer-form {
+  display: block;
+  margin-top: var(--base-size-8);
+  padding: var(--base-size-8);
+  background: var(--bgColor-default);
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  white-space: normal;
+}
+
+.inline-composer-text,
+.review-thread-reply-text,
+.review-overlay-text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--text-body-size-medium);
+  padding: var(--base-size-8);
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-default);
+  color: var(--fgColor-default);
+}
+
+.inline-composer-actions,
+.review-overlay-actions {
+  margin-top: var(--base-size-8);
+}
+
+/* A thread row spans the whole diff table width and reads as an inset panel below the
+   line it anchors to, so the conversation is visually attached to its code. */
+.diff-row-thread > .diff-thread-cell {
+  padding: var(--base-size-8) var(--base-size-12);
+  background: var(--bgColor-inset);
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.review-thread {
+  background: var(--bgColor-default);
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.review-thread.is-resolved {
+  border-color: var(--borderColor-success-muted);
+}
+
+.review-thread.is-outdated {
+  border-color: var(--borderColor-muted);
+}
+
+.review-thread-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12);
+  cursor: pointer;
+  font-size: var(--text-small-size);
+  list-style: none;
+}
+
+.review-thread-summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-thread-state,
+.review-thread-count {
+  color: var(--fgColor-muted);
+}
+
+.review-thread-comments {
+  padding: 0 var(--base-size-12);
+}
+
+.review-comment {
+  padding: var(--base-size-8) 0;
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.review-comment-head {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-4);
+  font-size: var(--text-small-size);
+}
+
+.review-comment-head .avatar {
+  border-radius: var(--borderRadius-full);
+}
+
+.review-comment-when,
+.review-comment-edited {
+  color: var(--fgColor-muted);
+}
+
+.review-thread-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12) var(--base-size-12);
+}
+
+.review-thread-reply {
+  flex: 1 1 240px;
+}
+
+/* The per-file outdated group collects threads whose anchor no longer maps onto the
+   diff, so a conversation is never lost when the code moves under it. */
+.diff-outdated {
+  padding: var(--base-size-12);
+  border-top: 1px solid var(--borderColor-muted);
+  background: var(--bgColor-subtle);
+}
+
+.diff-outdated-head {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin: 0 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The Review-changes overlay on the Files summary line: a button that reveals the
+   verdict form, with the approve and request-changes options disabled for a viewer
+   who can only comment. */
+.review-overlay {
+  margin-left: auto;
+}
+
+.review-overlay-toggle {
+  cursor: pointer;
+  list-style: none;
+}
+
+.review-overlay-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.review-overlay-form {
+  margin-top: var(--base-size-8);
+  padding: var(--base-size-12);
+  background: var(--bgColor-default);
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  min-width: 18rem;
+}
+
+.review-overlay-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-4);
+  margin: var(--base-size-8) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.review-overlay-event.is-disabled {
+  color: var(--fgColor-muted);
+}
+
+.review-overlay-note {
+  margin: var(--base-size-8) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* A submitted review in the Conversation timeline: a state-tinted header, the
+   optional body, and the inline-comment count. */
+.review-summary {
+  margin: var(--base-size-16) 0;
+  padding: var(--base-size-12);
+  border: 1px solid var(--borderColor-default);
+  border-left-width: 3px;
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-default);
+}
+
+.review-summary-approved {
+  border-left-color: var(--bgColor-success-emphasis);
+}
+
+.review-summary-changes {
+  border-left-color: var(--bgColor-danger-emphasis);
+}
+
+.review-summary-commented,
+.review-summary-dismissed {
+  border-left-color: var(--borderColor-muted);
+}
+
+.review-summary-head {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  font-size: var(--text-small-size);
+}
+
+.review-summary-head .avatar {
+  border-radius: var(--borderRadius-full);
+}
+
+.review-summary-state {
+  font-weight: 600;
+}
+
+.review-summary-when {
+  color: var(--fgColor-muted);
+}
+
+.review-summary-body {
+  margin-top: var(--base-size-8);
+}
+
+.review-summary-comments {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin: var(--base-size-8) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
