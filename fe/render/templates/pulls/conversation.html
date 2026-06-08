@@ -9,7 +9,11 @@
   <div class="pr-tab-content pr-conversation">
     <div class="pr-timeline">
       {{range .Timeline -}}
-      {{template "issue_comment" (dict "C" . "CSRF" $.Shell.Chrome.CSRFToken)}}
+      {{if .IsReview -}}
+      {{template "review_summary" .Review}}
+      {{- else -}}
+      {{template "issue_comment" (dict "C" .Comment "CSRF" $.Shell.Chrome.CSRFToken)}}
+      {{- end}}
       {{- end}}
 
       {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}

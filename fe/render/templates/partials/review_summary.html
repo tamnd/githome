@@ -1,0 +1,23 @@
+{{define "review_summary" -}}
+{{/* The data is a ReviewSummaryVM. It renders a submitted review as a timeline
+     event: the reviewer, the state phrase (approved / requested changes / reviewed),
+     the optional rendered body, and the count of inline comments the review carried.
+     A pending draft never reaches the timeline; only submitted reviews do. The state
+     modifier colors the header. */ -}}
+{{$r := . -}}
+<article class="review-summary review-summary-{{$r.State.Modifier}}" id="pullrequestreview">
+  <div class="review-summary-head">
+    <span class="review-summary-icon" aria-hidden="true">{{octicon $r.State.Icon 16}}</span>
+    {{if $r.Author.AvatarURL}}<img class="avatar" src="{{$r.Author.AvatarURL}}" width="24" height="24" alt="" loading="lazy">{{else}}{{octicon "person" 16}}{{end}}
+    <span class="review-summary-author"><a href="{{$r.Author.URL}}">{{$r.Author.Login}}</a></span>
+    <span class="review-summary-state">{{$r.State.Label}}</span>
+    {{if $r.SubmittedISO}}<a class="review-summary-when" href="{{$r.URL}}"><relative-time datetime="{{$r.SubmittedISO}}">{{$r.SubmittedAt}}</relative-time></a>{{end}}
+  </div>
+  {{if $r.HasBody -}}
+  <div class="review-summary-body markdown-body">{{$r.Body}}</div>
+  {{- end}}
+  {{if gt $r.CommentCount 0 -}}
+  <p class="review-summary-comments">{{octicon "comment" 16}} {{$r.CommentCount}} inline comment{{if ne $r.CommentCount 1}}s{{end}}</p>
+  {{- end}}
+</article>
+{{- end}}

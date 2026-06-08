@@ -1,9 +1,9 @@
 {{define "content" -}}
 {{/* The data is a PRFilesVM. The page is the PR shell followed by a diff summary
-     line (N files changed, additions, deletions) and the per-file unified diffs.
-     The Files tab is read-only in F4: the rows mark anchorable lines for the review
-     composer that arrives in F5, but show no inline threads yet. A truncated list
-     (a very large diff) says so rather than dropping the tail in silence. */ -}}
+     line (N files changed, additions, deletions), the Review-changes overlay, and the
+     per-file unified diffs. Each commentable row carries the inline composer, and any
+     review thread renders under the row it anchors to (F5). A truncated list (a very
+     large diff) says so rather than dropping the tail in silence. */ -}}
 {{template "pr_shell" .Shell}}
   <div class="pr-tab-content pr-files">
     <div class="diff-summary">
@@ -12,6 +12,30 @@
         <span class="diff-count-add">+{{.Additions}}</span>
         <span class="diff-count-del">-{{.Deletions}}</span>
       </span>
+      {{if .Review.Overlay.CanComment -}}
+      <details class="review-overlay">
+        <summary class="btn btn-primary review-overlay-toggle">{{octicon "eye" 16}} Review changes</summary>
+        <form class="review-overlay-form" method="post" action="{{.Review.Overlay.Action}}">
+          {{if .Review.Overlay.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Review.Overlay.CSRFToken}}">{{end}}
+          <textarea class="review-overlay-text" name="body" rows="4" placeholder="Leave a review summary" aria-label="Review summary"></textarea>
+          <fieldset class="review-overlay-events">
+            <label class="review-overlay-event">
+              <input type="radio" name="event" value="COMMENT" checked> Comment
+            </label>
+            <label class="review-overlay-event{{if not .Review.Overlay.CanApprove}} is-disabled{{end}}">
+              <input type="radio" name="event" value="APPROVE"{{if not .Review.Overlay.CanApprove}} disabled{{end}}> Approve
+            </label>
+            <label class="review-overlay-event{{if not .Review.Overlay.CanApprove}} is-disabled{{end}}">
+              <input type="radio" name="event" value="REQUEST_CHANGES"{{if not .Review.Overlay.CanApprove}} disabled{{end}}> Request changes
+            </label>
+          </fieldset>
+          <div class="review-overlay-actions">
+            <button class="btn btn-primary" type="submit">Submit review</button>
+          </div>
+          {{if not .Review.Overlay.CanApprove}}<p class="review-overlay-note">You can comment on this pull request. Approving or requesting changes needs write access and is not available on your own pull request.</p>{{end}}
+        </form>
+      </details>
+      {{- end}}
     </div>
 
     {{if .Truncated -}}
@@ -22,8 +46,9 @@
 
     {{if .Files -}}
     <div class="diff-files">
+      {{$review := .Review -}}
       {{range .Files -}}
-      {{template "pr_diff_file" .}}
+      {{template "pr_diff_file" (dict "File" . "Review" $review)}}
       {{- end}}
     </div>
     {{- else -}}
