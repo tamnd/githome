@@ -54,26 +54,6 @@ func TestRustOperators(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	ownerRow := &store.UserRow{Login: "rust-lang", Type: "Organization"}
-	if err := st.InsertUser(ctx, ownerRow); err != nil {
-		t.Fatalf("insert owner: %v", err)
-	}
-	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hash := g.Hash
-	if err := st.InsertToken(ctx, &store.TokenRow{
-		UserPK: &ownerRow.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
-		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
-	}); err != nil {
-		t.Fatalf("insert token: %v", err)
-	}
-	repoRow := &store.RepoRow{OwnerPK: ownerRow.PK, Name: "rust", DefaultBranch: "master"}
-	if err := st.InsertRepo(ctx, repoRow); err != nil {
-		t.Fatalf("insert repo: %v", err)
-	}
-
 	// Corpus: nIssues issues + nPRs PRs, each PR with one review and
 	// commentsPerReview inline review comments.
 	epoch := time.Date(2015, 5, 15, 0, 0, 0, 0, time.UTC)
@@ -135,15 +115,33 @@ func TestRustOperators(t *testing.T) {
 			})
 		}
 	}
-	if _, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{}); err != nil {
+	result, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{})
+	if err != nil {
 		t.Fatalf("seed corpus: %v", err)
+	}
+	repoPK := result.RepoPK
+
+	ownerUser, err := st.UserByLogin(ctx, "rust-lang")
+	if err != nil {
+		t.Fatalf("look up owner: %v", err)
+	}
+	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := g.Hash
+	if err := st.InsertToken(ctx, &store.TokenRow{
+		UserPK: &ownerUser.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
+		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
+	}); err != nil {
+		t.Fatalf("insert token: %v", err)
 	}
 
 	// Build a git repository. If GITHOME_SCALE_RUST_GITREPO points at a real
 	// rust mirror, clone it; otherwise build a smoke repo with a synthetic
 	// submodule entry so the submodule rendering path is exercised.
 	gitStore := git.NewStore(t.TempDir())
-	gitDir := gitStore.Dir(repoRow.PK)
+	gitDir := gitStore.Dir(repoPK)
 	if err := os.MkdirAll(filepath.Dir(gitDir), 0o755); err != nil {
 		t.Fatalf("mkdir git shard: %v", err)
 	}

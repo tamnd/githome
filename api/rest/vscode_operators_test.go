@@ -51,26 +51,6 @@ func TestVscodeOperators(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	ownerRow := &store.UserRow{Login: "microsoft", Type: "Organization"}
-	if err := st.InsertUser(ctx, ownerRow); err != nil {
-		t.Fatalf("insert owner: %v", err)
-	}
-	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hash := g.Hash
-	if err := st.InsertToken(ctx, &store.TokenRow{
-		UserPK: &ownerRow.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
-		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
-	}); err != nil {
-		t.Fatalf("insert token: %v", err)
-	}
-	repoRow := &store.RepoRow{OwnerPK: ownerRow.PK, Name: "vscode", DefaultBranch: "main"}
-	if err := st.InsertRepo(ctx, repoRow); err != nil {
-		t.Fatalf("insert repo: %v", err)
-	}
-
 	epoch := time.Date(2015, 4, 1, 0, 0, 0, 0, time.UTC)
 	corpus := realworld.Corpus{
 		Repo: realworld.RepoRef{Owner: "microsoft", Name: "vscode", DefaultBranch: "main"},
@@ -87,12 +67,30 @@ func TestVscodeOperators(t *testing.T) {
 			Labels:    []realworld.Label{{Name: fmt.Sprintf("area/%d", i%10), Color: "0075ca"}},
 		})
 	}
-	if _, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{}); err != nil {
+	result, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{})
+	if err != nil {
 		t.Fatalf("seed corpus: %v", err)
+	}
+	repoPK := result.RepoPK
+
+	ownerUser, err := st.UserByLogin(ctx, "microsoft")
+	if err != nil {
+		t.Fatalf("look up owner: %v", err)
+	}
+	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := g.Hash
+	if err := st.InsertToken(ctx, &store.TokenRow{
+		UserPK: &ownerUser.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
+		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
+	}); err != nil {
+		t.Fatalf("insert token: %v", err)
 	}
 
 	gitStore := git.NewStore(t.TempDir())
-	gitDir := gitStore.Dir(repoRow.PK)
+	gitDir := gitStore.Dir(repoPK)
 	if err := os.MkdirAll(filepath.Dir(gitDir), 0o755); err != nil {
 		t.Fatalf("mkdir git shard: %v", err)
 	}

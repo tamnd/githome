@@ -49,33 +49,13 @@ func TestKubernetesOperators(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	ownerRow := &store.UserRow{Login: "kubernetes", Type: "Organization"}
-	if err := st.InsertUser(ctx, ownerRow); err != nil {
-		t.Fatalf("insert owner: %v", err)
-	}
-	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hash := g.Hash
-	if err := st.InsertToken(ctx, &store.TokenRow{
-		UserPK: &ownerRow.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
-		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
-	}); err != nil {
-		t.Fatalf("insert token: %v", err)
-	}
-	repoRow := &store.RepoRow{OwnerPK: ownerRow.PK, Name: "kubernetes", DefaultBranch: "master"}
-	if err := st.InsertRepo(ctx, repoRow); err != nil {
-		t.Fatalf("insert repo: %v", err)
-	}
-
 	epoch := time.Date(2014, 9, 1, 0, 0, 0, 0, time.UTC)
 
 	// Seed 30 PRs with commit statuses: 10 contexts per head SHA, mixing
 	// success/failure/pending to exercise the combined-status rollup logic.
 	const (
-		nPRs        = 30
-		nContexts   = 10
+		nPRs      = 30
+		nContexts = 10
 	)
 	corpus := realworld.Corpus{
 		Repo: realworld.RepoRef{Owner: "kubernetes", Name: "kubernetes", DefaultBranch: "master"},
@@ -96,7 +76,7 @@ func TestKubernetesOperators(t *testing.T) {
 			Number: int64(i), BaseRef: "master",
 			HeadRef: fmt.Sprintf("feature/%d", i), HeadSHA: headSHA,
 		})
-		for k := 0; k < nContexts; k++ {
+		for k := range nContexts {
 			corpus.CommitStatuses = append(corpus.CommitStatuses, realworld.CommitStatus{
 				SHA:         headSHA,
 				Context:     fmt.Sprintf("ci/prow-job-%d", k),
@@ -106,12 +86,30 @@ func TestKubernetesOperators(t *testing.T) {
 			})
 		}
 	}
-	if _, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{}); err != nil {
+	result, err := realworld.SeedCorpus(ctx, st, &corpus, realworld.ReactorPool{})
+	if err != nil {
 		t.Fatalf("seed corpus: %v", err)
+	}
+	repoPK := result.RepoPK
+
+	ownerUser, err := st.UserByLogin(ctx, "kubernetes")
+	if err != nil {
+		t.Fatalf("look up owner: %v", err)
+	}
+	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := g.Hash
+	if err := st.InsertToken(ctx, &store.TokenRow{
+		UserPK: &ownerUser.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
+		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
+	}); err != nil {
+		t.Fatalf("insert token: %v", err)
 	}
 
 	gitStore := git.NewStore(t.TempDir())
-	gitDir := gitStore.Dir(repoRow.PK)
+	gitDir := gitStore.Dir(repoPK)
 	if err := os.MkdirAll(filepath.Dir(gitDir), 0o755); err != nil {
 		t.Fatalf("mkdir git shard: %v", err)
 	}
@@ -155,7 +153,7 @@ func TestKubernetesOperators(t *testing.T) {
 		}
 	}
 	// Reconcile: count events and deliver_event jobs for this repo.
-	evs, err := st.ListEvents(ctx, store.EventFilter{RepoPK: &repoRow.PK, Limit: 300})
+	evs, err := st.ListEvents(ctx, store.EventFilter{RepoPK: &repoPK, Limit: 300})
 	if err != nil {
 		t.Fatalf("list events: %v", err)
 	}
@@ -177,8 +175,25 @@ func TestKubernetesOperators(t *testing.T) {
 		t.Errorf("event-job-batch-k8s: expected at least %d events, got %d", K, len(evs))
 	}
 
-	// status-rollup-k8s: GET combined status for a PR head with nContexts contexts.
-	headSHA := fmt.Sprintf("%040d", 1) // PR 1's head SHA
+	// status-rollup-k8s: POST nContexts statuses against the smoke git's HEAD
+	// SHA then GET the combined status. We use the real HEAD SHA (resolved via
+	// the git store after the smoke repo is built) so resolveSHA finds the
+	// object in the pack and returns 200 instead of 422.
+	headSHA, headErr := gitStore.RefSHA(ctx, repoPK, "refs/heads/master")
+	if headErr != nil {
+		t.Fatalf("resolve HEAD sha for status rollup: %v", headErr)
+	}
+	statusStates := []string{"success", "failure", "pending"}
+	for k := range nContexts {
+		body := fmt.Sprintf(`{"state":%q,"context":%q,"description":"prow job %d"}`,
+			statusStates[(k)%len(statusStates)], fmt.Sprintf("ci/prow-job-%d", k), k)
+		resp, respBody := authedSend(t, srv,
+			http.MethodPost, fmt.Sprintf("/repos/kubernetes/kubernetes/statuses/%s", headSHA),
+			g.Plaintext, body)
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("create status %d: %d: %s", k, resp.StatusCode, respBody)
+		}
+	}
 	s := time.Now()
 	resp, body := authedGet(t, srv,
 		fmt.Sprintf("/repos/kubernetes/kubernetes/commits/%s/status", headSHA),
@@ -196,10 +211,8 @@ func TestKubernetesOperators(t *testing.T) {
 				realworld.OpRMeta, "commits/{sha}/status", lat.Round(time.Microsecond),
 				mix[realworld.OpRMeta], statusResp.State, len(statusResp.Statuses))
 			if len(statusResp.Statuses) == 0 {
-				t.Error("status-rollup-k8s: combined status has no contexts; status seeding may have failed")
+				t.Error("status-rollup-k8s: combined status has no contexts")
 			}
-			// The expected combined state: failure takes precedence over pending which
-			// takes precedence over success (GitHub combined-status rules).
 			if statusResp.State == "" {
 				t.Error("status-rollup-k8s: combined state is empty")
 			}
