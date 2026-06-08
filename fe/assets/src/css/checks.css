@@ -1,0 +1,145 @@
+/* The checks surface: the commit-checks page and the status tokens it shares with
+   the pull request merge box. The check-state-* color classes are the rendered
+   side of fe/view's StatusToken, so a precomputed token colors the same way on
+   every surface. The success and danger tokens carry a hex fallback because the
+   theme set does not generate them, matching the diff and hook-status rules. */
+
+.check-state {
+  display: inline-flex;
+  align-items: center;
+}
+
+.check-state-success {
+  color: var(--fgColor-success, #1a7f37);
+}
+
+.check-state-danger {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.check-state-pending {
+  color: var(--fgColor-attention, #9a6700);
+}
+
+.check-state-muted {
+  color: var(--fgColor-muted);
+}
+
+/* The in-progress token spins, the one animated state. It degrades to a static
+   glyph when the reader prefers reduced motion. */
+.check-state-spin .octicon {
+  animation: check-spin 1s linear infinite;
+}
+
+@keyframes check-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-state-spin .octicon {
+    animation: none;
+  }
+}
+
+/* The ref line above the rollup, alongside the resolved short sha. */
+.checks-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-weight: 600;
+}
+
+.checks-sha {
+  margin-left: var(--base-size-8);
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* The rollup verdict pill over the list. */
+.checks-rollup {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-12);
+  margin-bottom: var(--base-size-16);
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.checks-section {
+  margin-bottom: var(--base-size-24);
+}
+
+.checks-section-heading {
+  font-size: var(--text-body-size-medium);
+  font-weight: 600;
+  margin-bottom: var(--base-size-8);
+}
+
+.checks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-12);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.check-row:first-child {
+  border-top: 0;
+}
+
+.check-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.check-row-name {
+  font-weight: 600;
+}
+
+.check-row-summary {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.check-row-when {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.check-row-details {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: var(--text-small-size);
+}
+
+/* The merge box's checks line, between the merge state and the reviews line. It
+   reuses the shared check-state color on its icon. */
+.merge-box-checks {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-top: var(--base-size-8);
+}
+
+.merge-box-checks-link {
+  margin-left: auto;
+  font-size: var(--text-small-size);
+}
