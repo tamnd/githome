@@ -16,7 +16,7 @@ Two notes that apply to all methods:
 
 ## Contents
 
-- [Homebrew (macOS, Linux)](#homebrew-macos-linux)
+- [Homebrew (macOS)](#homebrew-macos)
 - [Scoop / winget (Windows)](#scoop--winget-windows)
 - [Debian / Ubuntu (.deb)](#debian--ubuntu-deb)
 - [Fedora / RHEL / openSUSE (.rpm)](#fedora--rhel--opensuse-rpm)
@@ -29,11 +29,14 @@ Two notes that apply to all methods:
 - [Configuration](#configuration)
 - [For maintainers: wiring up each package manager](#for-maintainers-wiring-up-each-package-manager)
 
-## Homebrew (macOS, Linux)
+## Homebrew (macOS)
 
 ```sh
 brew install tamnd/tap/githome
 ```
+
+Githome ships as a Homebrew cask, which is macOS-only. On Linux, use the deb,
+rpm or apk package, the container image, or `go install`.
 
 ## Scoop / winget (Windows)
 

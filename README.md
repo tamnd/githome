@@ -65,7 +65,7 @@ as Linux packages (deb, rpm, apk), and as a multi-arch container image. The
 common paths:
 
 ```sh
-brew install tamnd/tap/githome                       # macOS, Linux
+brew install tamnd/tap/githome                       # macOS
 docker pull ghcr.io/tamnd/githome:latest             # container
 go install github.com/tamnd/githome/cmd/githome@latest  # from source
 ```
