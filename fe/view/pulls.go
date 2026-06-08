@@ -194,7 +194,7 @@ type PRShellVM struct {
 type PRConversationVM struct {
 	Chrome    Chrome
 	Shell     PRShellVM
-	Timeline  []CommentVM
+	Timeline  []PRTimelineItem
 	Composer  ComposerVM
 	Reactions ReactionsVM
 	MergeBox  MergeBoxVM
@@ -237,7 +237,8 @@ type PRFilesVM struct {
 	Additions    int
 	Deletions    int
 	Files        []DiffFileVM
-	Truncated    bool // true when the file list was capped, logged by the handler
+	Truncated    bool            // true when the file list was capped, logged by the handler
+	Review       ReviewSurfaceVM // the inline-comment and review-verdict context (F5)
 }
 
 // MergeBoxState is the visual state of the merge box, derived once from the cached
