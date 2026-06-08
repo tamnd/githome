@@ -91,3 +91,49 @@ func PullMerge(owner, name string, number int64) string {
 func PullMergeBox(owner, name string, number int64) string {
 	return Pull(owner, name, number) + "/partials/merge-box"
 }
+
+// The review-surface builders below name the code-review endpoints (F5). The inline
+// thread machinery lives under the singular /pull/{number} prefix so it shares the
+// PR's resolve and 404 gate; the anchors point at the Files tab where the threads
+// render, the same place github.com anchors a discussion comment.
+
+// PullReviewComments is the new-inline-comment POST target,
+// /{owner}/{repo}/pull/{number}/review-comments. The form carries the anchor
+// (path, side, line) and the head commit id the comment pins to; the domain
+// validates the anchor against that commit's diff.
+func PullReviewComments(owner, name string, number int64) string {
+	return Pull(owner, name, number) + "/review-comments"
+}
+
+// PullReviewReply is the reply POST target for an existing thread,
+// /{owner}/{repo}/pull/{number}/review-comments/{root}/replies, where root is the
+// thread's first comment.
+func PullReviewReply(owner, name string, number, rootID int64) string {
+	return Pull(owner, name, number) + "/review-comments/" + strconv.FormatInt(rootID, 10) + "/replies"
+}
+
+// PullReviewThreadResolve is the resolve/unresolve toggle POST target for a thread,
+// /{owner}/{repo}/pull/{number}/review-threads/{root}/resolve. The handler reads the
+// thread's current state and flips it, so the one endpoint resolves and unresolves.
+func PullReviewThreadResolve(owner, name string, number, rootID int64) string {
+	return Pull(owner, name, number) + "/review-threads/" + strconv.FormatInt(rootID, 10) + "/resolve"
+}
+
+// PullReviews is the submit-a-review POST target,
+// /{owner}/{repo}/pull/{number}/reviews. The form carries the verdict event
+// (approve, request changes, comment) and an optional body.
+func PullReviews(owner, name string, number int64) string {
+	return Pull(owner, name, number) + "/reviews"
+}
+
+// PullReviewComment is the permalink to an inline review comment on the Files tab,
+// /{owner}/{repo}/pull/{number}/files#discussion_r{id}.
+func PullReviewComment(owner, name string, number, commentID int64) string {
+	return PullFiles(owner, name, number) + "#discussion_r" + strconv.FormatInt(commentID, 10)
+}
+
+// PullReviewSummary is the permalink to a submitted review in the Conversation
+// timeline, /{owner}/{repo}/pull/{number}#pullrequestreview-{id}.
+func PullReviewSummary(owner, name string, number, reviewID int64) string {
+	return Pull(owner, name, number) + "#pullrequestreview-" + strconv.FormatInt(reviewID, 10)
+}
