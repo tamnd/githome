@@ -238,6 +238,7 @@ type CommitRowVM struct {
 	AuthorEmail string
 	When        string
 	BrowseURL   string // tree at this commit
+	CommitURL   string // single-commit detail
 }
 
 // BranchesVM is the branch overview: the default branch first, then the rest.
@@ -293,4 +294,54 @@ type FileFinderVM struct {
 type FinderEntry struct {
 	Path string
 	URL  string
+}
+
+// BlameLineVM is one annotated source line in the blame view. NewGroup is true
+// when this line opens a new commit hunk, which the template uses to show the
+// commit metadata once per group rather than repeating it on every line.
+type BlameLineVM struct {
+	LineNum    int
+	Text       string // raw source text (HTML-escaped in template)
+	SHA        string
+	ShortSHA   string // first 7 chars
+	AuthorName string
+	When       string // human-readable date e.g. "Jan 2, 2006"
+	CommitURL  string
+	NewGroup   bool // true when this line starts a new commit group
+}
+
+// BlameVM is the line-by-line blame view: every source line annotated with the
+// commit that last changed it. BlobURL links back to the normal blob view.
+type BlameVM struct {
+	Chrome  Chrome
+	Header  RepoHeaderVM
+	Nav     TreeNav
+	Repo    RepoRef
+	Ref     Ref
+	Path    string
+	Lines   []BlameLineVM
+	BlobURL string // link back to the blob view
+}
+
+// CommitVM is the single-commit view: the commit metadata, parent links, and
+// the rendered unified diff.
+type CommitVM struct {
+	Chrome      Chrome
+	Header      RepoHeaderVM
+	Nav         TreeNav
+	Repo        RepoRef
+	SHA         string
+	ShortSHA    string
+	Title       string
+	Body        string
+	AuthorName  string
+	AuthorEmail string
+	When        string
+	ParentSHAs  []string   // short SHAs; empty for the initial commit
+	ParentURLs  []string   // tree browse URL for each parent
+	Diff        string     // rendered HTML from the markup pipeline; empty = initial commit
+	RawPatch    string     // raw unified-diff text, rendered only if Diff is empty
+	FilesCount  int        // number of files changed
+	CommitsURL  string     // back link to the history page
+	TreeURL     string     // tree at this commit
 }

@@ -30,7 +30,9 @@ func (h *Handlers) Commits(c *mizu.Ctx) error {
 
 	ref, path := h.commitsRef(repo, c.Param("rest"))
 	if ref == "" {
-		return h.notFound(c)
+		// Empty repo or unknown ref: redirect to the repo home which shows the
+		// quick-setup guide when there are no commits.
+		return c.Redirect(303, route.Repo(ownerLogin(repo), repo.Name))
 	}
 
 	commits, err := h.repos.ListCommits(repo, git.LogOpts{From: ref, Path: path, Max: commitsPerPage})
@@ -93,6 +95,7 @@ func groupCommitsByDate(repo *domain.Repo, commits []git.Commit) []view.CommitDa
 			AuthorEmail: c.Author.Email,
 			When:        c.Author.When.UTC().Format("Jan 2, 2006"),
 			BrowseURL:   route.Tree(owner, repo.Name, c.SHA, ""),
+			CommitURL:   route.Commit(owner, repo.Name, c.SHA),
 		})
 	}
 	return groups

@@ -24,6 +24,11 @@ type Store struct {
 	// and ObjectType lookups, eliminating per-call spawn overhead on hot repos.
 	pool  *catFilePool
 	cache *objCache
+
+	// overrides maps pk to an explicit filesystem path, bypassing the normal
+	// root/{shard}/{pk}.git layout. Used by browse mode to point at an
+	// arbitrary local repository without a managed tree.
+	overrides map[int64]string
 }
 
 // defaultMaxBlobBytes is the blob size ceiling a fresh Store applies until the
@@ -57,10 +62,24 @@ func (s *Store) SetGitBin(bin string) {
 	s.pool = newCatFilePool(s.bin(), 64)
 }
 
+// RegisterPath registers an explicit filesystem path for pk, overriding the
+// normal root/{shard}/{pk}.git layout. Used by browse mode to serve an
+// arbitrary local repository without a managed data tree. Set before the server
+// starts; not safe to call concurrently with Open or Dir.
+func (s *Store) RegisterPath(pk int64, path string) {
+	if s.overrides == nil {
+		s.overrides = make(map[int64]string)
+	}
+	s.overrides[pk] = path
+}
+
 // Dir returns the on-disk path of the bare repository for pk. Repositories are
 // sharded by pk%256 to keep any single directory from holding the whole fleet:
 // root/{pk%256}/{pk}.git.
 func (s *Store) Dir(pk int64) string {
+	if p, ok := s.overrides[pk]; ok {
+		return p
+	}
 	shard := strconv.FormatInt(pk%256, 10)
 	return filepath.Join(s.root, shard, strconv.FormatInt(pk, 10)+".git")
 }
@@ -68,7 +87,16 @@ func (s *Store) Dir(pk int64) string {
 // Open opens the bare repository for pk for reading. It returns ErrRepoNotFound
 // when no repository exists at the resolved path.
 func (s *Store) Open(pk int64) (*Repo, error) {
-	r, err := gogit.PlainOpen(s.Dir(pk))
+	dir := s.Dir(pk)
+	_, overridden := s.overrides[pk]
+	var r *gogit.Repository
+	var err error
+	if overridden {
+		// User-supplied path may be a working tree; detect the .git subdirectory.
+		r, err = gogit.PlainOpenWithOptions(dir, &gogit.PlainOpenOptions{DetectDotGit: true})
+	} else {
+		r, err = gogit.PlainOpen(dir)
+	}
 	if err != nil {
 		return nil, ErrRepoNotFound
 	}

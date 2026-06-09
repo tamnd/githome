@@ -57,6 +57,58 @@ func (s *Store) InsertUser(ctx context.Context, u *UserRow) error {
 	return nil
 }
 
+// UserLoginExists reports whether a user with the given login exists and is
+// not soft-deleted. Used by the join form to check for duplicate usernames
+// before attempting to insert.
+func (s *Store) UserLoginExists(ctx context.Context, login string) (bool, error) {
+	var n int
+	q := s.rebind(`SELECT COUNT(*) FROM users WHERE lower(login) = lower(?) AND deleted_at IS NULL`)
+	if err := s.db.QueryRowContext(ctx, q, login).Scan(&n); err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// PasswordHashFor returns the stored bcrypt hash for the given login, or ("", ErrNotFound)
+// when the user does not exist. The caller compares it with bcrypt.CompareHashAndPassword.
+func (s *Store) PasswordHashFor(ctx context.Context, login string) (pk int64, hash string, err error) {
+	q := s.rebind(`SELECT pk, COALESCE(password_hash,'') FROM users
+		WHERE lower(login) = lower(?) AND deleted_at IS NULL`)
+	err = s.db.QueryRowContext(ctx, q, login).Scan(&pk, &hash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, "", ErrNotFound
+	}
+	return pk, hash, err
+}
+
+// SetPasswordHash writes a new bcrypt hash for the given user pk. It is called
+// on account creation and password change; it never reads the old hash.
+func (s *Store) SetPasswordHash(ctx context.Context, userPK int64, hash string) error {
+	q := s.rebind(`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE pk = ?`)
+	_, err := s.db.ExecContext(ctx, q, hash, userPK)
+	return err
+}
+
+// InsertUserWithPassword creates a new user account with the given login, email,
+// and bcrypt password hash in one transaction. It returns the new user's PK.
+// Used by the web sign-up flow; fe/web/auth calls it through the PasswordStore
+// interface so it never imports store directly.
+func (s *Store) InsertUserWithPassword(ctx context.Context, login, email, hash string) (int64, error) {
+	var pk int64
+	err := s.WithTx(ctx, func(tx *Tx) error {
+		dbID, err := tx.allocDBID(ctx)
+		if err != nil {
+			return err
+		}
+		q := tx.rebind(`INSERT INTO users
+			(db_id, login, type, email, password_hash)
+			VALUES (?, ?, 'User', ?, ?)
+			RETURNING pk`)
+		return tx.tx.QueryRowContext(ctx, q, dbID, login, email, hash).Scan(&pk)
+	})
+	return pk, err
+}
+
 // scanUser maps one users row into a UserRow, absorbing the dialect differences
 // for nullable text, the boolean flags, and timestamps.
 func scanUser(row interface{ Scan(...any) error }) (*UserRow, error) {

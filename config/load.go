@@ -2,9 +2,11 @@ package config
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -30,10 +32,30 @@ func Load() (Config, error) {
 	if err := c.resolveURLs(); err != nil {
 		return Config{}, err
 	}
+	fillSecrets(&c)
 	if err := c.Validate(); err != nil {
 		return Config{}, err
 	}
 	return c, nil
+}
+
+// fillSecrets generates random values for any secret that was not set by the
+// environment. The generated keys are ephemeral: sessions and tokens will not
+// survive a restart. The server logs a warning for each missing secret so an
+// operator running in production can supply stable values.
+func fillSecrets(c *Config) {
+	if len(c.Secrets.SessionKey) == 0 {
+		slog.Warn("GITHOME_SESSION_KEY not set; using a random ephemeral key (sessions will not survive restarts)")
+		k := make([]byte, 32)
+		_, _ = rand.Read(k)
+		c.Secrets.SessionKey = k
+	}
+	if len(c.Secrets.TokenPepper) == 0 {
+		slog.Warn("GITHOME_TOKEN_PEPPER not set; using a random ephemeral pepper (personal access tokens will not survive restarts)")
+		k := make([]byte, 16)
+		_, _ = rand.Read(k)
+		c.Secrets.TokenPepper = k
+	}
 }
 
 // applyEnv overwrites a field only when its variable is set, so an unset

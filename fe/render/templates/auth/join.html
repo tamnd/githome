@@ -1,0 +1,48 @@
+{{define "content" -}}
+{{/* The data is AuthJoinVM. Account creation form. Anonymous only. */ -}}
+<div class="auth-page">
+  <div class="auth-box">
+    <a class="auth-logo" href="/">
+      {{octicon "mark-github" 48}}
+    </a>
+    <h1 class="auth-title">Create your account</h1>
+
+    {{if .Error -}}
+    <div class="flash flash-error">{{.Error}}</div>
+    {{- end}}
+
+    <form class="auth-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+      <div class="auth-field">
+        <label class="auth-label" for="login">Username</label>
+        <input class="input" id="login" name="login" type="text"
+               value="{{.LoginValue}}" autocomplete="username" autofocus required
+               pattern="[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9]|[a-zA-Z0-9]"
+               title="Username may only contain alphanumeric characters or hyphens and cannot begin or end with a hyphen">
+        {{if .LoginError -}}<p class="auth-field-error">{{.LoginError}}</p>{{- end}}
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-label" for="email">Email address</label>
+        <input class="input" id="email" name="email" type="email"
+               value="{{.EmailValue}}" autocomplete="email" required>
+        {{if .EmailError -}}<p class="auth-field-error">{{.EmailError}}</p>{{- end}}
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-label" for="password">Password</label>
+        <input class="input" id="password" name="password" type="password"
+               autocomplete="new-password" minlength="8" required>
+        <p class="auth-field-hint">Use 8 or more characters.</p>
+      </div>
+
+      <button class="btn btn-primary auth-submit" type="submit">Create account</button>
+    </form>
+
+    <p class="auth-signup-link">
+      Already have an account? <a href="/login">Sign in</a>.
+    </p>
+  </div>
+</div>
+{{- end}}

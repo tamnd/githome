@@ -1,0 +1,52 @@
+{{define "content" -}}
+{{/* The data is CommitVM. Renders the single-commit view: commit header (title,
+     body, author, SHA, parents), file-changed count, and the unified diff patch
+     in a scrollable code block. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="commit-detail">
+    <div class="commit-detail-header">
+      <h1 class="commit-detail-title">{{.Title}}</h1>
+      {{if .Body}}<pre class="commit-detail-body">{{.Body}}</pre>{{end}}
+      <div class="commit-detail-meta">
+        <span class="commit-author-name">{{.AuthorName}}</span>
+        committed
+        <span class="commit-detail-date">{{.When}}</span>
+      </div>
+    </div>
+    <div class="commit-detail-aside">
+      <div class="commit-detail-sha">
+        <span class="commit-sha-label">commit</span>
+        <code class="commit-sha-full">{{.SHA}}</code>
+      </div>
+      {{if .ParentSHAs -}}
+      <div class="commit-detail-parents">
+        <span class="commit-sha-label">{{if eq (len .ParentSHAs) 1}}parent{{else}}parents{{end}}</span>
+        {{range $i, $sha := .ParentSHAs -}}
+        <a class="commit-sha-link" href="{{index $.ParentURLs $i}}">{{$sha}}</a>
+        {{- end}}
+      </div>
+      {{- end}}
+      {{if .FilesCount -}}
+      <p class="commit-detail-files-count">
+        {{octicon "file-diff" 16}} {{.FilesCount}} {{if eq .FilesCount 1}}file changed{{else}}files changed{{end}}
+      </p>
+      {{- end}}
+      <a class="btn btn-sm commit-browse-btn" href="{{.TreeURL}}">
+        {{octicon "code" 16}} Browse files
+      </a>
+    </div>
+  </div>
+
+  {{if .RawPatch -}}
+  <div class="commit-diff">
+    <pre class="commit-patch highlight"><code>{{.RawPatch}}</code></pre>
+  </div>
+  {{- else -}}
+  <div class="blankslate">
+    {{octicon "git-commit" 32}}
+    <p class="blankslate-text">Initial commit — no diff to show.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

@@ -1,0 +1,19 @@
+{{define "content" -}}
+{{/* The data is AuthLogoutVM. A confirm-and-post sign-out page. Requires a
+     session; an anonymous request is redirected to the home page. */ -}}
+<div class="auth-page">
+  <div class="auth-box">
+    <a class="auth-logo" href="/">
+      {{octicon "mark-github" 48}}
+    </a>
+    <h1 class="auth-title">Sign out of Githome?</h1>
+
+    <form class="auth-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+      <button class="btn btn-primary auth-submit" type="submit">Sign out</button>
+    </form>
+
+    <p class="auth-signup-link"><a href="/">Cancel</a></p>
+  </div>
+</div>
+{{- end}}

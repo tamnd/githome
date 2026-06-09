@@ -8,6 +8,7 @@
 package fe
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
@@ -30,6 +32,15 @@ import (
 	"github.com/tamnd/githome/presenter"
 )
 
+// AuthPwStore is the narrow password-auth interface the auth handlers need.
+// The concrete *store.Store satisfies it; cmd/githome passes the store directly
+// since it already imports store. fe/mount never imports store directly (doc 01 §6).
+type AuthPwStore interface {
+	PasswordHashFor(ctx context.Context, login string) (pk int64, hash string, err error)
+	InsertUserWithPassword(ctx context.Context, login, email, hash string) (int64, error)
+	UserLoginExists(ctx context.Context, login string) (bool, error)
+}
+
 // Deps are the web front's dependencies. F0 needs the render set, the view
 // builder, and the three stateful middleware (session, CSRF, flash) plus a
 // logger. F1 adds the domain repo service and the presenter URL builder its
@@ -37,24 +48,29 @@ import (
 // mirroring how the REST surface mounts. F2 adds the shared markup renderer the
 // README and Markdown blob views render through; a nil renderer falls back to
 // the escaped-source view, so the front still serves with markup unconfigured.
+// Auth (added F1) is the password store the sign-in/join routes need; nil leaves
+// those routes unmounted. HomeHandler overrides the default landing page; browse
+// mode uses it to redirect straight to the repository root.
 type Deps struct {
-	Render   *render.Set
-	View     *view.Builder
-	Repos    *domain.RepoService
-	Hooks    *domain.HookService
-	Checks   *domain.ChecksService
-	Issues   *domain.IssueService
-	Pulls    *domain.PRService
-	Reviews  *domain.ReviewService
-	Search   *domain.SearchService
-	Users    *domain.UserService
-	Events   *domain.EventService
-	URLs     *presenter.URLBuilder
-	Markup   *markup.Renderer
-	Sessions *webmw.Sessions
-	CSRF     *webmw.CSRF
-	Flash    *webmw.Flash
-	Logger   *slog.Logger
+	Render      *render.Set
+	View        *view.Builder
+	Auth        AuthPwStore
+	Repos       *domain.RepoService
+	Hooks       *domain.HookService
+	Checks      *domain.ChecksService
+	Issues      *domain.IssueService
+	Pulls       *domain.PRService
+	Reviews     *domain.ReviewService
+	Search      *domain.SearchService
+	Users       *domain.UserService
+	Events      *domain.EventService
+	URLs        *presenter.URLBuilder
+	Markup      *markup.Renderer
+	Sessions    *webmw.Sessions
+	CSRF        *webmw.CSRF
+	Flash       *webmw.Flash
+	Logger      *slog.Logger
+	HomeHandler mizu.Handler // optional: overrides the default landing page
 }
 
 // Mount registers the web front's dynamic routes on root and returns the
@@ -75,18 +91,25 @@ type Deps struct {
 func Mount(root *mizu.Router, d Deps) http.Handler {
 	page := root.With(
 		webmw.Recover(d.Render, d.Logger),
+		webmw.SecureHeaders(),
 		d.Sessions.Middleware(),
 		webmw.ColorMode(),
 		d.CSRF.Middleware(),
 		d.Flash.Middleware(),
 	)
-	page.Get("/{$}", handleHome(d))
+	if d.HomeHandler != nil {
+		page.Get("/{$}", d.HomeHandler)
+	} else {
+		page.Get("/{$}", handleHome(d))
+	}
 
+	mountAuth(page, d)
 	mountRepo(page, d)
 	mountChecks(page, d)
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountNotifications(page, d)
 	mountRepoSettings(page, d)
 	mountSettings(page, d)
 	mountProfile(page, d)
@@ -137,9 +160,11 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}", rh.Home)
 	rg.Get("/{owner}/{repo}/tree/{rest...}", rh.Tree)
 	rg.Get("/{owner}/{repo}/blob/{rest...}", rh.Blob)
+	rg.Get("/{owner}/{repo}/blame/{rest...}", rh.Blame)
 	rg.Get("/{owner}/{repo}/raw/{rest...}", rh.Raw)
 	rg.Get("/{owner}/{repo}/commits", rh.Commits)
 	rg.Get("/{owner}/{repo}/commits/{rest...}", rh.Commits)
+	rg.Get("/{owner}/{repo}/commit/{sha}", rh.Commit)
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
@@ -374,6 +399,45 @@ func mountProfile(page *mizu.Router, d Deps) {
 	})
 	pg := page.With(ph.Resolve)
 	pg.Get("/{owner}", ph.Show)
+}
+
+// mountAuth registers the web auth routes: /login (GET + POST /login/session),
+// /join (GET + POST /join), and /logout (GET + POST /logout/session). The auth
+// store is the gate: with no Auth service the routes stay unmounted and those
+// paths 404. This is F1. See implementation/06.
+func mountAuth(page *mizu.Router, d Deps) {
+	if d.Auth == nil {
+		return
+	}
+	ah := webauth.New(webauth.Deps{
+		Store:    d.Auth,
+		Sessions: d.Sessions,
+		View:     d.View,
+		Render:   d.Render,
+		Logger:   d.Logger,
+	})
+	page.Get("/login", ah.LoginForm)
+	page.Post("/login/session", ah.LoginSubmit)
+	page.Get("/join", ah.JoinForm)
+	page.Post("/join", ah.JoinSubmit)
+	page.Get("/logout", ah.LogoutForm)
+	page.Post("/logout/session", ah.LogoutSubmit)
+}
+
+// mountNotifications registers the /notifications inbox route. The inbox is gated
+// to the signed-in viewer (an anonymous request gets a 404 just like any resource
+// the viewer has no right to see), so the route exists unconditionally but
+// renders the empty inbox when the notifications domain layer is not yet backed.
+// The /notifications literal is a reserved top-level name (fe/route), so it is
+// registered before the profile catch-all and is never read as a login. See
+// implementation/12 section 3.
+func mountNotifications(page *mizu.Router, d Deps) {
+	page.Get("/notifications", func(c *mizu.Ctx) error {
+		if view.ViewerFrom(c.Context()) == nil {
+			return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
+		}
+		return d.Render.Page(c, "notifications/index", d.View.Notifications(c))
+	})
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

@@ -1,0 +1,86 @@
+/*
+ * Auth sheet: the sign-in, sign-up, and sign-out pages. A centered box with the
+ * logo, title, form, and a link to the other auth page. No sidebar, no header
+ * nav chrome — the page-main container centers the box. See implementation/06.
+ */
+
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding: var(--base-size-32) var(--base-size-16);
+}
+
+.auth-box {
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-logo {
+  display: block;
+  text-align: center;
+  margin-bottom: var(--base-size-16);
+  color: var(--fgColor-default);
+}
+
+.auth-logo:hover {
+  color: var(--fgColor-accent);
+  text-decoration: none;
+}
+
+.auth-title {
+  margin-bottom: var(--base-size-16);
+  font-size: var(--text-title-size-medium, 24px);
+  font-weight: 300;
+  text-align: center;
+  color: var(--fgColor-default);
+}
+
+.auth-form {
+  padding: var(--base-size-24);
+  margin-bottom: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.auth-field {
+  margin-bottom: var(--base-size-16);
+}
+
+.auth-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--base-size-4);
+  font-weight: 600;
+  font-size: var(--text-small-size);
+}
+
+.auth-label-link {
+  font-weight: 400;
+  font-size: var(--text-small-size);
+}
+
+.auth-field-error {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-danger);
+}
+
+.auth-field-hint {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-signup-link {
+  padding: var(--base-size-16);
+  font-size: var(--text-small-size);
+  text-align: center;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}

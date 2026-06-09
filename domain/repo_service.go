@@ -360,3 +360,33 @@ func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 		UpdatedAt:       r.UpdatedAt,
 	}
 }
+
+// Blame returns every source line of path at ref annotated with the commit
+// that last changed it. It returns ErrGitNotFound when the path does not exist
+// at the ref, and ErrEmptyRepo when the repository has no commits.
+func (s *RepoService) Blame(repo *Repo, ref, path string) ([]git.BlameLine, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	lines, err := gr.Blame(ref, path)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return lines, nil
+}
+
+// CommitPatch returns the unified diff patch of sha against its first parent.
+// For the initial commit (no parents) it returns an empty string. The caller
+// renders it through the markup pipeline as a diff block.
+func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return "", gitErr(err)
+	}
+	patch, err := gr.CommitPatch(sha)
+	if err != nil {
+		return "", gitErr(err)
+	}
+	return patch, nil
+}
