@@ -172,7 +172,7 @@ func run() error {
 	// dynamic route back to root, where the APIs and git transport also sit.
 	var handler http.Handler = root
 	if cfg.Web.Enabled {
-		webHandler, err := mountWeb(root, cfg, logger, userSvc, repoSvc, hookSvc, checksSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls)
+		webHandler, err := mountWeb(root, cfg, logger, st, userSvc, repoSvc, hookSvc, checksSvc, issueSvc, pullSvc, reviewSvc, searchSvc, eventSvc, urls)
 		if err != nil {
 			return fmt.Errorf("web front: %w", err)
 		}
@@ -221,7 +221,7 @@ func run() error {
 // mounts it on root. The viewer lookup adapts the user service to the front's
 // Viewer model; a user the session names but the store no longer has resolves to
 // anonymous, not an error, so a stale session cookie degrades gracefully.
-func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, checks *domain.ChecksService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) (http.Handler, error) {
+func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, st *store.Store, users *domain.UserService, repos *domain.RepoService, hooks *domain.HookService, checks *domain.ChecksService, issues *domain.IssueService, pulls *domain.PRService, reviews *domain.ReviewService, search *domain.SearchService, events *domain.EventService, urls *presenter.URLBuilder) (http.Handler, error) {
 	renderSet, err := render.New(assets.FS(), assets.Dev())
 	if err != nil {
 		return nil, err
@@ -258,6 +258,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, users *
 	return fe.Mount(root, fe.Deps{
 		Render:   renderSet,
 		View:     view.NewBuilder(cfg.Web.SiteName),
+		Auth:     st,
 		Repos:    repos,
 		Hooks:    hooks,
 		Checks:   checks,

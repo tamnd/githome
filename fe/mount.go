@@ -8,6 +8,7 @@
 package fe
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
@@ -30,6 +32,15 @@ import (
 	"github.com/tamnd/githome/presenter"
 )
 
+// AuthPwStore is the narrow password-auth interface the auth handlers need.
+// The concrete *store.Store satisfies it; cmd/githome passes the store directly
+// since it already imports store. fe/mount never imports store directly (doc 01 §6).
+type AuthPwStore interface {
+	PasswordHashFor(ctx context.Context, login string) (pk int64, hash string, err error)
+	InsertUserWithPassword(ctx context.Context, login, email, hash string) (int64, error)
+	UserLoginExists(ctx context.Context, login string) (bool, error)
+}
+
 // Deps are the web front's dependencies. F0 needs the render set, the view
 // builder, and the three stateful middleware (session, CSRF, flash) plus a
 // logger. F1 adds the domain repo service and the presenter URL builder its
@@ -37,9 +48,12 @@ import (
 // mirroring how the REST surface mounts. F2 adds the shared markup renderer the
 // README and Markdown blob views render through; a nil renderer falls back to
 // the escaped-source view, so the front still serves with markup unconfigured.
+// Auth (added F1) is the password store the sign-in/join routes need; nil leaves
+// those routes unmounted.
 type Deps struct {
 	Render   *render.Set
 	View     *view.Builder
+	Auth     AuthPwStore
 	Repos    *domain.RepoService
 	Hooks    *domain.HookService
 	Checks   *domain.ChecksService
@@ -82,6 +96,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	)
 	page.Get("/{$}", handleHome(d))
 
+	mountAuth(page, d)
 	mountRepo(page, d)
 	mountChecks(page, d)
 	mountIssues(page, d)
@@ -374,6 +389,29 @@ func mountProfile(page *mizu.Router, d Deps) {
 	})
 	pg := page.With(ph.Resolve)
 	pg.Get("/{owner}", ph.Show)
+}
+
+// mountAuth registers the web auth routes: /login (GET + POST /login/session),
+// /join (GET + POST /join), and /logout (GET + POST /logout/session). The auth
+// store is the gate: with no Auth service the routes stay unmounted and those
+// paths 404. This is F1. See implementation/06.
+func mountAuth(page *mizu.Router, d Deps) {
+	if d.Auth == nil {
+		return
+	}
+	ah := webauth.New(webauth.Deps{
+		Store:    d.Auth,
+		Sessions: d.Sessions,
+		View:     d.View,
+		Render:   d.Render,
+		Logger:   d.Logger,
+	})
+	page.Get("/login", ah.LoginForm)
+	page.Post("/login/session", ah.LoginSubmit)
+	page.Get("/join", ah.JoinForm)
+	page.Post("/join", ah.JoinSubmit)
+	page.Get("/logout", ah.LogoutForm)
+	page.Post("/logout/session", ah.LogoutSubmit)
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard
