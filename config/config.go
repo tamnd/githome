@@ -132,7 +132,7 @@ func (c Config) RepoRoot() string { return c.DataDir + "/repos" }
 func defaults() Config {
 	return Config{
 		Listen:          Listen{HTTP: ":3000", SSH: ":2222"},
-		DataDir:         "/data",
+		DataDir:         "./data",
 		DBPoolSize:      25,
 		GitBackend:      "auto",
 		ShutdownTimeout: 30 * time.Second,

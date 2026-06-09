@@ -39,7 +39,7 @@ func TestLoadDerivesURLs(t *testing.T) {
 	if c.URLs.SSHPort != 22 {
 		t.Errorf("SSH port should default to 22, got %d", c.URLs.SSHPort)
 	}
-	if c.RepoRoot() != "/data/repos" {
+	if c.RepoRoot() != "/data/repos" { // test sets GITHOME_DATA_DIR=/data explicitly
 		t.Errorf("RepoRoot = %q", c.RepoRoot())
 	}
 }
@@ -92,11 +92,15 @@ func TestValidateRejectsBadGitBackend(t *testing.T) {
 	}
 }
 
-func TestMissingHTMLBaseIsRejected(t *testing.T) {
+func TestMissingHTMLBaseDerivedFromPort(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("GITHOME_HTML_BASE_URL", "")
-	_, err := Load()
-	if err == nil || !strings.Contains(err.Error(), "GITHOME_HTML_BASE_URL") {
-		t.Fatalf("expected required-HTML-base error, got %v", err)
+	t.Setenv("GITHOME_LISTEN_HTTP", ":8080")
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load without HTML base: %v", err)
+	}
+	if got := c.URLs.HTML.String(); got != "http://localhost:8080" {
+		t.Errorf("derived HTML base = %q, want http://localhost:8080", got)
 	}
 }

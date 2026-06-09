@@ -46,6 +46,16 @@ import (
 )
 
 func main() {
+	// "githome browse <path>" is a zero-config subcommand that does not use the
+	// normal config loader. Route it before flag.Parse so its own flags are not
+	// mixed with the top-level ones.
+	if len(os.Args) >= 2 && os.Args[1] == "browse" {
+		if err := runBrowse(os.Args[2:]); err != nil {
+			slog.Error("fatal", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
