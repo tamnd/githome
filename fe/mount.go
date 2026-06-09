@@ -49,26 +49,28 @@ type AuthPwStore interface {
 // README and Markdown blob views render through; a nil renderer falls back to
 // the escaped-source view, so the front still serves with markup unconfigured.
 // Auth (added F1) is the password store the sign-in/join routes need; nil leaves
-// those routes unmounted.
+// those routes unmounted. HomeHandler overrides the default landing page; browse
+// mode uses it to redirect straight to the repository root.
 type Deps struct {
-	Render   *render.Set
-	View     *view.Builder
-	Auth     AuthPwStore
-	Repos    *domain.RepoService
-	Hooks    *domain.HookService
-	Checks   *domain.ChecksService
-	Issues   *domain.IssueService
-	Pulls    *domain.PRService
-	Reviews  *domain.ReviewService
-	Search   *domain.SearchService
-	Users    *domain.UserService
-	Events   *domain.EventService
-	URLs     *presenter.URLBuilder
-	Markup   *markup.Renderer
-	Sessions *webmw.Sessions
-	CSRF     *webmw.CSRF
-	Flash    *webmw.Flash
-	Logger   *slog.Logger
+	Render      *render.Set
+	View        *view.Builder
+	Auth        AuthPwStore
+	Repos       *domain.RepoService
+	Hooks       *domain.HookService
+	Checks      *domain.ChecksService
+	Issues      *domain.IssueService
+	Pulls       *domain.PRService
+	Reviews     *domain.ReviewService
+	Search      *domain.SearchService
+	Users       *domain.UserService
+	Events      *domain.EventService
+	URLs        *presenter.URLBuilder
+	Markup      *markup.Renderer
+	Sessions    *webmw.Sessions
+	CSRF        *webmw.CSRF
+	Flash       *webmw.Flash
+	Logger      *slog.Logger
+	HomeHandler mizu.Handler // optional: overrides the default landing page
 }
 
 // Mount registers the web front's dynamic routes on root and returns the
@@ -94,7 +96,11 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 		d.CSRF.Middleware(),
 		d.Flash.Middleware(),
 	)
-	page.Get("/{$}", handleHome(d))
+	if d.HomeHandler != nil {
+		page.Get("/{$}", d.HomeHandler)
+	} else {
+		page.Get("/{$}", handleHome(d))
+	}
 
 	mountAuth(page, d)
 	mountRepo(page, d)
@@ -155,6 +161,7 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/raw/{rest...}", rh.Raw)
 	rg.Get("/{owner}/{repo}/commits", rh.Commits)
 	rg.Get("/{owner}/{repo}/commits/{rest...}", rh.Commits)
+	rg.Get("/{owner}/{repo}/commit/{sha}", rh.Commit)
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)

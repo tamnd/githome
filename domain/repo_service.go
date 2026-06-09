@@ -360,3 +360,18 @@ func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 		UpdatedAt:       r.UpdatedAt,
 	}
 }
+
+// CommitPatch returns the unified diff patch of sha against its first parent.
+// For the initial commit (no parents) it returns an empty string. The caller
+// renders it through the markup pipeline as a diff block.
+func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return "", gitErr(err)
+	}
+	patch, err := gr.CommitPatch(sha)
+	if err != nil {
+		return "", gitErr(err)
+	}
+	return patch, nil
+}

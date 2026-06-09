@@ -23,12 +23,13 @@
 /* Application header. */
 .AppHeader {
   padding: var(--base-size-8) var(--base-size-16);
-  color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-emphasis);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-default);
+  border-bottom: 1px solid var(--borderColor-default);
 }
 
 .AppHeader a {
-  color: var(--fgColor-onEmphasis);
+  color: var(--fgColor-default);
 }
 
 .AppHeader-inner {
@@ -36,9 +37,6 @@
   align-items: center;
   gap: var(--base-size-16);
   width: 100%;
-  max-width: var(--container-xl);
-  margin-right: auto;
-  margin-left: auto;
 }
 
 .AppHeader-logo {
@@ -165,15 +163,15 @@
   background-color: var(--bgColor-muted);
 }
 
-/* Sign-in button lives on the emphasis (dark) header background. */
+/* Header buttons inherit the default button appearance on the mode-aware header. */
 .AppHeader .btn {
-  color: var(--fgColor-onEmphasis);
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-default);
+  border-color: var(--borderColor-default);
 }
 
 .AppHeader .btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--bgColor-muted);
   text-decoration: none;
 }
 

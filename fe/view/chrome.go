@@ -16,10 +16,11 @@ import (
 // Chrome is the shell view model shared by every full page: the title, the site
 // name, the active color mode, the signed-in viewer (nil when anonymous), the
 // CSRF token for forms in the shell, the current path for a sign-in return, and
-// any flash messages to show once. A page view model embeds a Chrome so the
-// layout renders the same shell around any content. Its field names are the
-// contract the base layout reads; render keeps a structural fallback that mirrors
-// them.
+// any flash messages to show once. HideAuth suppresses the "Sign in" link when
+// the auth surface is intentionally absent (e.g. browse mode). A page view model
+// embeds a Chrome so the layout renders the same shell around any content. Its
+// field names are the contract the base layout reads; render keeps a structural
+// fallback that mirrors them.
 type Chrome struct {
 	Title       string
 	SiteName    string
@@ -28,6 +29,7 @@ type Chrome struct {
 	CSRFToken   string
 	CurrentPath string
 	Flashes     []Flash
+	HideAuth    bool // suppress "Sign in" when auth routes are not mounted
 }
 
 // ColorMode is the trio the html element carries so CSS alone picks the theme.
@@ -129,6 +131,7 @@ func FlashesFrom(ctx context.Context) []Flash {
 // request, so it is safe for concurrent use.
 type Builder struct {
 	siteName string
+	hideAuth bool
 }
 
 // NewBuilder returns a Builder for the given site name (shown in the title and
@@ -138,6 +141,14 @@ func NewBuilder(siteName string) *Builder {
 		siteName = "Githome"
 	}
 	return &Builder{siteName: siteName}
+}
+
+// WithHideAuth returns a copy of the builder that sets HideAuth on every Chrome
+// it produces. Use this in browse mode where the auth routes are not mounted.
+func (b *Builder) WithHideAuth() *Builder {
+	c := *b
+	c.hideAuth = true
+	return &c
 }
 
 // Chrome builds the shell model for a request, reading the viewer, color mode,
@@ -153,6 +164,7 @@ func (b *Builder) Chrome(c *mizu.Ctx, title string) Chrome {
 		CSRFToken:   CSRFFrom(ctx),
 		CurrentPath: c.Request().URL.RequestURI(),
 		Flashes:     FlashesFrom(ctx),
+		HideAuth:    b.hideAuth,
 	}
 }
 

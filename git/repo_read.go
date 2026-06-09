@@ -480,3 +480,26 @@ func objType(t plumbing.ObjectType) ObjectType {
 		return ObjectBlob
 	}
 }
+
+// CommitPatch returns the unified diff patch of sha against its first parent.
+// For the initial commit (no parents) it returns an empty string. The patch is
+// in standard unified-diff format; the handler renders it through the markup
+// pipeline.
+func (r *Repo) CommitPatch(sha string) (string, error) {
+	c, err := r.commitFromRev(sha)
+	if err != nil {
+		return "", err
+	}
+	if c.NumParents() == 0 {
+		return "", nil
+	}
+	parent, err := c.Parent(0)
+	if err != nil {
+		return "", ErrObjectNotFound
+	}
+	patch, err := parent.Patch(c)
+	if err != nil {
+		return "", err
+	}
+	return patch.String(), nil
+}

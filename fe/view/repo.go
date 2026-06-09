@@ -238,6 +238,7 @@ type CommitRowVM struct {
 	AuthorEmail string
 	When        string
 	BrowseURL   string // tree at this commit
+	CommitURL   string // single-commit detail
 }
 
 // BranchesVM is the branch overview: the default branch first, then the rest.
@@ -293,4 +294,27 @@ type FileFinderVM struct {
 type FinderEntry struct {
 	Path string
 	URL  string
+}
+
+// CommitVM is the single-commit view: the commit metadata, parent links, and
+// the rendered unified diff.
+type CommitVM struct {
+	Chrome      Chrome
+	Header      RepoHeaderVM
+	Nav         TreeNav
+	Repo        RepoRef
+	SHA         string
+	ShortSHA    string
+	Title       string
+	Body        string
+	AuthorName  string
+	AuthorEmail string
+	When        string
+	ParentSHAs  []string   // short SHAs; empty for the initial commit
+	ParentURLs  []string   // tree browse URL for each parent
+	Diff        string     // rendered HTML from the markup pipeline; empty = initial commit
+	RawPatch    string     // raw unified-diff text, rendered only if Diff is empty
+	FilesCount  int        // number of files changed
+	CommitsURL  string     // back link to the history page
+	TreeURL     string     // tree at this commit
 }

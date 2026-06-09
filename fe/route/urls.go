@@ -66,6 +66,16 @@ func Checks(owner, name, ref string) string {
 	return refPathURL(owner, name, "checks", ref, "")
 }
 
+// Commit is the single-commit view, /{owner}/{repo}/commit/{sha}.
+func Commit(owner, name, sha string) string {
+	return Repo(owner, name) + "/commit/" + esc(sha)
+}
+
+// Blame is the line-by-line blame view, /{owner}/{repo}/blame/{ref}/{path}.
+func Blame(owner, name, ref, path string) string {
+	return refPathURL(owner, name, "blame", ref, path)
+}
+
 // Branches is the branch overview, /{owner}/{repo}/branches.
 func Branches(owner, name string) string {
 	return Repo(owner, name) + "/branches"

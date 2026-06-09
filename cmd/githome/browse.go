@@ -148,17 +148,24 @@ func runBrowse(args []string) error {
 
 	root := mizu.NewRouter()
 
+	// In browse mode the home page redirects straight to the repo rather than
+	// showing the "Sign in" landing page a real instance would show.
+	homeRedirect := func(c *mizu.Ctx) error {
+		return c.Redirect(http.StatusFound, "/local/"+repoName)
+	}
+
 	handler := fe.Mount(root, fe.Deps{
-		Render:   renderSet,
-		View:     view.NewBuilder(*siteName),
-		Repos:    repoSvc,
-		Users:    userSvc,
-		URLs:     urls,
-		Markup:   markupRenderer,
-		Sessions: sessions,
-		CSRF:     webmw.NewCSRF(renderSet),
-		Flash:    webmw.NewFlash(sessionKey),
-		Logger:   logger,
+		Render:      renderSet,
+		View:        view.NewBuilder(*siteName).WithHideAuth(),
+		Repos:       repoSvc,
+		Users:       userSvc,
+		URLs:        urls,
+		Markup:      markupRenderer,
+		Sessions:    sessions,
+		CSRF:        webmw.NewCSRF(renderSet),
+		Flash:       webmw.NewFlash(sessionKey),
+		Logger:      logger,
+		HomeHandler: homeRedirect,
 	})
 
 	srv := &http.Server{

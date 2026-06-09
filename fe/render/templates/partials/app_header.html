@@ -3,7 +3,7 @@
      form, so every control works with scripting off; the avatar menu is a
      <details> element, which discloses without JavaScript. */ -}}
 <header class="AppHeader">
-  <div class="AppHeader-inner container-xl">
+  <div class="AppHeader-inner">
     <a class="AppHeader-logo" href="/" aria-label="{{.SiteName}} home">
       {{octicon "mark-github" 32}}
     </a>
@@ -41,7 +41,7 @@
             </form>
           </div>
         </details>
-      {{else}}
+      {{else if not .HideAuth}}
         <a class="btn" href="/login{{if .CurrentPath}}?return_to={{.CurrentPath}}{{end}}">Sign in</a>
       {{end}}
     </nav>
