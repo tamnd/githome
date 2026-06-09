@@ -158,6 +158,7 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}", rh.Home)
 	rg.Get("/{owner}/{repo}/tree/{rest...}", rh.Tree)
 	rg.Get("/{owner}/{repo}/blob/{rest...}", rh.Blob)
+	rg.Get("/{owner}/{repo}/blame/{rest...}", rh.Blame)
 	rg.Get("/{owner}/{repo}/raw/{rest...}", rh.Raw)
 	rg.Get("/{owner}/{repo}/commits", rh.Commits)
 	rg.Get("/{owner}/{repo}/commits/{rest...}", rh.Commits)

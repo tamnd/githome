@@ -1,0 +1,35 @@
+{{define "content" -}}
+{{/* The data is BlameVM. Each source line is annotated with the commit that
+     last changed it. Consecutive lines from the same commit are grouped so the
+     commit metadata (short SHA, author, date) appears once per hunk, not per
+     line. BlobURL links back to the normal file view. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="blame-header">
+    <a class="btn btn-sm" href="{{.BlobURL}}">View source</a>
+  </div>
+  <div class="blame-container">
+    <table class="blame-table">
+      <tbody>
+        {{range .Lines}}
+        <tr class="blame-row{{if .NewGroup}} blame-row-new-group{{end}}">
+          <td class="blame-commit{{if not .NewGroup}} blame-commit-continuation{{end}}">
+            {{if .NewGroup}}
+            <div class="blame-commit-info">
+              <a class="blame-sha-link" href="{{.CommitURL}}">{{.ShortSHA}}</a>
+              <span class="blame-author">{{.AuthorName}}</span>
+              <span class="blame-date">{{.When}}</span>
+            </div>
+            {{end}}
+          </td>
+          <td class="blame-linenum" id="L{{.LineNum}}">
+            <a href="#L{{.LineNum}}">{{.LineNum}}</a>
+          </td>
+          <td class="blame-code"><pre>{{.Text}}</pre></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{- end}}

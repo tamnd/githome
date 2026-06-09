@@ -1,9 +1,11 @@
 package git
 
 import (
+	"errors"
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -479,6 +481,47 @@ func objType(t plumbing.ObjectType) ObjectType {
 	default:
 		return ObjectBlob
 	}
+}
+
+// BlameLine is one annotated source line from a blame operation: the commit
+// that last changed the line, the author, the timestamp, the raw text, and the
+// 1-based line number.
+type BlameLine struct {
+	SHA         string
+	AuthorName  string
+	AuthorEmail string
+	When        time.Time
+	Text        string
+	LineNum     int
+}
+
+// Blame annotates every line of path at ref with the commit that last changed
+// it. It returns ErrObjectNotFound when the path does not exist in the tree at
+// ref, and ErrRepoNotFound for other resolution failures.
+func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
+	c, err := r.commitFromRev(ref)
+	if err != nil {
+		return nil, err
+	}
+	result, err := gogit.Blame(c, path)
+	if err != nil {
+		if errors.Is(err, object.ErrFileNotFound) {
+			return nil, ErrObjectNotFound
+		}
+		return nil, ErrRepoNotFound
+	}
+	lines := make([]BlameLine, len(result.Lines))
+	for i, l := range result.Lines {
+		lines[i] = BlameLine{
+			SHA:         l.Hash.String(),
+			AuthorName:  l.AuthorName,
+			AuthorEmail: l.Author,
+			When:        l.Date,
+			Text:        l.Text,
+			LineNum:     i + 1,
+		}
+	}
+	return lines, nil
 }
 
 // CommitPatch returns the unified diff patch of sha against its first parent.
