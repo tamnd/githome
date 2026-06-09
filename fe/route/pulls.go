@@ -137,3 +137,25 @@ func PullReviewComment(owner, name string, number, commentID int64) string {
 func PullReviewSummary(owner, name string, number, reviewID int64) string {
 	return Pull(owner, name, number) + "#pullrequestreview-" + strconv.FormatInt(reviewID, 10)
 }
+
+// ComparePicker is the branch-picker page for starting a pull request,
+// /{owner}/{repo}/compare.
+func ComparePicker(owner, name string) string {
+	return Repo(owner, name) + "/compare"
+}
+
+// Compare is the diff and optional PR-creation form for a specific base...head
+// range, /{owner}/{repo}/compare/{base}...{head}.
+func Compare(owner, name, base, head string) string {
+	return Repo(owner, name) + "/compare/" + base + "..." + head
+}
+
+// CompareExpanded is Compare with the PR creation form shown, appending ?expand=1.
+func CompareExpanded(owner, name, base, head string) string {
+	return Compare(owner, name, base, head) + "?expand=1"
+}
+
+// PullsCreate is the create-PR POST target, /{owner}/{repo}/pulls.
+func PullsCreate(owner, name string) string {
+	return Pulls(owner, name, "")
+}

@@ -1,0 +1,146 @@
+/*
+ * compare.css styles the branch-comparison surface: the branch picker page and
+ * the compare range page with its commit list, diff summary, and PR creation
+ * form. It uses only functional theme tokens and reuses the diff- classes from
+ * pulls.css for the file diff. See implementation/09 section 8.
+ */
+
+/* ── Branch picker ─────────────────────────────────────────────────────────── */
+
+.compare-picker {
+  max-width: 800px;
+  margin: var(--base-size-24) auto;
+}
+
+.compare-picker-title {
+  margin: 0 0 var(--base-size-8);
+  font-size: var(--text-title-size-medium);
+  font-weight: 400;
+}
+
+.compare-picker-lead {
+  margin: 0 0 var(--base-size-16);
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+.compare-picker-form {
+  margin-top: var(--base-size-8);
+}
+
+.compare-picker-branches {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  flex-wrap: wrap;
+}
+
+.compare-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-4);
+}
+
+.compare-picker-label {
+  font-size: var(--text-small-size);
+  font-weight: 600;
+  color: var(--fgColor-muted);
+}
+
+.compare-picker-select {
+  min-width: 200px;
+}
+
+.compare-picker-sep {
+  margin-top: var(--base-size-20);
+  color: var(--fgColor-muted);
+}
+
+/* ── Compare range ─────────────────────────────────────────────────────────── */
+
+.compare-range {
+  margin: var(--base-size-16) 0;
+}
+
+.compare-range-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+  padding-bottom: var(--base-size-16);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.compare-range-title {
+  margin: 0;
+  font-size: var(--text-title-size-medium);
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  flex-wrap: wrap;
+}
+
+.compare-branch {
+  display: inline-block;
+  padding: 2px var(--base-size-8);
+  background: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-muted);
+  border-radius: var(--borderRadius-medium);
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+}
+
+.compare-branch-base {
+  background: var(--bgColor-default);
+}
+
+.compare-branch-head {
+  background: var(--bgColor-muted);
+}
+
+.compare-range-sep {
+  color: var(--fgColor-muted);
+}
+
+.compare-range-actions {
+  flex-shrink: 0;
+}
+
+.compare-no-diff {
+  padding: var(--base-size-32);
+  text-align: center;
+}
+
+/* ── Commit list ───────────────────────────────────────────────────────────── */
+
+.compare-commits {
+  margin-bottom: var(--base-size-24);
+}
+
+.compare-section-title {
+  margin: 0 0 var(--base-size-8);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+
+/* ── PR creation form ──────────────────────────────────────────────────────── */
+
+.compare-create-pr {
+  margin-top: var(--base-size-32);
+  padding-top: var(--base-size-24);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.compare-pr-form {
+  max-width: 720px;
+  margin-top: var(--base-size-16);
+}
+
+.compare-pr-draft {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  cursor: pointer;
+}

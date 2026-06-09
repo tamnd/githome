@@ -38,3 +38,21 @@ func FirstSegment(p string) (head, rest string) {
 	head, rest, _ = strings.Cut(p, "/")
 	return head, rest
 }
+
+// ParseBaseHead splits the basehead parameter of a compare URL into the base
+// and head branch names. The canonical form is "base...head"; when there is no
+// "...", the whole string is returned as the head with an empty base so the
+// caller can substitute the repository's default branch.
+func ParseBaseHead(s string) (base, head string, ok bool) {
+	if s == "" {
+		return "", "", false
+	}
+	if i := strings.Index(s, "..."); i >= 0 {
+		b, h := s[:i], s[i+3:]
+		if b == "" || h == "" {
+			return "", "", false
+		}
+		return b, h, true
+	}
+	return "", s, true
+}

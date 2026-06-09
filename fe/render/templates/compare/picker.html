@@ -1,0 +1,40 @@
+{{define "content" -}}
+{{/* The data is a ComparePickerVM. Shows a two-branch selector: base (merge
+     target) and head (feature branch). Submitting the form navigates to the
+     compare range page. An empty branch list means the repo has no commits. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="compare-picker">
+    <h2 class="compare-picker-title">Compare changes</h2>
+    <p class="compare-picker-lead">Choose two branches to compare. The base is where your changes will be merged into, and the head is your feature branch.</p>
+    {{if .Branches -}}
+    <form class="compare-picker-form" action="{{.Action}}" method="get">
+      <div class="compare-picker-branches">
+        <div class="compare-picker-field">
+          <label class="compare-picker-label" for="compare-base">base branch</label>
+          <select class="select compare-picker-select" id="compare-base" name="base">
+            {{range .Branches -}}
+            <option value="{{.}}"{{if eq . $.Base}} selected{{end}}>{{.}}</option>
+            {{- end}}
+          </select>
+        </div>
+        <span class="compare-picker-sep" aria-hidden="true">{{octicon "arrow-right" 16}}</span>
+        <div class="compare-picker-field">
+          <label class="compare-picker-label" for="compare-head">compare branch</label>
+          <select class="select compare-picker-select" id="compare-head" name="head">
+            {{range .Branches -}}
+            <option value="{{.}}"{{if eq . $.Head}} selected{{end}}>{{.}}</option>
+            {{- end}}
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Compare</button>
+      </div>
+    </form>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">This repository has no branches yet. Push some commits first.</p>
+    </div>
+    {{- end}}
+  </div>
+</div>
+{{- end}}

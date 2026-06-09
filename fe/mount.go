@@ -20,6 +20,7 @@ import (
 	"github.com/tamnd/githome/fe/view"
 	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
+	webcompare "github.com/tamnd/githome/fe/web/compare"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
@@ -106,6 +107,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountAuth(page, d)
 	mountRepo(page, d)
 	mountChecks(page, d)
+	mountCompare(page, d)
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
@@ -168,6 +170,26 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
+}
+
+// mountCompare registers the branch-comparison routes under /{owner}/{repo}/compare.
+// The compare Resolve middleware loads the repository read-gated for the viewer so
+// the picker and the range view never confirm a private repo's existence. The repo
+// service is the gate: with no service the routes stay unmounted. See
+// implementation/09 section 8.
+func mountCompare(page *mizu.Router, d Deps) {
+	if d.Repos == nil {
+		return
+	}
+	ch := webcompare.New(webcompare.Deps{
+		Repos:  d.Repos,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	cg := page.With(ch.Resolve)
+	cg.Get("/{owner}/{repo}/compare", ch.Picker)
+	cg.Get("/{owner}/{repo}/compare/{basehead...}", ch.Range)
 }
 
 // mountChecks registers the commit-checks page under /{owner}/{repo}/checks/{ref}.
@@ -268,6 +290,7 @@ func mountPulls(page *mizu.Router, d Deps) {
 	})
 	pg := page.With(ph.Resolve)
 	pg.Get("/{owner}/{repo}/pulls", ph.Index)
+	pg.Post("/{owner}/{repo}/pulls", ph.Create)
 	pg.Get("/{owner}/{repo}/pull/{number}", ph.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", ph.Commits)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", ph.Files)

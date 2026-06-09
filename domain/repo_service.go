@@ -335,6 +335,64 @@ func gitErr(err error) error {
 	}
 }
 
+// CompareResult is the three-dot comparison between two branches. Files and
+// Commits are the unique changes from base to head; Additions, Deletions, and
+// ChangedFiles are the aggregated line counts.
+type CompareResult struct {
+	Base         git.Branch
+	Head         git.Branch
+	MergeBase    git.SHA
+	Commits      []git.Commit
+	Files        []git.FileChange
+	Additions    int
+	Deletions    int
+	ChangedFiles int
+}
+
+// Compare resolves base and head as branch names and computes the three-dot
+// comparison between them. ErrGitNotFound is returned when either branch does
+// not exist in the repository. When the two branches share no common history, a
+// CompareResult with empty Commits and Files is returned rather than an error.
+func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
+	baseBranch, err := s.GetBranch(repo, base)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	headBranch, err := s.GetBranch(repo, head)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	mb, ok, err := s.gitStore.MergeBase(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return &CompareResult{Base: baseBranch, Head: headBranch}, nil
+	}
+	commits, err := s.gitStore.CommitsBetween(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	if err != nil {
+		return nil, err
+	}
+	files, err := s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	if err != nil {
+		return nil, err
+	}
+	add, del, changed, err := s.gitStore.DiffStat(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	if err != nil {
+		return nil, err
+	}
+	return &CompareResult{
+		Base:         baseBranch,
+		Head:         headBranch,
+		MergeBase:    mb,
+		Commits:      commits,
+		Files:        files,
+		Additions:    add,
+		Deletions:    del,
+		ChangedFiles: changed,
+	}, nil
+}
+
 func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 	return &Repo{
 		PK:              r.PK,
