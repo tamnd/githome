@@ -102,6 +102,8 @@
 
 .issues-rows {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .issue-row {
@@ -117,12 +119,26 @@
 }
 
 .issue-row-icon {
+  flex: 0 0 auto;
   margin-top: 2px;
   color: var(--fgColor-muted);
+  background: none;
 }
 
-.issue-row.is-opening .issue-row-icon {
-  color: var(--bgColor-success-emphasis);
+/* Icon-only state colors: use text color tokens, no pill background. */
+.issue-row-icon.issue-state-open {
+  color: var(--fgColor-success);
+  background: none;
+}
+
+.issue-row-icon.issue-state-closed {
+  color: var(--fgColor-done);
+  background: none;
+}
+
+.issue-row-icon.issue-state-not-planned {
+  color: var(--fgColor-muted);
+  background: none;
 }
 
 .issue-row-main {

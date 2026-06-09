@@ -22,10 +22,7 @@
 
 /* Application header. */
 .AppHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--base-size-16);
-  padding: var(--base-size-16);
+  padding: var(--base-size-8) var(--base-size-16);
   color: var(--fgColor-onEmphasis);
   background-color: var(--bgColor-emphasis);
 }
@@ -34,14 +31,41 @@
   color: var(--fgColor-onEmphasis);
 }
 
+.AppHeader-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-16);
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-right: auto;
+  margin-left: auto;
+}
+
 .AppHeader-logo {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 .AppHeader-search {
+  position: relative;
+  display: flex;
+  align-items: center;
   flex: 1 1 auto;
   max-width: 360px;
+}
+
+.AppHeader-search-icon {
+  position: absolute;
+  left: var(--base-size-8);
+  pointer-events: none;
+  color: var(--fgColor-onEmphasis);
+  opacity: 0.7;
+  z-index: 1;
+}
+
+.AppHeader-search .input {
+  padding-left: var(--base-size-32);
 }
 
 .AppHeader-nav {
@@ -49,6 +73,108 @@
   align-items: center;
   gap: var(--base-size-12);
   margin-left: auto;
+}
+
+.AppHeader-item {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fgColor-onEmphasis);
+  opacity: 0.9;
+  padding: var(--base-size-4);
+  border-radius: var(--borderRadius-medium);
+}
+
+.AppHeader-item:hover {
+  opacity: 1;
+  text-decoration: none;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Avatar dropdown menu. */
+.AppHeader-menu {
+  position: relative;
+}
+
+.AppHeader-avatar {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--base-size-4);
+  border-radius: var(--borderRadius-full);
+  opacity: 0.9;
+}
+
+.AppHeader-avatar::-webkit-details-marker {
+  display: none;
+}
+
+.AppHeader-avatar:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.AppHeader-avatar .avatar {
+  border-radius: var(--borderRadius-full);
+}
+
+.AppHeader-menu-list {
+  position: absolute;
+  right: 0;
+  z-index: 200;
+  min-width: 200px;
+  margin-top: var(--base-size-4);
+  padding: var(--base-size-4);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.AppHeader-menu-list a {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  width: 100%;
+  padding: var(--base-size-8);
+  color: var(--fgColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.AppHeader-menu-list a:hover {
+  text-decoration: none;
+  background-color: var(--bgColor-muted);
+}
+
+.AppHeader-menu-signout {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  width: 100%;
+  padding: var(--base-size-8);
+  font-size: var(--text-body-size);
+  color: var(--fgColor-default);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--borderRadius-medium);
+  cursor: pointer;
+}
+
+.AppHeader-menu-signout:hover {
+  background-color: var(--bgColor-muted);
+}
+
+/* Sign-in button lives on the emphasis (dark) header background. */
+.AppHeader .btn {
+  color: var(--fgColor-onEmphasis);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.AppHeader .btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
 }
 
 /* Buttons. */
@@ -108,10 +234,49 @@
 
 /* Footer. */
 .footer {
-  padding: var(--base-size-40) var(--base-size-16);
+  padding: var(--base-size-24) var(--base-size-16);
   margin-top: var(--base-size-40);
   color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
   border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-16);
+  align-items: center;
+  max-width: var(--container-xl);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.footer-mark {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-12);
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links a {
+  color: var(--fgColor-muted);
+}
+
+.footer-links a:hover {
+  color: var(--fgColor-default);
+}
+
+.footer-name {
+  margin-left: auto;
+  color: var(--fgColor-muted);
 }
 
 .footer-nav {

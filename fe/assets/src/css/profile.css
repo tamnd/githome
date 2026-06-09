@@ -93,7 +93,8 @@
 
 .profile-vcard {
   list-style: none;
-  margin-top: var(--base-size-16);
+  padding: 0;
+  margin: var(--base-size-16) 0 0;
 }
 
 .profile-vcard-row {
@@ -184,6 +185,8 @@
 /* The overview repository grid: two cards per row on a wide column. */
 .profile-repo-grid {
   list-style: none;
+  padding: 0;
+  margin: 0;
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--base-size-16);
@@ -222,6 +225,8 @@
 /* The activity timeline: an icon gutter beside the line and its subject. */
 .profile-feed {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .profile-feed-item {
@@ -330,6 +335,8 @@
 
 .profile-repo-list {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .profile-repo {
