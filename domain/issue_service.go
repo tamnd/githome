@@ -81,6 +81,7 @@ type IssueStore interface {
 	UpdateMilestone(ctx context.Context, m *store.MilestoneRow) error
 	DeleteMilestone(ctx context.Context, pk int64) error
 	MilestoneIssueCounts(ctx context.Context, milestonePK int64) (open, closed int, err error)
+	MilestoneIssueCountsByPKs(ctx context.Context, pks []int64) (map[int64]store.MilestoneCount, error)
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
@@ -599,6 +600,10 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 	if err != nil {
 		return nil, err
 	}
+	milestoneCountMap, err := s.store.MilestoneIssueCountsByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
 	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "issue", issuePKs)
 	if err != nil {
 		return nil, err
@@ -639,14 +644,11 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 						}
 					}
 				}
-				open, closed, err := s.store.MilestoneIssueCounts(ctx, mr.PK)
-				if err != nil {
-					return nil, err
-				}
+				cnt := milestoneCountMap[mr.PK]
 				milestone = &Milestone{
 					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
 					Description: mr.Description, State: mr.State, Creator: creator,
-					OpenIssues: open, ClosedIssues: closed,
+					OpenIssues: cnt.Open, ClosedIssues: cnt.Closed,
 					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
 					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
 				}
@@ -761,6 +763,152 @@ func (s *IssueService) assembleIssue(ctx context.Context, repo *Repo, row *store
 		lockVersion:   row.LockVersion,
 	}
 	return iss, nil
+}
+
+// assembleIssueSearch batch-assembles a page of search results that can span
+// multiple repositories. It uses the same five-round-trip pattern as
+// assembleIssues but accepts a pre-loaded repo map keyed by repoPK, so each
+// row resolves its repository without an extra query.
+func (s *IssueService) assembleIssueSearch(ctx context.Context, repoMap map[int64]*Repo, rows []store.IssueRow) ([]*Issue, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	issuePKs := make([]int64, len(rows))
+	userPKSet := map[int64]struct{}{}
+	milestonePKSet := map[int64]struct{}{}
+	for i := range rows {
+		issuePKs[i] = rows[i].PK
+		userPKSet[rows[i].UserPK] = struct{}{}
+		if rows[i].MilestonePK != nil {
+			milestonePKSet[*rows[i].MilestonePK] = struct{}{}
+		}
+		if rows[i].ClosedByPK != nil {
+			userPKSet[*rows[i].ClosedByPK] = struct{}{}
+		}
+	}
+
+	labelMap, err := s.store.LabelsByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+	assigneeMap, err := s.store.AssigneesByIssuePKs(ctx, issuePKs)
+	if err != nil {
+		return nil, err
+	}
+	for _, pks := range assigneeMap {
+		for _, pk := range pks {
+			userPKSet[pk] = struct{}{}
+		}
+	}
+
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	milestonePKs := make([]int64, 0, len(milestonePKSet))
+	for pk := range milestonePKSet {
+		milestonePKs = append(milestonePKs, pk)
+	}
+
+	userMap, err := s.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	milestoneMap, err := s.store.MilestonesByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
+	milestoneCountMap, err := s.store.MilestoneIssueCountsByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
+	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "issue", issuePKs)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*Issue, 0, len(rows))
+	for i := range rows {
+		row := &rows[i]
+		repo := repoMap[row.RepoPK]
+		if repo == nil {
+			continue
+		}
+
+		var author *User
+		if u, ok := userMap[row.UserPK]; ok {
+			author = userFromRow(u)
+		}
+
+		assigneePKs := assigneeMap[row.PK]
+		assignees := make([]*User, 0, len(assigneePKs))
+		for _, pk := range assigneePKs {
+			if u, ok := userMap[pk]; ok {
+				assignees = append(assignees, userFromRow(u))
+			}
+		}
+
+		var milestone *Milestone
+		if row.MilestonePK != nil {
+			if mr, ok := milestoneMap[*row.MilestonePK]; ok {
+				var creator *User
+				if mr.CreatorPK != nil {
+					if cu, ok := userMap[*mr.CreatorPK]; ok {
+						creator = userFromRow(cu)
+					} else {
+						cu2, err := s.store.UserByPK(ctx, *mr.CreatorPK)
+						if err == nil {
+							creator = userFromRow(cu2)
+						}
+					}
+				}
+				cnt := milestoneCountMap[mr.PK]
+				milestone = &Milestone{
+					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
+					Description: mr.Description, State: mr.State, Creator: creator,
+					OpenIssues: cnt.Open, ClosedIssues: cnt.Closed,
+					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
+					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
+				}
+			}
+		}
+
+		var closedBy *User
+		if row.ClosedByPK != nil {
+			if u, ok := userMap[*row.ClosedByPK]; ok {
+				closedBy = userFromRow(u)
+			}
+		}
+
+		roll := rollupMap[row.PK]
+
+		out = append(out, &Issue{
+			PK:            row.PK,
+			ID:            row.DBID,
+			RepoPK:        repo.PK,
+			RepoID:        repo.ID,
+			Number:        row.Number,
+			Title:         row.Title,
+			Body:          row.Body,
+			State:         row.State,
+			StateReason:   row.StateReason,
+			Locked:        row.Locked,
+			User:          author,
+			UserPK:        row.UserPK,
+			Assignees:     assignees,
+			Labels:        labelsFromRows(labelMap[row.PK]),
+			Milestone:     milestone,
+			ClosedBy:      closedBy,
+			Reactions:     rollup(roll),
+			CommentsCount: row.CommentsCount,
+			ClosedAt:      row.ClosedAt,
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+			lockVersion:   row.LockVersion,
+		})
+	}
+	return out, nil
 }
 
 func (s *IssueService) assembleMilestone(ctx context.Context, mr *store.MilestoneRow) (*Milestone, error) {
