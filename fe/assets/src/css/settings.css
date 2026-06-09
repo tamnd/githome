@@ -23,6 +23,11 @@
   }
 }
 
+/* settings-nav: the sidebar nav container. */
+.settings-nav {
+  min-width: 0;
+}
+
 /* The sidebar. */
 .settings-nav-heading {
   margin: 0 0 var(--base-size-8);
@@ -125,6 +130,30 @@
   margin-top: var(--base-size-16);
   padding-top: var(--base-size-16);
   border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.input-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.input-group .input {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  flex: 1;
+}
+
+.input-group-addon {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--base-size-8);
+  background: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-right: none;
+  border-radius: var(--borderRadius-medium) 0 0 var(--borderRadius-medium);
+  color: var(--fgColor-muted);
+  font-size: var(--text-body-size);
+  white-space: nowrap;
 }
 
 /* The webhooks list. */

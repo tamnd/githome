@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 )
 
 // userColumns is the shared SELECT list so UserByPK and UserByLogin scan an
@@ -107,6 +108,74 @@ func (s *Store) InsertUserWithPassword(ctx context.Context, login, email, hash s
 		return tx.tx.QueryRowContext(ctx, q, dbID, login, email, hash).Scan(&pk)
 	})
 	return pk, err
+}
+
+// ProfileUpdate carries the mutable profile fields the settings page can write.
+// A nil pointer means "leave unchanged"; a non-nil pointer replaces the value.
+type ProfileUpdate struct {
+	Name            *string
+	Email           *string
+	Bio             *string
+	Location        *string
+	Company         *string
+	Blog            *string
+	TwitterUsername *string
+	Hireable        *bool
+}
+
+// UpdateProfile writes the non-nil fields from u onto the users row at userPK.
+// Every non-nil field is included in the SET clause; nil fields are not touched,
+// so the caller can update a single field without loading the whole row first.
+func (s *Store) UpdateProfile(ctx context.Context, userPK int64, u ProfileUpdate) error {
+	setClauses := []string{"updated_at = CURRENT_TIMESTAMP"}
+	args := []any{}
+	if u.Name != nil {
+		setClauses = append(setClauses, "name = ?")
+		args = append(args, *u.Name)
+	}
+	if u.Email != nil {
+		setClauses = append(setClauses, "email = ?")
+		args = append(args, *u.Email)
+	}
+	if u.Bio != nil {
+		setClauses = append(setClauses, "bio = ?")
+		args = append(args, *u.Bio)
+	}
+	if u.Location != nil {
+		setClauses = append(setClauses, "location = ?")
+		args = append(args, *u.Location)
+	}
+	if u.Company != nil {
+		setClauses = append(setClauses, "company = ?")
+		args = append(args, *u.Company)
+	}
+	if u.Blog != nil {
+		setClauses = append(setClauses, "blog = ?")
+		args = append(args, *u.Blog)
+	}
+	if u.TwitterUsername != nil {
+		setClauses = append(setClauses, "twitter_username = ?")
+		args = append(args, *u.TwitterUsername)
+	}
+	if u.Hireable != nil {
+		setClauses = append(setClauses, "hireable = ?")
+		args = append(args, *u.Hireable)
+	}
+	args = append(args, userPK)
+	q := "UPDATE users SET " + joinClauses(setClauses) + " WHERE pk = ?"
+	_, err := s.db.ExecContext(ctx, s.rebind(q), args...)
+	return err
+}
+
+func joinClauses(clauses []string) string {
+	var b strings.Builder
+	for i, c := range clauses {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(c)
+	}
+	return b.String()
 }
 
 // scanUser maps one users row into a UserRow, absorbing the dialect differences

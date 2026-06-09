@@ -92,3 +92,33 @@ hr {
   left: var(--base-size-8);
   top: var(--base-size-8);
 }
+
+/* Home page. */
+.home-dashboard {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--base-size-32) 0;
+}
+
+.home-heading {
+  font-size: var(--text-title-size-medium);
+  font-weight: 600;
+  margin-bottom: var(--base-size-8);
+}
+
+.home-lede {
+  color: var(--fgColor-muted);
+  margin-bottom: var(--base-size-24);
+}
+
+.home-landing {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.home-actions {
+  display: flex;
+  gap: var(--base-size-8);
+  justify-content: center;
+  margin-top: var(--base-size-16);
+}

@@ -130,6 +130,17 @@
   font-size: var(--text-small-size);
 }
 
+/* check-state-icon: the SVG icon inside a check-state token. */
+.check-state-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* checks-rollup-title: the verdict text in the rollup pill. */
+.checks-rollup-title {
+  flex: 1 1 auto;
+}
+
 /* The merge box's checks line, between the merge state and the reviews line. It
    reuses the shared check-state color on its icon. */
 .merge-box-checks {

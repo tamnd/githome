@@ -6,9 +6,9 @@ import "strconv"
 // settings tree under /settings and the repository settings tree under
 // /{owner}/{repo}/settings. They are pure string functions like the rest of
 // fe/route, so a settings link in a template and the route that serves it cannot
-// drift. Githome backs only a slice of GitHub's settings today (the account
-// appearance preference and a repository's webhooks), so only those builders
-// exist; the unbacked sections are absent rather than linking to a dead page.
+// drift. Githome backs the account profile, appearance, SSH keys stub, and
+// tokens stub sections today, plus a repository's webhooks. The unbacked
+// sections are absent from the nav rather than linking to dead pages.
 // See implementation/13.
 
 // AccountSettings is the account settings root, /settings. It redirects to the
@@ -23,6 +23,26 @@ func AccountSettings() string {
 // color-mode middleware already reads.
 func Appearance() string {
 	return "/settings/appearance"
+}
+
+// ProfileSettings is the account profile settings page, /settings/profile,
+// where a signed-in viewer can update their display name, bio, location, and
+// the other public profile fields.
+func ProfileSettings() string {
+	return "/settings/profile"
+}
+
+// SettingsKeys is the SSH and GPG keys page, /settings/keys. Githome shows a
+// stub today since the key store is not yet backed; the route is registered so
+// the nav link is live and the honest-absence message is visible.
+func SettingsKeys() string {
+	return "/settings/keys"
+}
+
+// SettingsTokens is the personal access tokens page, /settings/tokens. Githome
+// shows a stub today since the token store is not yet backed.
+func SettingsTokens() string {
+	return "/settings/tokens"
 }
 
 // RepoSettings is a repository's settings root, /{owner}/{repo}/settings. It

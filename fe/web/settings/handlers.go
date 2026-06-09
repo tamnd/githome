@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
@@ -24,11 +25,13 @@ import (
 
 // Deps are the account settings handlers' dependencies: the render set, the view
 // builder for the shell chrome, the flash store for the one-shot outcome notice a
-// save reports after its redirect, and a logger.
+// save reports after its redirect, the user service for reading and writing
+// account profile fields, and a logger.
 type Deps struct {
 	Render *render.Set
 	View   *view.Builder
 	Flash  Flasher
+	Users  *domain.UserService
 	Logger *slog.Logger
 }
 
@@ -46,6 +49,7 @@ type Handlers struct {
 	render *render.Set
 	view   *view.Builder
 	flash  Flasher
+	users  *domain.UserService
 	log    *slog.Logger
 }
 
@@ -55,6 +59,7 @@ func New(d Deps) *Handlers {
 		render: d.Render,
 		view:   d.View,
 		flash:  d.Flash,
+		users:  d.Users,
 		log:    d.Logger,
 	}
 }
@@ -83,8 +88,7 @@ func (h *Handlers) notFound(c *mizu.Ctx) error {
 }
 
 // nav builds the account settings sidebar: the viewer's login heading linking to
-// their profile, and the section links. Appearance is the only backed section, so
-// it is the only entry; active marks the current page.
+// their profile, and the backed section links. Active marks the current page.
 func (h *Handlers) nav(v *view.Viewer, active string) view.SettingsNav {
 	heading := "Settings"
 	headingURL := route.AccountSettings()
@@ -92,11 +96,17 @@ func (h *Handlers) nav(v *view.Viewer, active string) view.SettingsNav {
 		heading = v.Login
 		headingURL = route.Profile(v.Login)
 	}
+	item := func(label, url string) view.SettingsNavItem {
+		return view.SettingsNavItem{Label: label, URL: url, IsActive: active == url}
+	}
 	return view.SettingsNav{
 		Heading:    heading,
 		HeadingURL: headingURL,
 		Items: []view.SettingsNavItem{
-			{Label: "Appearance", URL: route.Appearance(), IsActive: active == route.Appearance()},
+			item("Profile", route.ProfileSettings()),
+			item("Appearance", route.Appearance()),
+			item("SSH and GPG keys", route.SettingsKeys()),
+			item("Personal access tokens", route.SettingsTokens()),
 		},
 	}
 }

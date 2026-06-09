@@ -47,6 +47,15 @@
   border-radius: var(--borderRadius-full);
 }
 
+.repohead-path {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  flex-wrap: wrap;
+}
+
 .repohead-forkof {
   margin-top: var(--base-size-4);
   font-size: var(--text-small-size);
@@ -147,6 +156,17 @@
   font-weight: 600;
 }
 
+.ref-picker-icon,
+.ref-picker-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fgColor-muted);
+}
+
+.ref-picker-caret {
+  margin-left: auto;
+}
+
 .ref-picker-menu,
 .clone-menu {
   position: absolute;
@@ -191,6 +211,20 @@
 }
 
 /* Clone disclosure. */
+/* clone-caret: the dropdown caret icon on the clone summary button. */
+.clone-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fgColor-muted);
+  margin-left: auto;
+}
+
+/* clone-copy: the icon button that copies a clone URL to the clipboard. */
+.clone-copy {
+  padding: 5px var(--base-size-8);
+  flex: 0 0 auto;
+}
+
 .clone-field + .clone-field {
   margin-top: var(--base-size-8);
 }
@@ -315,6 +349,12 @@
   border-radius: var(--borderRadius-medium);
 }
 
+.readme-icon {
+  color: var(--fgColor-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
 .readme-head {
   display: flex;
   align-items: center;
@@ -343,6 +383,24 @@
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
   overflow: hidden;
+}
+
+/* Blob file size and language badge. */
+.blob-size,
+.blob-lang {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  margin-left: var(--base-size-8);
+}
+
+/* PDF viewer placeholder. */
+.blob-pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
 }
 
 .blob-head {
@@ -389,6 +447,10 @@
   color: var(--fgColor-muted);
 }
 
+.blob-code-inner {
+  white-space: pre;
+}
+
 .blob-text {
   padding-left: var(--base-size-8);
   white-space: pre;
@@ -406,6 +468,17 @@
 .blob-image img {
   max-width: 100%;
   height: auto;
+}
+
+/* Repo body — main content area below header+nav. */
+.repo-body {
+  padding: var(--base-size-16) 0;
+}
+
+/* Repo main — two-column layout (content + sidebar). */
+.repo-main {
+  display: flex;
+  gap: var(--base-size-24);
 }
 
 /* Commit history. */
@@ -443,6 +516,28 @@
 
 .commit-row:last-child {
   border-bottom: 0;
+}
+
+/* Commit row left and aside layout. */
+.commits-group {
+  margin-bottom: var(--base-size-16);
+}
+
+.commit-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* commit-body toggle (the "…" expander). */
+.commit-body-toggle {
+  cursor: pointer;
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+  list-style: none;
+}
+
+.commit-body {
+  display: inline;
 }
 
 .commit-title {
@@ -604,4 +699,401 @@
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
   overflow-x: auto;
+}
+
+/* Commit-aside browse button (history list). */
+.commit-browse {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--base-size-8);
+  color: var(--fgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.commit-browse:hover {
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-muted);
+  text-decoration: none;
+}
+
+.commit-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  flex-shrink: 0;
+}
+
+/* Single-commit detail view. */
+.commit-detail {
+  display: flex;
+  gap: var(--base-size-24);
+  padding: var(--base-size-24);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  margin-bottom: var(--base-size-16);
+}
+
+.commit-detail-header {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.commit-detail-title {
+  font-size: var(--text-title-size-medium);
+  font-weight: 600;
+  color: var(--fgColor-default);
+  margin: 0 0 var(--base-size-8);
+}
+
+.commit-detail-body {
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  white-space: pre-wrap;
+  margin: 0 0 var(--base-size-12);
+}
+
+.commit-detail-meta {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.commit-author-name {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.commit-detail-date {
+  color: var(--fgColor-muted);
+}
+
+.commit-detail-aside {
+  flex-shrink: 0;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-8);
+  font-size: var(--text-small-size);
+}
+
+.commit-sha-label {
+  color: var(--fgColor-muted);
+  margin-right: var(--base-size-4);
+}
+
+.commit-sha-full {
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-default);
+  word-break: break-all;
+}
+
+.commit-sha-link {
+  font-family: var(--fontStack-monospace);
+  color: var(--fgColor-accent);
+}
+
+.commit-detail-files-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+  margin: 0;
+}
+
+.commit-browse-btn {
+  align-self: flex-start;
+}
+
+.commit-diff {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.commit-patch {
+  margin: 0;
+  padding: var(--base-size-16);
+  font-family: var(--fontStack-monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  white-space: pre;
+}
+
+/* Blame view. */
+.blame-header {
+  padding: var(--base-size-8) var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium) var(--borderRadius-medium) 0 0;
+  background-color: var(--bgColor-subtle);
+}
+
+.blame-container {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-top: 0;
+  border-radius: 0 0 var(--borderRadius-medium) var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.blame-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--fontStack-monospace);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.blame-commit {
+  width: 200px;
+  padding: 0 var(--base-size-8);
+  vertical-align: top;
+  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
+  background-color: var(--bgColor-subtle);
+}
+
+.blame-commit-continuation {
+  background-color: var(--bgColor-default);
+}
+
+.blame-row-new-group .blame-commit {
+  padding-top: var(--base-size-4);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.blame-commit-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blame-sha-link {
+  font-weight: 600;
+  color: var(--fgColor-accent);
+}
+
+.blame-author {
+  color: var(--fgColor-default);
+  font-size: 11px;
+}
+
+.blame-date {
+  color: var(--fgColor-muted);
+  font-size: 11px;
+}
+
+.blame-linenum {
+  width: 48px;
+  padding: 0 var(--base-size-8);
+  text-align: right;
+  color: var(--fgColor-muted);
+  vertical-align: top;
+  user-select: none;
+  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
+  background-color: var(--bgColor-inset);
+}
+
+.blame-linenum a {
+  color: inherit;
+}
+
+.blame-linenum a:hover {
+  color: var(--fgColor-default);
+  text-decoration: none;
+}
+
+.blame-code {
+  padding: 0 var(--base-size-16);
+  vertical-align: top;
+  white-space: pre;
+  background-color: var(--bgColor-default);
+}
+
+.blame-code pre {
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.blame-row:target .blame-linenum,
+.blame-linenum:has(a:target) {
+  background-color: var(--bgColor-attention-muted);
+}
+
+/* Commits outer wrapper. */
+.commits {
+  margin-top: var(--base-size-8);
+}
+
+/* diff-row: the base tr in unified diff tables. */
+.diff-row {
+  /* base table row — color set by modifier classes below */
+}
+
+/* diff-gutter-new / diff-gutter-old: line-number gutters in new/old positions. */
+.diff-gutter-new,
+.diff-gutter-old {
+  width: 1%;
+  min-width: 40px;
+  padding: 0 var(--base-size-8);
+  text-align: right;
+  color: var(--fgColor-muted);
+  white-space: nowrap;
+  vertical-align: top;
+  user-select: none;
+  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* diff-summary-counts: the ±lines counts in the diff summary. */
+.diff-summary-counts {
+  display: flex;
+  gap: var(--base-size-4);
+  align-items: center;
+}
+
+/* blob-lines: the tbody containing all blob code rows. */
+.blob-lines {
+  /* inherits font settings from .blob-code table */
+}
+
+/* reponav: outer nav element that wraps the tab list. */
+.reponav {
+  overflow-x: auto;
+}
+
+/* repo-sidebar: the right column on repo home and tree pages. */
+.repo-sidebar {
+  min-width: 0;
+}
+
+/* filetable icon (base); variants add color. */
+.filetable-icon {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+/* filetable head author / when columns. */
+.filetable-head-author {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
+.filetable-head-when {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+/* file-finder: container for the file search page. */
+.file-finder {
+  /* page-level container */
+}
+
+/* file-finder-truncated: note when results are capped. */
+.file-finder-truncated {
+  padding: var(--base-size-8) var(--base-size-16);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* quick-setup: container for the empty-repo guide. */
+.quick-setup {
+  max-width: 540px;
+}
+
+.quick-setup-title {
+  font-size: var(--text-title-size-small);
+  margin-bottom: var(--base-size-8);
+}
+
+.quick-setup-clone {
+  margin-top: var(--base-size-8);
+}
+
+/* ref-list-icon: icon column in each ref list row. */
+.ref-list-icon {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+/* ref-picker-group: groups branches from tags in the picker menu. */
+.ref-picker-group + .ref-picker-group {
+  margin-top: var(--base-size-8);
+  padding-top: var(--base-size-8);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* commit-author: author name in commit detail meta. */
+.commit-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* commit-detail-sha: SHA row in the commit detail aside. */
+.commit-detail-sha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+/* commit-detail-parents: parent SHA links section in commit detail. */
+.commit-detail-parents {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  flex-wrap: wrap;
+}
+
+/* Notifications page. */
+.notifications-page {
+  display: flex;
+  gap: var(--base-size-24);
+  padding: var(--base-size-24) 0;
+}
+
+.notifications-sidebar {
+  flex: 0 0 220px;
+}
+
+.notifications-sidebar-heading {
+  font-size: var(--text-small-size);
+  font-weight: 600;
+  color: var(--fgColor-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--base-size-8);
+}
+
+.notifications-filter-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notifications-filter-link {
+  display: block;
+  padding: var(--base-size-6) var(--base-size-8);
+  border-radius: var(--borderRadius-medium);
+  color: var(--fgColor-default);
+  font-size: var(--text-small-size);
+}
+
+.notifications-filter-link:hover {
+  background-color: var(--bgColor-muted);
+  text-decoration: none;
+}
+
+.notifications-filter-link.is-active {
+  font-weight: 600;
+  background-color: var(--bgColor-muted);
+}
+
+.notifications-inbox {
+  flex: 1 1 0;
+  min-width: 0;
 }

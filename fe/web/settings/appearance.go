@@ -20,7 +20,7 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 	if _, ok := h.gate(c); !ok {
 		return h.notFound(c)
 	}
-	return redirect(c, route.Appearance())
+	return redirect(c, route.ProfileSettings())
 }
 
 // Appearance renders the appearance form, prefilled from the color mode the

@@ -21,12 +21,13 @@
         {{range .Commits -}}
         <li class="commit-row">
           <div class="commit-main">
-            <a class="commit-title" href="{{.BrowseURL}}">{{.Title}}</a>
+            <a class="commit-title" href="{{.CommitURL}}">{{.Title}}</a>
             {{if .Body}}<details class="commit-body"><summary class="commit-body-toggle" aria-label="Toggle commit description">…</summary><pre class="commit-body-text">{{.Body}}</pre></details>{{end}}
             <p class="commit-meta"><span class="commit-author">{{.AuthorName}}</span> committed on {{.When}}</p>
           </div>
           <div class="commit-aside">
-            <a class="commit-sha" href="{{.BrowseURL}}" aria-label="Browse the repository at {{.ShortSHA}}">{{.ShortSHA}}</a>
+            <a class="commit-sha" href="{{.CommitURL}}" aria-label="View commit {{.ShortSHA}}">{{.ShortSHA}}</a>
+            <a class="commit-browse" href="{{.BrowseURL}}" title="Browse the repository at this point in the history">{{octicon "code" 16}}</a>
           </div>
         </li>
         {{- end}}

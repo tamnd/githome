@@ -43,6 +43,7 @@ type fallbackShell struct {
 	CSRFToken   string
 	CurrentPath string
 	Flashes     []any
+	HideAuth    bool
 }
 
 // fallbackChrome is a sane default shell: auto color mode following the OS with

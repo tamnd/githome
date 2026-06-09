@@ -196,6 +196,12 @@
   background-color: var(--bgColor-subtle);
 }
 
+.btn-sm {
+  padding: 3px var(--base-size-12);
+  font-size: var(--text-small-size);
+  line-height: 18px;
+}
+
 .btn-primary {
   color: var(--fgColor-onEmphasis);
   background-color: var(--bgColor-success-emphasis);
@@ -205,6 +211,16 @@
 .btn-primary:hover {
   background-color: var(--bgColor-success-emphasis);
   filter: brightness(0.96);
+}
+
+.btn-danger {
+  color: var(--fgColor-danger);
+}
+
+.btn-danger:hover {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-danger-emphasis);
+  border-color: var(--borderColor-danger-muted);
 }
 
 .input {
@@ -291,6 +307,10 @@
 }
 
 /* Flash banners. */
+.flash-region {
+  min-height: 0;
+}
+
 .flash {
   padding: var(--base-size-16);
   margin-bottom: var(--base-size-16);
@@ -309,6 +329,11 @@
   background-color: var(--bgColor-danger-muted);
 }
 
+.flash-warn {
+  border-color: var(--borderColor-attention-muted);
+  background-color: var(--bgColor-attention-muted);
+}
+
 /* Blankslate (empty states). */
 .blankslate {
   padding: var(--base-size-32) var(--base-size-16);
@@ -321,6 +346,17 @@
   color: var(--fgColor-default);
 }
 
+.blankslate-icon {
+  display: block;
+  margin-bottom: var(--base-size-8);
+  color: var(--fgColor-muted);
+}
+
+.blankslate-text {
+  margin: var(--base-size-8) 0 0;
+  color: var(--fgColor-muted);
+}
+
 /* Error pages. */
 .error-page {
   padding: var(--base-size-48) var(--base-size-16);
@@ -330,6 +366,24 @@
 .error-page-code {
   font-size: var(--text-title-size-large);
   font-weight: 600;
+}
+
+.error-status {
+  font-size: var(--text-title-size-large);
+  font-weight: 700;
+  color: var(--fgColor-muted);
+}
+
+.error-heading {
+  font-size: var(--text-title-size-medium);
+  font-weight: 600;
+  color: var(--fgColor-default);
+  margin: var(--base-size-16) 0 var(--base-size-8);
+}
+
+.error-detail {
+  color: var(--fgColor-muted);
+  margin: 0 0 var(--base-size-24);
 }
 
 /* Octicons inherit text color and align with text. */
