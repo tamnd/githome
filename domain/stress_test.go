@@ -35,9 +35,9 @@ type stressEnv struct {
 //   - 1 owner + 20 assignee users + 1 repository
 //   - 1 milestone
 //   - 1 000 open issues
-//     - issues 1–500 carry 20 labels each
-//     - issues 501–700 carry 10 assignees each
-//     - issues 1–1000 are linked to the milestone
+//   - issues 1–500 carry 20 labels each
+//   - issues 501–700 carry 10 assignees each
+//   - issues 1–1000 are linked to the milestone
 //   - 500 pull requests (numbered 1001–1500)
 //   - 500 comments on issue #1
 //   - 100 events (for feed benchmarks)

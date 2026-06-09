@@ -67,10 +67,10 @@ func newPooledClient() *http.Client {
 // parameters by writing directly to the store (bypassing HTTP to keep setup
 // fast).
 //
-//   nIssues        — open issues to create
-//   commentsOnFirst — comments to add to issue #1
-//   labelsPerIssue  — labels attached to every issue (0 = none)
-//   withMilestone   — link all issues to a milestone named "v1.0"
+//	nIssues        — open issues to create
+//	commentsOnFirst — comments to add to issue #1
+//	labelsPerIssue  — labels attached to every issue (0 = none)
+//	withMilestone   — link all issues to a milestone named "v1.0"
 func httpStressEnv(b *testing.B, nIssues, commentsOnFirst, labelsPerIssue int, withMilestone bool) issueFixture {
 	b.Helper()
 	fx := issueServer(b)

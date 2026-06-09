@@ -304,9 +304,9 @@ func BenchmarkListIssues_maxLabels_20(b *testing.B) {
 	// Filter by the first label so every result row carries all 20.
 	for b.Loop() {
 		_, err := st.ListIssues(ctx, repo.PK, IssueFilter{
-			State:    "open",
-			Labels:   []string{fmt.Sprintf("label-%03d", 0)},
-			Limit:    30,
+			State:  "open",
+			Labels: []string{fmt.Sprintf("label-%03d", 0)},
+			Limit:  30,
 		})
 		if err != nil {
 			b.Fatal(err)
@@ -697,7 +697,7 @@ func BenchmarkListReviewComments_500(b *testing.B) {
 			rv := &ReviewRow{
 				PullPK: pr.PK, RepoPK: repo.PK, UserPK: owner.PK,
 				State: "COMMENTED", Body: "large review",
-				CommitID: "ffffffffffffffffffffffffffffffffffffffff",
+				CommitID:  "ffffffffffffffffffffffffffffffffffffffff",
 				CreatedAt: base, UpdatedAt: base,
 			}
 			if err := tx.SeedReview(ctx, rv); err != nil {
@@ -707,16 +707,16 @@ func BenchmarkListReviewComments_500(b *testing.B) {
 			for i := range 500 {
 				c := &ReviewCommentRow{
 					ReviewPK: rv.PK, PullPK: pr.PK, RepoPK: repo.PK,
-					UserPK: owner.PK,
-					Path:     fmt.Sprintf("src/file%d.rs", i%20),
-					Side:     "RIGHT",
-					Line:     &line,
-					CommitID: "ffffffffffffffffffffffffffffffffffffffff",
+					UserPK:           owner.PK,
+					Path:             fmt.Sprintf("src/file%d.rs", i%20),
+					Side:             "RIGHT",
+					Line:             &line,
+					CommitID:         "ffffffffffffffffffffffffffffffffffffffff",
 					OriginalCommitID: "ffffffffffffffffffffffffffffffffffffffff",
-					DiffHunk: "@@ -1,3 +1,4 @@\n line\n+new\n line",
-					Body:     fmt.Sprintf("review comment %d: this needs a fix because the logic is subtly wrong", i),
-					CreatedAt: base.Add(time.Duration(i) * time.Second),
-					UpdatedAt: base.Add(time.Duration(i) * time.Second),
+					DiffHunk:         "@@ -1,3 +1,4 @@\n line\n+new\n line",
+					Body:             fmt.Sprintf("review comment %d: this needs a fix because the logic is subtly wrong", i),
+					CreatedAt:        base.Add(time.Duration(i) * time.Second),
+					UpdatedAt:        base.Add(time.Duration(i) * time.Second),
 				}
 				if err := tx.SeedReviewComment(ctx, c); err != nil {
 					return err
@@ -807,10 +807,10 @@ func BenchmarkSearchIssues_unicode(b *testing.B) {
 	unicodeTitles := []string{
 		"fix 🐛 crash in parser",
 		"perf: 🚀 optimize hot path",
-		"مشكلة في التوثيق",   // Arabic RTL
-		"修复文档错误",          // CJK
+		"مشكلة في التوثيق", // Arabic RTL
+		"修复文档错误",           // CJK
 		"bug: emoji 🎉🔥💯 in title",
-		"Привет мир: исправление",  // Cyrillic
+		"Привет мир: исправление", // Cyrillic
 	}
 	base := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	err := st.BulkLoad(ctx, func() error {
