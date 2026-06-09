@@ -23,6 +23,11 @@
   }
 }
 
+/* settings-nav: the sidebar nav container. */
+.settings-nav {
+  min-width: 0;
+}
+
 /* The sidebar. */
 .settings-nav-heading {
   margin: 0 0 var(--base-size-8);

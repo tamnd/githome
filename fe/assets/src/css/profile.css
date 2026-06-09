@@ -391,3 +391,24 @@
 .profile-empty {
   margin-top: var(--base-size-8);
 }
+
+/* profile-sidebar: the left identity column in the two-column layout. */
+.profile-sidebar {
+  min-width: 0;
+}
+
+/* profile-main: the right column (tabs + tab body). */
+.profile-main {
+  min-width: 0;
+}
+
+/* profile-overview / profile-repos: tab body panels. */
+.profile-overview,
+.profile-repos {
+  /* content panels */
+}
+
+/* profile-tab-label: text label inside a profile tab link. */
+.profile-tab-label {
+  flex: 1 1 auto;
+}
