@@ -29,6 +29,7 @@ type tChrome struct {
 	CSRFToken   string
 	CurrentPath string
 	Flashes     []tFlash
+	HideAuth    bool
 }
 
 type tColorMode struct{ Mode, Light, Dark string }
