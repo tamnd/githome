@@ -59,6 +59,24 @@ type AppearanceVM struct {
 	DarkThemes  []AppearanceOption
 }
 
+// ProfileSettingsVM is the account profile settings page: the current field
+// values prefilled into the form, so the viewer sees what is stored today and
+// edits only what they want to change.
+type ProfileSettingsVM struct {
+	Chrome Chrome
+	Nav    SettingsNav
+
+	Action          string
+	Name            string
+	Email           string
+	Bio             string
+	Location        string
+	Company         string
+	Blog            string
+	TwitterUsername string
+	FormError       string
+}
+
 // HookListVM is a repository's webhooks list: a row per hook with its delivery
 // target, its active state, the events it fires on, and the status of its most
 // recent delivery. Empty drives the blankslate for a repository with no hooks.

@@ -252,14 +252,14 @@ func TestSaveAppearanceRejectsUnknownTheme(t *testing.T) {
 	}
 }
 
-func TestIndexRedirectsToAppearance(t *testing.T) {
+func TestIndexRedirectsToProfile(t *testing.T) {
 	fx := newFixture(t, signedIn())
 	resp, _ := get(t, fx.srv, "/settings")
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("status %d, want 303", resp.StatusCode)
 	}
-	if got := resp.Header.Get("Location"); got != "/settings/appearance" {
-		t.Errorf("redirect Location = %q, want /settings/appearance", got)
+	if got := resp.Header.Get("Location"); got != "/settings/profile" {
+		t.Errorf("redirect Location = %q, want /settings/profile", got)
 	}
 }
 

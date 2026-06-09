@@ -3,11 +3,20 @@ package route
 import "testing"
 
 func TestAccountSettingsURLs(t *testing.T) {
-	if got := AccountSettings(); got != "/settings" {
-		t.Errorf("AccountSettings() = %q, want /settings", got)
+	cases := []struct {
+		got  string
+		want string
+	}{
+		{AccountSettings(), "/settings"},
+		{Appearance(), "/settings/appearance"},
+		{ProfileSettings(), "/settings/profile"},
+		{SettingsKeys(), "/settings/keys"},
+		{SettingsTokens(), "/settings/tokens"},
 	}
-	if got := Appearance(); got != "/settings/appearance" {
-		t.Errorf("Appearance() = %q, want /settings/appearance", got)
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
 	}
 }
 

@@ -351,25 +351,28 @@ func mountRepoSettings(page *mizu.Router, d Deps) {
 }
 
 // mountSettings registers the account settings tree under /settings. The bare
-// /settings redirects to the first backed section, and /settings/appearance is
-// the appearance preference (the color mode and the light and dark themes). Each
-// handler gates on the signed-in viewer itself and 404s an anonymous request, so
-// the surface needs no domain service and mounts unconditionally; it depends only
-// on the render set, the view builder and the flash store the page chain already
-// carries. The /settings literal is a reserved top-level name (fe/route), so it
-// can never be read as a /{owner} profile, and it is registered before the
-// profile catch-all for the same reason /search is. The appearance save writes
-// the cookies the color-mode middleware reads. See implementation/13 section 2.
+// /settings redirects to /settings/profile, the first backed section. Each
+// handler gates on the signed-in viewer itself and 404s an anonymous request.
+// The /settings literal is a reserved top-level name (fe/route), so it can
+// never be read as a /{owner} profile, and it is registered before the profile
+// catch-all. The profile save writes through the user service; the appearance
+// save writes cookies the color-mode middleware reads; the keys and tokens pages
+// show honest-absence stubs today. See implementation/13 section 2.
 func mountSettings(page *mizu.Router, d Deps) {
 	sh := websettings.New(websettings.Deps{
 		Render: d.Render,
 		View:   d.View,
 		Flash:  d.Flash,
+		Users:  d.Users,
 		Logger: d.Logger,
 	})
 	page.Get("/settings", sh.Index)
+	page.Get("/settings/profile", sh.Profile)
+	page.Post("/settings/profile", sh.SaveProfile)
 	page.Get("/settings/appearance", sh.Appearance)
 	page.Post("/settings/appearance", sh.SaveAppearance)
+	page.Get("/settings/keys", sh.Keys)
+	page.Get("/settings/tokens", sh.Tokens)
 }
 
 // mountProfile registers the user and organization profile at /{owner}, the

@@ -14,6 +14,18 @@ var ErrUserNotFound = errors.New("domain: user not found")
 type UserStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
+	UpdateProfile(ctx context.Context, userPK int64, u store.ProfileUpdate) error
+}
+
+// ProfileFields are the account profile fields the settings page can update.
+type ProfileFields struct {
+	Name            string
+	Email           string
+	Bio             string
+	Location        string
+	Company         string
+	Blog            string
+	TwitterUsername string
 }
 
 // UserService resolves accounts into domain users. The REST layer holds it and
@@ -48,6 +60,27 @@ func (s *UserService) ByLogin(ctx context.Context, login string) (*User, error) 
 		return nil, err
 	}
 	return userFromRow(row), nil
+}
+
+// UpdateProfile updates the authenticated viewer's profile fields. Only the
+// fields named in fields are written; empty strings clear their column value.
+func (s *UserService) UpdateProfile(ctx context.Context, viewerPK int64, fields ProfileFields) error {
+	name := fields.Name
+	email := fields.Email
+	bio := fields.Bio
+	loc := fields.Location
+	co := fields.Company
+	blog := fields.Blog
+	tw := fields.TwitterUsername
+	return s.store.UpdateProfile(ctx, viewerPK, store.ProfileUpdate{
+		Name:            &name,
+		Email:           &email,
+		Bio:             &bio,
+		Location:        &loc,
+		Company:         &co,
+		Blog:            &blog,
+		TwitterUsername: &tw,
+	})
 }
 
 func userFromRow(r *store.UserRow) *User {
