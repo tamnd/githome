@@ -1,0 +1,55 @@
+{{define "content" -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <h1 class="settings-title">Public profile</h1>
+
+    <form class="settings-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+      {{if .FormError}}<p class="flash flash-error">{{.FormError}}</p>{{end}}
+
+      <div class="settings-field">
+        <label class="settings-label" for="name">Name</label>
+        <input class="input" id="name" name="name" type="text" value="{{.Name}}" placeholder="Your name" maxlength="255">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="email">Public email</label>
+        <input class="input" id="email" name="email" type="email" value="{{.Email}}" placeholder="Your public email address">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="bio">Bio</label>
+        <textarea class="input" id="bio" name="bio" rows="3" maxlength="160" placeholder="Tell us a little about yourself">{{.Bio}}</textarea>
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="company">Company</label>
+        <input class="input" id="company" name="company" type="text" value="{{.Company}}" placeholder="@company or company name" maxlength="255">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="blog">Website</label>
+        <input class="input" id="blog" name="blog" type="url" value="{{.Blog}}" placeholder="https://example.com">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="location">Location</label>
+        <input class="input" id="location" name="location" type="text" value="{{.Location}}" placeholder="City, Country" maxlength="255">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="twitter_username">X (formerly Twitter) username</label>
+        <div class="input-group">
+          <span class="input-group-addon">@</span>
+          <input class="input" id="twitter_username" name="twitter_username" type="text" value="{{.TwitterUsername}}" placeholder="username" maxlength="255">
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" type="submit">Update profile</button>
+      </div>
+    </form>
+  </section>
+</div>
+{{- end}}
