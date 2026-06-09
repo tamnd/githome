@@ -451,6 +451,24 @@
   font-size: var(--text-body-size);
 }
 
+/* reaction-btn: the submit button inside a reaction form. */
+.reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: var(--text-body-size);
+}
+
+/* reaction-picker: the details element that wraps the add-reaction toggle + menu. */
+.reaction-picker {
+  position: relative;
+}
+
 .reaction-add {
   position: relative;
 }
@@ -622,6 +640,66 @@
   background-color: var(--bgColor-danger-muted);
   border: var(--borderWidth-thin) solid var(--borderColor-danger-muted);
   border-radius: var(--borderRadius-medium);
+}
+
+/* issues-new: the New issue button slot in the issues bar. */
+.issues-new {
+  flex: 0 0 auto;
+}
+
+/* issue-state-toggle: the close/reopen button on the issue detail page. */
+.issue-state-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+/* issue-row-author: the author name link in the issue row meta. */
+.issue-row-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* issue-row-milestone: milestone chip shown in the row meta. */
+.issue-row-milestone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+/* issue-comment-count: total comment count in the issue detail meta. */
+.issue-comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* issue-new-form: wrapper around the new-issue body field. */
+.issue-new-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-16);
+}
+
+/* comment-edit-toggle: the summary that reveals the inline edit form. */
+.comment-edit-toggle {
+  list-style: none;
+  cursor: pointer;
+  color: var(--fgColor-muted);
+  font-size: var(--text-small-size);
+}
+
+.comment-edit-toggle::-webkit-details-marker {
+  display: none;
+}
+
+/* sidebar-milestone: milestone display in the metadata sidebar. */
+.sidebar-milestone {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
 }
 
 /* A disabled affordance (the new-issue submit for a viewer who cannot write). */

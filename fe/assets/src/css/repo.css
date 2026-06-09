@@ -211,6 +211,20 @@
 }
 
 /* Clone disclosure. */
+/* clone-caret: the dropdown caret icon on the clone summary button. */
+.clone-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fgColor-muted);
+  margin-left: auto;
+}
+
+/* clone-copy: the icon button that copies a clone URL to the clipboard. */
+.clone-copy {
+  padding: 5px var(--base-size-8);
+  flex: 0 0 auto;
+}
+
 .clone-field + .clone-field {
   margin-top: var(--base-size-8);
 }
@@ -908,6 +922,131 @@
 .blame-row:target .blame-linenum,
 .blame-linenum:has(a:target) {
   background-color: var(--bgColor-attention-muted);
+}
+
+/* Commits outer wrapper. */
+.commits {
+  margin-top: var(--base-size-8);
+}
+
+/* diff-row: the base tr in unified diff tables. */
+.diff-row {
+  /* base table row — color set by modifier classes below */
+}
+
+/* diff-gutter-new / diff-gutter-old: line-number gutters in new/old positions. */
+.diff-gutter-new,
+.diff-gutter-old {
+  width: 1%;
+  min-width: 40px;
+  padding: 0 var(--base-size-8);
+  text-align: right;
+  color: var(--fgColor-muted);
+  white-space: nowrap;
+  vertical-align: top;
+  user-select: none;
+  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* diff-summary-counts: the ±lines counts in the diff summary. */
+.diff-summary-counts {
+  display: flex;
+  gap: var(--base-size-4);
+  align-items: center;
+}
+
+/* blob-lines: the tbody containing all blob code rows. */
+.blob-lines {
+  /* inherits font settings from .blob-code table */
+}
+
+/* reponav: outer nav element that wraps the tab list. */
+.reponav {
+  overflow-x: auto;
+}
+
+/* repo-sidebar: the right column on repo home and tree pages. */
+.repo-sidebar {
+  min-width: 0;
+}
+
+/* filetable icon (base); variants add color. */
+.filetable-icon {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+/* filetable head author / when columns. */
+.filetable-head-author {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
+.filetable-head-when {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+/* file-finder: container for the file search page. */
+.file-finder {
+  /* page-level container */
+}
+
+/* file-finder-truncated: note when results are capped. */
+.file-finder-truncated {
+  padding: var(--base-size-8) var(--base-size-16);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* quick-setup: container for the empty-repo guide. */
+.quick-setup {
+  max-width: 540px;
+}
+
+.quick-setup-title {
+  font-size: var(--text-title-size-small);
+  margin-bottom: var(--base-size-8);
+}
+
+.quick-setup-clone {
+  margin-top: var(--base-size-8);
+}
+
+/* ref-list-icon: icon column in each ref list row. */
+.ref-list-icon {
+  flex: 0 0 auto;
+  color: var(--fgColor-muted);
+}
+
+/* ref-picker-group: groups branches from tags in the picker menu. */
+.ref-picker-group + .ref-picker-group {
+  margin-top: var(--base-size-8);
+  padding-top: var(--base-size-8);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+/* commit-author: author name in commit detail meta. */
+.commit-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* commit-detail-sha: SHA row in the commit detail aside. */
+.commit-detail-sha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+/* commit-detail-parents: parent SHA links section in commit detail. */
+.commit-detail-parents {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  flex-wrap: wrap;
 }
 
 /* Notifications page. */

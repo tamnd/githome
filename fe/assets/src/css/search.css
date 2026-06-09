@@ -305,6 +305,24 @@
   color: var(--fgColor-muted);
 }
 
+/* search-issue-author: the author name in an issue/PR search result. */
+.search-issue-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* search-issue-repo: the repository context in an issue/PR search result. */
+.search-issue-repo {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* search-empty: empty-state wrapper for a search with no results. */
+.search-empty {
+  padding: var(--base-size-32) var(--base-size-16);
+  text-align: center;
+}
+
 /* The landing (empty query) and the empty-result blankslate reuse the shared
  * blankslate shell; only the search landing widens its measure for the copy. */
 .search-landing {

@@ -558,6 +558,71 @@
   color: var(--fgColor-muted);
 }
 
+/* pr-title-edit: the edit button on the PR title block. */
+.pr-title-edit {
+  margin-left: auto;
+}
+
+/* pr-ref-base / pr-ref-head: the specific branch labels in the PR subhead. */
+.pr-ref-base,
+.pr-ref-head {
+  /* inherits from .pr-ref */
+}
+
+/* pr-conversation / pr-commits / pr-files: tab content panels. */
+.pr-conversation,
+.pr-commits,
+.pr-files {
+  /* content panel */
+}
+
+/* pr-timeline: the conversation timeline list. */
+.pr-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* paginate-next / paginate-prev: next/prev links in the pager. */
+.paginate-next,
+.paginate-prev {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+}
+
+/* merge-box-headline: the main status text in the merge-box header. */
+.merge-box-headline {
+  flex: 1 1 auto;
+}
+
+/* merge-box-checks-headline: checks summary text. */
+.merge-box-checks-headline {
+  flex: 1 1 auto;
+}
+
+/* merge-box-checks-icon: the check-state icon in the checks line. */
+.merge-box-checks-icon {
+  flex: 0 0 auto;
+}
+
+/* merge-box-review-decision: the review verdict text. */
+.merge-box-review-decision {
+  flex: 1 1 auto;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* merge-box-review-icon: the check-state icon on the reviews line. */
+.merge-box-review-icon {
+  flex: 0 0 auto;
+}
+
+/* merge-box-submit: the merge submit button. */
+.merge-box-submit {
+  flex: 0 0 auto;
+}
+
 /* Code review (F5): the merge-box review rollup, the inline composer and threads on
    the Files tab, the per-file outdated group, and the submitted-review summaries the
    Conversation timeline interleaves. The colors key off the same functional tokens
@@ -766,6 +831,38 @@
   margin: var(--base-size-8) 0 0;
   font-size: var(--text-small-size);
   color: var(--fgColor-muted);
+}
+
+/* review-comment-author: the author name in an inline review comment. */
+.review-comment-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* review-comment-body: the prose body of an inline review comment. */
+.review-comment-body {
+  margin-top: var(--base-size-4);
+}
+
+/* review-summary-icon: the check-state icon in a submitted-review summary. */
+.review-summary-icon {
+  flex: 0 0 auto;
+}
+
+/* review-summary-author: the author name in a submitted-review summary. */
+.review-summary-author {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* review-thread-detail: the <details> element wrapping the thread comment list. */
+.review-thread-detail {
+  /* disclosure wrapper for thread comments */
+}
+
+/* review-thread-resolve: the resolve/unresolve form inside a thread. */
+.review-thread-resolve {
+  display: inline-flex;
 }
 
 /* A submitted review in the Conversation timeline: a state-tinted header, the
