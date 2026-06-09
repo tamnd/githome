@@ -1,0 +1,105 @@
+{{define "content" -}}
+{{/* The data is a CompareRangeVM. Shows the three-dot diff between two branches
+     and, when Expanded is true, the PR creation form below the diff. The diff is
+     read-only (no inline review threads). When HasDiff is false (identical tips or
+     no common history) a blankslate invites the viewer to choose different branches.
+     The commit list shows the commits reachable from head but not from base. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="compare-range">
+    <div class="compare-range-head">
+      <h2 class="compare-range-title">
+        {{octicon "git-branch" 16}}
+        Comparing
+        <span class="compare-branch compare-branch-base">{{.Base.Name}}</span>
+        <span class="compare-range-sep" aria-hidden="true">...</span>
+        <span class="compare-branch compare-branch-head">{{.Head.Name}}</span>
+      </h2>
+      {{if .HasDiff -}}
+      <div class="compare-range-actions">
+        {{if not .Expanded -}}
+        <a class="btn btn-primary" href="{{.ExpandURL}}">Create pull request</a>
+        {{- end}}
+      </div>
+      {{- end}}
+    </div>
+
+    {{if not .HasDiff -}}
+    <div class="compare-no-diff blankslate">
+      {{octicon "git-pull-request" 24}}
+      <h3 class="blankslate-heading">There isn't anything to compare.</h3>
+      <p class="blankslate-text">
+        {{if eq .Base.Name .Head.Name -}}
+        <strong>{{.Base.Name}}</strong> and <strong>{{.Head.Name}}</strong> are the same branch.
+        {{- else -}}
+        <strong>{{.Base.Name}}</strong> and <strong>{{.Head.Name}}</strong> are identical — or share no common history.
+        {{- end}}
+      </p>
+      <a class="btn" href="{{.Header.URL}}/compare">Choose different branches</a>
+    </div>
+    {{- else -}}
+
+    {{if .Commits -}}
+    <div class="compare-commits">
+      <h3 class="compare-section-title">{{len .Commits}} commit{{if ne (len .Commits) 1}}s{{end}}</h3>
+      <ul class="commit-list">
+        {{range .Commits -}}
+        <li class="commit-row">
+          <span class="commit-row-sha">
+            <a class="commit-row-sha-link" href="{{.URL}}">{{.ShortSHA}}</a>
+          </span>
+          <span class="commit-row-title">{{.Title}}</span>
+          <span class="commit-row-meta">by {{.AuthorName}} · <relative-time datetime="{{.WhenISO}}">{{.When}}</relative-time></span>
+        </li>
+        {{- end}}
+      </ul>
+    </div>
+    {{- end}}
+
+    <div class="compare-files">
+      <div class="diff-summary">
+        <span class="diff-summary-files">{{.ChangedFiles}} changed file{{if ne .ChangedFiles 1}}s{{end}}</span>
+        <span class="diff-summary-counts">
+          <span class="diff-count-add">+{{.Additions}}</span>
+          <span class="diff-count-del">-{{.Deletions}}</span>
+        </span>
+      </div>
+      {{range .Files -}}
+      {{template "pr_diff_file" (dict "File" . "Review" nil)}}
+      {{- end}}
+    </div>
+
+    {{if .Expanded -}}
+    <div class="compare-create-pr">
+      <h3 class="compare-section-title">Open a pull request</h3>
+      <form class="compare-pr-form" method="post" action="{{.CreateURL}}">
+        {{if .CSRFToken}}<input type="hidden" name="_csrf" value="{{.CSRFToken}}">{{end}}
+        <input type="hidden" name="base" value="{{.Base.Name}}">
+        <input type="hidden" name="head" value="{{.Head.Name}}">
+        <div class="form-group">
+          <label class="form-label" for="pr-title">Title</label>
+          <input class="input" id="pr-title" name="title" type="text"
+                 placeholder="Pull request title" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pr-body">Description <span class="form-label-optional">(optional)</span></label>
+          <textarea class="textarea" id="pr-body" name="body" rows="6"
+                    placeholder="Describe your changes..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="compare-pr-draft">
+            <input type="checkbox" name="draft" value="1"> Create as draft
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Create pull request</button>
+          <a class="btn" href="{{$.Header.URL}}/compare">Cancel</a>
+        </div>
+      </form>
+    </div>
+    {{- end}}
+
+    {{- end}}
+  </div>
+</div>
+{{- end}}
