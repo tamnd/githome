@@ -81,6 +81,7 @@ type IssueStore interface {
 	UpdateMilestone(ctx context.Context, m *store.MilestoneRow) error
 	DeleteMilestone(ctx context.Context, pk int64) error
 	MilestoneIssueCounts(ctx context.Context, milestonePK int64) (open, closed int, err error)
+	MilestoneIssueCountsByPKs(ctx context.Context, pks []int64) (map[int64]store.MilestoneCount, error)
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
@@ -599,6 +600,10 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 	if err != nil {
 		return nil, err
 	}
+	milestoneCountMap, err := s.store.MilestoneIssueCountsByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
 	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "issue", issuePKs)
 	if err != nil {
 		return nil, err
@@ -639,14 +644,11 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 						}
 					}
 				}
-				open, closed, err := s.store.MilestoneIssueCounts(ctx, mr.PK)
-				if err != nil {
-					return nil, err
-				}
+				cnt := milestoneCountMap[mr.PK]
 				milestone = &Milestone{
 					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
 					Description: mr.Description, State: mr.State, Creator: creator,
-					OpenIssues: open, ClosedIssues: closed,
+					OpenIssues: cnt.Open, ClosedIssues: cnt.Closed,
 					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
 					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
 				}
@@ -817,6 +819,10 @@ func (s *IssueService) assembleIssueSearch(ctx context.Context, repoMap map[int6
 	if err != nil {
 		return nil, err
 	}
+	milestoneCountMap, err := s.store.MilestoneIssueCountsByPKs(ctx, milestonePKs)
+	if err != nil {
+		return nil, err
+	}
 	rollupMap, err := s.store.ReactionRollupsBySubjectPKs(ctx, "issue", issuePKs)
 	if err != nil {
 		return nil, err
@@ -857,14 +863,11 @@ func (s *IssueService) assembleIssueSearch(ctx context.Context, repoMap map[int6
 						}
 					}
 				}
-				open, closed, err := s.store.MilestoneIssueCounts(ctx, mr.PK)
-				if err != nil {
-					return nil, err
-				}
+				cnt := milestoneCountMap[mr.PK]
 				milestone = &Milestone{
 					ID: mr.DBID, Number: mr.Number, Title: mr.Title,
 					Description: mr.Description, State: mr.State, Creator: creator,
-					OpenIssues: open, ClosedIssues: closed,
+					OpenIssues: cnt.Open, ClosedIssues: cnt.Closed,
 					DueOn: mr.DueOn, ClosedAt: mr.ClosedAt,
 					CreatedAt: mr.CreatedAt, UpdatedAt: mr.UpdatedAt,
 				}

@@ -92,6 +92,43 @@ func (s *Store) MilestoneIssueCounts(ctx context.Context, milestonePK int64) (op
 	return open, closed, rows.Err()
 }
 
+// MilestoneCount holds the open and closed issue counts for one milestone.
+type MilestoneCount struct{ Open, Closed int }
+
+// MilestoneIssueCountsByPKs loads open and closed issue counts for multiple
+// milestones in one query. PKs absent from the result have zero counts.
+func (s *Store) MilestoneIssueCountsByPKs(ctx context.Context, pks []int64) (map[int64]MilestoneCount, error) {
+	if len(pks) == 0 {
+		return map[int64]MilestoneCount{}, nil
+	}
+	q := s.rebind(`SELECT milestone_pk, state, COUNT(*) FROM issues
+		WHERE milestone_pk IN ` + inPlaceholders(len(pks)) + ` AND deleted_at IS NULL
+		GROUP BY milestone_pk, state`)
+	rows, err := s.db.QueryContext(ctx, q, i64Args(pks)...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[int64]MilestoneCount, len(pks))
+	for rows.Next() {
+		var pk int64
+		var state string
+		var n int
+		if err := rows.Scan(&pk, &state, &n); err != nil {
+			return nil, err
+		}
+		c := out[pk]
+		switch state {
+		case "open":
+			c.Open = n
+		case "closed":
+			c.Closed = n
+		}
+		out[pk] = c
+	}
+	return out, rows.Err()
+}
+
 // InsertMilestone allocates the per-repo milestone number and the global db_id in
 // one transaction with the row insert.
 func (s *Store) InsertMilestone(ctx context.Context, m *MilestoneRow) error {
