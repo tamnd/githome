@@ -91,6 +91,7 @@ type Deps struct {
 func Mount(root *mizu.Router, d Deps) http.Handler {
 	page := root.With(
 		webmw.Recover(d.Render, d.Logger),
+		webmw.SecureHeaders(),
 		d.Sessions.Middleware(),
 		webmw.ColorMode(),
 		d.CSRF.Middleware(),
@@ -108,6 +109,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountNotifications(page, d)
 	mountRepoSettings(page, d)
 	mountSettings(page, d)
 	mountProfile(page, d)
@@ -420,6 +422,22 @@ func mountAuth(page *mizu.Router, d Deps) {
 	page.Post("/join", ah.JoinSubmit)
 	page.Get("/logout", ah.LogoutForm)
 	page.Post("/logout/session", ah.LogoutSubmit)
+}
+
+// mountNotifications registers the /notifications inbox route. The inbox is gated
+// to the signed-in viewer (an anonymous request gets a 404 just like any resource
+// the viewer has no right to see), so the route exists unconditionally but
+// renders the empty inbox when the notifications domain layer is not yet backed.
+// The /notifications literal is a reserved top-level name (fe/route), so it is
+// registered before the profile catch-all and is never read as a login. See
+// implementation/12 section 3.
+func mountNotifications(page *mizu.Router, d Deps) {
+	page.Get("/notifications", func(c *mizu.Ctx) error {
+		if view.ViewerFrom(c.Context()) == nil {
+			return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
+		}
+		return d.Render.Page(c, "notifications/index", d.View.Notifications(c))
+	})
 }
 
 // handleHome renders the landing page. A signed-in viewer sees the dashboard

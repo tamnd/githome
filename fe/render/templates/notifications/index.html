@@ -1,0 +1,25 @@
+{{define "content" -}}
+{{/* The data is NotificationsVM. Shows the notifications inbox for the
+     signed-in viewer. The notifications domain layer is not yet backed, so
+     this renders the empty-inbox blankslate. */ -}}
+<div class="container-xl">
+  <div class="notifications-page">
+    <div class="notifications-sidebar">
+      <h2 class="notifications-sidebar-heading">Filters</h2>
+      <ul class="notifications-filter-list">
+        <li><a class="notifications-filter-link is-active" href="/notifications">Inbox</a></li>
+        <li><a class="notifications-filter-link" href="/notifications?query=is%3Asaved">Saved</a></li>
+      </ul>
+    </div>
+    <div class="notifications-inbox">
+      <div class="blankslate">
+        {{octicon "check-circle" 32}}
+        <h3 class="blankslate-heading">You're all caught up!</h3>
+        <p class="blankslate-text">
+          You have no unread notifications.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{{- end}}

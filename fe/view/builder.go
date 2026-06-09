@@ -23,3 +23,16 @@ func (b *Builder) Home(c *mizu.Ctx) HomeVM {
 	}
 	return HomeVM{Chrome: b.Chrome(c, title)}
 }
+
+// NotificationsVM is the notifications inbox model. The inbox is backed by the
+// notifications domain layer when it is available; when nil, an authenticated
+// viewer sees the empty-inbox blankslate. An anonymous viewer is not shown an
+// inbox — mountNotifications 404s before the view model is built.
+type NotificationsVM struct {
+	Chrome Chrome
+}
+
+// Notifications builds the notifications inbox model for the signed-in viewer.
+func (b *Builder) Notifications(c *mizu.Ctx) NotificationsVM {
+	return NotificationsVM{Chrome: b.Chrome(c, "Notifications")}
+}
