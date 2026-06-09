@@ -8,6 +8,7 @@
 :root {
   /* Spacing scale, 4px base. */
   --base-size-4: 4px;
+  --base-size-6: 6px;
   --base-size-8: 8px;
   --base-size-12: 12px;
   --base-size-16: 16px;
@@ -19,6 +20,8 @@
 
   /* Type scale. */
   --text-body-size: 14px;
+  --text-body-size-medium: 14px;
+  --text-body-size-large: 16px;
   --text-body-lineHeight: 1.5;
   --text-small-size: 12px;
   --text-title-size-large: 32px;
