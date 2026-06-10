@@ -1,0 +1,14 @@
+title       = "githome"
+baseURL     = "https://githome.tamnd.com/"
+description = "A self-hosted GitHub-compatible forge: one binary, full API compatibility."
+contentDir  = "content"
+outputDir   = "public"
+theme       = "tago-doks"
+syntaxHighlight = "true"
+
+[params]
+github             = "https://github.com/tamnd/githome"
+heroTitle          = "Self-hosted GitHub, one binary"
+heroLead           = "githome speaks the full GitHub REST v3 and GraphQL v4 API. Drop it in front of any git workflow: gh CLI, Octokit, Terraform, VS Code, all work without reconfiguration."
+heroPrimaryURL     = "/getting-started/introduction/"
+heroPrimaryText    = "Get started"
