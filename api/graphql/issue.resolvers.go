@@ -33,7 +33,7 @@ func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmo
 // Labels is the resolver for the labels field. It loads the issue's labels
 // through the per-request label dataloader so that concurrent nested field
 // resolutions batch into one label query per request.
-func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error) {
+func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
 	l := loadersFrom(ctx)
 	if l == nil {
 		return obj.Labels, nil // fallback: loaders not wired (tests)

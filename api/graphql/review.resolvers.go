@@ -79,7 +79,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 // Comments is the resolver for the comments field. The presenter already folded
 // the thread's comments into the connection on the parent thread, so the resolver
 // validates the page arguments and returns it.
-func (r *pullRequestReviewThreadResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequestReviewThread, first *int32, after *string) (*gqlmodel.PullRequestReviewCommentConnection, error) {
+func (r *pullRequestReviewThreadResolver) Comments(_ context.Context, obj *gqlmodel.PullRequestReviewThread, first *int32, after *string) (*gqlmodel.PullRequestReviewCommentConnection, error) {
 	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
 		return nil, err
 	}

@@ -3,15 +3,15 @@ package gqlmodel
 // User is the GraphQL User object, carrying the fields gh api and gh auth
 // status select. It grows toward the full GitHub User type milestone by milestone.
 type User struct {
-	ID        string    // the User node ID
-	Login     string    // the user's login
-	Name      *string   // display name, null when unset
-	Email     *string   // public email, null when unset
-	Bio       *string   // profile bio, null when unset
-	URL       URI       // the user's profile HTML URL
-	AvatarURL URI       // the user's avatar URL
-	CreatedAt DateTime  // account creation instant
-	UpdatedAt DateTime  // last-update instant
+	ID        string   // the User node ID
+	Login     string   // the user's login
+	Name      *string  // display name, null when unset
+	Email     *string  // public email, null when unset
+	Bio       *string  // profile bio, null when unset
+	URL       URI      // the user's profile HTML URL
+	AvatarURL URI      // the user's avatar URL
+	CreatedAt DateTime // account creation instant
+	UpdatedAt DateTime // last-update instant
 }
 
 // UserConnection is the Relay connection over a set of users (assignees, etc.).

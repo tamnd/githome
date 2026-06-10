@@ -107,7 +107,7 @@ func (b *URLBuilder) GQLMilestone(owner, repo string, m *domain.Milestone, forma
 
 // GQLRepositoryOwner renders a repository's owner into the GraphQL
 // RepositoryOwner shape.
-func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, format nodeid.Format) *gqlmodel.RepositoryOwner {
+func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, _ nodeid.Format) *gqlmodel.RepositoryOwner {
 	if u == nil {
 		return &gqlmodel.RepositoryOwner{}
 	}
