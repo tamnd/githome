@@ -105,6 +105,7 @@ type RepoRow struct {
 	PushedAt        *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	Topics          string // JSON array, e.g. '["go","api"]'
 }
 
 // PullRow is a row of the pull_requests table, the extension a pull request
@@ -384,4 +385,26 @@ type BranchProtectionRow struct {
 	AllowDeletions           bool
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
+}
+
+// TeamRow is a row of the teams table.
+type TeamRow struct {
+	PK          int64
+	DBID        int64
+	OrgPK       int64
+	Name        string
+	Slug        string
+	Description *string
+	Privacy     string
+	Permission  string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// CollaboratorRow is a row of the collaborators table.
+type CollaboratorRow struct {
+	PK         int64
+	RepoPK     int64
+	UserPK     int64
+	Permission string
 }

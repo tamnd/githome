@@ -486,6 +486,78 @@ func (s *RepoService) Contents(repo *Repo, path, ref string) (git.PathResult, er
 	return res, nil
 }
 
+// WriteFileInput holds the inputs for the file-write domain operation.
+type WriteFileInput struct {
+	Path           string
+	Content        []byte // nil for delete
+	Message        string
+	AuthorName     string
+	AuthorEmail    string
+	Branch         string
+	CurrentBlobSHA string // must match current blob if non-empty
+}
+
+// WriteFileResult is returned by WriteFile and DeleteFile.
+type WriteFileResult struct {
+	CommitSHA string
+	BlobSHA   string // empty on delete
+}
+
+// WriteFile creates or updates a file in the repository, creating a new commit
+// on top of the branch. Returns ErrConflict if CurrentBlobSHA is set but does
+// not match the actual current blob.
+func (s *RepoService) WriteFile(repo *Repo, in WriteFileInput) (*WriteFileResult, error) {
+	gr, err := s.openOrInit(repo)
+	if err != nil {
+		return nil, err
+	}
+	res, err := gr.WriteFile(git.FileWriteInput{
+		Path:        in.Path,
+		Content:     in.Content,
+		Message:     in.Message,
+		AuthorName:  in.AuthorName,
+		AuthorEmail: in.AuthorEmail,
+		Branch:      in.Branch,
+	})
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return &WriteFileResult{CommitSHA: res.CommitSHA, BlobSHA: res.BlobSHA}, nil
+}
+
+// DeleteFile removes a file from the repository, creating a new commit.
+func (s *RepoService) DeleteFile(repo *Repo, in WriteFileInput) (*WriteFileResult, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, err
+	}
+	res, err := gr.DeleteFile(git.FileWriteInput{
+		Path:        in.Path,
+		Message:     in.Message,
+		AuthorName:  in.AuthorName,
+		AuthorEmail: in.AuthorEmail,
+		Branch:      in.Branch,
+	})
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return &WriteFileResult{CommitSHA: res.CommitSHA}, nil
+}
+
+// openOrInit opens the repository's bare git store, initializing it if it does
+// not yet exist. Used by WriteFile so the first file create also works on a
+// freshly-created (but never-pushed) repository.
+func (s *RepoService) openOrInit(repo *Repo) (*git.Repo, error) {
+	gr, err := s.gitStore.Open(repo.PK)
+	if err == nil {
+		return gr, nil
+	}
+	if errors.Is(err, git.ErrRepoNotFound) {
+		return s.gitStore.Init(repo.PK)
+	}
+	return nil, err
+}
+
 // open opens the repository's bare git store. A repository whose bare store was
 // never created is treated as empty, the same as one with no commits.
 func (s *RepoService) open(repo *Repo) (*git.Repo, error) {
@@ -604,6 +676,7 @@ func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 		PushedAt:        r.PushedAt,
 		CreatedAt:       r.CreatedAt,
 		UpdatedAt:       r.UpdatedAt,
+		Topics:          r.Topics,
 	}
 }
 

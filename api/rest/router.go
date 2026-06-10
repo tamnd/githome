@@ -33,6 +33,7 @@ type Deps struct {
 	Reviews    *domain.ReviewService
 	Checks     *domain.ChecksService
 	Keys       *domain.KeyService
+	Teams      *domain.TeamService
 	Hooks      *domain.HookService
 	Events     *domain.EventService
 	Search     *domain.SearchService
@@ -134,6 +135,11 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Keys != nil {
 		mountKeys(r, d)
 	}
+	if d.Teams != nil {
+		mountTeams(r, d)
+	}
+	mountGists(r)
+	mountRepoExtra(r, d)
 	if d.Hooks != nil {
 		mountHooks(r, d)
 	}
@@ -251,6 +257,7 @@ func mountKeys(r *mizu.Router, d Deps) {
 	// User SSH keys.
 	r.Get("/user/keys", handleUserKeysList(d))
 	r.Post("/user/keys", handleUserKeyCreate(d))
+	r.Get("/user/keys/{key_id}", handleUserKeyGet(d))
 	r.Delete("/user/keys/{key_id}", handleUserKeyDelete(d))
 	// Branch protection.
 	r.Get("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionGet(d))

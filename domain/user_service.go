@@ -62,6 +62,20 @@ func (s *UserService) ByLogin(ctx context.Context, login string) (*User, error) 
 	return userFromRow(row), nil
 }
 
+// PKByLogin returns the internal (store) primary key of the user with the given
+// login, or ErrUserNotFound if no such user exists. This is used by REST handlers
+// that need to call services accepting internal PKs.
+func (s *UserService) PKByLogin(ctx context.Context, login string) (int64, error) {
+	row, err := s.store.UserByLogin(ctx, login)
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, ErrUserNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+	return row.PK, nil
+}
+
 // UpdateProfile updates the authenticated viewer's profile fields. Only the
 // fields named in fields are written; empty strings clear their column value.
 func (s *UserService) UpdateProfile(ctx context.Context, viewerPK int64, fields ProfileFields) error {
