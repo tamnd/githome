@@ -30,6 +30,10 @@ type Actor struct {
 	SiteAdmin bool
 	TokenID   int64 // tokens.pk of the credential used; 0 for anonymous
 
+	// App-bound fields; non-zero only for KindInstallation and KindAppJWT.
+	AppID          int64
+	InstallationID int64
+
 	Scopes    Scopes
 	ExpiresAt *time.Time
 

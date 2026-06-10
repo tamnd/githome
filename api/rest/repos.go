@@ -274,6 +274,91 @@ func handleRef(d Deps) mizu.Handler {
 	}
 }
 
+// repoPatchBody is the JSON body for PATCH /repos/{owner}/{repo}.
+type repoPatchBody struct {
+	Name          *string `json:"name"`
+	Description   *string `json:"description"`
+	Homepage      *string `json:"homepage"`
+	DefaultBranch *string `json:"default_branch"`
+	Private       *bool   `json:"private"`
+	HasIssues     *bool   `json:"has_issues"`
+	HasProjects   *bool   `json:"has_projects"`
+	HasWiki       *bool   `json:"has_wiki"`
+	Archived      *bool   `json:"archived"`
+	IsTemplate    *bool   `json:"is_template"`
+}
+
+// handleRepoUpdate serves PATCH /repos/{owner}/{repo}. Only the repository
+// owner may update settings.
+func handleRepoUpdate(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		var body repoPatchBody
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		owner, name := c.Param("owner"), c.Param("repo")
+		repo, err := d.Repos.UpdateRepo(ctx, actor.UserID, owner, name, domain.RepoPatch{
+			Name:          body.Name,
+			Description:   body.Description,
+			Homepage:      body.Homepage,
+			DefaultBranch: body.DefaultBranch,
+			Private:       body.Private,
+			HasIssues:     body.HasIssues,
+			HasProjects:   body.HasProjects,
+			HasWiki:       body.HasWiki,
+			Archived:      body.Archived,
+			IsTemplate:    body.IsTemplate,
+		})
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c.Writer(), errForbidden("Must be repo owner to update settings"))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.Repository(repo, d.NodeFormat, presenter.OwnerPermissions()))
+		return nil
+	}
+}
+
+// handleRepoDelete serves DELETE /repos/{owner}/{repo}. Only the repository
+// owner may delete. A successful delete returns 204.
+func handleRepoDelete(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		owner, name := c.Param("owner"), c.Param("repo")
+		err := d.Repos.DeleteRepo(ctx, actor.UserID, owner, name)
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c.Writer(), errForbidden("Must be repo owner to delete"))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
 // loadRepo resolves {owner}/{repo} for the request actor. It returns (nil, nil)
 // after writing the 404 when the repository is missing or invisible, so callers
 // short-circuit on a nil repo; any other error is returned for the central

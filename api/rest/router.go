@@ -32,6 +32,7 @@ type Deps struct {
 	Pulls      *domain.PRService
 	Reviews    *domain.ReviewService
 	Checks     *domain.ChecksService
+	Keys       *domain.KeyService
 	Hooks      *domain.HookService
 	Events     *domain.EventService
 	Search     *domain.SearchService
@@ -108,8 +109,14 @@ func mountAPI(r *mizu.Router, d Deps) {
 	r.Get("/rate_limit", handleRateLimit(d.Config))
 	if d.Users != nil {
 		r.Get("/user", handleUserGet(d))
+		mountUsers(r, d)
+		mountOrgs(r, d)
 	}
 	if d.Repos != nil {
+		if d.Users != nil {
+			r.Get("/user/repos", handleUserReposList(d))
+			r.Post("/user/repos", handleUserRepoCreate(d))
+		}
 		mountRepos(r, d)
 	}
 	if d.Issues != nil {
@@ -124,6 +131,9 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Checks != nil {
 		mountChecks(r, d)
 	}
+	if d.Keys != nil {
+		mountKeys(r, d)
+	}
 	if d.Hooks != nil {
 		mountHooks(r, d)
 	}
@@ -135,6 +145,9 @@ func mountAPI(r *mizu.Router, d Deps) {
 	}
 	if d.Releases != nil {
 		mountReleases(r, d)
+	}
+	if d.Auth != nil {
+		mountApp(r, d)
 	}
 }
 
@@ -228,9 +241,49 @@ func mountIssues(r *mizu.Router, d Deps) {
 	r.Delete("/repos/{owner}/{repo}/issues/comments/{id}/reactions/{reaction_id}", handleCommentReactionDelete(d))
 }
 
+// mountKeys registers the deploy key, user key, and branch protection endpoints on r.
+func mountKeys(r *mizu.Router, d Deps) {
+	// Deploy keys.
+	r.Get("/repos/{owner}/{repo}/keys", handleDeployKeysList(d))
+	r.Post("/repos/{owner}/{repo}/keys", handleDeployKeyCreate(d))
+	r.Get("/repos/{owner}/{repo}/keys/{key_id}", handleDeployKeyGet(d))
+	r.Delete("/repos/{owner}/{repo}/keys/{key_id}", handleDeployKeyDelete(d))
+	// User SSH keys.
+	r.Get("/user/keys", handleUserKeysList(d))
+	r.Post("/user/keys", handleUserKeyCreate(d))
+	r.Delete("/user/keys/{key_id}", handleUserKeyDelete(d))
+	// Branch protection.
+	r.Get("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionGet(d))
+	r.Put("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionPut(d))
+	r.Delete("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionDelete(d))
+}
+
+// mountApp registers the GitHub App meta and installation-token endpoints on r.
+// All require App JWT auth; the handlers reject other credential kinds with 401.
+func mountApp(r *mizu.Router, d Deps) {
+	r.Get("/app", handleAppGet(d))
+	r.Get("/app/installations", handleAppInstallationsList(d))
+	r.Post("/app/installations/{installation_id}/access_tokens", handleInstallationAccessTokens(d))
+}
+
+// mountUsers registers the public user profile and listing endpoints on r.
+func mountUsers(r *mizu.Router, d Deps) {
+	r.Get("/users/{username}", handlePublicUserGet(d))
+	r.Get("/users/{username}/repos", handlePublicUserRepos(d))
+}
+
+// mountOrgs registers the organization profile and repository endpoints on r.
+func mountOrgs(r *mizu.Router, d Deps) {
+	r.Get("/orgs/{org}", handleOrgGet(d))
+	r.Get("/orgs/{org}/repos", handleOrgReposList(d))
+	r.Post("/orgs/{org}/repos", handleOrgRepoCreate(d))
+}
+
 // mountRepos registers the repository and git-read endpoints on r.
 func mountRepos(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}", handleRepoGet(d))
+	r.Patch("/repos/{owner}/{repo}", handleRepoUpdate(d))
+	r.Delete("/repos/{owner}/{repo}", handleRepoDelete(d))
 	r.Get("/repos/{owner}/{repo}/branches", handleBranches(d))
 	r.Get("/repos/{owner}/{repo}/branches/{branch}", handleBranch(d))
 	r.Get("/repos/{owner}/{repo}/tags", handleTags(d))
@@ -244,6 +297,7 @@ func mountRepos(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/git/ref/{ref...}", handleRef(d))
 	r.Post("/repos/{owner}/{repo}/git/refs", handleCreateRef(d))
 	r.Patch("/repos/{owner}/{repo}/git/refs/{ref...}", handleUpdateRef(d))
+	r.Delete("/repos/{owner}/{repo}/git/refs/{ref...}", handleDeleteRef(d))
 }
 
 // errorHandler turns a handler-returned error or a recovered panic into the

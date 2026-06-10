@@ -41,7 +41,12 @@ type RepoStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
 	RepoByDBID(ctx context.Context, dbID int64) (*store.RepoRow, error)
+	ReposByOwner(ctx context.Context, ownerPK int64) ([]*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
+	InsertRepo(ctx context.Context, r *store.RepoRow) error
+	UpdateRepo(ctx context.Context, pk int64, p store.RepoPatch) (*store.RepoRow, error)
+	SoftDeleteRepo(ctx context.Context, pk int64) error
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 	InsertEvent(ctx context.Context, e *store.EventRow) error
@@ -135,6 +140,168 @@ func (s *RepoService) GetRepoByPK(ctx context.Context, viewerPK, repoPK int64) (
 		return nil, err
 	}
 	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// RepoInput holds the caller-supplied fields for creating a new repository.
+type RepoInput struct {
+	Name          string
+	Description   *string
+	Homepage      *string
+	Private       bool
+	AutoInit      bool   // init with a README commit
+	DefaultBranch string // default "main"
+}
+
+// RepoPatch holds nullable editable fields for PATCH /repos/{owner}/{repo}.
+// A nil field leaves the stored value unchanged.
+type RepoPatch struct {
+	Name          *string
+	Description   *string
+	Homepage      *string
+	DefaultBranch *string
+	Private       *bool
+	HasIssues     *bool
+	HasProjects   *bool
+	HasWiki       *bool
+	Archived      *bool
+	IsTemplate    *bool
+}
+
+// ListReposByLogin returns all non-deleted repositories owned by ownerLogin,
+// filtered by the viewer's visibility. The owner login is resolved to an
+// internal PK via the store. ErrUserNotFound is returned when no such account
+// exists.
+func (s *RepoService) ListReposByLogin(ctx context.Context, viewerPK int64, ownerLogin string) ([]*Repo, error) {
+	ownerRow, err := s.store.UserByLogin(ctx, ownerLogin)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	owner := userFromRow(ownerRow)
+	rows, err := s.store.ReposByOwner(ctx, ownerRow.PK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		if canSee(r, viewerPK) {
+			out = append(out, repoFromRow(r, owner))
+		}
+	}
+	return out, nil
+}
+
+// ListRepos returns all non-deleted repositories owned by ownerPK, filtered by
+// the viewer's visibility. Anonymous viewers and non-owner viewers see only
+// public repos; the owner sees all.
+func (s *RepoService) ListRepos(ctx context.Context, viewerPK, ownerPK int64) ([]*Repo, error) {
+	ownerRow, err := s.store.UserByPK(ctx, ownerPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	owner := userFromRow(ownerRow)
+	rows, err := s.store.ReposByOwner(ctx, ownerPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		if canSee(r, viewerPK) {
+			out = append(out, repoFromRow(r, owner))
+		}
+	}
+	return out, nil
+}
+
+// CreateRepo creates a new repository owned by ownerLogin under the authenticated
+// actor (viewerPK). The actor must own the target account (or be a site admin).
+func (s *RepoService) CreateRepo(ctx context.Context, viewerPK int64, ownerLogin string, inp RepoInput) (*Repo, error) {
+	ownerRow, err := s.store.UserByLogin(ctx, ownerLogin)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if ownerRow.PK != viewerPK && !ownerRow.SiteAdmin {
+		return nil, ErrForbidden
+	}
+	if inp.DefaultBranch == "" {
+		inp.DefaultBranch = "main"
+	}
+	row := &store.RepoRow{
+		OwnerPK:       ownerRow.PK,
+		Name:          inp.Name,
+		Description:   inp.Description,
+		Homepage:      inp.Homepage,
+		Private:       inp.Private,
+		DefaultBranch: inp.DefaultBranch,
+	}
+	if err := s.store.InsertRepo(ctx, row); err != nil {
+		return nil, err
+	}
+	if _, err := s.gitStore.Init(row.PK); err != nil {
+		return nil, err
+	}
+	owner := userFromRow(ownerRow)
+	return repoFromRow(row, owner), nil
+}
+
+// UpdateRepo applies patch to the repository identified by owner/name for the
+// given viewer. Only the repository owner may update settings.
+func (s *RepoService) UpdateRepo(ctx context.Context, viewerPK int64, owner, name string, p RepoPatch) (*Repo, error) {
+	row, err := s.store.RepoByOwnerName(ctx, owner, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if row.OwnerPK != viewerPK {
+		return nil, ErrForbidden
+	}
+	sp := store.RepoPatch{
+		Name:          p.Name,
+		Description:   p.Description,
+		Homepage:      p.Homepage,
+		DefaultBranch: p.DefaultBranch,
+		Private:       p.Private,
+		HasIssues:     p.HasIssues,
+		HasProjects:   p.HasProjects,
+		HasWiki:       p.HasWiki,
+		Archived:      p.Archived,
+		IsTemplate:    p.IsTemplate,
+	}
+	updated, err := s.store.UpdateRepo(ctx, row.PK, sp)
+	if err != nil {
+		return nil, err
+	}
+	ownerRow, err := s.store.UserByPK(ctx, updated.OwnerPK)
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(updated, userFromRow(ownerRow)), nil
+}
+
+// DeleteRepo soft-deletes the repository identified by owner/name. Only the
+// repository owner may delete it.
+func (s *RepoService) DeleteRepo(ctx context.Context, viewerPK int64, owner, name string) error {
+	row, err := s.store.RepoByOwnerName(ctx, owner, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrRepoNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if row.OwnerPK != viewerPK {
+		return ErrForbidden
+	}
+	return s.store.SoftDeleteRepo(ctx, row.PK)
 }
 
 // RepoForEvent assembles a repository by internal pk with no visibility check,

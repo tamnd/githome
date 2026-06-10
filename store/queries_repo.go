@@ -84,6 +84,86 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	return nil
 }
 
+// RepoPatch holds the nullable fields a PATCH /repos/{owner}/{repo} may update.
+// A nil field means "leave as-is"; a non-nil field (even an empty string) is
+// written. Name is separate because renaming a repo has extra consequences the
+// caller handles (git path move, conflict check).
+type RepoPatch struct {
+	Name          *string
+	Description   *string
+	Homepage      *string
+	DefaultBranch *string
+	Private       *bool
+	HasIssues     *bool
+	HasProjects   *bool
+	HasWiki       *bool
+	Archived      *bool
+	IsTemplate    *bool
+}
+
+// UpdateRepo applies p to the repository identified by pk and returns the
+// updated row. Fields in p that are nil are left unchanged. updated_at is
+// always stamped to now.
+func (s *Store) UpdateRepo(ctx context.Context, pk int64, p RepoPatch) (*RepoRow, error) {
+	q := s.rebind(`UPDATE repositories SET
+		name = COALESCE(?, name),
+		description = COALESCE(?, description),
+		homepage = COALESCE(?, homepage),
+		default_branch = COALESCE(?, default_branch),
+		private = COALESCE(?, private),
+		has_issues = COALESCE(?, has_issues),
+		has_projects = COALESCE(?, has_projects),
+		has_wiki = COALESCE(?, has_wiki),
+		archived = COALESCE(?, archived),
+		is_template = COALESCE(?, is_template),
+		updated_at = ?
+		WHERE pk = ? AND deleted_at IS NULL
+		RETURNING ` + repoColumns)
+	row := s.db.QueryRowContext(ctx, q,
+		p.Name, p.Description, p.Homepage, p.DefaultBranch,
+		p.Private, p.HasIssues, p.HasProjects, p.HasWiki,
+		p.Archived, p.IsTemplate,
+		nowUTC(), pk,
+	)
+	return scanRepo(row)
+}
+
+// SoftDeleteRepo stamps deleted_at on the repository row, making it invisible
+// to all the live-only queries. The git objects remain on disk; a separate
+// async job handles disk cleanup.
+func (s *Store) SoftDeleteRepo(ctx context.Context, pk int64) error {
+	q := s.rebind(`UPDATE repositories SET deleted_at = ?, updated_at = ?
+		WHERE pk = ? AND deleted_at IS NULL`)
+	res, err := s.db.ExecContext(ctx, q, nowUTC(), nowUTC(), pk)
+	if err != nil {
+		return err
+	}
+	return affectedOrNotFound(res)
+}
+
+// ReposByOwner lists all non-deleted repositories belonging to ownerPK, ordered
+// by name. It is used by the user.repositories field on User/RepositoryOwner.
+func (s *Store) ReposByOwner(ctx context.Context, ownerPK int64) ([]*RepoRow, error) {
+	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
+		JOIN users u ON u.pk = r.owner_pk
+		WHERE r.owner_pk = ? AND r.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY r.name ASC`)
+	rows, err := s.db.QueryContext(ctx, q, ownerPK)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*RepoRow
+	for rows.Next() {
+		r, err := scanRepo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // TouchRepoPushedAt advances pushed_at (and updated_at) to at, which the
 // post-receive sink calls after a push so the pushed_at field and the
 // pushed-sort order reflect the push. The time is stored in UTC to match how

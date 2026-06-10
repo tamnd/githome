@@ -27,4 +27,10 @@ type Store interface {
 	SetDeviceInterval(ctx context.Context, pk int64, interval int) error
 	SetDevicePolled(ctx context.Context, pk int64, at time.Time) error
 	DeleteDeviceCode(ctx context.Context, pk int64) error
+
+	// GitHub App auth.
+	GitHubAppByPK(ctx context.Context, pk int64) (*store.GitHubAppRow, error)
+	InstallationByPK(ctx context.Context, pk int64) (*store.InstallationRow, error)
+	InstallationsByAppPK(ctx context.Context, appPK int64) ([]*store.InstallationRow, error)
+	InstallationRepoPKs(ctx context.Context, instPK int64) ([]int64, error)
 }

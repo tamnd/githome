@@ -35,19 +35,49 @@ type UserRow struct {
 // because installation and app credentials (later milestones) have no user, and
 // PATs have no granting OAuth app.
 type TokenRow struct {
-	PK          int64
-	UserPK      *int64
-	OAuthAppPK  *int64
-	TokenHash   []byte
-	TokenPrefix string
-	LastEight   string
-	Kind        string // pat | oauth
-	Scopes      string // comma-space header form, the X-OAuth-Scopes value
-	Note        string
-	ExpiresAt   *time.Time
-	RevokedAt   *time.Time
-	LastUsedAt  *time.Time
-	CreatedAt   time.Time
+	PK             int64
+	UserPK         *int64
+	OAuthAppPK     *int64
+	InstallationPK *int64
+	GitHubAppPK    *int64
+	GrantJSON      *string
+	TokenHash      []byte
+	TokenPrefix    string
+	LastEight      string
+	Kind           string // pat | oauth | installation
+	Scopes         string // comma-space header form, the X-OAuth-Scopes value
+	Note           string
+	ExpiresAt      *time.Time
+	RevokedAt      *time.Time
+	LastUsedAt     *time.Time
+	CreatedAt      time.Time
+}
+
+// GitHubAppRow is a row of the github_apps table.
+type GitHubAppRow struct {
+	PK               int64
+	DBID             int64
+	OwnerPK          int64
+	Slug             string
+	Name             string
+	ClientID         string
+	PrivateKeyPEM    []byte
+	Permissions      string // JSON object
+	Events           string // JSON array
+	CreatedAt        time.Time
+}
+
+// InstallationRow is a row of the installations table.
+type InstallationRow struct {
+	PK                  int64
+	DBID                int64
+	AppPK               int64
+	AccountPK           int64
+	RepositorySelection string
+	Permissions         string // JSON object
+	Events              string // JSON array
+	SuspendedAt         *time.Time
+	CreatedAt           time.Time
 }
 
 // RepoRow is a row of the repositories table, including the settings columns
@@ -318,4 +348,40 @@ type WebhookDeliveryRow struct {
 	Redelivery      bool
 	Success         bool
 	CreatedAt       time.Time
+}
+
+// SSHKeyRow is a row of the ssh_keys table. RepoPK is non-nil for deploy keys.
+type SSHKeyRow struct {
+	PK          int64
+	DBID        int64
+	UserPK      int64
+	Title       *string
+	KeyType     string
+	PublicKey   string
+	Fingerprint string
+	ReadOnly    bool
+	RepoPK      *int64
+	LastUsedAt  *time.Time
+	CreatedAt   time.Time
+}
+
+// BranchProtectionRow is a row of the branch_protections table.
+type BranchProtectionRow struct {
+	PK                       int64
+	RepoPK                   int64
+	BranchPattern            string
+	RequirePRReviews         bool
+	RequiredApprovingCount   int
+	DismissStaleReviews      bool
+	RequireCodeOwnerReviews  bool
+	RequireStatusChecks      bool
+	RequireBranchesUpToDate  bool
+	StatusCheckContexts      string // JSON array
+	EnforceAdmins            bool
+	RestrictionsUsers        string // JSON array
+	RestrictionsTeams        string // JSON array
+	AllowForcePushes         bool
+	AllowDeletions           bool
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }

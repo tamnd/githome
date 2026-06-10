@@ -100,6 +100,29 @@ func handleUpdateRef(d Deps) mizu.Handler {
 	}
 }
 
+// handleDeleteRef serves DELETE /repos/{owner}/{repo}/git/refs/{ref}. The path
+// ref omits the refs/ prefix (heads/branch, tags/v1.0), matching GitHub; it is
+// re-qualified before the delete. A successful delete returns 204.
+func handleDeleteRef(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		ref := "refs/" + strings.TrimPrefix(c.Param("ref"), "refs/")
+		actor := auth.ActorFrom(c.Request().Context())
+		if err := d.Repos.DeleteRef(c.Request().Context(), actor.UserID, repo.Owner.Login, repo.Name, ref); err != nil {
+			if e := refWriteError(err); e != nil {
+				writeError(c.Writer(), e)
+				return nil
+			}
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
 // refWriteError maps a ref-write domain error to its API response, or nil when
 // err is nil or not a recognized ref-write error (the caller then falls through
 // to the central 500 handler).
