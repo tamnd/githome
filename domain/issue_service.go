@@ -1007,6 +1007,136 @@ func rollup(r store.ReactionRollup) ReactionRollup {
 	return ReactionRollup{TotalCount: r.TotalCount, Counts: counts}
 }
 
+// AddLabels attaches the given label names to an issue, ignoring any that are
+// already attached or do not exist. It is the additive counterpart to the full
+// replacement that EditIssue performs when Labels is set.
+func (s *IssueService) AddLabels(ctx context.Context, actorPK int64, owner, name string, number int64, labelNames []string) (*Issue, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	labels, err := s.store.LabelsByNames(ctx, repo.PK, labelNames)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.WithTx(ctx, func(tx *store.Tx) error {
+		return tx.AddLabels(ctx, row.PK, labelPKs(labels))
+	}); err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
+// RemoveLabels detaches the given label names from an issue, ignoring any that
+// are not currently attached.
+func (s *IssueService) RemoveLabels(ctx context.Context, actorPK int64, owner, name string, number int64, labelNames []string) (*Issue, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	labels, err := s.store.LabelsByNames(ctx, repo.PK, labelNames)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.WithTx(ctx, func(tx *store.Tx) error {
+		return tx.RemoveLabels(ctx, row.PK, labelPKs(labels))
+	}); err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
+// AddAssignees links the given user logins to an issue's assignee list, ignoring
+// logins that are not known.
+func (s *IssueService) AddAssignees(ctx context.Context, actorPK int64, owner, name string, number int64, logins []string) (*Issue, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	assignees, err := s.resolveLogins(ctx, logins)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.WithTx(ctx, func(tx *store.Tx) error {
+		return tx.AddAssignees(ctx, row.PK, assignees)
+	}); err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
+// RemoveAssignees unlinks the given user logins from an issue's assignee list.
+func (s *IssueService) RemoveAssignees(ctx context.Context, actorPK int64, owner, name string, number int64, logins []string) (*Issue, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	assignees, err := s.resolveLogins(ctx, logins)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.WithTx(ctx, func(tx *store.Tx) error {
+		return tx.RemoveAssignees(ctx, row.PK, assignees)
+	}); err != nil {
+		return nil, err
+	}
+	return s.assembleIssue(ctx, repo, row)
+}
+
+// LabelNameByDBID resolves a label's name by its public database ID. The caller
+// uses it to convert a GraphQL label node ID (which carries the DB ID) back to
+// a name before calling add/remove/replace label methods.
+func (s *IssueService) LabelNameByDBID(ctx context.Context, dbID int64) (string, error) {
+	row, err := s.store.GetLabelByDBID(ctx, dbID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrLabelNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return row.Name, nil
+}
+
+// UserLoginByPK resolves a user's login by their internal primary key.
+func (s *IssueService) UserLoginByPK(ctx context.Context, pk int64) (string, error) {
+	row, err := s.store.UserByPK(ctx, pk)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrUserNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return row.Login, nil
+}
+
 // nowUTCFunc lets tests pin the clock for the close-transition timestamp; the
 // default is the wall clock in UTC.
 var nowUTC = func() time.Time { return time.Now().UTC() }

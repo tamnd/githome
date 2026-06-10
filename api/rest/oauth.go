@@ -16,6 +16,37 @@ import (
 // endpoint during the device flow.
 const deviceCodeGrant = "urn:ietf:params:oauth:grant-type:device_code"
 
+// handleOAuthDiscovery serves GET /.well-known/oauth-authorization-server
+// (RFC 8414). git-credential-oauth and GCM read this document to locate the
+// authorize and token endpoints without hardcoding paths. The document must be
+// served even when Auth is nil so unauthenticated deploys still expose the
+// discovery endpoint for tools that probe it before attempting auth.
+func handleOAuthDiscovery(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		base := ""
+		if d.URLs != nil {
+			base = d.URLs.HTMLBase()
+		}
+		doc := struct {
+			Issuer                            string   `json:"issuer"`
+			AuthorizationEndpoint             string   `json:"authorization_endpoint"`
+			TokenEndpoint                     string   `json:"token_endpoint"`
+			DeviceAuthorizationEndpoint       string   `json:"device_authorization_endpoint"`
+			GrantTypesSupported               []string `json:"grant_types_supported"`
+			TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
+		}{
+			Issuer:                            base,
+			AuthorizationEndpoint:             base + "/login/oauth/authorize",
+			TokenEndpoint:                     base + "/login/oauth/access_token",
+			DeviceAuthorizationEndpoint:       base + "/login/device/code",
+			GrantTypesSupported:               []string{"authorization_code", deviceCodeGrant},
+			TokenEndpointAuthMethodsSupported: []string{"client_secret_post"},
+		}
+		writeJSON(c.Writer(), http.StatusOK, doc)
+		return nil
+	}
+}
+
 // mountOAuth registers the device-flow endpoints. They live at the bare root,
 // outside /api/v3 and outside the API version, media-type, and auth middleware,
 // exactly like github.com (the token endpoint authenticates by client_id and

@@ -71,6 +71,7 @@ type PullStore interface {
 	UpdatePullDraft(ctx context.Context, pullPK int64, draft bool) error
 
 	WithTx(ctx context.Context, fn func(*store.Tx) error) error
+
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 	InsertEvent(ctx context.Context, e *store.EventRow) error
 }
@@ -132,6 +133,22 @@ type MergeResult struct {
 	SHA     string
 	Merged  bool
 	Message string
+}
+
+// PRPatch is the update payload for an existing pull request. Only non-nil
+// pointer fields are applied so callers can patch a single field without
+// knowing the current value of the others.
+type PRPatch struct {
+	Title               *string
+	Body                *string
+	BaseRef             *string
+	State               *string // "open" | "closed"
+	Draft               *bool
+	MaintainerCanModify *bool
+	Labels              *[]string // replace; nil = no change
+	AssigneeLogins      *[]string // replace; nil = no change
+	MilestoneNumber     *int64
+	ClearMilestone      bool
 }
 
 // CreatePR opens a pull request after authorizing write access. It validates the
@@ -243,6 +260,90 @@ func (s *PRService) GetPRByID(ctx context.Context, viewerPK, dbID int64) (*PullR
 		return nil, err
 	}
 	issueRow, err := s.store.GetIssueByPK(ctx, pullRow.IssuePK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assemble(ctx, repo, issueRow, pullRow)
+}
+
+// PRRef resolves the owner/repo/number coordinates of a pull request by its
+// internal DB id. The GraphQL layer uses it to convert a PullRequest node id
+// into the coordinates the domain methods need.
+func (s *PRService) PRRef(ctx context.Context, dbID int64) (owner, name string, number int64, err error) {
+	pullRow, err := s.store.GetPullByDBID(ctx, dbID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrPullNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	issueRow, err := s.store.GetIssueByPK(ctx, pullRow.IssuePK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	repoRow, err := s.store.RepoByPK(ctx, pullRow.RepoPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	ownerRow, err := s.store.UserByPK(ctx, repoRow.OwnerPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	return ownerRow.Login, repoRow.Name, issueRow.Number, nil
+}
+
+// UpdatePR applies the non-nil fields of patch to an existing open pull request.
+// Issue-level fields (title, body, state, labels, assignees, milestone) are
+// delegated to the issue service; pull-level fields (base branch, draft,
+// maintainer-can-modify) are updated in one UPDATE directly.
+func (s *PRService) UpdatePR(ctx context.Context, actorPK int64, owner, name string, number int64, p PRPatch) (*PullRequest, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	issueRow, pullRow, err := s.load(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	patch := IssuePatch{
+		Title:           p.Title,
+		Body:            p.Body,
+		State:           p.State,
+		Labels:          p.Labels,
+		AssigneeLogins:  p.AssigneeLogins,
+		MilestoneNumber: p.MilestoneNumber,
+		ClearMilestone:  p.ClearMilestone,
+	}
+	updatedIssue, err := s.issues.EditIssue(ctx, actorPK, owner, name, number, patch)
+	if err != nil {
+		return nil, err
+	}
+	_ = updatedIssue
+	needsPullUpdate := p.BaseRef != nil || p.Draft != nil || p.MaintainerCanModify != nil
+	if needsPullUpdate {
+		newBase := pullRow.BaseRef
+		newDraft := pullRow.Draft
+		newMCM := pullRow.MaintainerCanModify
+		if p.BaseRef != nil {
+			newBase = *p.BaseRef
+		}
+		if p.Draft != nil {
+			newDraft = *p.Draft
+		}
+		if p.MaintainerCanModify != nil {
+			newMCM = *p.MaintainerCanModify
+		}
+		if err := s.store.WithTx(ctx, func(tx *store.Tx) error {
+			return tx.UpdatePullMeta(ctx, pullRow.PK, newBase, newDraft, newMCM)
+		}); err != nil {
+			return nil, err
+		}
+	}
+	issueRow, err = s.store.GetIssueByPK(ctx, issueRow.PK)
+	if err != nil {
+		return nil, err
+	}
+	pullRow, err = s.store.GetPullByIssuePK(ctx, issueRow.PK)
 	if err != nil {
 		return nil, err
 	}

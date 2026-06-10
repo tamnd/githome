@@ -11,6 +11,25 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+type AssignableNode interface {
+	IsAssignableNode()
+}
+
+type LabelableNode interface {
+	IsLabelableNode()
+}
+
+type AddAssigneesToAssignableInput struct {
+	AssignableID     string   `json:"assignableId"`
+	AssigneeIds      []string `json:"assigneeIds"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
+}
+
+type AddAssigneesToAssignablePayload struct {
+	Assignable       AssignableNode `json:"assignable,omitempty"`
+	ClientMutationID *string        `json:"clientMutationId,omitempty"`
+}
+
 type AddCommentInput struct {
 	SubjectID        string  `json:"subjectId"`
 	Body             string  `json:"body"`
@@ -20,6 +39,63 @@ type AddCommentInput struct {
 type AddCommentPayload struct {
 	CommentEdge      *IssueCommentEdge `json:"commentEdge,omitempty"`
 	ClientMutationID *string           `json:"clientMutationId,omitempty"`
+}
+
+type AddLabelsToLabelableInput struct {
+	LabelableID      string   `json:"labelableId"`
+	LabelIds         []string `json:"labelIds"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
+}
+
+type AddLabelsToLabelablePayload struct {
+	Labelable        LabelableNode `json:"labelable,omitempty"`
+	ClientMutationID *string       `json:"clientMutationId,omitempty"`
+}
+
+type AddPullRequestReviewInput struct {
+	PullRequestID    string                           `json:"pullRequestId"`
+	CommitOid        *gqlmodel.GitObjectID            `json:"commitOID,omitempty"`
+	Body             *string                          `json:"body,omitempty"`
+	Event            *gqlmodel.PullRequestReviewEvent `json:"event,omitempty"`
+	Comments         []*DraftPullRequestReviewComment `json:"comments,omitempty"`
+	ClientMutationID *string                          `json:"clientMutationId,omitempty"`
+}
+
+type AddPullRequestReviewPayload struct {
+	PullRequestReview *PullRequestReview     `json:"pullRequestReview,omitempty"`
+	ReviewEdge        *PullRequestReviewEdge `json:"reviewEdge,omitempty"`
+	ClientMutationID  *string                `json:"clientMutationId,omitempty"`
+}
+
+type BranchProtectionRule struct {
+	ID                           string `json:"id"`
+	Pattern                      string `json:"pattern"`
+	RequiresApprovingReviews     bool   `json:"requiresApprovingReviews"`
+	RequiredApprovingReviewCount *int32 `json:"requiredApprovingReviewCount,omitempty"`
+	RequiresStatusChecks         bool   `json:"requiresStatusChecks"`
+	RequiresStrictStatusChecks   bool   `json:"requiresStrictStatusChecks"`
+	RequiresCodeOwnerReviews     bool   `json:"requiresCodeOwnerReviews"`
+	DismissesStaleReviews        bool   `json:"dismissesStaleReviews"`
+	RestrictsReviewDismissals    bool   `json:"restrictsReviewDismissals"`
+	IsAdminEnforced              bool   `json:"isAdminEnforced"`
+	RequiresLinearHistory        bool   `json:"requiresLinearHistory"`
+	AllowsForcePushes            bool   `json:"allowsForcePushes"`
+	AllowsDeletions              bool   `json:"allowsDeletions"`
+}
+
+type BranchProtectionRuleInput struct {
+	Pattern                      string `json:"pattern"`
+	RequiresApprovingReviews     *bool  `json:"requiresApprovingReviews,omitempty"`
+	RequiredApprovingReviewCount *int32 `json:"requiredApprovingReviewCount,omitempty"`
+	RequiresStatusChecks         *bool  `json:"requiresStatusChecks,omitempty"`
+	RequiresStrictStatusChecks   *bool  `json:"requiresStrictStatusChecks,omitempty"`
+	RequiresCodeOwnerReviews     *bool  `json:"requiresCodeOwnerReviews,omitempty"`
+	DismissesStaleReviews        *bool  `json:"dismissesStaleReviews,omitempty"`
+	RestrictsReviewDismissals    *bool  `json:"restrictsReviewDismissals,omitempty"`
+	IsAdminEnforced              *bool  `json:"isAdminEnforced,omitempty"`
+	RequiresLinearHistory        *bool  `json:"requiresLinearHistory,omitempty"`
+	AllowsForcePushes            *bool  `json:"allowsForcePushes,omitempty"`
+	AllowsDeletions              *bool  `json:"allowsDeletions,omitempty"`
 }
 
 type CloseIssueInput struct {
@@ -43,6 +119,28 @@ type ConvertPullRequestToDraftPayload struct {
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
+type CreateBranchProtectionRuleInput struct {
+	RepositoryID                 string  `json:"repositoryId"`
+	Pattern                      string  `json:"pattern"`
+	RequiresApprovingReviews     *bool   `json:"requiresApprovingReviews,omitempty"`
+	RequiredApprovingReviewCount *int32  `json:"requiredApprovingReviewCount,omitempty"`
+	RequiresStatusChecks         *bool   `json:"requiresStatusChecks,omitempty"`
+	RequiresStrictStatusChecks   *bool   `json:"requiresStrictStatusChecks,omitempty"`
+	RequiresCodeOwnerReviews     *bool   `json:"requiresCodeOwnerReviews,omitempty"`
+	DismissesStaleReviews        *bool   `json:"dismissesStaleReviews,omitempty"`
+	RestrictsReviewDismissals    *bool   `json:"restrictsReviewDismissals,omitempty"`
+	IsAdminEnforced              *bool   `json:"isAdminEnforced,omitempty"`
+	RequiresLinearHistory        *bool   `json:"requiresLinearHistory,omitempty"`
+	AllowsForcePushes            *bool   `json:"allowsForcePushes,omitempty"`
+	AllowsDeletions              *bool   `json:"allowsDeletions,omitempty"`
+	ClientMutationID             *string `json:"clientMutationId,omitempty"`
+}
+
+type CreateBranchProtectionRulePayload struct {
+	BranchProtectionRule *BranchProtectionRule `json:"branchProtectionRule,omitempty"`
+	ClientMutationID     *string               `json:"clientMutationId,omitempty"`
+}
+
 type CreateIssueInput struct {
 	RepositoryID     string  `json:"repositoryId"`
 	Title            string  `json:"title"`
@@ -53,6 +151,77 @@ type CreateIssueInput struct {
 type CreateIssuePayload struct {
 	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type CreatePullRequestInput struct {
+	RepositoryID        string  `json:"repositoryId"`
+	BaseRefName         string  `json:"baseRefName"`
+	HeadRefName         string  `json:"headRefName"`
+	Title               string  `json:"title"`
+	Body                *string `json:"body,omitempty"`
+	Draft               *bool   `json:"draft,omitempty"`
+	MaintainerCanModify *bool   `json:"maintainerCanModify,omitempty"`
+	ClientMutationID    *string `json:"clientMutationId,omitempty"`
+}
+
+type CreatePullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
+type CreateRefInput struct {
+	RepositoryID     string               `json:"repositoryId"`
+	Name             string               `json:"name"`
+	Oid              gqlmodel.GitObjectID `json:"oid"`
+	ClientMutationID *string              `json:"clientMutationId,omitempty"`
+}
+
+type CreateRefPayload struct {
+	Ref              *gqlmodel.Ref `json:"ref,omitempty"`
+	ClientMutationID *string       `json:"clientMutationId,omitempty"`
+}
+
+type DeleteBranchProtectionRuleInput struct {
+	BranchProtectionRuleID string  `json:"branchProtectionRuleId"`
+	ClientMutationID       *string `json:"clientMutationId,omitempty"`
+}
+
+type DeleteBranchProtectionRulePayload struct {
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type DeleteRefInput struct {
+	RefID            string  `json:"refId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type DeleteRefPayload struct {
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type DraftPullRequestReviewComment struct {
+	Path      string             `json:"path"`
+	Position  *int32             `json:"position,omitempty"`
+	Body      string             `json:"body"`
+	Line      *int32             `json:"line,omitempty"`
+	Side      *gqlmodel.DiffSide `json:"side,omitempty"`
+	StartLine *int32             `json:"startLine,omitempty"`
+	StartSide *gqlmodel.DiffSide `json:"startSide,omitempty"`
+}
+
+type EnablePullRequestAutoMergeInput struct {
+	PullRequestID    string                           `json:"pullRequestId"`
+	MergeMethod      *gqlmodel.PullRequestMergeMethod `json:"mergeMethod,omitempty"`
+	CommitHeadline   *string                          `json:"commitHeadline,omitempty"`
+	CommitBody       *string                          `json:"commitBody,omitempty"`
+	AuthorEmail      *string                          `json:"authorEmail,omitempty"`
+	ClientMutationID *string                          `json:"clientMutationId,omitempty"`
+}
+
+type EnablePullRequestAutoMergePayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type IssueCommentEdge struct {
@@ -70,10 +239,62 @@ type MarkPullRequestReadyForReviewPayload struct {
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
+type MergePullRequestInput struct {
+	PullRequestID    string                           `json:"pullRequestId"`
+	MergeMethod      *gqlmodel.PullRequestMergeMethod `json:"mergeMethod,omitempty"`
+	CommitHeadline   *string                          `json:"commitHeadline,omitempty"`
+	CommitBody       *string                          `json:"commitBody,omitempty"`
+	ExpectedHeadOid  *gqlmodel.GitObjectID            `json:"expectedHeadOid,omitempty"`
+	AuthorEmail      *string                          `json:"authorEmail,omitempty"`
+	ClientMutationID *string                          `json:"clientMutationId,omitempty"`
+}
+
+type MergePullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
 type Mutation struct {
 }
 
+type PullRequestReview struct {
+	ID          string                 `json:"id"`
+	State       PullRequestReviewState `json:"state"`
+	Body        string                 `json:"body"`
+	Author      *gqlmodel.Actor        `json:"author,omitempty"`
+	SubmittedAt *gqlmodel.DateTime     `json:"submittedAt,omitempty"`
+	URL         gqlmodel.URI           `json:"url"`
+}
+
+type PullRequestReviewEdge struct {
+	Cursor string             `json:"cursor"`
+	Node   *PullRequestReview `json:"node,omitempty"`
+}
+
 type Query struct {
+}
+
+type RemoveAssigneesFromAssignableInput struct {
+	AssignableID     string   `json:"assignableId"`
+	AssigneeIds      []string `json:"assigneeIds"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
+}
+
+type RemoveAssigneesFromAssignablePayload struct {
+	Assignable       AssignableNode `json:"assignable,omitempty"`
+	ClientMutationID *string        `json:"clientMutationId,omitempty"`
+}
+
+type RemoveLabelsFromLabelableInput struct {
+	LabelableID      string   `json:"labelableId"`
+	LabelIds         []string `json:"labelIds"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
+}
+
+type RemoveLabelsFromLabelablePayload struct {
+	Labelable        LabelableNode `json:"labelable,omitempty"`
+	ClientMutationID *string       `json:"clientMutationId,omitempty"`
 }
 
 type ReopenIssueInput struct {
@@ -86,6 +307,19 @@ type ReopenIssuePayload struct {
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
+type RequestReviewsInput struct {
+	PullRequestID    string   `json:"pullRequestId"`
+	UserIds          []string `json:"userIds,omitempty"`
+	TeamIds          []string `json:"teamIds,omitempty"`
+	Union            *bool    `json:"union,omitempty"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
+}
+
+type RequestReviewsPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
 type ResolveReviewThreadInput struct {
 	ThreadID         string  `json:"threadId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -96,6 +330,18 @@ type ResolveReviewThreadPayload struct {
 	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
 }
 
+type SubmitPullRequestReviewInput struct {
+	PullRequestReviewID string                          `json:"pullRequestReviewId"`
+	Event               gqlmodel.PullRequestReviewEvent `json:"event"`
+	Body                *string                         `json:"body,omitempty"`
+	ClientMutationID    *string                         `json:"clientMutationId,omitempty"`
+}
+
+type SubmitPullRequestReviewPayload struct {
+	PullRequestReview *PullRequestReview `json:"pullRequestReview,omitempty"`
+	ClientMutationID  *string            `json:"clientMutationId,omitempty"`
+}
+
 type UnresolveReviewThreadInput struct {
 	ThreadID         string  `json:"threadId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -104,6 +350,28 @@ type UnresolveReviewThreadInput struct {
 type UnresolveReviewThreadPayload struct {
 	Thread           *gqlmodel.PullRequestReviewThread `json:"thread,omitempty"`
 	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
+}
+
+type UpdateBranchProtectionRuleInput struct {
+	BranchProtectionRuleID       string  `json:"branchProtectionRuleId"`
+	Pattern                      *string `json:"pattern,omitempty"`
+	RequiresApprovingReviews     *bool   `json:"requiresApprovingReviews,omitempty"`
+	RequiredApprovingReviewCount *int32  `json:"requiredApprovingReviewCount,omitempty"`
+	RequiresStatusChecks         *bool   `json:"requiresStatusChecks,omitempty"`
+	RequiresStrictStatusChecks   *bool   `json:"requiresStrictStatusChecks,omitempty"`
+	RequiresCodeOwnerReviews     *bool   `json:"requiresCodeOwnerReviews,omitempty"`
+	DismissesStaleReviews        *bool   `json:"dismissesStaleReviews,omitempty"`
+	RestrictsReviewDismissals    *bool   `json:"restrictsReviewDismissals,omitempty"`
+	IsAdminEnforced              *bool   `json:"isAdminEnforced,omitempty"`
+	RequiresLinearHistory        *bool   `json:"requiresLinearHistory,omitempty"`
+	AllowsForcePushes            *bool   `json:"allowsForcePushes,omitempty"`
+	AllowsDeletions              *bool   `json:"allowsDeletions,omitempty"`
+	ClientMutationID             *string `json:"clientMutationId,omitempty"`
+}
+
+type UpdateBranchProtectionRulePayload struct {
+	BranchProtectionRule *BranchProtectionRule `json:"branchProtectionRule,omitempty"`
+	ClientMutationID     *string               `json:"clientMutationId,omitempty"`
 }
 
 type UpdateIssueInput struct {
@@ -120,6 +388,23 @@ type UpdateIssueInput struct {
 type UpdateIssuePayload struct {
 	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type UpdatePullRequestInput struct {
+	PullRequestID       string   `json:"pullRequestId"`
+	Title               *string  `json:"title,omitempty"`
+	Body                *string  `json:"body,omitempty"`
+	BaseRefName         *string  `json:"baseRefName,omitempty"`
+	MaintainerCanModify *bool    `json:"maintainerCanModify,omitempty"`
+	AssigneeIds         []string `json:"assigneeIds,omitempty"`
+	LabelIds            []string `json:"labelIds,omitempty"`
+	MilestoneID         *string  `json:"milestoneId,omitempty"`
+	ClientMutationID    *string  `json:"clientMutationId,omitempty"`
+}
+
+type UpdatePullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type IssueClosedStateReason string
@@ -172,6 +457,67 @@ func (e *IssueClosedStateReason) UnmarshalJSON(b []byte) error {
 }
 
 func (e IssueClosedStateReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PullRequestReviewState string
+
+const (
+	PullRequestReviewStatePending          PullRequestReviewState = "PENDING"
+	PullRequestReviewStateCommented        PullRequestReviewState = "COMMENTED"
+	PullRequestReviewStateApproved         PullRequestReviewState = "APPROVED"
+	PullRequestReviewStateChangesRequested PullRequestReviewState = "CHANGES_REQUESTED"
+	PullRequestReviewStateDismissed        PullRequestReviewState = "DISMISSED"
+)
+
+var AllPullRequestReviewState = []PullRequestReviewState{
+	PullRequestReviewStatePending,
+	PullRequestReviewStateCommented,
+	PullRequestReviewStateApproved,
+	PullRequestReviewStateChangesRequested,
+	PullRequestReviewStateDismissed,
+}
+
+func (e PullRequestReviewState) IsValid() bool {
+	switch e {
+	case PullRequestReviewStatePending, PullRequestReviewStateCommented, PullRequestReviewStateApproved, PullRequestReviewStateChangesRequested, PullRequestReviewStateDismissed:
+		return true
+	}
+	return false
+}
+
+func (e PullRequestReviewState) String() string {
+	return string(e)
+}
+
+func (e *PullRequestReviewState) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PullRequestReviewState(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PullRequestReviewState", str)
+	}
+	return nil
+}
+
+func (e PullRequestReviewState) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PullRequestReviewState) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PullRequestReviewState) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

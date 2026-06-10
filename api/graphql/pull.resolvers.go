@@ -11,8 +11,160 @@ import (
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
+
+// CreatePullRequest is the resolver for the createPullRequest field. gh pr create
+// sends this mutation with the repository node ID, base/head branch names, title,
+// and optional body and draft flag.
+func (r *mutationResolver) CreatePullRequest(ctx context.Context, input generated.CreatePullRequestInput) (*generated.CreatePullRequestPayload, error) {
+	repo, err := r.repoFromID(ctx, input.RepositoryID)
+	if err != nil {
+		return nil, err
+	}
+	owner, name := repo.Owner.Login, repo.Name
+	draft := false
+	if input.Draft != nil {
+		draft = *input.Draft
+	}
+	mcm := false
+	if input.MaintainerCanModify != nil {
+		mcm = *input.MaintainerCanModify
+	}
+	pr, err := r.Pulls.CreatePR(ctx, viewerID(ctx), owner, name, domain.PRInput{
+		Title:               input.Title,
+		Body:                input.Body,
+		Base:                input.BaseRefName,
+		Head:                input.HeadRefName,
+		Draft:               draft,
+		MaintainerCanModify: mcm,
+	})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.CreatePullRequestPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// MergePullRequest is the resolver for the mergePullRequest field. gh pr merge
+// sends this mutation with the pull request node ID and optional merge method.
+func (r *mutationResolver) MergePullRequest(ctx context.Context, input generated.MergePullRequestInput) (*generated.MergePullRequestPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	mi := domain.MergeInput{Method: git.MergeCommit}
+	if input.MergeMethod != nil {
+		switch *input.MergeMethod {
+		case gqlmodel.PullRequestMergeMethodSquash:
+			mi.Method = git.MergeSquash
+		case gqlmodel.PullRequestMergeMethodRebase:
+			mi.Method = git.MergeRebase
+		}
+	}
+	if input.CommitHeadline != nil {
+		mi.CommitTitle = *input.CommitHeadline
+	}
+	if input.CommitBody != nil {
+		mi.CommitMessage = *input.CommitBody
+	}
+	if input.ExpectedHeadOid != nil {
+		mi.ExpectedHead = string(*input.ExpectedHeadOid)
+	}
+	if _, err := r.Pulls.Merge(ctx, viewerID(ctx), owner, name, number, mi); err != nil {
+		return nil, mapMergeErr(err)
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.MergePullRequestPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// EnablePullRequestAutoMerge is the resolver for the enablePullRequestAutoMerge
+// field. Githome does not implement auto-merge; this stub succeeds and returns
+// the pull request unchanged so gh pr merge --auto does not hard-fail.
+func (r *mutationResolver) EnablePullRequestAutoMerge(ctx context.Context, input generated.EnablePullRequestAutoMergeInput) (*generated.EnablePullRequestAutoMergePayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.EnablePullRequestAutoMergePayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// UpdatePullRequest is the resolver for the updatePullRequest field. gh pr edit
+// sends this mutation to change the title, body, or base branch.
+func (r *mutationResolver) UpdatePullRequest(ctx context.Context, input generated.UpdatePullRequestInput) (*generated.UpdatePullRequestPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	patch := domain.PRPatch{
+		Title:               input.Title,
+		Body:                input.Body,
+		BaseRef:             input.BaseRefName,
+		MaintainerCanModify: input.MaintainerCanModify,
+	}
+	if len(input.LabelIds) > 0 {
+		names, lErr := r.labelNamesFromIDs(ctx, input.LabelIds)
+		if lErr != nil {
+			return nil, lErr
+		}
+		patch.Labels = &names
+	} else if input.LabelIds != nil {
+		empty := []string{}
+		patch.Labels = &empty
+	}
+	if len(input.AssigneeIds) > 0 {
+		logins, aErr := r.userLoginsFromIDs(ctx, input.AssigneeIds)
+		if aErr != nil {
+			return nil, aErr
+		}
+		patch.AssigneeLogins = &logins
+	} else if input.AssigneeIds != nil {
+		empty := []string{}
+		patch.AssigneeLogins = &empty
+	}
+	pr, err := r.Pulls.UpdatePR(ctx, viewerID(ctx), owner, name, number, patch)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UpdatePullRequestPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// RequestReviews is the resolver for the requestReviews field. Githome does not
+// yet track review requests; this stub succeeds and returns the pull request
+// unchanged so gh pr edit --reviewer does not hard-fail.
+func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.RequestReviewsInput) (*generated.RequestReviewsPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.RequestReviewsPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
 
 // ConvertPullRequestToDraft marks a pull request as a draft.
 func (r *mutationResolver) ConvertPullRequestToDraft(ctx context.Context, input generated.ConvertPullRequestToDraftInput) (*generated.ConvertPullRequestToDraftPayload, error) {
@@ -46,20 +198,17 @@ func (r *mutationResolver) MarkPullRequestReadyForReview(ctx context.Context, in
 	}, nil
 }
 
-// BaseRef returns the base branch ref of the pull request, pre-loaded by the
-// presenter.
+// BaseRef returns the base branch ref of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) BaseRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.BaseRef, nil
 }
 
-// HeadRef returns the head branch ref of the pull request, pre-loaded by the
-// presenter.
+// HeadRef returns the head branch ref of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) HeadRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.HeadRef, nil
 }
 
-// Labels returns the pull request's label connection, pre-loaded by the
-// presenter.
+// Labels returns the labels of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) Labels(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
 	if obj.Labels != nil {
 		return obj.Labels, nil
@@ -67,8 +216,7 @@ func (r *pullRequestResolver) Labels(_ context.Context, obj *gqlmodel.PullReques
 	return &gqlmodel.LabelConnection{}, nil
 }
 
-// Assignees returns the pull request's assignee connection, pre-loaded by the
-// presenter.
+// Assignees returns the assignees of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) Assignees(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.UserConnection, error) {
 	if obj.Assignees != nil {
 		return obj.Assignees, nil
@@ -76,7 +224,7 @@ func (r *pullRequestResolver) Assignees(_ context.Context, obj *gqlmodel.PullReq
 	return &gqlmodel.UserConnection{}, nil
 }
 
-// Milestone returns the pull request's milestone, pre-loaded by the presenter.
+// Milestone returns the milestone of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) Milestone(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error) {
 	return obj.Milestone, nil
 }

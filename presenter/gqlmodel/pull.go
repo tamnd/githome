@@ -111,6 +111,12 @@ type PullRequest struct {
 	IssuePK int64
 }
 
+// IsLabelableNode marks PullRequest as a member of the LabelableNode union type.
+func (PullRequest) IsLabelableNode() {}
+
+// IsAssignableNode marks PullRequest as a member of the AssignableNode union type.
+func (PullRequest) IsAssignableNode() {}
+
 // PullRequestConnection is the Relay connection over a repository's pull
 // requests.
 type PullRequestConnection struct {
@@ -125,6 +131,37 @@ type PullRequestEdge struct {
 	Cursor string
 	Node   *PullRequest
 }
+
+// PullRequestMergeMethod is the GraphQL enum of supported merge strategies.
+type PullRequestMergeMethod string
+
+// The PullRequestMergeMethod values.
+const (
+	PullRequestMergeMethodMerge  PullRequestMergeMethod = "MERGE"
+	PullRequestMergeMethodSquash PullRequestMergeMethod = "SQUASH"
+	PullRequestMergeMethodRebase PullRequestMergeMethod = "REBASE"
+)
+
+// PullRequestReviewEvent is the GraphQL enum of review events: the action that
+// a submitted review carries.
+type PullRequestReviewEvent string
+
+// The PullRequestReviewEvent values.
+const (
+	PullRequestReviewEventApprove        PullRequestReviewEvent = "APPROVE"
+	PullRequestReviewEventComment        PullRequestReviewEvent = "COMMENT"
+	PullRequestReviewEventRequestChanges PullRequestReviewEvent = "REQUEST_CHANGES"
+	PullRequestReviewEventDismiss        PullRequestReviewEvent = "DISMISS"
+)
+
+// DiffSide is the side of a diff a review comment anchors to.
+type DiffSide string
+
+// The DiffSide values.
+const (
+	DiffSideLeft  DiffSide = "LEFT"
+	DiffSideRight DiffSide = "RIGHT"
+)
 
 // PullRequestChangedFile is one file's change in a pull request's diff.
 type PullRequestChangedFile struct {

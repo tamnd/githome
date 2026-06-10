@@ -7,8 +7,11 @@ package graphql
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/tamnd/githome/api/graphql/generated"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
@@ -46,6 +49,89 @@ func (r *mutationResolver) UnresolveReviewThread(ctx context.Context, input gene
 		return nil, err
 	}
 	return &generated.UnresolveReviewThreadPayload{Thread: thread, ClientMutationID: input.ClientMutationID}, nil
+}
+
+// AddPullRequestReview is the resolver for the addPullRequestReview field. gh pr
+// review sends this mutation to open a review (optionally submitting immediately
+// with an event like APPROVE or REQUEST_CHANGES).
+func (r *mutationResolver) AddPullRequestReview(ctx context.Context, input generated.AddPullRequestReviewInput) (*generated.AddPullRequestReviewPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	ri := domain.ReviewInput{}
+	if input.Event != nil {
+		ri.Event = string(*input.Event)
+	}
+	if input.Body != nil {
+		ri.Body = *input.Body
+	}
+	if input.CommitOid != nil {
+		ri.CommitID = string(*input.CommitOid)
+	}
+	for _, c := range input.Comments {
+		if c == nil {
+			continue
+		}
+		ci := domain.ReviewCommentInput{
+			Path: c.Path,
+			Body: c.Body,
+		}
+		if c.Side != nil {
+			ci.Side = string(*c.Side)
+		}
+		if c.Line != nil {
+			l := int64(*c.Line)
+			ci.Line = &l
+		}
+		if c.StartLine != nil {
+			sl := int64(*c.StartLine)
+			ci.StartLine = &sl
+		}
+		if c.Position != nil {
+			p := int64(*c.Position)
+			ci.Position = &p
+		}
+		ri.Comments = append(ri.Comments, ci)
+	}
+	review, err := r.Reviews.CreateReview(ctx, viewerID(ctx), owner, name, number, ri)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	rev := gqlReview(review, r.URLs, owner, name, r.NodeFormat)
+	return &generated.AddPullRequestReviewPayload{
+		PullRequestReview: rev,
+		ReviewEdge: &generated.PullRequestReviewEdge{
+			Cursor: encodeCursor(0),
+			Node:   rev,
+		},
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// SubmitPullRequestReview is the resolver for the submitPullRequestReview field.
+// gh pr review --submit sends this mutation to submit a pending draft review.
+func (r *mutationResolver) SubmitPullRequestReview(ctx context.Context, input generated.SubmitPullRequestReviewInput) (*generated.SubmitPullRequestReviewPayload, error) {
+	reviewDBID, err := reviewDBIDFromID(input.PullRequestReviewID)
+	if err != nil {
+		return nil, err
+	}
+	owner, name, number, err := r.Reviews.ReviewRef(ctx, viewerID(ctx), reviewDBID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	body := ""
+	if input.Body != nil {
+		body = *input.Body
+	}
+	review, err := r.Reviews.SubmitReview(ctx, viewerID(ctx), owner, name, number, reviewDBID, string(input.Event), body)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.SubmitPullRequestReviewPayload{
+		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.NodeFormat),
+		ClientMutationID:  input.ClientMutationID,
+	}, nil
 }
 
 // ReviewDecision is the resolver for the reviewDecision field. It returns the
@@ -87,6 +173,31 @@ func (r *pullRequestReviewThreadResolver) Comments(_ context.Context, obj *gqlmo
 		return obj.Comments, nil
 	}
 	return &gqlmodel.PullRequestReviewCommentConnection{}, nil
+}
+
+// gqlReview renders a domain review into the generated PullRequestReview wire type.
+func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string, format nodeid.Format) *generated.PullRequestReview {
+	pullNum := strconv.FormatInt(rv.PullNumber, 10)
+	reviewID := strconv.FormatInt(rv.ID, 10)
+	htmlURL := urls.RepoHTML(owner, repo) + "/pull/" + pullNum + "#pullrequestreview-" + reviewID
+	r := &generated.PullRequestReview{
+		ID:    nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
+		State: generated.PullRequestReviewState(rv.State),
+		Body:  rv.Body,
+		URL:   gqlmodel.URI(htmlURL),
+	}
+	if rv.User != nil {
+		r.Author = &gqlmodel.Actor{
+			Login:     rv.User.Login,
+			URL:       gqlmodel.URI(urls.UserHTML(rv.User.Login)),
+			AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(rv.User.ID, 10))),
+		}
+	}
+	if rv.SubmittedAt != nil {
+		dt := gqlmodel.NewDateTime(*rv.SubmittedAt)
+		r.SubmittedAt = &dt
+	}
+	return r
 }
 
 // PullRequestReviewThread returns generated.PullRequestReviewThreadResolver implementation.

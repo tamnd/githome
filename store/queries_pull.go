@@ -290,6 +290,16 @@ func (s *Store) UpdatePullDraft(ctx context.Context, pullPK int64, draft bool) e
 	return nil
 }
 
+// UpdatePullMeta updates the editable metadata of a pull request row: the base
+// branch, draft flag, and maintainer-can-modify flag. The merge state stays
+// intact; callers that change the base branch must enqueue a recompute
+// separately.
+func (t *Tx) UpdatePullMeta(ctx context.Context, pullPK int64, baseRef string, draft, maintainerCanModify bool) error {
+	q := t.rebind(`UPDATE pull_requests SET base_ref = ?, draft = ?, maintainer_can_modify = ?, updated_at = ? WHERE pk = ?`)
+	_, err := t.tx.ExecContext(ctx, q, baseRef, draft, maintainerCanModify, nowUTC(), pullPK)
+	return err
+}
+
 // UpdatePullHead repoints a pull request's head sha after a push to its head
 // branch and clears the mergeability stamp so the next read treats the cached
 // merge state as stale.

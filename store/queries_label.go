@@ -157,6 +157,30 @@ func (s *Store) DeleteLabel(ctx context.Context, pk int64) error {
 	return nil
 }
 
+// GetLabelByDBID resolves a single label by its public database id.
+func (s *Store) GetLabelByDBID(ctx context.Context, dbID int64) (*LabelRow, error) {
+	q := s.rebind(`SELECT ` + labelColumns + ` FROM labels WHERE db_id = ?`)
+	return scanLabel(s.db.QueryRowContext(ctx, q, dbID))
+}
+
+// AddLabels attaches the given labels to an issue, ignoring any that are already
+// attached. It is the additive counterpart to ReplaceLabels.
+func (t *Tx) AddLabels(ctx context.Context, issuePK int64, labelPKs []int64) error {
+	return t.AttachLabels(ctx, issuePK, labelPKs)
+}
+
+// RemoveLabels detaches the given labels from an issue, ignoring any that are
+// not currently attached.
+func (t *Tx) RemoveLabels(ctx context.Context, issuePK int64, labelPKs []int64) error {
+	for _, lp := range labelPKs {
+		q := t.rebind(`DELETE FROM issue_labels WHERE issue_pk = ? AND label_pk = ?`)
+		if _, err := t.tx.ExecContext(ctx, q, issuePK, lp); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // InsertLabel writes a label inside a transaction, used to seed a repository's
 // default label set as part of the repository-create unit of work.
 func (t *Tx) InsertLabel(ctx context.Context, l *LabelRow) error {

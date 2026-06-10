@@ -74,11 +74,29 @@ type StatusCheckRollup {
   state: StatusState!
 }
 
+# PullRequestReviewEvent is the action a submitted review carries.
+enum PullRequestReviewEvent {
+  APPROVE
+  COMMENT
+  REQUEST_CHANGES
+  DISMISS
+}
+
+# DiffSide is the side of a diff a review comment anchors to.
+enum DiffSide {
+  LEFT
+  RIGHT
+}
+
 extend type Mutation {
   # resolveReviewThread marks a review conversation resolved.
   resolveReviewThread(input: ResolveReviewThreadInput!): ResolveReviewThreadPayload
   # unresolveReviewThread reopens a resolved review conversation.
   unresolveReviewThread(input: UnresolveReviewThreadInput!): UnresolveReviewThreadPayload
+  # addPullRequestReview adds a review to a pull request.
+  addPullRequestReview(input: AddPullRequestReviewInput!): AddPullRequestReviewPayload
+  # submitPullRequestReview submits a pending draft review.
+  submitPullRequestReview(input: SubmitPullRequestReviewInput!): SubmitPullRequestReviewPayload
 }
 
 input ResolveReviewThreadInput {
@@ -98,5 +116,67 @@ input UnresolveReviewThreadInput {
 
 type UnresolveReviewThreadPayload {
   thread: PullRequestReviewThread
+  clientMutationId: String
+}
+
+# PullRequestReview is a submitted review on a pull request. It is the return
+# type for addPullRequestReview and submitPullRequestReview.
+type PullRequestReview {
+  id: ID!
+  state: PullRequestReviewState!
+  body: String!
+  author: Actor
+  submittedAt: DateTime
+  url: URI!
+}
+
+# PullRequestReviewState is a submitted review's state.
+enum PullRequestReviewState {
+  PENDING
+  COMMENTED
+  APPROVED
+  CHANGES_REQUESTED
+  DISMISSED
+}
+
+input DraftPullRequestReviewComment {
+  path: String!
+  position: Int
+  body: String!
+  line: Int
+  side: DiffSide
+  startLine: Int
+  startSide: DiffSide
+}
+
+input AddPullRequestReviewInput {
+  pullRequestId: ID!
+  commitOID: GitObjectID
+  body: String
+  event: PullRequestReviewEvent
+  comments: [DraftPullRequestReviewComment]
+  clientMutationId: String
+}
+
+type AddPullRequestReviewPayload {
+  pullRequestReview: PullRequestReview
+  reviewEdge: PullRequestReviewEdge
+  clientMutationId: String
+}
+
+type PullRequestReviewEdge {
+  cursor: String!
+  node: PullRequestReview
+}
+
+input SubmitPullRequestReviewInput {
+  pullRequestReviewId: ID!
+  event: PullRequestReviewEvent!
+  body: String
+  clientMutationId: String
+}
+
+type SubmitPullRequestReviewPayload {
+  pullRequestReview: PullRequestReview
   clientMutationId: String
 }
