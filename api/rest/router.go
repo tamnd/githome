@@ -79,7 +79,7 @@ func Mount(root *mizu.Router, d Deps) {
 	// token endpoints without hardcoding paths.
 	root.Get("/.well-known/oauth-authorization-server", handleOAuthDiscovery(d))
 
-	api := root.With(apiVersion, mediaType, enterpriseVersion, maxBody(d.Config.Server.MaxBodyBytes))
+	api := root.With(apiVersion, mediaType, enterpriseVersion, rateLimitHeaders(d.Config), maxBody(d.Config.Server.MaxBodyBytes))
 	if d.Auth != nil {
 		api = api.With(authMiddleware(d.Auth))
 	}

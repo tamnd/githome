@@ -214,7 +214,8 @@ func (r *mutationResolver) AddPullRequestReviewComment(ctx context.Context, inpu
 // pull request's derived review decision, null when no submitted review blocks or
 // approves it.
 func (r *pullRequestResolver) ReviewDecision(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.PullRequestReviewDecision, error) {
-	decision, err := r.Reviews.ReviewDecision(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	// r.Resolver.Reviews to bypass the Reviews method on this type.
+	decision, err := r.Resolver.Reviews.ReviewDecision(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -227,7 +228,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
 		return nil, err
 	}
-	threads, err := r.Reviews.ReviewThreads(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	threads, err := r.Resolver.Reviews.ReviewThreads(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}

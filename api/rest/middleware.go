@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -71,6 +73,27 @@ func enterpriseVersion(next mizu.Handler) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		c.Header().Set("x-github-enterprise-version", config.Version)
 		return next(c)
+	}
+}
+
+// rateLimitHeaders stamps every /api/v3/ response with X-RateLimit-* headers.
+// Githome does not enforce rate limits yet, so the counters always report the
+// full configured budget. Clients like @octokit/rest, go-github, Octokit.rb, and
+// Octokit.NET inspect these headers and refuse to proceed without them.
+func rateLimitHeaders(cfg config.Config) func(mizu.Handler) mizu.Handler {
+	limit := cfg.RateLimit.AuthedPerHour
+	limitStr := strconv.Itoa(limit)
+	return func(next mizu.Handler) mizu.Handler {
+		return func(c *mizu.Ctx) error {
+			reset := strconv.FormatInt(time.Now().Add(cfg.RateLimit.Window).Unix(), 10)
+			h := c.Header()
+			h.Set("X-RateLimit-Limit", limitStr)
+			h.Set("X-RateLimit-Remaining", limitStr)
+			h.Set("X-RateLimit-Reset", reset)
+			h.Set("X-RateLimit-Used", "0")
+			h.Set("X-RateLimit-Resource", "core")
+			return next(c)
+		}
 	}
 }
 

@@ -77,7 +77,7 @@ func (d *Deliverer) DeliverEventHandler() worker.Handler {
 		if err != nil {
 			return err
 		}
-		rendered, err := d.renderer.Render(ctx, ev, p.Push)
+		rendered, err := d.renderer.Render(ctx, ev, p.Push, p.CreateDelete)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (d *Deliverer) DeliverEventHandler() worker.Handler {
 			if !subscribed(&hooks[i], ev.Event) {
 				continue
 			}
-			body, err := json.Marshal(domain.DeliverWebhookPayload{WebhookPK: hooks[i].PK, EventPK: ev.PK, Push: p.Push})
+			body, err := json.Marshal(domain.DeliverWebhookPayload{WebhookPK: hooks[i].PK, EventPK: ev.PK, Push: p.Push, CreateDelete: p.CreateDelete})
 			if err != nil {
 				return err
 			}
@@ -173,7 +173,7 @@ func (d *Deliverer) buildRequest(ctx context.Context, hook *store.WebhookRow, p 
 	if err != nil {
 		return nil, err
 	}
-	rendered, err := d.renderer.Render(ctx, ev, p.Push)
+	rendered, err := d.renderer.Render(ctx, ev, p.Push, p.CreateDelete)
 	if err != nil {
 		return nil, err
 	}

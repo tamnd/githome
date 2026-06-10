@@ -111,6 +111,10 @@ type PullRequest struct {
 	// part of the GraphQL schema but is used by the assignees/labels/milestone
 	// field resolvers to avoid re-querying the domain for the same data.
 	IssuePK int64
+
+	// CommentsCount is the cached count of issue-level comments; used by the
+	// comments resolver to return the correct totalCount without a second query.
+	CommentsCount int32
 }
 
 // AutoMergeRequest is the auto-merge configuration on a pull request. GitHub

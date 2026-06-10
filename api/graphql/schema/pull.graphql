@@ -60,6 +60,12 @@ type PullRequest implements Node {
   commits(first: Int, after: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
   files(first: Int, after: String): PullRequestChangedFileConnection!
+  # reviews is the connection over submitted reviews on the pull request.
+  reviews(first: Int, after: String): PullRequestReviewConnection!
+  # reviewRequests is the connection over requested reviewers.
+  reviewRequests(first: Int, after: String): ReviewRequestConnection!
+  # comments is the connection over issue-level (non-inline) comments.
+  comments(first: Int, after: String): IssueCommentConnection!
 }
 
 # AutoMergeRequest is the auto-merge configuration attached to a pull request.
@@ -145,6 +151,17 @@ type Commit {
 type PullRequestCommitConnection {
   nodes: [PullRequestCommit]
   totalCount: Int!
+}
+
+# ReviewRequestConnection is the connection over a pull request's requested reviewers.
+type ReviewRequestConnection {
+  nodes: [ReviewRequest]
+  totalCount: Int!
+}
+
+# ReviewRequest is one requested reviewer on a pull request.
+type ReviewRequest {
+  requestedReviewer: User
 }
 
 # PullRequestMergeMethod is the strategy to use when merging a pull request.

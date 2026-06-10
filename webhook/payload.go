@@ -59,9 +59,9 @@ type Rendered struct {
 }
 
 // Render assembles an event's objects and renders both documents. push carries
-// the moved refs for a push, which have no table to load from; it is nil for
-// every other event.
-func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.PushPayload) (*Rendered, error) {
+// the moved refs for a push; cd carries ref detail for create/delete events.
+// Both are nil for every other event type.
+func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.PushPayload, cd *domain.CreateDeletePayload) (*Rendered, error) {
 	repo, err := r.repos.RepoForEvent(ctx, ev.RepoPK)
 	if err != nil {
 		return nil, err
@@ -80,6 +80,10 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 		res, err = r.renderIssue(ctx, ev, repo, sender)
 	case domain.EventPullRequest, domain.EventPullRequestReview:
 		res, err = r.renderPull(ctx, ev, repo, sender)
+	case domain.EventCreate:
+		res, err = r.renderCreate(ev, repo, sender, cd)
+	case domain.EventDelete:
+		res, err = r.renderDelete(ev, repo, sender, cd)
 	default:
 		return nil, fmt.Errorf("webhook: unknown event %q", ev.Event)
 	}
@@ -164,6 +168,47 @@ func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *dom
 		Sender:      r.urls.SimpleUser(sender, r.format),
 	}
 	feed := restmodel.PullRequestEventPayload{Action: ev.Action, Number: pr.Number, PullRequest: rendered}
+	return marshalRendered(ev, body, feed)
+}
+
+func (r *Renderer) renderCreate(ev *store.EventRow, repo *domain.Repo, sender *domain.User, cd *domain.CreateDeletePayload) (*Rendered, error) {
+	var ref, refType, masterBranch string
+	if cd != nil {
+		ref, refType, masterBranch = cd.Ref, cd.RefType, cd.MasterBranch
+	}
+	owner := repo.Owner.Login
+	body := restmodel.WebhookCreate{
+		Ref:          ref,
+		RefType:      refType,
+		MasterBranch: masterBranch,
+		Description:  nil,
+		PusherType:   "user",
+		Repository:   r.urls.Repository(repo, r.format, nil),
+		Sender:       r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.CreateEventPayload{
+		Ref:          ref,
+		RefType:      refType,
+		MasterBranch: masterBranch,
+		Description:  "",
+	}
+	_ = owner
+	return marshalRendered(ev, body, feed)
+}
+
+func (r *Renderer) renderDelete(ev *store.EventRow, repo *domain.Repo, sender *domain.User, cd *domain.CreateDeletePayload) (*Rendered, error) {
+	var ref, refType string
+	if cd != nil {
+		ref, refType = cd.Ref, cd.RefType
+	}
+	body := restmodel.WebhookDelete{
+		Ref:        ref,
+		RefType:    refType,
+		PusherType: "user",
+		Repository: r.urls.Repository(repo, r.format, nil),
+		Sender:     r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.DeleteEventPayload{Ref: ref, RefType: refType}
 	return marshalRendered(ev, body, feed)
 }
 

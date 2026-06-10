@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/store"
 )
 
 // The git-ref write errors the REST layer maps to status: a forbidden write on a
@@ -56,7 +57,22 @@ func (s *RepoService) CreateRef(ctx context.Context, actorPK int64, owner, name,
 	case err != nil:
 		return git.Ref{}, err
 	}
-	return s.resolveRef(ctx, repo.PK, ref, sha)
+	resolved, err := s.resolveRef(ctx, repo.PK, ref, sha)
+	if err != nil {
+		return git.Ref{}, err
+	}
+	cd := &CreateDeletePayload{
+		Ref:          shortRef(ref),
+		RefType:      refType(ref),
+		MasterBranch: repo.DefaultBranch,
+	}
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventCreate,
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		Public:  !repo.Private,
+	}, nil, cd)
+	return resolved, nil
 }
 
 // UpdateRef moves an existing reference to sha after authorizing write access.
@@ -97,7 +113,41 @@ func (s *RepoService) DeleteRef(ctx context.Context, actorPK int64, owner, name,
 	case err != nil:
 		return err
 	}
+	cd := &CreateDeletePayload{
+		Ref:     shortRef(ref),
+		RefType: refType(ref),
+	}
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventDelete,
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		Public:  !repo.Private,
+	}, nil, cd)
 	return nil
+}
+
+// shortRef returns just the branch or tag name without the refs/heads/ or
+// refs/tags/ prefix.
+func shortRef(ref string) string {
+	switch {
+	case strings.HasPrefix(ref, "refs/heads/"):
+		return strings.TrimPrefix(ref, "refs/heads/")
+	case strings.HasPrefix(ref, "refs/tags/"):
+		return strings.TrimPrefix(ref, "refs/tags/")
+	}
+	return ref
+}
+
+// refType returns "branch" for refs/heads/*, "tag" for refs/tags/*, and
+// "repository" for everything else (e.g. the initial commit).
+func refType(ref string) string {
+	switch {
+	case strings.HasPrefix(ref, "refs/heads/"):
+		return "branch"
+	case strings.HasPrefix(ref, "refs/tags/"):
+		return "tag"
+	}
+	return "repository"
 }
 
 // AuthorizeWrite resolves the repository for the actor and checks write access.
