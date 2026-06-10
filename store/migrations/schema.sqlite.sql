@@ -630,3 +630,15 @@ CREATE TABLE collaborators (
     permission TEXT    NOT NULL DEFAULT 'push',
     UNIQUE (repo_pk, user_pk)
 );
+
+CREATE TABLE oauth_auth_codes (
+    pk           INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_hash    BLOB    NOT NULL UNIQUE,
+    oauth_app_pk INTEGER NOT NULL REFERENCES oauth_apps(pk) ON DELETE CASCADE,
+    user_pk      INTEGER NOT NULL REFERENCES users(pk)      ON DELETE CASCADE,
+    redirect_uri TEXT    NOT NULL,
+    scopes       TEXT    NOT NULL DEFAULT '',
+    used         INTEGER NOT NULL DEFAULT 0,
+    expires_at   TEXT    NOT NULL,
+    created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

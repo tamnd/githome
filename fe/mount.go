@@ -56,6 +56,7 @@ type Deps struct {
 	Render      *render.Set
 	View        *view.Builder
 	Auth        AuthPwStore
+	OAuthSvc    webauth.OAuthService
 	Repos       *domain.RepoService
 	Hooks       *domain.HookService
 	Checks      *domain.ChecksService
@@ -448,6 +449,12 @@ func mountAuth(page *mizu.Router, d Deps) {
 	page.Post("/join", ah.JoinSubmit)
 	page.Get("/logout", ah.LogoutForm)
 	page.Post("/logout/session", ah.LogoutSubmit)
+
+	if d.OAuthSvc != nil {
+		oh := webauth.NewOAuthHandlers(d.OAuthSvc, d.Render, d.View)
+		page.Get("/login/oauth/authorize", oh.AuthorizeForm)
+		page.Post("/login/oauth/authorize", oh.AuthorizeSubmit)
+	}
 }
 
 // mountNotifications registers the /notifications inbox route. The inbox is gated
