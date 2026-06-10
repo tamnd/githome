@@ -17,6 +17,10 @@ type Store interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	BumpTokenLastUsed(ctx context.Context, at map[int64]time.Time) error
 
+	// Personal access token management (the settings tokens page).
+	TokensForUser(ctx context.Context, userPK int64) ([]*store.TokenRow, error)
+	DeleteUserToken(ctx context.Context, pk, userPK int64) error
+
 	// OAuth device flow.
 	OAuthAppByClientID(ctx context.Context, clientID string) (*store.OAuthAppRow, error)
 	InsertOAuthApp(ctx context.Context, a *store.OAuthAppRow) error

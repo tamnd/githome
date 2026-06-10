@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"sort"
 	"time"
 
 	"github.com/tamnd/githome/store"
@@ -97,6 +98,26 @@ func (f *fakeStore) InsertToken(_ context.Context, t *store.TokenRow) error {
 	t.PK = f.nextPK()
 	t.CreatedAt = time.Now()
 	f.tokens[t.PK] = t
+	return nil
+}
+
+func (f *fakeStore) TokensForUser(_ context.Context, userPK int64) ([]*store.TokenRow, error) {
+	var out []*store.TokenRow
+	for _, t := range f.tokens {
+		if t.UserPK != nil && *t.UserPK == userPK && t.Kind == "pat" && t.RevokedAt == nil {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PK > out[j].PK })
+	return out, nil
+}
+
+func (f *fakeStore) DeleteUserToken(_ context.Context, pk, userPK int64) error {
+	t, ok := f.tokens[pk]
+	if !ok || t.UserPK == nil || *t.UserPK != userPK || t.Kind != "pat" {
+		return store.ErrNotFound
+	}
+	delete(f.tokens, pk)
 	return nil
 }
 

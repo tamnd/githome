@@ -3,9 +3,9 @@ package settings
 // profile.go holds the account profile settings section: the form that edits
 // the viewer's display name, bio, location, company, website, and social
 // handles, and the save that writes those fields through the domain and
-// redirects back. SSH keys and personal access tokens are registered routes but
-// show honest-absence stubs today, since neither key nor token store is backed
-// yet.
+// redirects back. SSH keys remain a registered route with an honest-absence
+// stub, since the key store is not backed yet; the tokens section lives in
+// tokens.go.
 
 import (
 	"github.com/go-mizu/mizu"
@@ -85,23 +85,6 @@ func (h *Handlers) Keys(c *mizu.Ctx) error {
 		Nav:    h.nav(v, route.SettingsKeys()),
 	}
 	return h.render.Page(c, "settings/keys", vm)
-}
-
-// Tokens renders the personal access tokens stub. The token store is not backed
-// today, so this page shows an honest-absence message.
-func (h *Handlers) Tokens(c *mizu.Ctx) error {
-	v, ok := h.gate(c)
-	if !ok {
-		return h.signInBounce(c)
-	}
-	vm := struct {
-		Chrome view.Chrome
-		Nav    view.SettingsNav
-	}{
-		Chrome: h.view.Chrome(c, "Personal access tokens"),
-		Nav:    h.nav(v, route.SettingsTokens()),
-	}
-	return h.render.Page(c, "settings/tokens", vm)
 }
 
 // strDeref returns the string a pointer points to, or "" for nil.

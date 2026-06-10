@@ -34,6 +34,7 @@ type Deps struct {
 	View   *view.Builder
 	Flash  Flasher
 	Users  *domain.UserService
+	Tokens TokenService // nil keeps the tokens page on its honest-absence stub
 	Logger *slog.Logger
 }
 
@@ -52,6 +53,7 @@ type Handlers struct {
 	view   *view.Builder
 	flash  Flasher
 	users  *domain.UserService
+	tokens TokenService
 	log    *slog.Logger
 }
 
@@ -62,6 +64,7 @@ func New(d Deps) *Handlers {
 		view:   d.View,
 		flash:  d.Flash,
 		users:  d.Users,
+		tokens: d.Tokens,
 		log:    d.Logger,
 	}
 }

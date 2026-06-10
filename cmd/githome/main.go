@@ -34,6 +34,7 @@ import (
 	"github.com/tamnd/githome/fe/assets"
 	"github.com/tamnd/githome/fe/render"
 	"github.com/tamnd/githome/fe/view"
+	websettings "github.com/tamnd/githome/fe/web/settings"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/gittransport"
@@ -285,6 +286,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, authSvc
 		View:     view.NewBuilder(cfg.Web.SiteName),
 		Auth:     st,
 		OAuthSvc: authSvc,
+		Tokens:   patService{authSvc},
 		Repos:    repos,
 		Hooks:    hooks,
 		Checks:   checks,
@@ -301,6 +303,38 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, authSvc
 		Flash:    webmw.NewFlash(cfg.Secrets.SessionKey),
 		Logger:   logger,
 	}), nil
+}
+
+// patService adapts the auth service to the settings page's TokenService. The
+// calls pass straight through; only the list copies each summary into the
+// front's own PAT shape, which keeps fe off the auth package.
+type patService struct{ svc *auth.Service }
+
+func (p patService) CreatePAT(ctx context.Context, userPK int64, note string, scopes []string) (string, error) {
+	return p.svc.CreatePAT(ctx, userPK, note, scopes)
+}
+
+func (p patService) ListPATs(ctx context.Context, userPK int64) ([]websettings.PAT, error) {
+	infos, err := p.svc.ListPATs(ctx, userPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]websettings.PAT, len(infos))
+	for i, t := range infos {
+		out[i] = websettings.PAT{
+			ID:         t.ID,
+			Note:       t.Note,
+			Scopes:     t.Scopes,
+			LastEight:  t.LastEight,
+			CreatedAt:  t.CreatedAt,
+			LastUsedAt: t.LastUsedAt,
+		}
+	}
+	return out, nil
+}
+
+func (p patService) DeletePAT(ctx context.Context, userPK, id int64) error {
+	return p.svc.DeletePAT(ctx, userPK, id)
 }
 
 func newLogger(cfg config.Config) *slog.Logger {

@@ -58,6 +58,7 @@ type Deps struct {
 	View        *view.Builder
 	Auth        AuthPwStore
 	OAuthSvc    webauth.OAuthService
+	Tokens      websettings.TokenService
 	Repos       *domain.RepoService
 	Hooks       *domain.HookService
 	Checks      *domain.ChecksService
@@ -462,6 +463,7 @@ func mountSettings(page *mizu.Router, d Deps) {
 		View:   d.View,
 		Flash:  d.Flash,
 		Users:  d.Users,
+		Tokens: d.Tokens,
 		Logger: d.Logger,
 	})
 	page.Get("/settings", sh.Index)
@@ -471,6 +473,10 @@ func mountSettings(page *mizu.Router, d Deps) {
 	page.Post("/settings/appearance", sh.SaveAppearance)
 	page.Get("/settings/keys", sh.Keys)
 	page.Get("/settings/tokens", sh.Tokens)
+	if d.Tokens != nil {
+		page.Post("/settings/tokens", sh.CreateToken)
+		page.Post("/settings/tokens/{id}/delete", sh.DeleteToken)
+	}
 }
 
 // mountProfile registers the user and organization profile at /{owner}, the

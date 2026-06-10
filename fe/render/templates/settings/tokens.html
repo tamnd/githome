@@ -1,12 +1,84 @@
 {{define "content" -}}
+{{/* The data is tokensVM. The page lists the viewer's classic personal access
+     tokens and carries the mint form. A token created by this very response
+     shows its plaintext once in the green banner; reloading loses it, which is
+     the point. Without a token service (.Backed false) the page keeps the
+     honest-absence stub. See implementation/13. */ -}}
 <div class="settings-shell">
   {{template "settings_nav" .Nav}}
   <section class="settings-body">
     <h1 class="settings-title">Personal access tokens</h1>
+
+    {{if not .Backed -}}
     <div class="blankslate">
       <p class="blankslate-heading">Personal access token management is not available yet.</p>
-      <p class="blankslate-description">Token storage and the API authentication they back are planned for a future milestone. HTTPS push and REST API access via tokens will be enabled once the token store is in place.</p>
+      <p class="blankslate-description">Token storage and the API authentication they back are planned for a future milestone.</p>
     </div>
+    {{- else -}}
+    <p class="settings-lead">Tokens you have generated to access the API and Git over HTTPS. A token is shown in full exactly once, right after you create it.</p>
+
+    {{if .NewToken -}}
+    <div class="flash flash-success">
+      <p>Make sure to copy your new token now. You will not be able to see it again.</p>
+      <code class="token-plaintext">{{.NewToken}}</code>
+    </div>
+    {{- end}}
+    {{if .Error -}}
+    <div class="flash flash-error">{{.Error}}</div>
+    {{- end}}
+
+    {{if .Tokens -}}
+    <ul class="hook-list">
+      {{range .Tokens -}}
+      <li class="hook-row">
+        <div class="hook-row-main">
+          <span class="hook-row-target">{{.Note}}</span>
+          <div class="hook-row-meta">
+            <code>ghp_&hellip;{{.LastEight}}</code>
+            {{if .Scopes}} &middot; {{.Scopes}}{{end}}
+            &middot; created {{relativeTime .CreatedAt}}
+            {{if .Used}} &middot; last used {{relativeTime .LastUsed}}{{else}} &middot; never used{{end}}
+          </div>
+        </div>
+        <form method="post" action="{{.DeleteURL}}">
+          {{if $.Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{$.Chrome.CSRFToken}}">{{end}}
+          <button class="btn btn-danger" type="submit">Delete</button>
+        </form>
+      </li>
+      {{end -}}
+    </ul>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-heading">No personal access tokens yet.</p>
+      <p class="blankslate-description">Generate one below to use the API or push over HTTPS.</p>
+    </div>
+    {{- end}}
+
+    <div class="settings-section-head">
+      <h2 class="settings-title">Generate new token</h2>
+    </div>
+    <form class="settings-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+      <div class="form-group">
+        <label class="form-label" for="token-note">Note</label>
+        <input class="input" id="token-note" name="note" type="text"
+               placeholder="What is this token for?" required>
+      </div>
+
+      <fieldset class="form-group">
+        <legend class="form-label">Select scopes</legend>
+        {{range .Scopes -}}
+        <label class="form-checkbox">
+          <input type="checkbox" name="scopes" value="{{.Name}}">
+          <code>{{.Name}}</code> <span class="form-checkbox-note">{{.Description}}</span>
+        </label>
+        {{end -}}
+      </fieldset>
+
+      <button class="btn btn-primary" type="submit">Generate token</button>
+    </form>
+    {{- end}}
   </section>
 </div>
 {{- end}}
