@@ -57,8 +57,7 @@
   position: absolute;
   left: var(--base-size-8);
   pointer-events: none;
-  color: var(--fgColor-onEmphasis);
-  opacity: 0.7;
+  color: var(--fgColor-muted);
   z-index: 1;
 }
 
@@ -76,16 +75,14 @@
 .AppHeader-item {
   display: inline-flex;
   align-items: center;
-  color: var(--fgColor-onEmphasis);
-  opacity: 0.9;
+  color: var(--fgColor-default);
   padding: var(--base-size-4);
   border-radius: var(--borderRadius-medium);
 }
 
 .AppHeader-item:hover {
-  opacity: 1;
   text-decoration: none;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bgColor-muted);
 }
 
 /* Avatar dropdown menu. */
@@ -100,7 +97,6 @@
   align-items: center;
   padding: var(--base-size-4);
   border-radius: var(--borderRadius-full);
-  opacity: 0.9;
 }
 
 .AppHeader-avatar::-webkit-details-marker {
@@ -108,12 +104,7 @@
 }
 
 .AppHeader-avatar:hover {
-  opacity: 1;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.AppHeader-avatar .avatar {
-  border-radius: var(--borderRadius-full);
+  background-color: var(--bgColor-muted);
 }
 
 .AppHeader-menu-list {
@@ -175,6 +166,13 @@
   text-decoration: none;
 }
 
+/* Avatars. Every user avatar is a circle with a hairline ring so it reads on
+   any canvas; the contexts that show one only set its size. */
+.avatar {
+  border-radius: var(--borderRadius-full);
+  box-shadow: 0 0 0 1px var(--bgColor-neutral-muted);
+}
+
 /* Buttons. */
 .btn {
   display: inline-flex;
@@ -234,16 +232,17 @@
   border-radius: var(--borderRadius-medium);
 }
 
-/* Search box in the header sits on the emphasis background. */
+/* Search box in the header. The header is canvas-colored, so the input reads
+   functional tokens like any control: inset field, default border and text,
+   muted placeholder. The same tokens recolor it in all eight themes. */
 .AppHeader-search .input {
-  color: var(--fgColor-onEmphasis);
-  background-color: transparent;
-  border-color: var(--borderColor-onEmphasis-muted);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-inset);
+  border-color: var(--borderColor-default);
 }
 
 .AppHeader-search .input::placeholder {
-  color: var(--fgColor-onEmphasis);
-  opacity: 0.7;
+  color: var(--fgColor-muted);
 }
 
 /* Footer. */
