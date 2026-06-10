@@ -140,6 +140,7 @@ func mountAPI(r *mizu.Router, d Deps) {
 	}
 	mountGists(r)
 	mountRepoExtra(r, d)
+	mountMiscCompat(r, d)
 	if d.Hooks != nil {
 		mountHooks(r, d)
 	}
@@ -188,7 +189,10 @@ func mountPulls(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/pulls", handlePullsList(d))
 	r.Post("/repos/{owner}/{repo}/pulls", handlePullCreate(d))
 	r.Get("/repos/{owner}/{repo}/pulls/{number}", handlePullGet(d))
+	r.Patch("/repos/{owner}/{repo}/pulls/{number}", handlePullUpdate(d))
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/merge", handlePullMerge(d))
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersAdd(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersList(d))
 
 	// The pull request sub-collections (files, commits, comments, reviews) and the
 	// standalone /pulls/comments/{id} comment lookup all read as /pulls/{x}/{y},
@@ -196,6 +200,9 @@ func mountPulls(r *mizu.Router, d Deps) {
 	// them out. The files and commits diffs are served even without the review
 	// service mounted, so this route always carries them.
 	r.Get("/repos/{owner}/{repo}/pulls/{seg1}/{seg2}", handlePullSubGet(d))
+	// DELETE /pulls/comments/{id} and DELETE /pulls/{number}/requested_reviewers
+	// share the same two-segment space, so a single dispatcher fans them out.
+	r.Delete("/repos/{owner}/{repo}/pulls/{seg1}/{seg2}", handlePullDeleteDispatch(d))
 }
 
 // mountReviews registers the code review endpoints on r: reviews and their
@@ -224,7 +231,7 @@ func mountIssues(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/issues/{seg1}/{seg2}", handleIssueCommentsGet(d))
 	r.Post("/repos/{owner}/{repo}/issues/{number}/comments", handleIssueCommentCreate(d))
 	r.Patch("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentEdit(d))
-	r.Delete("/repos/{owner}/{repo}/issues/comments/{id}", handleCommentDelete(d))
+	r.Delete("/repos/{owner}/{repo}/issues/{seg1}/{seg2}", handleIssueDeleteDispatch(d))
 
 	r.Get("/repos/{owner}/{repo}/labels", handleLabelsList(d))
 	r.Post("/repos/{owner}/{repo}/labels", handleLabelCreate(d))

@@ -709,3 +709,52 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 	}
 	return patch, nil
 }
+
+// CreateBlob stores a blob object in the repository and returns its SHA.
+func (s *RepoService) CreateBlob(repo *Repo, content []byte) (*git.CreateBlobResult, error) {
+	gr, err := s.openOrInit(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return gr.CreateBlob(git.CreateBlobInput{Content: content})
+}
+
+// CreateTree builds a new tree object in the repository.
+func (s *RepoService) CreateTree(repo *Repo, baseTreeSHA string, entries []git.CreateTreeEntry) (*git.CreateTreeResult, error) {
+	gr, err := s.openOrInit(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return gr.CreateTree(baseTreeSHA, entries)
+}
+
+// CreateGitCommit writes a new commit object to the repository without updating any branch.
+func (s *RepoService) CreateGitCommit(repo *Repo, in git.CreateCommitInput) (*git.CreateCommitResult, error) {
+	gr, err := s.openOrInit(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return gr.CreateCommit(in)
+}
+
+// CreateGitTag creates an annotated tag object in the repository.
+func (s *RepoService) CreateGitTag(repo *Repo, in git.CreateTagInput) (*git.CreateTagResult, error) {
+	gr, err := s.openOrInit(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return gr.CreateTag(in)
+}
+
+// GetGitTag reads an annotated tag object by its SHA.
+func (s *RepoService) GetGitTag(repo *Repo, sha string) (*git.GetTagResult, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	res, err := gr.GetTag(sha)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return res, nil
+}
