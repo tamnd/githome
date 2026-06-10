@@ -200,10 +200,17 @@ func pullFiles(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
+	page, perr := parsePage(c)
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return nil
+	}
+	files = paginateSlice(&page, files)
 	out := make([]restmodel.PullRequestFile, 0, len(files))
 	for _, f := range files {
 		out = append(out, d.URLs.PullRequestFile(owner, repo, pr.Head.SHA, f))
 	}
+	writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 	writeJSON(c.Writer(), http.StatusOK, out)
 	return nil
 }
@@ -228,10 +235,17 @@ func pullCommits(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
+	page, perr := parsePage(c)
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return nil
+	}
+	commits = paginateSlice(&page, commits)
 	out := make([]restmodel.RepoCommit, 0, len(commits))
 	for _, cm := range commits {
 		out = append(out, d.URLs.RepoCommit(owner, repo, prq.Repo.ID, cm))
 	}
+	writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 	writeJSON(c.Writer(), http.StatusOK, out)
 	return nil
 }

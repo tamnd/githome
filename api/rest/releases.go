@@ -55,10 +55,21 @@ func handleReleasesList(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
+		// A full page might be the last one; peek at the next page so the
+		// rel="next" link only appears when something is actually there.
+		hasNext := false
+		if len(releases) == page.PerPage {
+			peek, err := d.Releases.ListReleases(c.Request().Context(), actor.UserID, owner, repo, page.Page+1, page.PerPage)
+			if err != nil {
+				return mapReleaseError(c, err)
+			}
+			hasNext = len(peek) > 0
+		}
 		out := make([]any, len(releases))
 		for i, r := range releases {
 			out[i] = d.URLs.Release(owner, repo, r, d.NodeFormat)
 		}
+		writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}

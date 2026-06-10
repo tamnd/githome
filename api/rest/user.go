@@ -65,6 +65,11 @@ func handlePublicUserRepos(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		repos, err := d.Repos.ListReposByLogin(ctx, actor.UserID, c.Param("username"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
@@ -73,10 +78,12 @@ func handlePublicUserRepos(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		repos = paginateSlice(&page, repos)
 		out := make([]any, 0, len(repos))
 		for _, r := range repos {
 			out = append(out, d.URLs.Repository(r, d.NodeFormat, repoPermissions(actor, r)))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
@@ -92,14 +99,21 @@ func handleUserReposList(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		repos, err := d.Repos.ListRepos(ctx, actor.UserID, actor.UserID)
 		if err != nil {
 			return err
 		}
+		repos = paginateSlice(&page, repos)
 		out := make([]any, 0, len(repos))
 		for _, r := range repos {
 			out = append(out, d.URLs.Repository(r, d.NodeFormat, presenter.OwnerPermissions()))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
@@ -180,6 +194,11 @@ func handleOrgReposList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		repos, err := d.Repos.ListReposByLogin(ctx, actor.UserID, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
@@ -188,10 +207,12 @@ func handleOrgReposList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		repos = paginateSlice(&page, repos)
 		out := make([]any, 0, len(repos))
 		for _, r := range repos {
 			out = append(out, d.URLs.Repository(r, d.NodeFormat, repoPermissions(actor, r)))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}

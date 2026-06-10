@@ -24,11 +24,16 @@ func mountEvents(r *mizu.Router, d Deps) {
 // activity.
 func handlePublicEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		events, err := d.Events.PublicFeed(c.Request().Context(), perPage(c))
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		events, err := d.Events.PublicFeed(c.Request().Context(), feedLimit(page))
 		if err != nil {
 			return err
 		}
-		writeEvents(d, c, events)
+		writeEvents(d, c, page, events)
 		return nil
 	}
 }
@@ -40,14 +45,19 @@ func handleRepoEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
 		owner, repo := c.Param("owner"), c.Param("repo")
-		events, err := d.Events.RepoFeed(c.Request().Context(), actor.UserID, owner, repo, perPage(c))
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		events, err := d.Events.RepoFeed(c.Request().Context(), actor.UserID, owner, repo, feedLimit(page))
 		if eventError(c.Writer(), err) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		writeEvents(d, c, events)
+		writeEvents(d, c, page, events)
 		return nil
 	}
 }
@@ -57,24 +67,38 @@ func handleRepoEvents(d Deps) mizu.Handler {
 func handleUserEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
-		events, err := d.Events.UserFeed(c.Request().Context(), actor.UserID, c.Param("username"), perPage(c))
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		events, err := d.Events.UserFeed(c.Request().Context(), actor.UserID, c.Param("username"), feedLimit(page))
 		if eventError(c.Writer(), err) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		writeEvents(d, c, events)
+		writeEvents(d, c, page, events)
 		return nil
 	}
 }
 
-// writeEvents renders and writes a feed page.
-func writeEvents(d Deps, c *mizu.Ctx, events []domain.Event) {
-	out := make([]restmodel.Event, 0, len(events))
-	for i := range events {
-		out = append(out, d.URLs.Event(&events[i]))
+// feedLimit is how many feed rows to fetch for a page: the rows before the
+// window, the window itself, and one extra as the rel="next" existence proof.
+func feedLimit(p Page) int { return p.Offset() + p.PerPage + 1 }
+
+// writeEvents clips a fetched feed to the requested page window and writes it
+// with its Link header. Feeds are never counted, so the header is the uncounted
+// form without rel="last".
+func writeEvents(d Deps, c *mizu.Ctx, page Page, events []domain.Event) {
+	hasNext := len(events) > page.Offset()+page.PerPage
+	window := paginateSlice(&page, events)
+	out := make([]restmodel.Event, 0, len(window))
+	for i := range window {
+		out = append(out, d.URLs.Event(&window[i]))
 	}
+	writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
 	writeJSON(c.Writer(), http.StatusOK, out)
 }
 
