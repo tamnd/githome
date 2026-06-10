@@ -117,6 +117,12 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountSettings(page, d)
 	mountProfile(page, d)
 
+	// The catch-all owns every URL nothing above claimed. "GET /" is the least
+	// specific pattern on the mux, so each mounted route still wins, and a GET
+	// pattern also answers HEAD. It runs the full page chain, so the 404 it
+	// renders carries the viewer's chrome and theme like any other page.
+	page.Get("/", handleNotFound(d))
+
 	assets := mizu.NewRouter()
 	assets.With(webmw.Recover(d.Render, d.Logger)).
 		Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
@@ -479,5 +485,39 @@ func mountNotifications(page *mizu.Router, d Deps) {
 func handleHome(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		return d.Render.Page(c, "home/index", d.View.Home(c))
+	}
+}
+
+// handleNotFound serves the unmounted URL space. A trailing-slash URL 301s to
+// its canonical slash-less form with the query preserved, the redirect
+// github.com sends (spec §5.1); only GET and HEAD ever reach it, since the
+// catch-all is registered for GET and the mux answers other methods itself.
+// The API namespace keeps a machine-shaped 404: with the web front mounted the
+// REST surface omits its own root catch-all (api/rest Deps.WebFront) and an
+// unknown /api path would otherwise get an HTML page, so this hands API
+// clients the same GitHub-shaped body the REST surface uses. Everything else
+// renders the themed 404 (spec §7.1).
+func handleNotFound(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		r := c.Request()
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			return c.Bytes(http.StatusNotFound,
+				[]byte(`{"message":"Not Found","documentation_url":"https://docs.github.com/rest"}`),
+				"application/json; charset=utf-8")
+		}
+		// Trim on the escaped path so an encoded segment survives the redirect
+		// byte for byte. All trailing slashes collapse, so /owner/repo// also
+		// lands on the canonical URL in one hop.
+		if ep := r.URL.EscapedPath(); len(ep) > 1 && strings.HasSuffix(ep, "/") {
+			target := strings.TrimRight(ep, "/")
+			if target == "" {
+				target = "/"
+			}
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			return c.Redirect(http.StatusMovedPermanently, target)
+		}
+		return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
 	}
 }

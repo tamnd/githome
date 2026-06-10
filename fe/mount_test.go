@@ -116,6 +116,66 @@ func TestHomeSignedIn(t *testing.T) {
 	}
 }
 
+func TestUnknownPathRendersThemed404(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	// None of these is mounted: a repo sub-page the front does not serve yet, a
+	// settings section that does not exist, and a top-level path no route owns.
+	// Each renders the full themed 404, never the mux's plain-text one.
+	for _, path := range []string{"/octocat/repo/wiki", "/settings/security", "/no-such-page"} {
+		resp, body := get(t, srv, path)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s = %d, want 404", path, resp.StatusCode)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+			t.Errorf("GET %s content-type = %q, want text/html", path, ct)
+		}
+		// The 404 is a full page with the shell chrome around it.
+		for _, want := range []string{"<!DOCTYPE html>", `data-color-mode=`, "Githome", "This is not the web page"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("404 page for %s missing %q", path, want)
+			}
+		}
+	}
+}
+
+func TestUnknownAPIPathStaysJSON(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	// The REST surface leaves the root 404 to the front when both share the
+	// router, so an unknown /api path must keep the GitHub-shaped JSON body
+	// rather than an HTML page.
+	resp, body := get(t, srv, "/api/v3/no-such-endpoint")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("content-type = %q, want application/json", ct)
+	}
+	if !strings.Contains(body, `"Not Found"`) {
+		t.Errorf("API 404 body = %q, want the GitHub-shaped message", body)
+	}
+}
+
+func TestTrailingSlashRedirects(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	cases := []struct{ path, want string }{
+		{"/octocat/repo/", "/octocat/repo"},
+		{"/login/", "/login"},
+		{"/octocat/repo/?tab=readme", "/octocat/repo?tab=readme"},
+	}
+	// A path with doubled slashes is cleaned by the mux's own redirect first,
+	// so only the canonical single-trailing-slash form is asserted here.
+	for _, tc := range cases {
+		resp, _ := get(t, srv, tc.path)
+		if resp.StatusCode != http.StatusMovedPermanently {
+			t.Errorf("GET %s = %d, want 301", tc.path, resp.StatusCode)
+			continue
+		}
+		if got := resp.Header.Get("Location"); got != tc.want {
+			t.Errorf("GET %s Location = %q, want %q", tc.path, got, tc.want)
+		}
+	}
+}
+
 func TestAssetServedImmutable(t *testing.T) {
 	srv, _ := buildServer(t, nil)
 	hashed := manifestEntry(t, "app.css")
