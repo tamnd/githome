@@ -531,6 +531,41 @@ func (s *ReviewService) ThreadRef(ctx context.Context, viewerPK, rootDBID int64)
 	return ownerRow.Login, repoRow.Name, number, nil
 }
 
+// ReviewRef decodes a review's db id into the owner, repo, and pull number the
+// submit and dismiss mutations address it by. It enforces the viewer's visibility
+// through GetRepo, so a review in a private repository resolves as not found.
+func (s *ReviewService) ReviewRef(ctx context.Context, viewerPK, reviewDBID int64) (owner, name string, number int64, err error) {
+	row, err := s.store.GetReviewByDBID(ctx, reviewDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	repoRow, err := s.repos.store.RepoByPK(ctx, row.RepoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	ownerRow, err := s.repos.store.UserByPK(ctx, repoRow.OwnerPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	if _, err := s.repos.GetRepo(ctx, viewerPK, ownerRow.Login, repoRow.Name); err != nil {
+		return "", "", 0, err
+	}
+	number, err = s.store.PullNumberByPK(ctx, row.PullPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrReviewNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	return ownerRow.Login, repoRow.Name, number, nil
+}
+
 // ReviewDecision returns a pull request's derived review decision for the viewer,
 // the value the GraphQL field and the pull request view surface.
 func (s *ReviewService) ReviewDecision(ctx context.Context, viewerPK int64, owner, name string, number int64) (*string, error) {

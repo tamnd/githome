@@ -109,6 +109,57 @@ func threadDBIDFromID(id string) (int64, error) {
 	return dbID, nil
 }
 
+// prRefFromID decodes a PullRequest node ID into the owner, repo, and number
+// the domain's pull request methods address a PR by.
+func (r *Resolver) prRefFromID(ctx context.Context, id string) (owner, name string, number int64, err error) {
+	kind, dbID, decErr := nodeid.Decode(id)
+	if decErr != nil || kind != nodeid.KindPullRequest {
+		return "", "", 0, unresolvable("PullRequest", id)
+	}
+	owner, name, number, err = r.Pulls.PRRef(ctx, dbID)
+	if errors.Is(err, domain.ErrPullNotFound) {
+		return "", "", 0, unresolvable("PullRequest", id)
+	}
+	if err != nil {
+		return "", "", 0, mapErr(err)
+	}
+	return owner, name, number, nil
+}
+
+// reviewDBIDFromID decodes a PullRequestReview node ID into the review's DB id.
+func reviewDBIDFromID(id string) (int64, error) {
+	kind, dbID, err := nodeid.Decode(id)
+	if err != nil || kind != nodeid.KindPullRequestReview {
+		return 0, unresolvable("PullRequestReview", id)
+	}
+	return dbID, nil
+}
+
+// labelableRefFromID decodes a LabelableNode (Issue or PullRequest) node ID
+// into owner, repo, number coordinates for an Issue or PullRequest.
+func (r *Resolver) labelableRefFromID(ctx context.Context, id string) (owner, name string, number int64, isPR bool, err error) {
+	kind, dbID, decErr := nodeid.Decode(id)
+	if decErr != nil {
+		return "", "", 0, false, unresolvable("Issue or PullRequest", id)
+	}
+	switch kind {
+	case nodeid.KindIssue:
+		owner, name, number, err = r.Issues.IssueRef(ctx, dbID)
+		if errors.Is(err, domain.ErrIssueNotFound) {
+			return "", "", 0, false, unresolvable("Issue", id)
+		}
+		return owner, name, number, false, mapErr(err)
+	case nodeid.KindPullRequest:
+		owner, name, number, err = r.Pulls.PRRef(ctx, dbID)
+		if errors.Is(err, domain.ErrPullNotFound) {
+			return "", "", 0, true, unresolvable("PullRequest", id)
+		}
+		return owner, name, number, true, mapErr(err)
+	default:
+		return "", "", 0, false, unresolvable("Issue or PullRequest", id)
+	}
+}
+
 // viewerID is the request actor's user PK, zero for an anonymous request.
 func viewerID(ctx context.Context) int64 { return auth.ActorFrom(ctx).UserID }
 

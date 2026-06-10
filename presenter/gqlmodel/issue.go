@@ -121,3 +121,9 @@ type IssueCommentConnection struct {
 	Nodes      []*IssueComment
 	TotalCount int32
 }
+
+// IsLabelableNode marks Issue as a member of the LabelableNode union type.
+func (Issue) IsLabelableNode() {}
+
+// IsAssignableNode marks Issue as a member of the AssignableNode union type.
+func (Issue) IsAssignableNode() {}

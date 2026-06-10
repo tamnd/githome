@@ -116,6 +116,27 @@ func (s *RepoService) GetRepoByID(ctx context.Context, viewerPK, dbID int64) (*R
 	return repoFromRow(row, userFromRow(ownerRow)), nil
 }
 
+// GetRepoByPK resolves a repository by its internal primary key for the viewer,
+// applying the same visibility rule as GetRepo. It is used when the caller has
+// decoded a ref node ID (which embeds the internal PK) and needs the full Repo.
+func (s *RepoService) GetRepoByPK(ctx context.Context, viewerPK, repoPK int64) (*Repo, error) {
+	row, err := s.store.RepoByPK(ctx, repoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !canSee(row, viewerPK) {
+		return nil, ErrRepoNotFound
+	}
+	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
 // RepoForEvent assembles a repository by internal pk with no visibility check,
 // the system path the webhook renderer loads an event's repository through. The
 // event was already authorized when it was recorded, so the renderer does not

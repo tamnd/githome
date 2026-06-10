@@ -1,0 +1,123 @@
+# The ref mutation slice of the GraphQL schema. createRef and deleteRef let
+# clients create and remove git references (branches, tags) through the GraphQL
+# API. Branch protection rule mutations for Terraform follow the same pattern.
+
+extend type Mutation {
+  # createRef creates a new git reference in a repository.
+  createRef(input: CreateRefInput!): CreateRefPayload
+  # deleteRef removes an existing git reference.
+  deleteRef(input: DeleteRefInput!): DeleteRefPayload
+  # createBranchProtectionRule creates a branch protection rule.
+  createBranchProtectionRule(input: CreateBranchProtectionRuleInput!): CreateBranchProtectionRulePayload
+  # updateBranchProtectionRule updates an existing branch protection rule.
+  updateBranchProtectionRule(input: UpdateBranchProtectionRuleInput!): UpdateBranchProtectionRulePayload
+  # deleteBranchProtectionRule removes a branch protection rule.
+  deleteBranchProtectionRule(input: DeleteBranchProtectionRuleInput!): DeleteBranchProtectionRulePayload
+}
+
+input CreateRefInput {
+  repositoryId: ID!
+  name: String!
+  oid: GitObjectID!
+  clientMutationId: String
+}
+
+type CreateRefPayload {
+  ref: Ref
+  clientMutationId: String
+}
+
+input DeleteRefInput {
+  refId: ID!
+  clientMutationId: String
+}
+
+type DeleteRefPayload {
+  clientMutationId: String
+}
+
+# BranchProtectionRule is a protection rule applied to one or more branch name
+# patterns.
+type BranchProtectionRule {
+  id: ID!
+  pattern: String!
+  requiresApprovingReviews: Boolean!
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean!
+  requiresStrictStatusChecks: Boolean!
+  requiresCodeOwnerReviews: Boolean!
+  dismissesStaleReviews: Boolean!
+  restrictsReviewDismissals: Boolean!
+  isAdminEnforced: Boolean!
+  requiresLinearHistory: Boolean!
+  allowsForcePushes: Boolean!
+  allowsDeletions: Boolean!
+}
+
+input BranchProtectionRuleInput {
+  pattern: String!
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+}
+
+input CreateBranchProtectionRuleInput {
+  repositoryId: ID!
+  pattern: String!
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+  clientMutationId: String
+}
+
+type CreateBranchProtectionRulePayload {
+  branchProtectionRule: BranchProtectionRule
+  clientMutationId: String
+}
+
+input UpdateBranchProtectionRuleInput {
+  branchProtectionRuleId: ID!
+  pattern: String
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+  clientMutationId: String
+}
+
+type UpdateBranchProtectionRulePayload {
+  branchProtectionRule: BranchProtectionRule
+  clientMutationId: String
+}
+
+input DeleteBranchProtectionRuleInput {
+  branchProtectionRuleId: ID!
+  clientMutationId: String
+}
+
+type DeleteBranchProtectionRulePayload {
+  clientMutationId: String
+}

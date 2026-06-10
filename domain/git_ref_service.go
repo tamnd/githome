@@ -82,6 +82,24 @@ func (s *RepoService) UpdateRef(ctx context.Context, actorPK int64, owner, name,
 	return s.resolveRef(ctx, repo.PK, ref, sha)
 }
 
+// DeleteRef removes an existing reference after authorizing write access.
+func (s *RepoService) DeleteRef(ctx context.Context, actorPK int64, owner, name, ref string) error {
+	repo, err := s.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return err
+	}
+	if !validFullRef(ref) {
+		return ErrInvalidRef
+	}
+	switch err := s.gitStore.DeleteRef(ctx, repo.PK, ref); {
+	case errors.Is(err, git.ErrRefNotFound):
+		return ErrRefNotFound
+	case err != nil:
+		return err
+	}
+	return nil
+}
+
 // AuthorizeWrite resolves the repository for the actor and checks write access.
 // Visibility is enforced by GetRepo, so the not-found-vs-forbidden distinction
 // matches GitHub: invisible -> 404 (ErrRepoNotFound), visible-but-no-write -> 403

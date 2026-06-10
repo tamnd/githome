@@ -1,0 +1,68 @@
+# The label and assignee mutation slice of the GraphQL schema. gh issue edit
+# and gh pr edit send these mutations when adding or removing labels and
+# assignees. Each takes a Labelable or Assignable node ID (an issue or pull
+# request) so the same mutations cover both resource types.
+
+extend type Mutation {
+  # addLabelsToLabelable attaches labels to an issue or pull request.
+  addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
+  # removeLabelsFromLabelable detaches labels from an issue or pull request.
+  removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
+  # addAssigneesToAssignable links assignees to an issue or pull request.
+  addAssigneesToAssignable(input: AddAssigneesToAssignableInput!): AddAssigneesToAssignablePayload
+  # removeAssigneesFromAssignable unlinks assignees from an issue or pull request.
+  removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
+}
+
+# Labelable is the union of Issue and PullRequest with a labels connection.
+# The mutations carry the labelableId so the same operation covers both.
+input AddLabelsToLabelableInput {
+  labelableId: ID!
+  labelIds: [ID!]!
+  clientMutationId: String
+}
+
+type AddLabelsToLabelablePayload {
+  labelable: LabelableNode
+  clientMutationId: String
+}
+
+input RemoveLabelsFromLabelableInput {
+  labelableId: ID!
+  labelIds: [ID!]!
+  clientMutationId: String
+}
+
+type RemoveLabelsFromLabelablePayload {
+  labelable: LabelableNode
+  clientMutationId: String
+}
+
+# LabelableNode is the return type for label mutations. It carries the issue or
+# pull request that was mutated so the client can read back its current labels.
+union LabelableNode = Issue | PullRequest
+
+input AddAssigneesToAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type AddAssigneesToAssignablePayload {
+  assignable: AssignableNode
+  clientMutationId: String
+}
+
+input RemoveAssigneesFromAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type RemoveAssigneesFromAssignablePayload {
+  assignable: AssignableNode
+  clientMutationId: String
+}
+
+# AssignableNode is the return type for assignee mutations.
+union AssignableNode = Issue | PullRequest
