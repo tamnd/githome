@@ -84,31 +84,53 @@ func handleDeviceCode(svc *auth.Service) mizu.Handler {
 	}
 }
 
-// handleAccessToken serves POST /login/oauth/access_token. M1 implements the
-// device-code grant; the response is always HTTP 200 with either the token or an
-// OAuth error body, matching GitHub.
+// handleAccessToken serves POST /login/oauth/access_token. Supports both the
+// device-code grant and the authorization-code grant (web flow). The response
+// is always HTTP 200 with either the token or an OAuth error body, matching
+// GitHub's behavior.
 func handleAccessToken(svc *auth.Service) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		r := c.Request()
 		_ = r.ParseForm()
-		if g := r.PostForm.Get("grant_type"); g != deviceCodeGrant {
-			renderOAuth(c, http.StatusOK, oauthError{Err: "unsupported_grant_type", Desc: "Only the device-code grant is supported."})
+		switch grant := r.PostForm.Get("grant_type"); grant {
+		case deviceCodeGrant:
+			outcome, err := svc.PollDeviceToken(r.Context(), r.PostForm.Get("client_id"), r.PostForm.Get("device_code"))
+			if err != nil {
+				return err
+			}
+			if outcome.Token != nil {
+				renderOAuth(c, http.StatusOK, oauthToken{
+					AccessToken: outcome.Token.AccessToken,
+					TokenType:   outcome.Token.TokenType,
+					Scope:       outcome.Token.Scope,
+				})
+				return nil
+			}
+			renderOAuth(c, http.StatusOK, oauthError{Err: outcome.Error, Desc: outcome.ErrorDescription, Interval: outcome.Interval})
 			return nil
-		}
-		outcome, err := svc.PollDeviceToken(r.Context(), r.PostForm.Get("client_id"), r.PostForm.Get("device_code"))
-		if err != nil {
-			return err
-		}
-		if outcome.Token != nil {
+		case "authorization_code":
+			tok, err := svc.ExchangeAuthCode(r.Context(),
+				r.PostForm.Get("client_id"),
+				r.PostForm.Get("code"),
+				r.PostForm.Get("redirect_uri"),
+			)
+			if errors.Is(err, auth.ErrUnknownClient) || errors.Is(err, auth.ErrInvalidCode) {
+				renderOAuth(c, http.StatusOK, oauthError{Err: "bad_verification_code", Desc: "The code passed is incorrect or expired."})
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 			renderOAuth(c, http.StatusOK, oauthToken{
-				AccessToken: outcome.Token.AccessToken,
-				TokenType:   outcome.Token.TokenType,
-				Scope:       outcome.Token.Scope,
+				AccessToken: tok.AccessToken,
+				TokenType:   tok.TokenType,
+				Scope:       tok.Scope,
 			})
 			return nil
+		default:
+			renderOAuth(c, http.StatusOK, oauthError{Err: "unsupported_grant_type", Desc: "Supported grant types: device_code, authorization_code."})
+			return nil
 		}
-		renderOAuth(c, http.StatusOK, oauthError{Err: outcome.Error, Desc: outcome.ErrorDescription, Interval: outcome.Interval})
-		return nil
 	}
 }
 
