@@ -232,11 +232,11 @@ func archiveRef(ref string) string {
 	return ref
 }
 
-// mountRepoExtra registers README, archive, compare, contents-write, and gist
-// stub endpoints.
+// mountRepoExtra registers README, archive, compare, and contents-write endpoints.
 func mountRepoExtra(r *mizu.Router, d Deps) {
-	// GET /users/{username}/gists — stub returning 501 per spec §4.4.
-	r.Get("/users/{username}/gists", gistNotImplemented())
+	if d.Gists != nil {
+		r.Get("/users/{username}/gists", handleUserGists(d))
+	}
 
 	if d.Repos == nil {
 		return

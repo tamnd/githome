@@ -642,3 +642,38 @@ CREATE TABLE oauth_auth_codes (
     expires_at   TEXT    NOT NULL,
     created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 0016_gists
+CREATE TABLE gists (
+    pk          INTEGER PRIMARY KEY AUTOINCREMENT,
+    gist_id     TEXT    NOT NULL UNIQUE,
+    owner_pk    INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    description TEXT    NOT NULL DEFAULT '',
+    public      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX gists_owner ON gists (owner_pk);
+
+CREATE TABLE gist_files (
+    pk        INTEGER PRIMARY KEY AUTOINCREMENT,
+    gist_pk   INTEGER NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    filename  TEXT    NOT NULL,
+    content   TEXT    NOT NULL DEFAULT '',
+    UNIQUE(gist_pk, filename)
+);
+
+CREATE TABLE gist_stars (
+    gist_pk INTEGER NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    user_pk INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    PRIMARY KEY(gist_pk, user_pk)
+);
+
+CREATE TABLE gist_comments (
+    pk         INTEGER PRIMARY KEY AUTOINCREMENT,
+    gist_pk    INTEGER NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    user_pk    INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    body       TEXT    NOT NULL DEFAULT '',
+    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

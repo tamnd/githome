@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS gist_comments;
+DROP TABLE IF EXISTS gist_stars;
+DROP TABLE IF EXISTS gist_files;
+DROP TABLE IF EXISTS gists;
