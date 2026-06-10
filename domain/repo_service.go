@@ -31,6 +31,10 @@ var (
 	// ErrBlobTooLarge is returned when a blob or file read exceeds the server's
 	// blob size ceiling. The REST layer maps it to a 403 too_large.
 	ErrBlobTooLarge = errors.New("domain: blob exceeds size limit")
+
+	// ErrConflict is returned by a file write whose CurrentBlobSHA no longer
+	// matches the blob at the path. The REST layer maps it to GitHub's 409.
+	ErrConflict = errors.New("domain: current blob sha mismatch")
 )
 
 // RepoStore is the slice of the store the repo service needs. The write path
@@ -511,6 +515,9 @@ func (s *RepoService) WriteFile(repo *Repo, in WriteFileInput) (*WriteFileResult
 	if err != nil {
 		return nil, err
 	}
+	if err := checkCurrentBlob(gr, in); err != nil {
+		return nil, err
+	}
 	res, err := gr.WriteFile(git.FileWriteInput{
 		Path:        in.Path,
 		Content:     in.Content,
@@ -531,6 +538,9 @@ func (s *RepoService) DeleteFile(repo *Repo, in WriteFileInput) (*WriteFileResul
 	if err != nil {
 		return nil, err
 	}
+	if err := checkCurrentBlob(gr, in); err != nil {
+		return nil, err
+	}
 	res, err := gr.DeleteFile(git.FileWriteInput{
 		Path:        in.Path,
 		Message:     in.Message,
@@ -542,6 +552,25 @@ func (s *RepoService) DeleteFile(repo *Repo, in WriteFileInput) (*WriteFileResul
 		return nil, gitErr(err)
 	}
 	return &WriteFileResult{CommitSHA: res.CommitSHA}, nil
+}
+
+// checkCurrentBlob enforces the compare-and-swap a caller asks for by setting
+// CurrentBlobSHA: the path must hold a file whose blob is exactly that sha on
+// the target branch. Any other state, a missing path included, is ErrConflict.
+// An unset CurrentBlobSHA skips the check.
+func checkCurrentBlob(gr *git.Repo, in WriteFileInput) error {
+	if in.CurrentBlobSHA == "" {
+		return nil
+	}
+	ref := in.Branch
+	if ref == "" {
+		ref = "HEAD"
+	}
+	cur, err := gr.PathAt(ref, in.Path)
+	if err != nil || cur.IsDir || string(cur.Entry.SHA) != in.CurrentBlobSHA {
+		return ErrConflict
+	}
+	return nil
 }
 
 // openOrInit opens the repository's bare git store, initializing it if it does

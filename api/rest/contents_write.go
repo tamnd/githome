@@ -88,13 +88,35 @@ func handleContentsCreate(d Deps) mizu.Handler {
 			authorEmail = body.Committer.Email
 		}
 
+		// Resolve the branch here so the sha stat and the write below look at
+		// the same ref; the git layer's own fallback is not the repository's
+		// configured default branch.
+		branch := body.Branch
+		if branch == "" {
+			branch = repo.DefaultBranch
+		}
+
+		// GitHub's compare-and-swap contract: updating an existing file demands
+		// the current blob sha, a stale sha is a 409, and the status says which
+		// of create (201) or update (200) happened.
+		currentSHA, exists := currentBlobSHA(d, repo, path, branch)
+		if exists && body.SHA == "" {
+			writeError(c.Writer(), errShaRequired())
+			return nil
+		}
+		if body.SHA != "" && body.SHA != currentSHA {
+			writeError(c.Writer(), errShaMismatch(path, body.SHA))
+			return nil
+		}
+
 		res, err := d.Repos.WriteFile(repo, domain.WriteFileInput{
-			Path:        path,
-			Content:     decoded,
-			Message:     body.Message,
-			AuthorName:  authorName,
-			AuthorEmail: authorEmail,
-			Branch:      body.Branch,
+			Path:           path,
+			Content:        decoded,
+			Message:        body.Message,
+			AuthorName:     authorName,
+			AuthorEmail:    authorEmail,
+			Branch:         branch,
+			CurrentBlobSHA: body.SHA,
 		})
 		if errors.Is(err, domain.ErrEmptyRepo) || errors.Is(err, domain.ErrGitNotFound) {
 			// OK - new repo
@@ -104,16 +126,24 @@ func handleContentsCreate(d Deps) mizu.Handler {
 				Message:     body.Message,
 				AuthorName:  authorName,
 				AuthorEmail: authorEmail,
-				Branch:      body.Branch,
+				Branch:      branch,
 			})
 			if err != nil {
 				return err
 			}
+		} else if errors.Is(err, domain.ErrConflict) {
+			// The blob moved between the stat above and the write.
+			writeError(c.Writer(), errShaMismatch(path, body.SHA))
+			return nil
 		} else if err != nil {
 			return err
 		}
 
-		writeJSON(c.Writer(), http.StatusCreated, map[string]any{
+		status := http.StatusCreated
+		if exists {
+			status = http.StatusOK
+		}
+		writeJSON(c.Writer(), status, map[string]any{
 			"content": map[string]any{
 				"name": lastSegment(path),
 				"path": path,
@@ -126,6 +156,34 @@ func handleContentsCreate(d Deps) mizu.Handler {
 		})
 		return nil
 	}
+}
+
+// currentBlobSHA stats path on the target branch (or the default branch when
+// the request names none) and reports the blob's sha and whether a file is
+// there at all. A missing path, an empty repository, and a directory all read
+// as "no file": the sha rules only guard file updates.
+func currentBlobSHA(d Deps, repo *domain.Repo, path, branch string) (string, bool) {
+	ref := branch
+	if ref == "" {
+		ref = repo.DefaultBranch
+	}
+	res, err := d.Repos.Contents(repo, path, ref)
+	if err != nil || res.IsDir {
+		return "", false
+	}
+	return string(res.Entry.SHA), true
+}
+
+// errShaRequired is GitHub's 422 for a contents PUT or DELETE that targets an
+// existing file without supplying its current blob sha.
+func errShaRequired() *apiError {
+	return errUnprocessable("Invalid request.\n\n\"sha\" wasn't supplied.")
+}
+
+// errShaMismatch is GitHub's 409 for a supplied sha that no longer matches the
+// blob at the path, the signal an octokit retry loop keys on.
+func errShaMismatch(path, sha string) *apiError {
+	return errConflict(path + " does not match " + sha)
 }
 
 // handleContentsDelete serves DELETE /repos/{owner}/{repo}/contents/{path}.
@@ -151,6 +209,10 @@ func handleContentsDelete(d Deps) mizu.Handler {
 			writeError(c.Writer(), errUnprocessable("message is required"))
 			return nil
 		}
+		if body.SHA == "" {
+			writeError(c.Writer(), errShaRequired())
+			return nil
+		}
 
 		authorName, authorEmail := "", ""
 		if body.Committer != nil {
@@ -158,15 +220,34 @@ func handleContentsDelete(d Deps) mizu.Handler {
 			authorEmail = body.Committer.Email
 		}
 
+		branch := body.Branch
+		if branch == "" {
+			branch = repo.DefaultBranch
+		}
+		currentSHA, exists := currentBlobSHA(d, repo, path, branch)
+		if !exists {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if body.SHA != currentSHA {
+			writeError(c.Writer(), errShaMismatch(path, body.SHA))
+			return nil
+		}
+
 		res, err := d.Repos.DeleteFile(repo, domain.WriteFileInput{
-			Path:        path,
-			Message:     body.Message,
-			AuthorName:  authorName,
-			AuthorEmail: authorEmail,
-			Branch:      body.Branch,
+			Path:           path,
+			Message:        body.Message,
+			AuthorName:     authorName,
+			AuthorEmail:    authorEmail,
+			Branch:         branch,
+			CurrentBlobSHA: body.SHA,
 		})
 		if errors.Is(err, domain.ErrGitNotFound) {
 			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrConflict) {
+			writeError(c.Writer(), errShaMismatch(path, body.SHA))
 			return nil
 		}
 		if err != nil {
@@ -174,6 +255,7 @@ func handleContentsDelete(d Deps) mizu.Handler {
 		}
 
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
+			"content": nil,
 			"commit": map[string]any{
 				"sha":     res.CommitSHA,
 				"message": body.Message,
