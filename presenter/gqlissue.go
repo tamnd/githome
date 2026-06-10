@@ -9,9 +9,9 @@ import (
 )
 
 // GQLIssue renders a domain issue into the GraphQL Issue shape for owner/repo.
-// It fills the embedded label connection from the issue's attached labels and a
-// comment connection carrying the total; the resolver attaches comment nodes
-// when a query selects them. format selects the node-ID encoding.
+// It fills labels, assignees, and milestone eagerly from the pre-loaded domain
+// data; comments carry the total only and are paged by the resolver on demand.
+// format selects the node-ID encoding.
 func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format nodeid.Format) *gqlmodel.Issue {
 	num := strconv.FormatInt(iss.Number, 10)
 	out := &gqlmodel.Issue{
@@ -27,6 +27,8 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		CreatedAt: gqlmodel.NewDateTime(iss.CreatedAt),
 		UpdatedAt: gqlmodel.NewDateTime(iss.UpdatedAt),
 		Labels:    b.gqlLabelConnection(owner, repo, iss.Labels, format),
+		Assignees: b.GQLUserConnection(iss.Assignees, format),
+		Milestone: b.GQLMilestone(owner, repo, iss.Milestone, format),
 		Comments:  &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
 		RepoOwner: owner,
 		RepoName:  repo,

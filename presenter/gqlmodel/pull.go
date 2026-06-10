@@ -93,12 +93,22 @@ type PullRequest struct {
 	CreatedAt        DateTime         // creation instant
 	UpdatedAt        DateTime         // last-update instant
 	ClosedAt         *DateTime        // null while open
+	Labels           *LabelConnection // resolved on demand
+	Assignees        *UserConnection  // resolved on demand
+	Milestone        *Milestone       // resolved on demand
+	BaseRef          *Ref             // resolved on demand (carries the Ref node ID)
+	HeadRef          *Ref             // resolved on demand (carries the Ref node ID)
 
 	// RepoOwner and RepoName carry the repository coordinates so the files and
 	// commits field resolvers can read them through the domain. They are not part
 	// of the GraphQL schema, so gqlgen ignores them; the presenter fills them.
 	RepoOwner string
 	RepoName  string
+
+	// IssuePK is the database primary key of the underlying issue row; it is not
+	// part of the GraphQL schema but is used by the assignees/labels/milestone
+	// field resolvers to avoid re-querying the domain for the same data.
+	IssuePK int64
 }
 
 // PullRequestConnection is the Relay connection over a repository's pull

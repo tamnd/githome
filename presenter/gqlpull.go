@@ -43,6 +43,23 @@ func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, 
 		RepoOwner:        owner,
 		RepoName:         repo,
 	}
+	out.Labels = b.gqlLabelConnection(owner, repo, pr.Labels, format)
+	out.Assignees = b.GQLUserConnection(pr.Assignees, format)
+	out.Milestone = b.GQLMilestone(owner, repo, pr.Milestone, format)
+	basePK := pr.RepoPK
+	if pr.Base.Repo != nil {
+		basePK = pr.Base.Repo.PK
+	}
+	headPK := pr.RepoPK
+	if pr.Head.Repo != nil {
+		headPK = pr.Head.Repo.PK
+	}
+	if pr.Base.Ref != "" {
+		out.BaseRef = GQLRef(basePK, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
+	}
+	if pr.Head.Ref != "" {
+		out.HeadRef = GQLRef(headPK, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
+	}
 	if pr.MergedAt != nil {
 		merged := gqlmodel.NewDateTime(*pr.MergedAt)
 		out.MergedAt = &merged

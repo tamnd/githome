@@ -1,24 +1,43 @@
 package gqlmodel
 
-// Repository is the GraphQL Repository object, reduced to the fields the M2
-// surface serves: the set gh repo view selects. Later milestones grow it toward
-// the full GitHub Repository type. Nullable GraphQL fields use Go pointers so
-// gqlgen renders null rather than a zero value.
+// Repository is the GraphQL Repository object. It carries the fields the gh CLI
+// selects for repo view, repo list, and the pull request create flow.
+// Nullable GraphQL fields use Go pointers so gqlgen renders null rather than a
+// zero value.
 type Repository struct {
 	ID               string    // the Repository node ID
 	Name             string    // the short repository name
 	NameWithOwner    string    // owner login + "/" + name
 	Description      *string   // null when unset
 	IsPrivate        bool      // visibility
+	IsFork           bool      // whether this is a fork
+	IsArchived       bool      // whether this is archived
+	IsEmpty          bool      // true when the repository has no commits
+	IsInOrganization bool      // true when owner is an org
+	ForkCount        int32     // number of forks
+	StargazerCount   int32     // number of stars
+	DiskUsage        *int32    // disk usage in KB, null when unavailable
+	HomepageURL      *URI      // null when unset
 	CreatedAt        DateTime  // creation instant
+	UpdatedAt        DateTime  // last metadata update
 	PushedAt         *DateTime // last push, null for a repository with no commits
 	URL              URI       // the repository's HTML URL
+	SSHURL           URI       // the SSH clone URL
 	DefaultBranchRef *Ref      // the head branch, null for an empty repository
+
+	// RepoOwner and RepoName carry the repository coordinates for resolvers that
+	// need to look up ref or language data on demand. They are not part of the
+	// GraphQL schema.
+	RepoOwner string
+	RepoName  string
 }
 
-// Ref is a git reference reduced to its name and the object it points at.
+// Ref is a git reference. The id field carries the opaque node ID clients pass
+// to deleteRef. Prefix is the full prefix (refs/heads/ or refs/tags/).
 type Ref struct {
+	ID     string     // the Ref node ID
 	Name   string     // the short ref name, such as main
+	Prefix string     // the full prefix, e.g. "refs/heads/"
 	Target *GitObject // the object the ref names
 }
 
