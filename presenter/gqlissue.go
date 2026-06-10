@@ -29,7 +29,7 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		Labels:         b.gqlLabelConnection(owner, repo, iss.Labels, format),
 		Assignees:      b.GQLUserConnection(iss.Assignees, format),
 		Milestone:      b.GQLMilestone(owner, repo, iss.Milestone, format),
-		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
+		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount), PageInfo: &gqlmodel.PageInfo{}},
 		ReactionGroups: []gqlmodel.ReactionGroup{}, // Githome does not store reactions
 		RepoOwner:      owner,
 		RepoName:       repo,
@@ -47,17 +47,64 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 }
 
 // GQLIssueComment renders a domain comment into the GraphQL IssueComment shape.
+// The author association is the owner heuristic Githome applies everywhere: the
+// repository owner is OWNER, everyone else is NONE until collaborator roles are
+// modeled. includesCreatedEdit falls out of the timestamps.
 func (b *URLBuilder) GQLIssueComment(owner, repo string, cm *domain.Comment, format nodeid.Format) *gqlmodel.IssueComment {
 	num := strconv.FormatInt(cm.IssueNumber, 10)
 	id := strconv.FormatInt(cm.ID, 10)
-	return &gqlmodel.IssueComment{
-		ID:        nodeid.Encode(nodeid.KindIssueComment, cm.ID, format),
-		Body:      cm.Body,
-		URL:       gqlmodel.URI(b.RepoHTML(owner, repo) + "/issues/" + num + "#issuecomment-" + id),
-		Author:    b.gqlActor(cm.User, format),
-		CreatedAt: gqlmodel.NewDateTime(cm.CreatedAt),
-		UpdatedAt: gqlmodel.NewDateTime(cm.UpdatedAt),
+	out := &gqlmodel.IssueComment{
+		ID:                  nodeid.Encode(nodeid.KindIssueComment, cm.ID, format),
+		Body:                cm.Body,
+		URL:                 gqlmodel.URI(b.RepoHTML(owner, repo) + "/issues/" + num + "#issuecomment-" + id),
+		Author:              b.gqlActor(cm.User, format),
+		AuthorAssociation:   gqlAuthorAssociation(owner, cm.User),
+		IncludesCreatedEdit: cm.UpdatedAt.After(cm.CreatedAt),
+		ReactionGroups:      gqlReactionGroups(cm.Reactions),
+		CreatedAt:           gqlmodel.NewDateTime(cm.CreatedAt),
+		UpdatedAt:           gqlmodel.NewDateTime(cm.UpdatedAt),
 	}
+	if cm.User != nil {
+		out.AuthorPK = cm.User.ID
+	}
+	return out
+}
+
+// gqlAuthorAssociation is the GraphQL spelling of the REST authorAssociation
+// heuristic: the repository owner is OWNER; anyone else is NONE until
+// collaborator and member roles are modeled. A ghost author is NONE.
+func gqlAuthorAssociation(owner string, u *domain.User) gqlmodel.CommentAuthorAssociation {
+	if u == nil {
+		return gqlmodel.CommentAuthorAssociationNone
+	}
+	return gqlmodel.CommentAuthorAssociation(authorAssociation(u.Login, owner))
+}
+
+// gqlReactionGroups maps a domain reaction rollup onto the GraphQL reaction
+// groups, in GitHub's content order. The slice is non-nil even when empty.
+func gqlReactionGroups(r domain.ReactionRollup) []gqlmodel.ReactionGroup {
+	out := []gqlmodel.ReactionGroup{}
+	for _, m := range []struct {
+		key     string
+		content gqlmodel.ReactionContent
+	}{
+		{"+1", gqlmodel.ReactionContentThumbsUp},
+		{"-1", gqlmodel.ReactionContentThumbsDown},
+		{"laugh", gqlmodel.ReactionContentLaugh},
+		{"hooray", gqlmodel.ReactionContentHooray},
+		{"confused", gqlmodel.ReactionContentConfused},
+		{"heart", gqlmodel.ReactionContentHeart},
+		{"rocket", gqlmodel.ReactionContentRocket},
+		{"eyes", gqlmodel.ReactionContentEyes},
+	} {
+		if n := r.Counts[m.key]; n > 0 {
+			out = append(out, gqlmodel.ReactionGroup{
+				Content: m.content,
+				Users:   gqlmodel.ReactingUserConnection{TotalCount: int32(n)},
+			})
+		}
+	}
+	return out
 }
 
 // GQLLabel renders a domain label into the GraphQL Label shape.

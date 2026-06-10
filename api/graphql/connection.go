@@ -149,3 +149,19 @@ func emptyPullRequestConnection() *gqlmodel.PullRequestConnection {
 		PageInfo: &gqlmodel.PageInfo{},
 	}
 }
+
+// pageInfoFor builds the Relay page info for a window of count rows starting
+// at the absolute offset start, out of total rows. The cursors are the same
+// absolute-offset cursors the edges carry.
+func pageInfoFor(start, count, total int) *gqlmodel.PageInfo {
+	info := &gqlmodel.PageInfo{
+		HasNextPage:     start+count < total,
+		HasPreviousPage: start > 0,
+	}
+	if count > 0 {
+		s, e := encodeCursor(start+1), encodeCursor(start+count)
+		info.StartCursor = &s
+		info.EndCursor = &e
+	}
+	return info
+}

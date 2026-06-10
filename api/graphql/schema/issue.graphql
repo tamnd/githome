@@ -171,18 +171,44 @@ type LabelConnection {
   totalCount: Int!
 }
 
-# IssueComment is a comment on an issue.
+# CommentAuthorAssociation is the author's association with the repository the
+# comment was posted on.
+enum CommentAuthorAssociation {
+  MEMBER
+  OWNER
+  MANNEQUIN
+  COLLABORATOR
+  CONTRIBUTOR
+  FIRST_TIME_CONTRIBUTOR
+  FIRST_TIMER
+  NONE
+}
+
+# IssueComment is a comment on an issue or pull request. The fields are the
+# ones gh's issueComments fragment selects.
 type IssueComment {
   id: ID!
   body: String!
   url: URI!
   author: Actor
+  authorAssociation: CommentAuthorAssociation!
+  # includesCreatedEdit is whether the comment body has been edited since it
+  # was created.
+  includesCreatedEdit: Boolean!
+  # isMinimized is whether the comment is hidden. Githome does not minimize
+  # comments, so this is always false and minimizedReason is always null.
+  isMinimized: Boolean!
+  minimizedReason: String
+  # viewerDidAuthor is whether the request's viewer wrote this comment.
+  viewerDidAuthor: Boolean!
+  reactionGroups: [ReactionGroup!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
 
 type IssueCommentConnection {
   nodes: [IssueComment]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 

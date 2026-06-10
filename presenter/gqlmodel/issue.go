@@ -138,19 +138,46 @@ type LabelConnection struct {
 	TotalCount int32
 }
 
+// CommentAuthorAssociation is the GraphQL CommentAuthorAssociation enum: the
+// comment author's relationship to the repository.
+type CommentAuthorAssociation string
+
+// The CommentAuthorAssociation values.
+const (
+	CommentAuthorAssociationMember               CommentAuthorAssociation = "MEMBER"
+	CommentAuthorAssociationOwner                CommentAuthorAssociation = "OWNER"
+	CommentAuthorAssociationMannequin            CommentAuthorAssociation = "MANNEQUIN"
+	CommentAuthorAssociationCollaborator         CommentAuthorAssociation = "COLLABORATOR"
+	CommentAuthorAssociationContributor          CommentAuthorAssociation = "CONTRIBUTOR"
+	CommentAuthorAssociationFirstTimeContributor CommentAuthorAssociation = "FIRST_TIME_CONTRIBUTOR"
+	CommentAuthorAssociationFirstTimer           CommentAuthorAssociation = "FIRST_TIMER"
+	CommentAuthorAssociationNone                 CommentAuthorAssociation = "NONE"
+)
+
 // IssueComment is the GraphQL IssueComment object.
 type IssueComment struct {
-	ID        string   // the IssueComment node ID
-	Body      string   // the comment body
-	Author    Actor    // null for a ghost author
-	URL       URI      // the comment's HTML URL
-	CreatedAt DateTime // creation instant
-	UpdatedAt DateTime // last-update instant
+	ID                  string                   // the IssueComment node ID
+	Body                string                   // the comment body
+	Author              Actor                    // null for a ghost author
+	AuthorAssociation   CommentAuthorAssociation // the author's repository association
+	IncludesCreatedEdit bool                     // whether the body has been edited
+	IsMinimized         bool                     // always false; Githome does not minimize
+	MinimizedReason     *string                  // always null
+	ReactionGroups      []ReactionGroup          // emoji reaction counts; non-nil
+	URL                 URI                      // the comment's HTML URL
+	CreatedAt           DateTime                 // creation instant
+	UpdatedAt           DateTime                 // last-update instant
+
+	// AuthorPK is not part of the GraphQL schema. It carries the author's
+	// database key so the viewerDidAuthor resolver can compare it with the
+	// request's viewer.
+	AuthorPK int64
 }
 
 // IssueCommentConnection is the connection over an issue's comments.
 type IssueCommentConnection struct {
 	Nodes      []*IssueComment
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 

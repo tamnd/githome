@@ -324,8 +324,10 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	}
 	total := obj.CommentsCount
 	var comments []*domain.Comment
+	start := page.offset
 	if page.backward {
-		start, end := page.window(int(total))
+		var end int
+		start, end = page.window(int(total))
 		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
 	} else {
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
@@ -340,7 +342,11 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}
-	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
+	return &gqlmodel.IssueCommentConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		TotalCount: total,
+	}, nil
 }
 
 // PullRequest is the resolver for the pullRequest field. A missing pull request,

@@ -30,6 +30,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	Commit() CommitResolver
 	Issue() IssueResolver
+	IssueComment() IssueCommentResolver
 	Mutation() MutationResolver
 	PullRequest() PullRequestResolver
 	PullRequestReviewThread() PullRequestReviewThreadResolver
@@ -197,16 +198,23 @@ type ComplexityRoot struct {
 	}
 
 	IssueComment struct {
-		Author    func(childComplexity int) int
-		Body      func(childComplexity int) int
-		CreatedAt func(childComplexity int) int
-		ID        func(childComplexity int) int
-		URL       func(childComplexity int) int
-		UpdatedAt func(childComplexity int) int
+		Author              func(childComplexity int) int
+		AuthorAssociation   func(childComplexity int) int
+		Body                func(childComplexity int) int
+		CreatedAt           func(childComplexity int) int
+		ID                  func(childComplexity int) int
+		IncludesCreatedEdit func(childComplexity int) int
+		IsMinimized         func(childComplexity int) int
+		MinimizedReason     func(childComplexity int) int
+		ReactionGroups      func(childComplexity int) int
+		URL                 func(childComplexity int) int
+		UpdatedAt           func(childComplexity int) int
+		ViewerDidAuthor     func(childComplexity int) int
 	}
 
 	IssueCommentConnection struct {
 		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
 		TotalCount func(childComplexity int) int
 	}
 
@@ -639,6 +647,9 @@ type IssueResolver interface {
 	Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Milestone, error)
 	Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error)
 	ReactionGroups(ctx context.Context, obj *gqlmodel.Issue) ([]*gqlmodel.ReactionGroup, error)
+}
+type IssueCommentResolver interface {
+	ViewerDidAuthor(ctx context.Context, obj *gqlmodel.IssueComment) (bool, error)
 }
 type MutationResolver interface {
 	CreateIssue(ctx context.Context, input CreateIssueInput) (*CreateIssuePayload, error)
@@ -1268,6 +1279,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueComment.Author(childComplexity), true
+	case "IssueComment.authorAssociation":
+		if e.ComplexityRoot.IssueComment.AuthorAssociation == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.AuthorAssociation(childComplexity), true
 	case "IssueComment.body":
 		if e.ComplexityRoot.IssueComment.Body == nil {
 			break
@@ -1286,6 +1303,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueComment.ID(childComplexity), true
+	case "IssueComment.includesCreatedEdit":
+		if e.ComplexityRoot.IssueComment.IncludesCreatedEdit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.IncludesCreatedEdit(childComplexity), true
+	case "IssueComment.isMinimized":
+		if e.ComplexityRoot.IssueComment.IsMinimized == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.IsMinimized(childComplexity), true
+	case "IssueComment.minimizedReason":
+		if e.ComplexityRoot.IssueComment.MinimizedReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.MinimizedReason(childComplexity), true
+	case "IssueComment.reactionGroups":
+		if e.ComplexityRoot.IssueComment.ReactionGroups == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.ReactionGroups(childComplexity), true
 	case "IssueComment.url":
 		if e.ComplexityRoot.IssueComment.URL == nil {
 			break
@@ -1298,6 +1339,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueComment.UpdatedAt(childComplexity), true
+	case "IssueComment.viewerDidAuthor":
+		if e.ComplexityRoot.IssueComment.ViewerDidAuthor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueComment.ViewerDidAuthor(childComplexity), true
 
 	case "IssueCommentConnection.nodes":
 		if e.ComplexityRoot.IssueCommentConnection.Nodes == nil {
@@ -1305,6 +1352,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueCommentConnection.Nodes(childComplexity), true
+	case "IssueCommentConnection.pageInfo":
+		if e.ComplexityRoot.IssueCommentConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueCommentConnection.PageInfo(childComplexity), true
 	case "IssueCommentConnection.totalCount":
 		if e.ComplexityRoot.IssueCommentConnection.TotalCount == nil {
 			break
@@ -3470,18 +3523,44 @@ type LabelConnection {
   totalCount: Int!
 }
 
-# IssueComment is a comment on an issue.
+# CommentAuthorAssociation is the author's association with the repository the
+# comment was posted on.
+enum CommentAuthorAssociation {
+  MEMBER
+  OWNER
+  MANNEQUIN
+  COLLABORATOR
+  CONTRIBUTOR
+  FIRST_TIME_CONTRIBUTOR
+  FIRST_TIMER
+  NONE
+}
+
+# IssueComment is a comment on an issue or pull request. The fields are the
+# ones gh's issueComments fragment selects.
 type IssueComment {
   id: ID!
   body: String!
   url: URI!
   author: Actor
+  authorAssociation: CommentAuthorAssociation!
+  # includesCreatedEdit is whether the comment body has been edited since it
+  # was created.
+  includesCreatedEdit: Boolean!
+  # isMinimized is whether the comment is hidden. Githome does not minimize
+  # comments, so this is always false and minimizedReason is always null.
+  isMinimized: Boolean!
+  minimizedReason: String
+  # viewerDidAuthor is whether the request's viewer wrote this comment.
+  viewerDidAuthor: Boolean!
+  reactionGroups: [ReactionGroup!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
 
 type IssueCommentConnection {
   nodes: [IssueComment]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
@@ -4929,6 +5008,18 @@ func (ec *executionContext) childFields_IssueComment(ctx context.Context, field 
 		return ec.fieldContext_IssueComment_url(ctx, field)
 	case "author":
 		return ec.fieldContext_IssueComment_author(ctx, field)
+	case "authorAssociation":
+		return ec.fieldContext_IssueComment_authorAssociation(ctx, field)
+	case "includesCreatedEdit":
+		return ec.fieldContext_IssueComment_includesCreatedEdit(ctx, field)
+	case "isMinimized":
+		return ec.fieldContext_IssueComment_isMinimized(ctx, field)
+	case "minimizedReason":
+		return ec.fieldContext_IssueComment_minimizedReason(ctx, field)
+	case "viewerDidAuthor":
+		return ec.fieldContext_IssueComment_viewerDidAuthor(ctx, field)
+	case "reactionGroups":
+		return ec.fieldContext_IssueComment_reactionGroups(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_IssueComment_createdAt(ctx, field)
 	case "updatedAt":
@@ -4941,6 +5032,8 @@ func (ec *executionContext) childFields_IssueCommentConnection(ctx context.Conte
 	switch field.Name {
 	case "nodes":
 		return ec.fieldContext_IssueCommentConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_IssueCommentConnection_pageInfo(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_IssueCommentConnection_totalCount(ctx, field)
 	}
@@ -9206,6 +9299,153 @@ func (ec *executionContext) fieldContext_IssueComment_author(_ context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _IssueComment_authorAssociation(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_authorAssociation(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AuthorAssociation, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.CommentAuthorAssociation) graphql.Marshaler {
+			return ec.marshalNCommentAuthorAssociation2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommentAuthorAssociation(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_authorAssociation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueComment", field, false, false, errors.New("field of type CommentAuthorAssociation does not have child fields"))
+}
+
+func (ec *executionContext) _IssueComment_includesCreatedEdit(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_includesCreatedEdit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IncludesCreatedEdit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_includesCreatedEdit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueComment", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IssueComment_isMinimized(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_isMinimized(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsMinimized, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_isMinimized(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueComment", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IssueComment_minimizedReason(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_minimizedReason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinimizedReason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_minimizedReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueComment", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IssueComment_viewerDidAuthor(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_viewerDidAuthor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueComment().ViewerDidAuthor(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_viewerDidAuthor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueComment", field, true, true, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IssueComment_reactionGroups(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueComment_reactionGroups(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReactionGroups, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []gqlmodel.ReactionGroup) graphql.Marshaler {
+			return ec.marshalNReactionGroup2ᚕgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroupᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueComment_reactionGroups(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueComment",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ReactionGroup(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IssueComment_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueComment) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9279,6 +9519,38 @@ func (ec *executionContext) fieldContext_IssueCommentConnection_nodes(_ context.
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_IssueComment(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueCommentConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueCommentConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueCommentConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueCommentConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueCommentConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
 		},
 	}
 	return fc, nil
@@ -21586,29 +21858,87 @@ func (ec *executionContext) _IssueComment(ctx context.Context, sel ast.Selection
 		case "id":
 			out.Values[i] = ec._IssueComment_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "body":
 			out.Values[i] = ec._IssueComment_body(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "url":
 			out.Values[i] = ec._IssueComment_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "author":
 			out.Values[i] = ec._IssueComment_author(ctx, field, obj)
+		case "authorAssociation":
+			out.Values[i] = ec._IssueComment_authorAssociation(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "includesCreatedEdit":
+			out.Values[i] = ec._IssueComment_includesCreatedEdit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "isMinimized":
+			out.Values[i] = ec._IssueComment_isMinimized(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "minimizedReason":
+			out.Values[i] = ec._IssueComment_minimizedReason(ctx, field, obj)
+		case "viewerDidAuthor":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._IssueComment_viewerDidAuthor(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "reactionGroups":
+			out.Values[i] = ec._IssueComment_reactionGroups(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "createdAt":
 			out.Values[i] = ec._IssueComment_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "updatedAt":
 			out.Values[i] = ec._IssueComment_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -21646,6 +21976,11 @@ func (ec *executionContext) _IssueCommentConnection(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("IssueCommentConnection")
 		case "nodes":
 			out.Values[i] = ec._IssueCommentConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._IssueCommentConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "totalCount":
 			out.Values[i] = ec._IssueCommentConnection_totalCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -25798,6 +26133,23 @@ func (ec *executionContext) unmarshalNCloseIssueInput2githubᚗcomᚋtamndᚋgit
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCommentAuthorAssociation2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommentAuthorAssociation(ctx context.Context, v any) (gqlmodel.CommentAuthorAssociation, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.CommentAuthorAssociation(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCommentAuthorAssociation2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommentAuthorAssociation(ctx context.Context, sel ast.SelectionSet, v gqlmodel.CommentAuthorAssociation) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Commit) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -26260,6 +26612,26 @@ func (ec *executionContext) marshalNReactionContent2githubᚗcomᚋtamndᚋgitho
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNReactionGroup2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroup(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ReactionGroup) graphql.Marshaler {
+	return ec._ReactionGroup(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNReactionGroup2ᚕgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroupᚄ(ctx context.Context, sel ast.SelectionSet, v []gqlmodel.ReactionGroup) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNReactionGroup2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroup(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNReactionGroup2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroupᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ReactionGroup) graphql.Marshaler {

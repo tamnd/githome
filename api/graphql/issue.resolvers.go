@@ -76,8 +76,10 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 		total = obj.Comments.TotalCount
 	}
 	var comments []*domain.Comment
+	start := page.offset
 	if page.backward {
-		start, end := page.window(int(total))
+		var end int
+		start, end = page.window(int(total))
 		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
 	} else {
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
@@ -92,13 +94,25 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}
-	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
+	return &gqlmodel.IssueCommentConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		TotalCount: total,
+	}, nil
 }
 
 // ReactionGroups is the resolver for the reactionGroups field. Githome does not
 // track emoji reactions, so this always returns an empty slice.
 func (r *issueResolver) ReactionGroups(ctx context.Context, obj *gqlmodel.Issue) ([]*gqlmodel.ReactionGroup, error) {
 	return []*gqlmodel.ReactionGroup{}, nil
+}
+
+// ViewerDidAuthor is the resolver for the viewerDidAuthor field. It compares
+// the comment author's database key, which the presenter carries off-schema,
+// with the request's viewer. An anonymous viewer authored nothing.
+func (r *issueCommentResolver) ViewerDidAuthor(ctx context.Context, obj *gqlmodel.IssueComment) (bool, error) {
+	v := viewerID(ctx)
+	return v != 0 && v == obj.AuthorPK, nil
 }
 
 // CreateIssue is the resolver for the createIssue field. It opens an issue on the
@@ -278,8 +292,12 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 // Issue returns generated.IssueResolver implementation.
 func (r *Resolver) Issue() generated.IssueResolver { return &issueResolver{r} }
 
+// IssueComment returns generated.IssueCommentResolver implementation.
+func (r *Resolver) IssueComment() generated.IssueCommentResolver { return &issueCommentResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
 type issueResolver struct{ *Resolver }
+type issueCommentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }

@@ -67,6 +67,13 @@ models:
         resolver: true
       comments:
         resolver: true
+  IssueComment:
+    fields:
+      # viewerDidAuthor depends on who is asking, so the presenter cannot fill it.
+      viewerDidAuthor:
+        resolver: true
+  CommentAuthorAssociation:
+    model: github.com/tamnd/githome/presenter/gqlmodel.CommentAuthorAssociation
   Repository:
     fields:
       ref:
