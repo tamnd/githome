@@ -97,36 +97,6 @@ func init() {
 // ErrInvalid is returned when a node ID cannot be decoded.
 var ErrInvalid = errors.New("nodeid: invalid node id")
 
-// refPrefix is the fixed prefix for Ref node IDs. It does not collide with the
-// new-format prefixes in registry because those never contain a digit or a
-// hyphen in practice, and "RF_" is visually distinct.
-const refPrefix = "RF_"
-
-// EncodeRef builds the node ID for a git reference (repoPK, refName). The
-// encoding is the refPrefix followed by base64url of the 8-byte big-endian
-// repoPK concatenated with the UTF-8 ref name bytes. It is the counterpart to
-// DecodeRef and is intentionally separate from Encode, since a ref is
-// identified by two values rather than one int64.
-func EncodeRef(repoPK int64, refName string) string {
-	buf := make([]byte, 8+len(refName))
-	binary.BigEndian.PutUint64(buf, uint64(repoPK))
-	copy(buf[8:], refName)
-	return refPrefix + base64.RawURLEncoding.EncodeToString(buf)
-}
-
-// DecodeRef recovers (repoPK, refName) from a node ID produced by EncodeRef.
-func DecodeRef(nodeID string) (repoPK int64, refName string, err error) {
-	s, ok := strings.CutPrefix(nodeID, refPrefix)
-	if !ok {
-		return 0, "", ErrInvalid
-	}
-	raw, decErr := base64.RawURLEncoding.DecodeString(s)
-	if decErr != nil || len(raw) < 8 {
-		return 0, "", ErrInvalid
-	}
-	return int64(binary.BigEndian.Uint64(raw[:8])), string(raw[8:]), nil
-}
-
 // Encode builds the node ID for (kind, dbID) in the requested format.
 func Encode(kind Kind, dbID int64, format Format) string {
 	e, ok := registry[kind]
