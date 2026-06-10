@@ -65,6 +65,15 @@ models:
         resolver: true
       headRef:
         resolver: true
+      # reviews, reviewRequests, autoMergeRequest, and comments are loaded on demand.
+      reviews:
+        resolver: true
+      reviewRequests:
+        resolver: true
+      autoMergeRequest:
+        resolver: true
+      comments:
+        resolver: true
   Repository:
     fields:
       # ref is looked up through the git layer on demand; other fields that

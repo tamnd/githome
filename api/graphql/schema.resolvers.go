@@ -93,13 +93,13 @@ func (r *repositoryResolver) Ref(ctx context.Context, obj *gqlmodel.Repository, 
 
 // PrimaryLanguage returns the repository's primary programming language. Githome
 // does not track per-file language statistics, so this is always null.
-func (r *repositoryResolver) PrimaryLanguage(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.Language, error) {
+func (r *repositoryResolver) PrimaryLanguage(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Language, error) {
 	return nil, nil
 }
 
 // LicenseInfo returns the repository's license. Githome does not parse SPDX
 // identifiers from repository trees, so this is always null.
-func (r *repositoryResolver) LicenseInfo(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.License, error) {
+func (r *repositoryResolver) LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error) {
 	return nil, nil
 }
 

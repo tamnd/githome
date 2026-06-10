@@ -19,6 +19,10 @@ type LabelableNode interface {
 	IsLabelableNode()
 }
 
+type RequestedReviewer interface {
+	IsRequestedReviewer()
+}
+
 type AddAssigneesToAssignableInput struct {
 	AssignableID     string   `json:"assignableId"`
 	AssigneeIds      []string `json:"assigneeIds"`
@@ -258,6 +262,10 @@ type MergePullRequestPayload struct {
 type Mutation struct {
 }
 
+type PullRequestAutoMergeRequest struct {
+	MergeMethod gqlmodel.PullRequestMergeMethod `json:"mergeMethod"`
+}
+
 type PullRequestReview struct {
 	ID          string                 `json:"id"`
 	State       PullRequestReviewState `json:"state"`
@@ -265,6 +273,11 @@ type PullRequestReview struct {
 	Author      *gqlmodel.Actor        `json:"author,omitempty"`
 	SubmittedAt *gqlmodel.DateTime     `json:"submittedAt,omitempty"`
 	URL         gqlmodel.URI           `json:"url"`
+}
+
+type PullRequestReviewConnection struct {
+	Nodes      []*PullRequestReview `json:"nodes,omitempty"`
+	TotalCount int32                `json:"totalCount"`
 }
 
 type PullRequestReviewEdge struct {
@@ -328,6 +341,15 @@ type ResolveReviewThreadInput struct {
 type ResolveReviewThreadPayload struct {
 	Thread           *gqlmodel.PullRequestReviewThread `json:"thread,omitempty"`
 	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
+}
+
+type ReviewRequest struct {
+	RequestedReviewer RequestedReviewer `json:"requestedReviewer,omitempty"`
+}
+
+type ReviewRequestConnection struct {
+	Nodes      []*ReviewRequest `json:"nodes,omitempty"`
+	TotalCount int32            `json:"totalCount"`
 }
 
 type SubmitPullRequestReviewInput struct {

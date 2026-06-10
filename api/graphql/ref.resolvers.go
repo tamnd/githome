@@ -57,7 +57,7 @@ func (r *mutationResolver) DeleteRef(ctx context.Context, input generated.Delete
 // CreateBranchProtectionRule is the resolver for the createBranchProtectionRule
 // field. Githome does not yet implement branch protection rules; this stub
 // returns an empty rule so tooling that creates them does not hard-fail.
-func (r *mutationResolver) CreateBranchProtectionRule(_ context.Context, input generated.CreateBranchProtectionRuleInput) (*generated.CreateBranchProtectionRulePayload, error) {
+func (r *mutationResolver) CreateBranchProtectionRule(ctx context.Context, input generated.CreateBranchProtectionRuleInput) (*generated.CreateBranchProtectionRulePayload, error) {
 	return &generated.CreateBranchProtectionRulePayload{
 		BranchProtectionRule: &generated.BranchProtectionRule{
 			ID: branchProtectionRuleID,
@@ -68,7 +68,7 @@ func (r *mutationResolver) CreateBranchProtectionRule(_ context.Context, input g
 
 // UpdateBranchProtectionRule is the resolver for the updateBranchProtectionRule
 // field. Stub: no-op, returns the rule unchanged.
-func (r *mutationResolver) UpdateBranchProtectionRule(_ context.Context, input generated.UpdateBranchProtectionRuleInput) (*generated.UpdateBranchProtectionRulePayload, error) {
+func (r *mutationResolver) UpdateBranchProtectionRule(ctx context.Context, input generated.UpdateBranchProtectionRuleInput) (*generated.UpdateBranchProtectionRulePayload, error) {
 	return &generated.UpdateBranchProtectionRulePayload{
 		BranchProtectionRule: &generated.BranchProtectionRule{
 			ID: input.BranchProtectionRuleID,
@@ -79,6 +79,6 @@ func (r *mutationResolver) UpdateBranchProtectionRule(_ context.Context, input g
 
 // DeleteBranchProtectionRule is the resolver for the deleteBranchProtectionRule
 // field. Stub: no-op, always succeeds.
-func (r *mutationResolver) DeleteBranchProtectionRule(_ context.Context, input generated.DeleteBranchProtectionRuleInput) (*generated.DeleteBranchProtectionRulePayload, error) {
+func (r *mutationResolver) DeleteBranchProtectionRule(ctx context.Context, input generated.DeleteBranchProtectionRuleInput) (*generated.DeleteBranchProtectionRulePayload, error) {
 	return &generated.DeleteBranchProtectionRulePayload{ClientMutationID: input.ClientMutationID}, nil
 }

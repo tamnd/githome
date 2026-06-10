@@ -14,6 +14,9 @@ type User struct {
 	UpdatedAt DateTime // last-update instant
 }
 
+// IsRequestedReviewer marks User as a member of the RequestedReviewer union type.
+func (User) IsRequestedReviewer() {}
+
 // UserConnection is the Relay connection over a set of users (assignees, etc.).
 type UserConnection struct {
 	Nodes      []*User

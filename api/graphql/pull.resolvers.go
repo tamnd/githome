@@ -199,17 +199,17 @@ func (r *mutationResolver) MarkPullRequestReadyForReview(ctx context.Context, in
 }
 
 // BaseRef returns the base branch ref of the pull request, pre-loaded by the presenter.
-func (r *pullRequestResolver) BaseRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
+func (r *pullRequestResolver) BaseRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.BaseRef, nil
 }
 
 // HeadRef returns the head branch ref of the pull request, pre-loaded by the presenter.
-func (r *pullRequestResolver) HeadRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
+func (r *pullRequestResolver) HeadRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.HeadRef, nil
 }
 
 // Labels returns the labels of the pull request, pre-loaded by the presenter.
-func (r *pullRequestResolver) Labels(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
+func (r *pullRequestResolver) Labels(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.LabelConnection, error) {
 	if obj.Labels != nil {
 		return obj.Labels, nil
 	}
@@ -217,7 +217,7 @@ func (r *pullRequestResolver) Labels(_ context.Context, obj *gqlmodel.PullReques
 }
 
 // Assignees returns the assignees of the pull request, pre-loaded by the presenter.
-func (r *pullRequestResolver) Assignees(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.UserConnection, error) {
+func (r *pullRequestResolver) Assignees(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.UserConnection, error) {
 	if obj.Assignees != nil {
 		return obj.Assignees, nil
 	}
@@ -225,7 +225,7 @@ func (r *pullRequestResolver) Assignees(_ context.Context, obj *gqlmodel.PullReq
 }
 
 // Milestone returns the milestone of the pull request, pre-loaded by the presenter.
-func (r *pullRequestResolver) Milestone(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error) {
+func (r *pullRequestResolver) Milestone(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error) {
 	return obj.Milestone, nil
 }
 

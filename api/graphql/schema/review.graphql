@@ -13,6 +13,15 @@ extend type PullRequest {
   # reviewThreads is the connection over the pull request's review conversations,
   # each a root comment and its replies.
   reviewThreads(first: Int, after: String): PullRequestReviewThreadConnection!
+  # reviews is the connection over the pull request's submitted reviews.
+  reviews(first: Int, after: String): PullRequestReviewConnection!
+  # reviewRequests is the connection over the pull request's pending review requests.
+  reviewRequests(first: Int, after: String): ReviewRequestConnection!
+  # autoMergeRequest is the auto-merge configuration; null when auto-merge is off.
+  autoMergeRequest: PullRequestAutoMergeRequest
+  # comments is the connection over the pull request's issue-level comments (not inline
+  # review comments, which are under reviewThreads).
+  comments(first: Int, after: String): IssueCommentConnection!
 }
 
 extend type Commit {
@@ -179,4 +188,29 @@ input SubmitPullRequestReviewInput {
 type SubmitPullRequestReviewPayload {
   pullRequestReview: PullRequestReview
   clientMutationId: String
+}
+
+# PullRequestReviewConnection is the connection over a pull request's submitted reviews.
+type PullRequestReviewConnection {
+  nodes: [PullRequestReview]
+  totalCount: Int!
+}
+
+# RequestedReviewer is the union of reviewable entities. Only User is supported.
+union RequestedReviewer = User
+
+# ReviewRequest is one pending review request on a pull request.
+type ReviewRequest {
+  requestedReviewer: RequestedReviewer
+}
+
+# ReviewRequestConnection is the connection over a pull request's review requests.
+type ReviewRequestConnection {
+  nodes: [ReviewRequest]
+  totalCount: Int!
+}
+
+# PullRequestAutoMergeRequest holds the auto-merge configuration for a pull request.
+type PullRequestAutoMergeRequest {
+  mergeMethod: PullRequestMergeMethod!
 }
