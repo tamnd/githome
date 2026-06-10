@@ -305,11 +305,11 @@ func (s *PRService) UpdatePR(ctx context.Context, actorPK int64, owner, name str
 		return nil, err
 	}
 	patch := IssuePatch{
-		Title:          p.Title,
-		Body:           p.Body,
-		State:          p.State,
-		Labels:         p.Labels,
-		AssigneeLogins: p.AssigneeLogins,
+		Title:           p.Title,
+		Body:            p.Body,
+		State:           p.State,
+		Labels:          p.Labels,
+		AssigneeLogins:  p.AssigneeLogins,
 		MilestoneNumber: p.MilestoneNumber,
 		ClearMilestone:  p.ClearMilestone,
 	}

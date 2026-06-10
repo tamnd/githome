@@ -101,10 +101,10 @@ type PullRequest struct {
 	RepoName  string
 }
 
-// IsLabelableNode and IsAssignableNode mark PullRequest as a member of the
-// LabelableNode and AssignableNode union types in the GraphQL schema. These
-// are gqlgen interface markers; they have no runtime use.
-func (PullRequest) IsLabelableNode()  {}
+// IsLabelableNode marks PullRequest as a member of the LabelableNode union type.
+func (PullRequest) IsLabelableNode() {}
+
+// IsAssignableNode marks PullRequest as a member of the AssignableNode union type.
 func (PullRequest) IsAssignableNode() {}
 
 // PullRequestConnection is the Relay connection over a repository's pull
@@ -138,10 +138,10 @@ type PullRequestReviewEvent string
 
 // The PullRequestReviewEvent values.
 const (
-	PullRequestReviewEventApprove         PullRequestReviewEvent = "APPROVE"
-	PullRequestReviewEventComment         PullRequestReviewEvent = "COMMENT"
-	PullRequestReviewEventRequestChanges  PullRequestReviewEvent = "REQUEST_CHANGES"
-	PullRequestReviewEventDismiss         PullRequestReviewEvent = "DISMISS"
+	PullRequestReviewEventApprove        PullRequestReviewEvent = "APPROVE"
+	PullRequestReviewEventComment        PullRequestReviewEvent = "COMMENT"
+	PullRequestReviewEventRequestChanges PullRequestReviewEvent = "REQUEST_CHANGES"
+	PullRequestReviewEventDismiss        PullRequestReviewEvent = "DISMISS"
 )
 
 // DiffSide is the side of a diff a review comment anchors to.

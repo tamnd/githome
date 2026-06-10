@@ -13,7 +13,6 @@ import (
 	"github.com/tamnd/githome/presenter"
 )
 
-
 // branchProtectionRuleID is a placeholder node ID for branch protection rules.
 // Githome does not yet store rules, so we use a fixed sentinel rather than a
 // real node-id encode so clients that pass the id back in an update receive it
@@ -33,7 +32,7 @@ func (r *mutationResolver) CreateRef(ctx context.Context, input generated.Create
 		return nil, mapErr(err)
 	}
 	return &generated.CreateRefPayload{
-		Ref:              presenter.GQLRef(repo.PK, ref.Name, string(ref.Target)),
+		Ref:              presenter.GQLRef(repo.PK, ref.Name, ref.Target),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -59,7 +58,7 @@ func (r *mutationResolver) DeleteRef(ctx context.Context, input generated.Delete
 // CreateBranchProtectionRule is the resolver for the createBranchProtectionRule
 // field. Githome does not yet implement branch protection rules; this stub
 // returns an empty rule so tooling that creates them does not hard-fail.
-func (r *mutationResolver) CreateBranchProtectionRule(ctx context.Context, input generated.CreateBranchProtectionRuleInput) (*generated.CreateBranchProtectionRulePayload, error) {
+func (r *mutationResolver) CreateBranchProtectionRule(_ context.Context, input generated.CreateBranchProtectionRuleInput) (*generated.CreateBranchProtectionRulePayload, error) {
 	return &generated.CreateBranchProtectionRulePayload{
 		BranchProtectionRule: &generated.BranchProtectionRule{
 			ID: branchProtectionRuleID,
@@ -70,7 +69,7 @@ func (r *mutationResolver) CreateBranchProtectionRule(ctx context.Context, input
 
 // UpdateBranchProtectionRule is the resolver for the updateBranchProtectionRule
 // field. Stub: no-op, returns the rule unchanged.
-func (r *mutationResolver) UpdateBranchProtectionRule(ctx context.Context, input generated.UpdateBranchProtectionRuleInput) (*generated.UpdateBranchProtectionRulePayload, error) {
+func (r *mutationResolver) UpdateBranchProtectionRule(_ context.Context, input generated.UpdateBranchProtectionRuleInput) (*generated.UpdateBranchProtectionRulePayload, error) {
 	return &generated.UpdateBranchProtectionRulePayload{
 		BranchProtectionRule: &generated.BranchProtectionRule{
 			ID: input.BranchProtectionRuleID,
@@ -81,6 +80,6 @@ func (r *mutationResolver) UpdateBranchProtectionRule(ctx context.Context, input
 
 // DeleteBranchProtectionRule is the resolver for the deleteBranchProtectionRule
 // field. Stub: no-op, always succeeds.
-func (r *mutationResolver) DeleteBranchProtectionRule(ctx context.Context, input generated.DeleteBranchProtectionRuleInput) (*generated.DeleteBranchProtectionRulePayload, error) {
+func (r *mutationResolver) DeleteBranchProtectionRule(_ context.Context, input generated.DeleteBranchProtectionRuleInput) (*generated.DeleteBranchProtectionRulePayload, error) {
 	return &generated.DeleteBranchProtectionRulePayload{ClientMutationID: input.ClientMutationID}, nil
 }
