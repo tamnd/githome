@@ -395,6 +395,67 @@ func handleCommentDelete(d Deps) mizu.Handler {
 	}
 }
 
+// handleIssueDeleteDispatch dispatches the two DELETE shapes that share
+// /issues/{seg1}/{seg2} and that mizu cannot tell apart without a dispatcher,
+// because neither "/issues/comments/{id}" nor "/issues/{number}/labels" is
+// strictly more specific than the other in the router's eyes.
+//
+// Routing table:
+//
+//	seg1 == "comments"             → delete issue comment by id
+//	seg1 is a number && seg2 == "labels" → remove all labels from issue
+func handleIssueDeleteDispatch(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		seg1, seg2 := c.Param("seg1"), c.Param("seg2")
+		switch {
+		case seg1 == "comments":
+			id, ok := parseInt64(seg2)
+			if !ok {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			ctx := c.Request().Context()
+			actor := auth.ActorFrom(ctx)
+			err := d.Issues.DeleteComment(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), id)
+			if issueError(c.Writer(), err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			c.Writer().WriteHeader(http.StatusNoContent)
+			return nil
+		case seg2 == "labels":
+			number, ok := parseInt64(seg1)
+			if !ok {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			ctx := c.Request().Context()
+			actor := auth.ActorFrom(ctx)
+			if !actor.IsUser() {
+				writeError(c.Writer(), errRequiresAuth())
+				return nil
+			}
+			empty := []string{}
+			_, err := d.Issues.EditIssue(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, domain.IssuePatch{
+				Labels: &empty,
+			})
+			if issueError(c.Writer(), err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			c.Writer().WriteHeader(http.StatusNoContent)
+			return nil
+		default:
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+	}
+}
+
 // handleLabelsList serves GET /repos/{owner}/{repo}/labels.
 func handleLabelsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
