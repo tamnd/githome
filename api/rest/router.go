@@ -35,6 +35,7 @@ type Deps struct {
 	Hooks      *domain.HookService
 	Events     *domain.EventService
 	Search     *domain.SearchService
+	Releases   *domain.ReleaseService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 
@@ -81,6 +82,14 @@ func Mount(root *mizu.Router, d Deps) {
 		api = api.With(authMiddleware(d.Auth))
 	}
 	mountAPI(api.Prefix("/api/v3"), d)
+
+	// Asset uploads go to /api/uploads/repos/... (GHES upload base convention).
+	// go-github, GoReleaser and gh all construct the upload URL from the release's
+	// upload_url field which Githome sets to this path.
+	if d.Releases != nil {
+		api.Prefix("/api/uploads").Post("/repos/{owner}/{repo}/releases/{release_id}/assets", handleReleaseAssetUpload(d))
+	}
+
 	if !d.WebFront {
 		// The bare-root, github.com-style API and its root catch-all only mount
 		// when the web front is not sharing this router. With the front present
@@ -124,6 +133,26 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Search != nil {
 		mountSearch(r, d)
 	}
+	if d.Releases != nil {
+		mountReleases(r, d)
+	}
+}
+
+// mountReleases registers the releases and release assets endpoints on r.
+// The upload endpoint lives at a separate /api/uploads/ prefix (GHES convention)
+// and is wired directly in Mount() against the same upload router.
+func mountReleases(r *mizu.Router, d Deps) {
+	r.Get("/repos/{owner}/{repo}/releases", handleReleasesList(d))
+	r.Post("/repos/{owner}/{repo}/releases", handleReleaseCreate(d))
+	r.Get("/repos/{owner}/{repo}/releases/latest", handleReleaseLatest(d))
+	r.Get("/repos/{owner}/{repo}/releases/tags/{tag}", handleReleaseByTag(d))
+	r.Get("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseGet(d))
+	r.Patch("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseEdit(d))
+	r.Delete("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseDelete(d))
+	r.Get("/repos/{owner}/{repo}/releases/{release_id}/assets", handleReleaseAssetsList(d))
+	r.Get("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetGet(d))
+	r.Patch("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetEdit(d))
+	r.Delete("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetDelete(d))
 }
 
 // mountSearch registers the search endpoints on r.
