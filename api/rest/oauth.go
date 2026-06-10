@@ -111,10 +111,19 @@ func handleAccessToken(svc *auth.Service) mizu.Handler {
 		case "authorization_code":
 			tok, err := svc.ExchangeAuthCode(r.Context(),
 				r.PostForm.Get("client_id"),
+				r.PostForm.Get("client_secret"),
 				r.PostForm.Get("code"),
 				r.PostForm.Get("redirect_uri"),
 			)
-			if errors.Is(err, auth.ErrUnknownClient) || errors.Is(err, auth.ErrInvalidCode) {
+			if errors.Is(err, auth.ErrUnknownClient) || errors.Is(err, auth.ErrInvalidClientSecret) {
+				renderOAuth(c, http.StatusOK, oauthError{Err: "incorrect_client_credentials", Desc: "The client_id and/or client_secret passed are incorrect."})
+				return nil
+			}
+			if errors.Is(err, auth.ErrInvalidRedirectURI) {
+				renderOAuth(c, http.StatusOK, oauthError{Err: "redirect_uri_mismatch", Desc: "The redirect_uri MUST match the registered callback URL for this application."})
+				return nil
+			}
+			if errors.Is(err, auth.ErrInvalidCode) {
 				renderOAuth(c, http.StatusOK, oauthError{Err: "bad_verification_code", Desc: "The code passed is incorrect or expired."})
 				return nil
 			}

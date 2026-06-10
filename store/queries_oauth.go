@@ -11,12 +11,12 @@ import (
 // first-party gh client this way; tests use it to set up a device-flow app.
 func (s *Store) InsertOAuthApp(ctx context.Context, a *OAuthAppRow) error {
 	q := s.rebind(`INSERT INTO oauth_apps
-		(client_id, client_secret_hash, name, owner_pk, device_flow_enabled)
-		VALUES (?, ?, ?, ?, ?)
+		(client_id, client_secret_hash, name, owner_pk, device_flow_enabled, callback_url)
+		VALUES (?, ?, ?, ?, ?, ?)
 		RETURNING pk, created_at`)
 	var created nullTime
 	err := s.db.QueryRowContext(ctx, q,
-		a.ClientID, a.ClientSecretHash, a.Name, i64Arg(a.OwnerPK), a.DeviceFlowEnabled,
+		a.ClientID, a.ClientSecretHash, a.Name, i64Arg(a.OwnerPK), a.DeviceFlowEnabled, a.CallbackURL,
 	).Scan(&a.PK, &created)
 	if err != nil {
 		return err
@@ -27,7 +27,7 @@ func (s *Store) InsertOAuthApp(ctx context.Context, a *OAuthAppRow) error {
 
 // OAuthAppByClientID loads an OAuth app by its public client_id.
 func (s *Store) OAuthAppByClientID(ctx context.Context, clientID string) (*OAuthAppRow, error) {
-	q := s.rebind(`SELECT pk, client_id, client_secret_hash, name, owner_pk, device_flow_enabled, created_at
+	q := s.rebind(`SELECT pk, client_id, client_secret_hash, name, owner_pk, device_flow_enabled, callback_url, created_at
 		FROM oauth_apps WHERE client_id = ?`)
 	var (
 		a       OAuthAppRow
@@ -37,7 +37,7 @@ func (s *Store) OAuthAppByClientID(ctx context.Context, clientID string) (*OAuth
 		created nullTime
 	)
 	err := s.db.QueryRowContext(ctx, q, clientID).Scan(
-		&a.PK, &a.ClientID, &secret, &a.Name, &ownerPK, &dfe, &created,
+		&a.PK, &a.ClientID, &secret, &a.Name, &ownerPK, &dfe, &a.CallbackURL, &created,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
