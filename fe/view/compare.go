@@ -52,8 +52,8 @@ type CompareRangeVM struct {
 	Additions    int
 	Deletions    int
 	ChangedFiles int
-	HasDiff      bool  // false when base == head or no changed files
-	Expanded     bool  // true when ?expand=1, shows PR creation form
+	HasDiff      bool // false when base == head or no changed files
+	Expanded     bool // true when ?expand=1, shows PR creation form
 	CreateURL    string
 	CSRFToken    string
 	ExpandURL    string // the same range URL with ?expand=1

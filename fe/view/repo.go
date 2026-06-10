@@ -337,11 +337,11 @@ type CommitVM struct {
 	AuthorName  string
 	AuthorEmail string
 	When        string
-	ParentSHAs  []string   // short SHAs; empty for the initial commit
-	ParentURLs  []string   // tree browse URL for each parent
-	Diff        string     // rendered HTML from the markup pipeline; empty = initial commit
-	RawPatch    string     // raw unified-diff text, rendered only if Diff is empty
-	FilesCount  int        // number of files changed
-	CommitsURL  string     // back link to the history page
-	TreeURL     string     // tree at this commit
+	ParentSHAs  []string // short SHAs; empty for the initial commit
+	ParentURLs  []string // tree browse URL for each parent
+	Diff        string   // rendered HTML from the markup pipeline; empty = initial commit
+	RawPatch    string   // raw unified-diff text, rendered only if Diff is empty
+	FilesCount  int      // number of files changed
+	CommitsURL  string   // back link to the history page
+	TreeURL     string   // tree at this commit
 }
