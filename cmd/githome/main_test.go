@@ -135,8 +135,8 @@ func mountAll(t *testing.T, root *mizu.Router, cfg config.Config, st *store.Stor
 	})
 	graphql.Mount(root, graphql.Deps{
 		Auth: authSvc, Repos: repoSvc, Issues: issueSvc, Pulls: pullSvc,
-		Reviews: reviewSvc, Checks: checksSvc, Batch: domain.NewBatcher(st),
-		URLs: urls, NodeFormat: nodeid.FormatNew,
+		Reviews: reviewSvc, Checks: checksSvc, Users: userSvc,
+		Batch: domain.NewBatcher(st), URLs: urls, NodeFormat: nodeid.FormatNew,
 	})
 	gittransport.Mount(root, &gittransport.Service{Repos: repoSvc, Git: git.NewStore(t.TempDir()), Pulls: pullSvc, Auth: authSvc})
 
