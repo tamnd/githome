@@ -528,6 +528,11 @@ func mountAuth(page *mizu.Router, d Deps) {
 		oh := webauth.NewOAuthHandlers(d.OAuthSvc, d.Render, d.View)
 		page.Get("/login/oauth/authorize", oh.AuthorizeForm)
 		page.Post("/login/oauth/authorize", oh.AuthorizeSubmit)
+		// The device-flow approval page, the verification_uri the device-code
+		// response points CLI clients at. Gated to a signed-in viewer inside the
+		// handlers; anonymous requests bounce to /login and back.
+		page.Get("/login/device", oh.DeviceForm)
+		page.Post("/login/device", oh.DeviceSubmit)
 	}
 }
 
