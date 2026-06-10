@@ -277,6 +277,19 @@ func (s *Store) SetMergeability(ctx context.Context, issuePK int64, mergeable *b
 	return err
 }
 
+// UpdatePullDraft flips the draft flag on a pull request.
+func (s *Store) UpdatePullDraft(ctx context.Context, pullPK int64, draft bool) error {
+	q := s.rebind(`UPDATE pull_requests SET draft = ?, updated_at = ? WHERE pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, draft, nowUTC(), pullPK)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UpdatePullHead repoints a pull request's head sha after a push to its head
 // branch and clears the mergeability stamp so the next read treats the cached
 // merge state as stale.
