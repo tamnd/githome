@@ -17,6 +17,8 @@ const (
 	EventIssueComment      = "issue_comment"
 	EventPullRequest       = "pull_request"
 	EventPullRequestReview = "pull_request_review"
+	EventCreate            = "create" // branch or tag created via REST or push
+	EventDelete            = "delete" // branch or tag deleted via REST or push
 )
 
 // The fan-out job kinds the webhook milestone introduces. deliver_event loads
@@ -31,10 +33,21 @@ const (
 )
 
 // DeliverEventPayload is the body of a deliver_event job: the recorded event to
-// fan out, plus the push detail that has no home in a table and so rides along.
+// fan out, plus event-type-specific detail that has no home in a table and so
+// rides along.
 type DeliverEventPayload struct {
-	EventPK int64        `json:"event_pk"`
-	Push    *PushPayload `json:"push,omitempty"`
+	EventPK      int64               `json:"event_pk"`
+	Push         *PushPayload        `json:"push,omitempty"`
+	CreateDelete *CreateDeletePayload `json:"create_delete,omitempty"`
+}
+
+// CreateDeletePayload carries the ref detail for create and delete webhook
+// events. RefType is "branch" or "tag"; MasterBranch is only meaningful on
+// create events.
+type CreateDeletePayload struct {
+	Ref          string `json:"ref"`
+	RefType      string `json:"ref_type"` // "branch" or "tag"
+	MasterBranch string `json:"master_branch,omitempty"`
 }
 
 // PushPayload is the parsed push a deliver_event job carries so the renderer can
@@ -49,14 +62,15 @@ type PushPayload struct {
 // DeliverWebhookPayload is the body of a deliver_webhook job: the hook to POST
 // to and the event whose body to render and send. Push carries the moved refs a
 // push event has no table to reload from, propagated from the deliver_event job
-// so each hook's body renders the same push. RedeliverOf, when set, replays a
-// recorded delivery instead: the worker re-sends its stored request rather than
-// rendering the event afresh.
+// so each hook's body renders the same push. CreateDelete carries ref detail
+// for create/delete events. RedeliverOf, when set, replays a recorded delivery
+// instead of rendering the event afresh.
 type DeliverWebhookPayload struct {
-	WebhookPK   int64        `json:"webhook_pk"`
-	EventPK     int64        `json:"event_pk"`
-	Push        *PushPayload `json:"push,omitempty"`
-	RedeliverOf int64        `json:"redeliver_of,omitempty"`
+	WebhookPK    int64               `json:"webhook_pk"`
+	EventPK      int64               `json:"event_pk"`
+	Push         *PushPayload        `json:"push,omitempty"`
+	CreateDelete *CreateDeletePayload `json:"create_delete,omitempty"`
+	RedeliverOf  int64               `json:"redeliver_of,omitempty"`
 }
 
 // eventRecorder is the slice of the store the event sink writes through: one
@@ -85,9 +99,13 @@ type batchEventRecorder interface {
 // job insert land in one transaction; otherwise they fall back to two separate
 // round trips.
 func recordEvent(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload) {
+	recordEventFull(ctx, st, enq, ev, push, nil)
+}
+
+func recordEventFull(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload, cd *CreateDeletePayload) {
 	if batcher, ok := st.(batchEventRecorder); ok {
 		_ = batcher.InsertEventAndJob(ctx, ev, JobDeliverEvent, func(eventPK int64) string {
-			p, _ := json.Marshal(DeliverEventPayload{EventPK: eventPK, Push: push})
+			p, _ := json.Marshal(DeliverEventPayload{EventPK: eventPK, Push: push, CreateDelete: cd})
 			return string(p)
 		})
 		return
@@ -95,7 +113,7 @@ func recordEvent(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev 
 	if err := st.InsertEvent(ctx, ev); err != nil {
 		return
 	}
-	payload, err := json.Marshal(DeliverEventPayload{EventPK: ev.PK, Push: push})
+	payload, err := json.Marshal(DeliverEventPayload{EventPK: ev.PK, Push: push, CreateDelete: cd})
 	if err != nil {
 		return
 	}
@@ -138,6 +156,10 @@ func eventType(name string) string {
 		return "PullRequestEvent"
 	case EventPullRequestReview:
 		return "PullRequestReviewEvent"
+	case EventCreate:
+		return "CreateEvent"
+	case EventDelete:
+		return "DeleteEvent"
 	default:
 		return name
 	}
