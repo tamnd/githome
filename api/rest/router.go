@@ -71,7 +71,12 @@ func Mount(root *mizu.Router, d Deps) {
 		mountOAuth(root, d.Auth)
 	}
 
-	api := root.With(apiVersion, mediaType, maxBody(d.Config.Server.MaxBodyBytes))
+	// The OAuth discovery document lives at /.well-known/oauth-authorization-server
+	// (RFC 8414). git-credential-oauth and GCM read it to locate the authorize and
+	// token endpoints without hardcoding paths.
+	root.Get("/.well-known/oauth-authorization-server", handleOAuthDiscovery(d))
+
+	api := root.With(apiVersion, mediaType, enterpriseVersion, maxBody(d.Config.Server.MaxBodyBytes))
 	if d.Auth != nil {
 		api = api.With(authMiddleware(d.Auth))
 	}
@@ -90,6 +95,7 @@ func Mount(root *mizu.Router, d Deps) {
 // API middleware chain.
 func mountAPI(r *mizu.Router, d Deps) {
 	r.Get("/meta", handleMeta(d.Config))
+	r.Get("/versions", handleVersions)
 	r.Get("/rate_limit", handleRateLimit(d.Config))
 	if d.Users != nil {
 		r.Get("/user", handleUserGet(d))

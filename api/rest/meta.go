@@ -19,11 +19,13 @@ type Pinger interface {
 
 // handleMeta serves GET /meta. A self-hosted instance reports its own network
 // ranges, which are empty by default; the arrays are always present (never null)
-// to match GitHub's shape.
+// to match GitHub's shape. InstalledVersion mirrors config.Version so gh and
+// Renovate can detect the running build.
 func handleMeta(_ config.Config) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		meta := restmodel.Meta{
 			VerifiablePasswordAuthentication: true,
+			InstalledVersion:                 config.Version,
 			SSHKeyFingerprints:               map[string]string{},
 			SSHKeys:                          []string{},
 			Hooks:                            []string{},
@@ -39,6 +41,15 @@ func handleMeta(_ config.Config) mizu.Handler {
 		writeJSON(c.Writer(), http.StatusOK, meta)
 		return nil
 	}
+}
+
+// handleVersions serves GET /api/v3/versions. gh calls this first to
+// distinguish a GHES/Githome host from github.com. An empty JSON array means
+// "this is a GHES-compatible host"; github.com returns a non-empty version
+// list. Returning [] is the correct signal for all self-hosted deployments.
+func handleVersions(c *mizu.Ctx) error {
+	writeJSON(c.Writer(), http.StatusOK, []string{})
+	return nil
 }
 
 // handleRateLimit serves GET /rate_limit. Querying it never consumes the core
