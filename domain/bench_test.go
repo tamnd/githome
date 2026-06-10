@@ -28,17 +28,17 @@ import (
 // benchEnv is the shared setup for all domain assembly benchmarks: a real
 // SQLite store, migrated, seeded, and wired into the domain services.
 type benchEnv struct {
-	ctx     context.Context
-	st      *store.Store
-	gs      *git.Store
-	repos   *RepoService
-	issues  *IssueService
-	prs     *PRService
-	search  *SearchService
-	events  *EventService
-	owner   *store.UserRow
-	repo    *store.RepoRow
-	issueN  int64 // issue number of the first issue (for comment list)
+	ctx    context.Context
+	st     *store.Store
+	gs     *git.Store
+	repos  *RepoService
+	issues *IssueService
+	prs    *PRService
+	search *SearchService
+	events *EventService
+	owner  *store.UserRow
+	repo   *store.RepoRow
+	issueN int64 // issue number of the first issue (for comment list)
 }
 
 // newBenchEnv builds a fully-seeded benchmark environment. It seeds:
