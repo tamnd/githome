@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/gittransport"
@@ -109,7 +110,11 @@ func TestCloneRoundTrip(t *testing.T) {
 	}
 }
 
-func TestInfoRefsMissingRepoIs404(t *testing.T) {
+// TestInfoRefsAnonymousInvisibleRepoGets401 covers the read-side auth
+// challenge: an anonymous probe of a repository it cannot see, whether private
+// or missing, gets the same 401 with a Basic challenge so git retries with
+// credentials and a private repo's existence never leaks.
+func TestInfoRefsAnonymousInvisibleRepoGets401(t *testing.T) {
 	ctx := context.Background()
 	st, err := store.Open(ctx, "sqlite://"+filepath.Join(t.TempDir(), "githome.db"))
 	if err != nil {
@@ -118,6 +123,14 @@ func TestInfoRefsMissingRepoIs404(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatalf("migrate: %v", err)
+	}
+	owner := &store.UserRow{Login: "octocat", Type: "User"}
+	if err := st.InsertUser(ctx, owner); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	repo := &store.RepoRow{OwnerPK: owner.PK, Name: "secret", Private: true, DefaultBranch: "master"}
+	if err := st.InsertRepo(ctx, repo); err != nil {
+		t.Fatalf("insert repo: %v", err)
 	}
 
 	gitStore := git.NewStore(t.TempDir())
@@ -129,12 +142,93 @@ func TestInfoRefsMissingRepoIs404(t *testing.T) {
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
 
-	resp, err := http.Get(srv.URL + "/octocat/nope.git/info/refs?service=git-upload-pack")
-	if err != nil {
-		t.Fatalf("get: %v", err)
+	// A private and a nonexistent repository answer identically.
+	for _, path := range []string{
+		"/octocat/secret.git/info/refs?service=git-upload-pack",
+		"/octocat/nope.git/info/refs?service=git-upload-pack",
+	} {
+		resp, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatalf("get %s: %v", path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("%s: status %d, want 401", path, resp.StatusCode)
+		}
+		if got := resp.Header.Get("WWW-Authenticate"); !strings.HasPrefix(got, "Basic ") {
+			t.Errorf("%s: WWW-Authenticate = %q, want a Basic challenge", path, got)
+		}
 	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("status %d, want 404", resp.StatusCode)
+}
+
+// TestInfoRefsAuthedMissingRepoIs404 covers the post-auth case: once a real
+// credential resolved, a repository the actor still cannot see is a plain 404
+// with no further challenge.
+func TestInfoRefsAuthedMissingRepoIs404(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, "sqlite://"+filepath.Join(t.TempDir(), "githome.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	u := &store.UserRow{Login: "hubber", Type: "User"}
+	if err := st.InsertUser(ctx, u); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	other := &store.UserRow{Login: "octocat", Type: "User"}
+	if err := st.InsertUser(ctx, other); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	repo := &store.RepoRow{OwnerPK: other.PK, Name: "secret", Private: true, DefaultBranch: "master"}
+	if err := st.InsertRepo(ctx, repo); err != nil {
+		t.Fatalf("insert repo: %v", err)
+	}
+	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := g.Hash
+	if err := st.InsertToken(ctx, &store.TokenRow{
+		UserPK: &u.PK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
+		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
+	}); err != nil {
+		t.Fatalf("insert token: %v", err)
+	}
+
+	authSvc := auth.NewService(st, "https://git.test.internal")
+	t.Cleanup(authSvc.Close)
+
+	gitStore := git.NewStore(t.TempDir())
+	root := mizu.NewRouter()
+	gittransport.Mount(root, &gittransport.Service{
+		Repos: domain.NewRepoService(st, gitStore),
+		Git:   gitStore,
+		Auth:  authSvc,
+	})
+	srv := httptest.NewServer(root)
+	t.Cleanup(srv.Close)
+
+	// hubber authenticates fine but cannot see octocat's private repo, and a
+	// missing repo answers the same way: 404, no challenge.
+	for _, path := range []string{
+		"/octocat/secret.git/info/refs?service=git-upload-pack",
+		"/octocat/nope.git/info/refs?service=git-upload-pack",
+	} {
+		req, err := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.SetBasicAuth("hubber", g.Plaintext)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("get %s: %v", path, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404", path, resp.StatusCode)
+		}
 	}
 }
