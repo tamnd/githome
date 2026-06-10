@@ -18,18 +18,20 @@ import (
 // http.ResponseWriter, so the REST layer owns all request and response wiring.
 // The dependency direction is auth -> store only.
 type Service struct {
-	store   Store
-	last    *lastUsedWriter
-	baseURL string // external base URL, used to build the device verification_uri
+	store    Store
+	last     *lastUsedWriter
+	baseURL  string // external base URL, used to build the device verification_uri
+	keyCache *publicKeyCache
 }
 
 // NewService wires a Service over the store. baseURL is the site root used in
 // device-flow responses (for example https://git.example.com).
 func NewService(st Store, baseURL string) *Service {
 	return &Service{
-		store:   st,
-		last:    newLastUsedWriter(st),
-		baseURL: strings.TrimRight(baseURL, "/"),
+		store:    st,
+		last:     newLastUsedWriter(st),
+		baseURL:  strings.TrimRight(baseURL, "/"),
+		keyCache: newPublicKeyCache(),
 	}
 }
 
@@ -103,15 +105,21 @@ func looksLikeToken(s string) bool {
 }
 
 // resolve validates the checksum offline, then dispatches on the class prefix.
-// M1 resolves classic PATs and OAuth user tokens; the App-bound kinds arrive in
-// a later milestone and are rejected as bad credentials until then.
 func (s *Service) resolve(ctx context.Context, raw, _ string) (*Actor, error) {
 	switch {
 	case strings.HasPrefix(raw, PrefixClassicPAT):
 		return s.resolveUserToken(ctx, raw, PrefixClassicPAT, "pat")
 	case strings.HasPrefix(raw, PrefixOAuth):
 		return s.resolveUserToken(ctx, raw, PrefixOAuth, "oauth")
+	case strings.HasPrefix(raw, PrefixInstall):
+		return s.resolveInstallation(ctx, raw)
 	default:
+		// A three-segment dot-separated value without a known prefix may be an
+		// app JWT (RS256, no ghs_ prefix). Try JWT parsing last so the cheap
+		// prefix checks above short-circuit the common cases.
+		if looksLikeJWT(raw) {
+			return s.resolveAppJWT(ctx, raw)
+		}
 		return nil, ErrBadCredentials
 	}
 }

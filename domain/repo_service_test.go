@@ -77,6 +77,85 @@ func (f *fakeRepoStore) TouchRepoPushedAt(_ context.Context, pk int64, at time.T
 	return nil
 }
 
+func (f *fakeRepoStore) ReposByOwner(_ context.Context, ownerPK int64) ([]*store.RepoRow, error) {
+	var out []*store.RepoRow
+	for _, r := range f.repos {
+		if r.OwnerPK == ownerPK {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepoStore) UserByLogin(_ context.Context, login string) (*store.UserRow, error) {
+	for _, u := range f.users {
+		if strings.EqualFold(u.Login, login) {
+			return u, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeRepoStore) InsertRepo(_ context.Context, r *store.RepoRow) error {
+	key := strings.ToLower(r.Name)
+	if _, ok := f.repos[key]; ok {
+		return store.ErrNotFound
+	}
+	r.PK = int64(len(f.repos) + 100)
+	r.DBID = r.PK * 10
+	f.repos[key] = r
+	return nil
+}
+
+func (f *fakeRepoStore) UpdateRepo(_ context.Context, pk int64, p store.RepoPatch) (*store.RepoRow, error) {
+	for _, r := range f.repos {
+		if r.PK == pk {
+			if p.Name != nil {
+				r.Name = *p.Name
+			}
+			if p.Description != nil {
+				r.Description = p.Description
+			}
+			if p.Homepage != nil {
+				r.Homepage = p.Homepage
+			}
+			if p.DefaultBranch != nil {
+				r.DefaultBranch = *p.DefaultBranch
+			}
+			if p.Private != nil {
+				r.Private = *p.Private
+			}
+			if p.HasIssues != nil {
+				r.HasIssues = *p.HasIssues
+			}
+			if p.HasProjects != nil {
+				r.HasProjects = *p.HasProjects
+			}
+			if p.HasWiki != nil {
+				r.HasWiki = *p.HasWiki
+			}
+			if p.Archived != nil {
+				r.Archived = *p.Archived
+			}
+			if p.IsTemplate != nil {
+				r.IsTemplate = *p.IsTemplate
+			}
+			return r, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeRepoStore) SoftDeleteRepo(_ context.Context, pk int64) error {
+	for key, r := range f.repos {
+		if r.PK == pk {
+			delete(f.repos, key)
+			return nil
+		}
+	}
+	return store.ErrNotFound
+}
+
 func (f *fakeRepoStore) EnqueueJob(_ context.Context, j *store.JobRow) (bool, error) {
 	if j.DedupeKey != "" {
 		if f.dedupeSeen[j.DedupeKey] {

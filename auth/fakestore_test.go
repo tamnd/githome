@@ -150,3 +150,19 @@ func (f *fakeStore) DeleteDeviceCode(_ context.Context, pk int64) error {
 	delete(f.devices, pk)
 	return nil
 }
+
+func (f *fakeStore) GitHubAppByPK(_ context.Context, _ int64) (*store.GitHubAppRow, error) {
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeStore) InstallationByPK(_ context.Context, _ int64) (*store.InstallationRow, error) {
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeStore) InstallationsByAppPK(_ context.Context, _ int64) ([]*store.InstallationRow, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) InstallationRepoPKs(_ context.Context, _ int64) ([]int64, error) {
+	return nil, nil
+}

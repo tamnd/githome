@@ -83,19 +83,23 @@ CREATE TABLE oauth_apps (
 );
 
 CREATE TABLE tokens (
-    pk           INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_pk      INTEGER REFERENCES users(pk) ON DELETE CASCADE,
-    oauth_app_pk INTEGER REFERENCES oauth_apps(pk) ON DELETE CASCADE,
-    token_hash   BLOB    NOT NULL UNIQUE,
-    token_prefix TEXT    NOT NULL,
-    last_eight   TEXT    NOT NULL,
-    kind         TEXT    NOT NULL,
-    scopes       TEXT    NOT NULL DEFAULT '',
-    note         TEXT    NOT NULL DEFAULT '',
-    expires_at   TEXT,
-    revoked_at   TEXT,
-    last_used_at TEXT,
-    created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    pk              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_pk         INTEGER REFERENCES users(pk) ON DELETE CASCADE,
+    oauth_app_pk    INTEGER REFERENCES oauth_apps(pk) ON DELETE CASCADE,
+    token_hash      BLOB    NOT NULL UNIQUE,
+    token_prefix    TEXT    NOT NULL,
+    last_eight      TEXT    NOT NULL,
+    kind            TEXT    NOT NULL,
+    scopes          TEXT    NOT NULL DEFAULT '',
+    note            TEXT    NOT NULL DEFAULT '',
+    expires_at      TEXT,
+    revoked_at      TEXT,
+    last_used_at    TEXT,
+    created_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- 0012_github_apps: installation token linkage
+    installation_pk INTEGER REFERENCES installations(pk) ON DELETE CASCADE,
+    github_app_pk   INTEGER REFERENCES github_apps(pk) ON DELETE CASCADE,
+    grant_json      TEXT
 );
 
 CREATE TABLE oauth_device_codes (
@@ -513,3 +517,75 @@ CREATE TABLE release_assets (
     deleted_at     TEXT
 );
 CREATE UNIQUE INDEX release_assets_release_name_uq ON release_assets (release_pk, name) WHERE deleted_at IS NULL;
+
+-- 0012_github_apps
+CREATE TABLE github_apps (
+    pk                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    db_id               INTEGER NOT NULL UNIQUE,
+    owner_pk            INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    slug                TEXT    NOT NULL UNIQUE,
+    name                TEXT    NOT NULL,
+    client_id           TEXT    NOT NULL UNIQUE,
+    client_secret_hash  BLOB,
+    webhook_secret_hash BLOB,
+    private_key_pem     BLOB    NOT NULL,
+    permissions         TEXT    NOT NULL DEFAULT '{}',
+    events              TEXT    NOT NULL DEFAULT '[]',
+    created_at          TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE installations (
+    pk                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    db_id                INTEGER NOT NULL UNIQUE,
+    app_pk               INTEGER NOT NULL REFERENCES github_apps(pk) ON DELETE CASCADE,
+    account_pk           INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    repository_selection TEXT    NOT NULL DEFAULT 'all',
+    permissions          TEXT    NOT NULL DEFAULT '{}',
+    events               TEXT    NOT NULL DEFAULT '[]',
+    suspended_at         TEXT,
+    created_at           TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX installations_app_account_uq ON installations (app_pk, account_pk);
+
+CREATE TABLE installation_repositories (
+    installation_pk INTEGER NOT NULL REFERENCES installations(pk) ON DELETE CASCADE,
+    repo_pk         INTEGER NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    PRIMARY KEY (installation_pk, repo_pk)
+);
+
+-- 0013_keys_protection
+CREATE TABLE ssh_keys (
+    pk           INTEGER PRIMARY KEY AUTOINCREMENT,
+    db_id        INTEGER NOT NULL UNIQUE,
+    user_pk      INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    title        TEXT,
+    key_type     TEXT    NOT NULL,
+    public_key   TEXT    NOT NULL,
+    fingerprint  TEXT    NOT NULL,
+    read_only    INTEGER NOT NULL DEFAULT 0,
+    repo_pk      INTEGER REFERENCES repositories(pk) ON DELETE CASCADE,
+    last_used_at TEXT,
+    created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX ssh_keys_fp_uq ON ssh_keys (fingerprint);
+
+CREATE TABLE branch_protections (
+    pk                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo_pk                     INTEGER NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    branch_pattern              TEXT    NOT NULL,
+    require_pr_reviews          INTEGER NOT NULL DEFAULT 0,
+    required_approving_count    INTEGER NOT NULL DEFAULT 0,
+    dismiss_stale_reviews       INTEGER NOT NULL DEFAULT 0,
+    require_code_owner_reviews  INTEGER NOT NULL DEFAULT 0,
+    require_status_checks       INTEGER NOT NULL DEFAULT 0,
+    require_branches_up_to_date INTEGER NOT NULL DEFAULT 0,
+    status_check_contexts       TEXT    NOT NULL DEFAULT '[]',
+    enforce_admins              INTEGER NOT NULL DEFAULT 0,
+    restrictions_users          TEXT    NOT NULL DEFAULT '[]',
+    restrictions_teams          TEXT    NOT NULL DEFAULT '[]',
+    allow_force_pushes          INTEGER NOT NULL DEFAULT 0,
+    allow_deletions             INTEGER NOT NULL DEFAULT 0,
+    created_at                  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX branch_protections_repo_pattern_uq ON branch_protections (repo_pk, branch_pattern);
