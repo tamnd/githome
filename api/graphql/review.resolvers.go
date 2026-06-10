@@ -297,3 +297,51 @@ func (r *Resolver) StatusCheckRollup() generated.StatusCheckRollupResolver {
 
 type pullRequestReviewThreadResolver struct{ *Resolver }
 type statusCheckRollupResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
+	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+		return nil, err
+	}
+	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*generated.PullRequestReview, 0, len(revs))
+	for _, rv := range revs {
+		nodes = append(nodes, gqlReview(rv, r.URLs, obj.RepoOwner, obj.RepoName, r.NodeFormat))
+	}
+	return &generated.PullRequestReviewConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
+	return &generated.ReviewRequestConnection{Nodes: []*generated.ReviewRequest{}, TotalCount: 0}, nil
+}
+func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmodel.PullRequest) (*generated.PullRequestAutoMergeRequest, error) {
+	return nil, nil
+}
+func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
+	for _, cm := range comments {
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+	}
+	total := obj.CommentsCount
+	if total < int32(len(nodes)) {
+		total = int32(len(nodes))
+	}
+	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
+}
+*/

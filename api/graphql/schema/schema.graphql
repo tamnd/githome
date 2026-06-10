@@ -78,7 +78,7 @@ type Repository implements Node {
   owner: RepositoryOwner!
 }
 
-# RepositoryPermission is the viewer's effective permission on a repository.
+# RepositoryPermission is the viewer's access level on a repository.
 enum RepositoryPermission {
   ADMIN
   MAINTAIN

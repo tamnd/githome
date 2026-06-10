@@ -79,6 +79,9 @@ models:
         resolver: true
       repositories:
         resolver: true
+      # viewerPermission is computed from the viewer's relationship to the repo.
+      viewerPermission:
+        resolver: true
   User:
     model: github.com/tamnd/githome/presenter/gqlmodel.User
     fields:
