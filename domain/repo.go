@@ -37,6 +37,7 @@ type Repo struct {
 	PushedAt        *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	Topics          string // JSON array, e.g. '["go","api"]'
 }
 
 // FullName is the owner/name pair GitHub renders as full_name and uses to build

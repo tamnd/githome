@@ -199,6 +199,35 @@ func handleUserKeyCreate(d Deps) mizu.Handler {
 	}
 }
 
+// handleUserKeyGet serves GET /user/keys/{key_id}.
+func handleUserKeyGet(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		keyID, err := strconv.ParseInt(c.Param("key_id"), 10, 64)
+		if err != nil {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		k, err := d.Keys.ListUserKeys(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		for _, key := range k {
+			if key.DBID == keyID {
+				writeJSON(c.Writer(), http.StatusOK, userKeyToJSON(key, d))
+				return nil
+			}
+		}
+		writeError(c.Writer(), errNotFound())
+		return nil
+	}
+}
+
 // handleUserKeyDelete serves DELETE /user/keys/{key_id}.
 func handleUserKeyDelete(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {

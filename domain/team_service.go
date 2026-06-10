@@ -1,0 +1,212 @@
+package domain
+
+import (
+	"context"
+	"errors"
+	"strings"
+
+	"github.com/tamnd/githome/store"
+)
+
+// TeamStore is the narrow store interface TeamService depends on.
+type TeamStore interface {
+	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
+	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+	TeamBySlug(ctx context.Context, orgPK int64, slug string) (*store.TeamRow, error)
+	TeamByPK(ctx context.Context, pk int64) (*store.TeamRow, error)
+	InsertTeam(ctx context.Context, t *store.TeamRow) error
+	UpdateTeam(ctx context.Context, pk int64, name, description, privacy, permission *string) (*store.TeamRow, error)
+	DeleteTeam(ctx context.Context, pk int64) error
+	UpsertTeamMember(ctx context.Context, teamPK, userPK int64, role string) error
+	TeamMemberRole(ctx context.Context, teamPK, userPK int64) (string, error)
+	DeleteTeamMember(ctx context.Context, teamPK, userPK int64) error
+	UpsertTeamRepo(ctx context.Context, teamPK, repoPK int64, permission string) error
+	TeamRepoPermission(ctx context.Context, teamPK, repoPK int64) (string, error)
+	DeleteTeamRepo(ctx context.Context, teamPK, repoPK int64) error
+	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
+	UpdateRepoTopics(ctx context.Context, repoPK int64, topicsJSON string) error
+	CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error)
+	UpsertCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error
+	DeleteCollaborator(ctx context.Context, repoPK, userPK int64) error
+}
+
+// TeamService manages teams, collaborators, and repository topics.
+type TeamService struct {
+	store TeamStore
+}
+
+// NewTeamService creates a TeamService over st.
+func NewTeamService(st TeamStore) *TeamService { return &TeamService{store: st} }
+
+// slugify converts a team name to a URL-safe slug.
+func slugify(name string) string {
+	s := strings.ToLower(strings.TrimSpace(name))
+	var b strings.Builder
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= '0' && c <= '9':
+			b.WriteRune(c)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+// CreateTeam creates a new team in an org.
+func (s *TeamService) CreateTeam(ctx context.Context, orgPK int64, name, description, privacy, permission string) (*store.TeamRow, error) {
+	if strings.TrimSpace(name) == "" {
+		return nil, ErrNotFound
+	}
+	if privacy == "" {
+		privacy = "secret"
+	}
+	if permission == "" {
+		permission = "pull"
+	}
+	t := &store.TeamRow{
+		OrgPK:     orgPK,
+		Name:      name,
+		Slug:      slugify(name),
+		Privacy:   privacy,
+		Permission: permission,
+	}
+	if d := strings.TrimSpace(description); d != "" {
+		t.Description = &d
+	}
+	if err := s.store.InsertTeam(ctx, t); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") {
+			return nil, ErrDuplicateKey
+		}
+		return nil, err
+	}
+	return t, nil
+}
+
+// GetTeamBySlug returns a team by org pk and slug.
+func (s *TeamService) GetTeamBySlug(ctx context.Context, orgPK int64, slug string) (*store.TeamRow, error) {
+	t, err := s.store.TeamBySlug(ctx, orgPK, slug)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	return t, err
+}
+
+// UpdateTeam applies partial updates to a team.
+func (s *TeamService) UpdateTeam(ctx context.Context, pk int64, name, description, privacy, permission *string) (*store.TeamRow, error) {
+	t, err := s.store.UpdateTeam(ctx, pk, name, description, privacy, permission)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	return t, err
+}
+
+// DeleteTeam removes a team.
+func (s *TeamService) DeleteTeam(ctx context.Context, pk int64) error {
+	err := s.store.DeleteTeam(ctx, pk)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// AddTeamMember adds or updates a user's role in a team.
+func (s *TeamService) AddTeamMember(ctx context.Context, teamPK, userPK int64, role string) error {
+	if role != "maintainer" {
+		role = "member"
+	}
+	return s.store.UpsertTeamMember(ctx, teamPK, userPK, role)
+}
+
+// GetTeamMembership returns the role of userPK in teamPK, or ErrNotFound.
+func (s *TeamService) GetTeamMembership(ctx context.Context, teamPK, userPK int64) (string, error) {
+	role, err := s.store.TeamMemberRole(ctx, teamPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrNotFound
+	}
+	return role, err
+}
+
+// RemoveTeamMember removes a user from a team.
+func (s *TeamService) RemoveTeamMember(ctx context.Context, teamPK, userPK int64) error {
+	err := s.store.DeleteTeamMember(ctx, teamPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// AddTeamRepo grants a team access to a repo.
+func (s *TeamService) AddTeamRepo(ctx context.Context, teamPK, repoPK int64, permission string) error {
+	if permission == "" {
+		permission = "pull"
+	}
+	return s.store.UpsertTeamRepo(ctx, teamPK, repoPK, permission)
+}
+
+// GetTeamRepoPermission returns the permission level for a repo in a team.
+func (s *TeamService) GetTeamRepoPermission(ctx context.Context, teamPK, repoPK int64) (string, error) {
+	perm, err := s.store.TeamRepoPermission(ctx, teamPK, repoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrNotFound
+	}
+	return perm, err
+}
+
+// RemoveTeamRepo removes a repo from a team.
+func (s *TeamService) RemoveTeamRepo(ctx context.Context, teamPK, repoPK int64) error {
+	err := s.store.DeleteTeamRepo(ctx, teamPK, repoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// SetTopics replaces the topics for a repo.
+func (s *TeamService) SetTopics(ctx context.Context, repoPK int64, topics []string) error {
+	if topics == nil {
+		topics = []string{}
+	}
+	// Build JSON array manually to avoid import cycle.
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, t := range topics {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('"')
+		sb.WriteString(strings.ReplaceAll(t, `"`, `\"`))
+		sb.WriteByte('"')
+	}
+	sb.WriteByte(']')
+	return s.store.UpdateRepoTopics(ctx, repoPK, sb.String())
+}
+
+// GetCollaboratorPermission returns the permission of userPK on repoPK.
+func (s *TeamService) GetCollaboratorPermission(ctx context.Context, repoPK, userPK int64) (string, error) {
+	c, err := s.store.CollaboratorByRepo(ctx, repoPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return c.Permission, nil
+}
+
+// AddCollaborator sets (or updates) a collaborator's permission.
+func (s *TeamService) AddCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error {
+	if permission == "" {
+		permission = "push"
+	}
+	return s.store.UpsertCollaborator(ctx, repoPK, userPK, permission)
+}
+
+// RemoveCollaborator removes a collaborator from a repo.
+func (s *TeamService) RemoveCollaborator(ctx context.Context, repoPK, userPK int64) error {
+	err := s.store.DeleteCollaborator(ctx, repoPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
