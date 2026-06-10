@@ -89,9 +89,6 @@ models:
         resolver: true
   RepositoryOwner:
     model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryOwner
-    fields:
-      repositories:
-        resolver: true
   Commit:
     fields:
       statusCheckRollup:

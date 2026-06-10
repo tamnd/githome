@@ -87,12 +87,15 @@ enum RepositoryPermission {
   READ
 }
 
-# RepositoryOwner is the owner of a repository, either a User or Organization.
-type RepositoryOwner implements Node {
+# RepositoryOwner is the owner of a repository. It is an interface so gh's
+# `... on User` and `... on Organization` inline fragments validate; User is
+# the only implementer until organizations arrive.
+interface RepositoryOwner {
   id: ID!
   login: String!
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   # repositories lists the repositories owned by this owner.
   repositories(
     first: Int
@@ -158,14 +161,17 @@ type License {
 }
 
 # User is a GitHub user account.
-type User implements Node {
+type User implements Node & Actor & RepositoryOwner {
   id: ID!
   login: String!
   name: String
   email: String
   bio: String
+  # databaseId is the user's integer database id, the value the REST API calls id.
+  databaseId: Int
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   createdAt: DateTime!
   updatedAt: DateTime!
   # repositories lists the repositories owned by this user.

@@ -19,7 +19,7 @@ import (
 // Author is the resolver for the author field. It loads the issue author
 // through the per-request user dataloader so that concurrent nested field
 // resolutions batch into one user query per request.
-func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Actor, error) {
+func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (gqlmodel.Actor, error) {
 	if obj.UserPK == 0 {
 		return nil, nil // ghost author
 	}
@@ -27,7 +27,11 @@ func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmo
 	if l == nil {
 		return obj.Author, nil // fallback: loaders not wired (tests)
 	}
-	return l.Users.Load(ctx, obj.UserPK)
+	u, err := l.Users.Load(ctx, obj.UserPK)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // Labels is the resolver for the labels field. It loads the issue's labels

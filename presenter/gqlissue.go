@@ -15,26 +15,26 @@ import (
 func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format nodeid.Format) *gqlmodel.Issue {
 	num := strconv.FormatInt(iss.Number, 10)
 	out := &gqlmodel.Issue{
-		ID:        nodeid.Encode(nodeid.KindIssue, iss.ID, format),
-		Number:    int32(iss.Number),
-		Title:     iss.Title,
-		Body:      deref(iss.Body),
-		State:     issueState(iss.State),
-		URL:       gqlmodel.URI(b.RepoHTML(owner, repo) + "/issues/" + num),
-		Locked:    iss.Locked,
-		Closed:    iss.State == "closed",
-		Author:    b.gqlActor(iss.User, format),
-		CreatedAt: gqlmodel.NewDateTime(iss.CreatedAt),
-		UpdatedAt: gqlmodel.NewDateTime(iss.UpdatedAt),
-		Labels:    b.gqlLabelConnection(owner, repo, iss.Labels, format),
-		Assignees: b.GQLUserConnection(iss.Assignees, format),
+		ID:             nodeid.Encode(nodeid.KindIssue, iss.ID, format),
+		Number:         int32(iss.Number),
+		Title:          iss.Title,
+		Body:           deref(iss.Body),
+		State:          issueState(iss.State),
+		URL:            gqlmodel.URI(b.RepoHTML(owner, repo) + "/issues/" + num),
+		Locked:         iss.Locked,
+		Closed:         iss.State == "closed",
+		Author:         b.gqlActor(iss.User, format),
+		CreatedAt:      gqlmodel.NewDateTime(iss.CreatedAt),
+		UpdatedAt:      gqlmodel.NewDateTime(iss.UpdatedAt),
+		Labels:         b.gqlLabelConnection(owner, repo, iss.Labels, format),
+		Assignees:      b.GQLUserConnection(iss.Assignees, format),
 		Milestone:      b.GQLMilestone(owner, repo, iss.Milestone, format),
 		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
 		ReactionGroups: []gqlmodel.ReactionGroup{}, // Githome does not store reactions
 		RepoOwner:      owner,
-		RepoName:  repo,
-		PK:        iss.PK,
-		UserPK:    iss.UserPK,
+		RepoName:       repo,
+		PK:             iss.PK,
+		UserPK:         iss.UserPK,
 	}
 	if sr := issueStateReason(iss.StateReason); sr != nil {
 		out.StateReason = sr
@@ -81,15 +81,12 @@ func (b *URLBuilder) gqlLabelConnection(_, _ string, ls []*domain.Label, format 
 
 // gqlActor renders an issue or comment author into the GraphQL Actor shape,
 // returning nil for a ghost (deleted) author so the field marshals to null.
-func (b *URLBuilder) gqlActor(u *domain.User, _ nodeid.Format) *gqlmodel.Actor {
+// The concrete value is always a *gqlmodel.User so inline fragments dispatch.
+func (b *URLBuilder) gqlActor(u *domain.User, format nodeid.Format) gqlmodel.Actor {
 	if u == nil {
 		return nil
 	}
-	return &gqlmodel.Actor{
-		Login:     u.Login,
-		URL:       gqlmodel.URI(b.UserHTML(u.Login)),
-		AvatarURL: gqlmodel.URI(b.HTML("avatars", "u", strconv.FormatInt(u.ID, 10))),
-	}
+	return b.GQLUser(u, format)
 }
 
 // issueState maps the domain open/closed string to the GraphQL enum.

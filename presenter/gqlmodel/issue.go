@@ -26,14 +26,11 @@ const (
 	IssueStateReasonReopened   IssueStateReason = "REOPENED"
 )
 
-// Actor is the GraphQL Actor: the login and URLs gh selects for an issue or
-// comment author. Githome models it as a concrete object carrying the fields the
-// issue documents read; the full Actor interface with the User and Organization
-// implementers arrives with the GraphQL parity milestone.
-type Actor struct {
-	Login     string // the actor's login
-	URL       URI    // the actor's HTML URL
-	AvatarURL URI    // the actor's avatar URL
+// Actor is the GraphQL Actor interface: an entity that can author issues,
+// comments, and reviews. User is the only implementer today; gh's
+// `... on User` inline fragments dispatch on the concrete type.
+type Actor interface {
+	IsActor()
 }
 
 // ReactionContent is the GraphQL ReactionContent enum.
@@ -74,7 +71,7 @@ type Issue struct {
 	URL            URI               // the issue's HTML URL
 	Locked         bool              // whether the conversation is locked
 	Closed         bool              // whether the issue is closed
-	Author         *Actor            // null for a ghost author (resolved by dataloader)
+	Author         Actor             // null for a ghost author (resolved by dataloader)
 	CreatedAt      DateTime          // creation instant
 	UpdatedAt      DateTime          // last-update instant
 	ClosedAt       *DateTime         // null while open
@@ -145,7 +142,7 @@ type LabelConnection struct {
 type IssueComment struct {
 	ID        string   // the IssueComment node ID
 	Body      string   // the comment body
-	Author    *Actor   // null for a ghost author
+	Author    Actor    // null for a ghost author
 	URL       URI      // the comment's HTML URL
 	CreatedAt DateTime // creation instant
 	UpdatedAt DateTime // last-update instant

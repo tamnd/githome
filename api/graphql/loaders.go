@@ -3,7 +3,6 @@ package graphql
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/tamnd/githome/api/graphql/dataloader"
@@ -20,12 +19,12 @@ type loadersKey struct{}
 // Loaders holds the per-request batch loaders. One instance is created per
 // HTTP request by loadersMiddleware and stored on the request context.
 type Loaders struct {
-	// Users loads a gqlmodel.Actor by user primary key.
-	Users *dataloader.Loader[int64, *gqlmodel.Actor]
+	// Users loads a gqlmodel.User by user primary key.
+	Users *dataloader.Loader[int64, *gqlmodel.User]
 	// LabelsByIssue loads the label slice for an issue by its primary key.
 	LabelsByIssue *dataloader.Loader[int64, []*gqlmodel.Label]
 	// AssigneesByIssue loads the assignee slice for an issue by its primary key.
-	AssigneesByIssue *dataloader.Loader[int64, []*gqlmodel.Actor]
+	AssigneesByIssue *dataloader.Loader[int64, []*gqlmodel.User]
 }
 
 // newLoaders constructs a fresh Loaders set for one request. batch provides
@@ -33,18 +32,14 @@ type Loaders struct {
 // the gqlmodel shapes the resolvers return.
 func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid.Format) *Loaders {
 	return &Loaders{
-		Users: dataloader.New(func(ctx context.Context, pks []int64) (map[int64]*gqlmodel.Actor, error) {
+		Users: dataloader.New(func(ctx context.Context, pks []int64) (map[int64]*gqlmodel.User, error) {
 			users, err := batch.Users(ctx, pks)
 			if err != nil {
 				return nil, err
 			}
-			out := make(map[int64]*gqlmodel.Actor, len(users))
+			out := make(map[int64]*gqlmodel.User, len(users))
 			for pk, u := range users {
-				out[pk] = &gqlmodel.Actor{
-					Login:     u.Login,
-					URL:       gqlmodel.URI(urls.UserHTML(u.Login)),
-					AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(u.ID, 10))),
-				}
+				out[pk] = urls.GQLUser(u, format)
 			}
 			return out, nil
 		}, loaderWait),
@@ -70,22 +65,18 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 			return out, nil
 		}, loaderWait),
 
-		AssigneesByIssue: dataloader.New(func(ctx context.Context, issuePKs []int64) (map[int64][]*gqlmodel.Actor, error) {
+		AssigneesByIssue: dataloader.New(func(ctx context.Context, issuePKs []int64) (map[int64][]*gqlmodel.User, error) {
 			amap, err := batch.AssigneesByIssues(ctx, issuePKs)
 			if err != nil {
 				return nil, err
 			}
-			out := make(map[int64][]*gqlmodel.Actor, len(amap))
+			out := make(map[int64][]*gqlmodel.User, len(amap))
 			for pk, assignees := range amap {
-				actors := make([]*gqlmodel.Actor, 0, len(assignees))
+				users := make([]*gqlmodel.User, 0, len(assignees))
 				for _, u := range assignees {
-					actors = append(actors, &gqlmodel.Actor{
-						Login:     u.Login,
-						URL:       gqlmodel.URI(urls.UserHTML(u.Login)),
-						AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(u.ID, 10))),
-					})
+					users = append(users, urls.GQLUser(u, format))
 				}
-				out[pk] = actors
+				out[pk] = users
 			}
 			return out, nil
 		}, loaderWait),

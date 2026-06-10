@@ -69,37 +69,37 @@ const (
 // merge view; until the recompute runs mergeable is UNKNOWN and mergeStateStatus
 // is UNKNOWN.
 type PullRequest struct {
-	ID               string           // the PullRequest node ID
-	Number           int32            // the per-repository pull request number
-	Title            string           // the pull request title
-	Body             string           // the body, empty string when unset
-	State            PullRequestState // OPEN, CLOSED, or MERGED
-	URL              URI              // the pull request's HTML URL
-	Locked           bool             // whether the conversation is locked
-	Closed           bool             // whether the pull request is closed or merged
-	IsDraft          bool             // whether the pull request is a draft
-	Merged           bool             // whether the pull request has merged
-	MergedAt         *DateTime        // null while unmerged
-	Mergeable        MergeableState   // the tri-state mergeable
-	MergeStateStatus MergeStateStatus // the richer merge state
-	Author           *Actor           // null for a ghost author
-	BaseRefName      string           // the base branch name
-	HeadRefName      string           // the head branch name
-	BaseRefOid       GitObjectID      // the recorded base tip
-	HeadRefOid       GitObjectID      // the recorded head tip
-	Additions        int32            // lines added across the diff
-	Deletions        int32            // lines removed across the diff
-	ChangedFiles     int32            // files touched by the diff
-	CreatedAt        DateTime         // creation instant
-	UpdatedAt        DateTime         // last-update instant
-	ClosedAt         *DateTime        // null while open
-	Labels           *LabelConnection // resolved on demand
-	Assignees        *UserConnection  // resolved on demand
-	Milestone        *Milestone       // resolved on demand
-	BaseRef          *Ref             // resolved on demand (carries the Ref node ID)
-	HeadRef          *Ref             // resolved on demand (carries the Ref node ID)
+	ID               string            // the PullRequest node ID
+	Number           int32             // the per-repository pull request number
+	Title            string            // the pull request title
+	Body             string            // the body, empty string when unset
+	State            PullRequestState  // OPEN, CLOSED, or MERGED
+	URL              URI               // the pull request's HTML URL
+	Locked           bool              // whether the conversation is locked
+	Closed           bool              // whether the pull request is closed or merged
+	IsDraft          bool              // whether the pull request is a draft
+	Merged           bool              // whether the pull request has merged
+	MergedAt         *DateTime         // null while unmerged
+	Mergeable        MergeableState    // the tri-state mergeable
+	MergeStateStatus MergeStateStatus  // the richer merge state
+	Author           Actor             // null for a ghost author
+	BaseRefName      string            // the base branch name
+	HeadRefName      string            // the head branch name
+	BaseRefOid       GitObjectID       // the recorded base tip
+	HeadRefOid       GitObjectID       // the recorded head tip
+	Additions        int32             // lines added across the diff
+	Deletions        int32             // lines removed across the diff
+	ChangedFiles     int32             // files touched by the diff
+	CreatedAt        DateTime          // creation instant
+	UpdatedAt        DateTime          // last-update instant
+	ClosedAt         *DateTime         // null while open
+	Labels           *LabelConnection  // resolved on demand
+	Assignees        *UserConnection   // resolved on demand
+	Milestone        *Milestone        // resolved on demand
+	BaseRef          *Ref              // resolved on demand (carries the Ref node ID)
+	HeadRef          *Ref              // resolved on demand (carries the Ref node ID)
 	AutoMergeRequest *AutoMergeRequest // null unless auto-merge is enabled
-	IsInMergeQueue   bool             // always false; Githome has no merge queue
+	IsInMergeQueue   bool              // always false; Githome has no merge queue
 
 	// RepoOwner and RepoName carry the repository coordinates so the files and
 	// commits field resolvers can read them through the domain. They are not part

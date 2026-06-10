@@ -19,12 +19,14 @@ extend type Repository {
   ): IssueConnection!
 }
 
-# Actor is an entity that can author issues and comments, reduced to the fields
-# the issue documents select.
-type Actor {
+# Actor is an entity that can author issues, comments, and reviews. It is an
+# interface so gh's `... on User` inline fragments validate; User is the only
+# implementer until organizations and bots arrive.
+interface Actor {
   login: String!
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
 }
 
 # Issue is a repository issue.

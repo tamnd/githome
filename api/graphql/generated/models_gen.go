@@ -296,7 +296,7 @@ type EnablePullRequestAutoMergeInput struct {
 
 type EnablePullRequestAutoMergePayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
-	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
@@ -327,7 +327,7 @@ type MergePullRequestInput struct {
 
 type MergePullRequestPayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
-	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
@@ -338,7 +338,7 @@ type PullRequestReview struct {
 	ID          string                 `json:"id"`
 	State       PullRequestReviewState `json:"state"`
 	Body        string                 `json:"body"`
-	Author      *gqlmodel.Actor        `json:"author,omitempty"`
+	Author      gqlmodel.Actor         `json:"author,omitempty"`
 	SubmittedAt *gqlmodel.DateTime     `json:"submittedAt,omitempty"`
 	URL         gqlmodel.URI           `json:"url"`
 }

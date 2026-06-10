@@ -451,11 +451,7 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 		URL:   gqlmodel.URI(htmlURL),
 	}
 	if rv.User != nil {
-		r.Author = &gqlmodel.Actor{
-			Login:     rv.User.Login,
-			URL:       gqlmodel.URI(urls.UserHTML(rv.User.Login)),
-			AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(rv.User.ID, 10))),
-		}
+		r.Author = urls.GQLUser(rv.User, format)
 	}
 	if rv.SubmittedAt != nil {
 		dt := gqlmodel.NewDateTime(*rv.SubmittedAt)

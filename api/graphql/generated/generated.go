@@ -35,7 +35,6 @@ type ResolverRoot interface {
 	PullRequestReviewThread() PullRequestReviewThreadResolver
 	Query() QueryResolver
 	Repository() RepositoryResolver
-	RepositoryOwner() RepositoryOwnerResolver
 	StatusCheckRollup() StatusCheckRollupResolver
 	User() UserResolver
 }
@@ -44,12 +43,6 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	Actor struct {
-		AvatarURL func(childComplexity int) int
-		Login     func(childComplexity int) int
-		URL       func(childComplexity int) int
-	}
-
 	AddAssigneesToAssignablePayload struct {
 		Assignable       func(childComplexity int) int
 		ClientMutationID func(childComplexity int) int
@@ -536,14 +529,6 @@ type ComplexityRoot struct {
 		TotalCount func(childComplexity int) int
 	}
 
-	RepositoryOwner struct {
-		AvatarURL    func(childComplexity int) int
-		ID           func(childComplexity int) int
-		Login        func(childComplexity int) int
-		Repositories func(childComplexity int, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) int
-		URL          func(childComplexity int) int
-	}
-
 	RequestReviewsPayload struct {
 		ClientMutationID func(childComplexity int) int
 		PullRequest      func(childComplexity int) int
@@ -623,11 +608,13 @@ type ComplexityRoot struct {
 		AvatarURL    func(childComplexity int) int
 		Bio          func(childComplexity int) int
 		CreatedAt    func(childComplexity int) int
+		DatabaseID   func(childComplexity int) int
 		Email        func(childComplexity int) int
 		ID           func(childComplexity int) int
 		Login        func(childComplexity int) int
 		Name         func(childComplexity int) int
 		Repositories func(childComplexity int, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) int
+		ResourcePath func(childComplexity int) int
 		URL          func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
@@ -642,7 +629,7 @@ type CommitResolver interface {
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
 type IssueResolver interface {
-	Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Actor, error)
+	Author(ctx context.Context, obj *gqlmodel.Issue) (gqlmodel.Actor, error)
 
 	Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error)
 	Assignees(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.UserConnection, error)
@@ -707,7 +694,7 @@ type QueryResolver interface {
 	Repository(ctx context.Context, owner string, name string) (*gqlmodel.Repository, error)
 	Viewer(ctx context.Context) (*gqlmodel.User, error)
 	User(ctx context.Context, login string) (*gqlmodel.User, error)
-	RepositoryOwner(ctx context.Context, login string) (*gqlmodel.RepositoryOwner, error)
+	RepositoryOwner(ctx context.Context, login string) (gqlmodel.RepositoryOwner, error)
 	Node(ctx context.Context, id string) (Node, error)
 	Nodes(ctx context.Context, ids []string) ([]Node, error)
 	RateLimit(ctx context.Context) (*gqlmodel.RateLimit, error)
@@ -720,14 +707,11 @@ type RepositoryResolver interface {
 
 	PrimaryLanguage(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Language, error)
 	LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error)
-	Owner(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryOwner, error)
+	Owner(ctx context.Context, obj *gqlmodel.Repository) (gqlmodel.RepositoryOwner, error)
 	Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error)
 	Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) (*gqlmodel.IssueConnection, error)
 	PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error)
 	PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) (*gqlmodel.PullRequestConnection, error)
-}
-type RepositoryOwnerResolver interface {
-	Repositories(ctx context.Context, obj *gqlmodel.RepositoryOwner, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) (*gqlmodel.RepositoryConnection, error)
 }
 type StatusCheckRollupResolver interface {
 	Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*StatusCheckRollupContextConnection, error)
@@ -749,25 +733,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
-
-	case "Actor.avatarUrl":
-		if e.ComplexityRoot.Actor.AvatarURL == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Actor.AvatarURL(childComplexity), true
-	case "Actor.login":
-		if e.ComplexityRoot.Actor.Login == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Actor.Login(childComplexity), true
-	case "Actor.url":
-		if e.ComplexityRoot.Actor.URL == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Actor.URL(childComplexity), true
 
 	case "AddAssigneesToAssignablePayload.assignable":
 		if e.ComplexityRoot.AddAssigneesToAssignablePayload.Assignable == nil {
@@ -2884,42 +2849,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RepositoryConnection.TotalCount(childComplexity), true
 
-	case "RepositoryOwner.avatarUrl":
-		if e.ComplexityRoot.RepositoryOwner.AvatarURL == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RepositoryOwner.AvatarURL(childComplexity), true
-	case "RepositoryOwner.id":
-		if e.ComplexityRoot.RepositoryOwner.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RepositoryOwner.ID(childComplexity), true
-	case "RepositoryOwner.login":
-		if e.ComplexityRoot.RepositoryOwner.Login == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RepositoryOwner.Login(childComplexity), true
-	case "RepositoryOwner.repositories":
-		if e.ComplexityRoot.RepositoryOwner.Repositories == nil {
-			break
-		}
-
-		args, err := ec.field_RepositoryOwner_repositories_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.RepositoryOwner.Repositories(childComplexity, args["first"].(*int32), args["after"].(*string), args["ownerAffiliations"].([]RepositoryAffiliation), args["isArchived"].(*bool), args["isFork"].(*bool), args["privacy"].(*RepositoryPrivacy), args["orderBy"].(*RepositoryOrder)), true
-	case "RepositoryOwner.url":
-		if e.ComplexityRoot.RepositoryOwner.URL == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RepositoryOwner.URL(childComplexity), true
-
 	case "RequestReviewsPayload.clientMutationId":
 		if e.ComplexityRoot.RequestReviewsPayload.ClientMutationID == nil {
 			break
@@ -3155,6 +3084,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.CreatedAt(childComplexity), true
+	case "User.databaseId":
+		if e.ComplexityRoot.User.DatabaseID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.DatabaseID(childComplexity), true
 	case "User.email":
 		if e.ComplexityRoot.User.Email == nil {
 			break
@@ -3190,6 +3125,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.Repositories(childComplexity, args["first"].(*int32), args["after"].(*string), args["ownerAffiliations"].([]RepositoryAffiliation), args["isArchived"].(*bool), args["isFork"].(*bool), args["privacy"].(*RepositoryPrivacy), args["orderBy"].(*RepositoryOrder)), true
+	case "User.resourcePath":
+		if e.ComplexityRoot.User.ResourcePath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.ResourcePath(childComplexity), true
 	case "User.url":
 		if e.ComplexityRoot.User.URL == nil {
 			break
@@ -3354,12 +3295,14 @@ extend type Repository {
   ): IssueConnection!
 }
 
-# Actor is an entity that can author issues and comments, reduced to the fields
-# the issue documents select.
-type Actor {
+# Actor is an entity that can author issues, comments, and reviews. It is an
+# interface so gh's ` + "`" + `... on User` + "`" + ` inline fragments validate; User is the only
+# implementer until organizations and bots arrive.
+interface Actor {
   login: String!
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
 }
 
 # Issue is a repository issue.
@@ -4477,12 +4420,15 @@ enum RepositoryPermission {
   READ
 }
 
-# RepositoryOwner is the owner of a repository, either a User or Organization.
-type RepositoryOwner implements Node {
+# RepositoryOwner is the owner of a repository. It is an interface so gh's
+# ` + "`" + `... on User` + "`" + ` and ` + "`" + `... on Organization` + "`" + ` inline fragments validate; User is
+# the only implementer until organizations arrive.
+interface RepositoryOwner {
   id: ID!
   login: String!
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   # repositories lists the repositories owned by this owner.
   repositories(
     first: Int
@@ -4548,14 +4494,17 @@ type License {
 }
 
 # User is a GitHub user account.
-type User implements Node {
+type User implements Node & Actor & RepositoryOwner {
   id: ID!
   login: String!
   name: String
   email: String
   bio: String
+  # databaseId is the user's integer database id, the value the REST API calls id.
+  databaseId: Int
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   createdAt: DateTime!
   updatedAt: DateTime!
   # repositories lists the repositories owned by this user.
@@ -4621,18 +4570,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // childFields_* functions provide shared child field context lookups.
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
-
-func (ec *executionContext) childFields_Actor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "login":
-		return ec.fieldContext_Actor_login(ctx, field)
-	case "url":
-		return ec.fieldContext_Actor_url(ctx, field)
-	case "avatarUrl":
-		return ec.fieldContext_Actor_avatarUrl(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type Actor", field.Name)
-}
 
 func (ec *executionContext) childFields_AddAssigneesToAssignablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
@@ -5494,22 +5431,6 @@ func (ec *executionContext) childFields_RepositoryConnection(ctx context.Context
 	return nil, fmt.Errorf("no field named %q was found under type RepositoryConnection", field.Name)
 }
 
-func (ec *executionContext) childFields_RepositoryOwner(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "id":
-		return ec.fieldContext_RepositoryOwner_id(ctx, field)
-	case "login":
-		return ec.fieldContext_RepositoryOwner_login(ctx, field)
-	case "url":
-		return ec.fieldContext_RepositoryOwner_url(ctx, field)
-	case "avatarUrl":
-		return ec.fieldContext_RepositoryOwner_avatarUrl(ctx, field)
-	case "repositories":
-		return ec.fieldContext_RepositoryOwner_repositories(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type RepositoryOwner", field.Name)
-}
-
 func (ec *executionContext) childFields_RequestReviewsPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "pullRequest":
@@ -5658,10 +5579,14 @@ func (ec *executionContext) childFields_User(ctx context.Context, field graphql.
 		return ec.fieldContext_User_email(ctx, field)
 	case "bio":
 		return ec.fieldContext_User_bio(ctx, field)
+	case "databaseId":
+		return ec.fieldContext_User_databaseId(ctx, field)
 	case "url":
 		return ec.fieldContext_User_url(ctx, field)
 	case "avatarUrl":
 		return ec.fieldContext_User_avatarUrl(ctx, field)
+	case "resourcePath":
+		return ec.fieldContext_User_resourcePath(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_User_createdAt(ctx, field)
 	case "updatedAt":
@@ -6626,68 +6551,6 @@ func (ec *executionContext) field_Query_user_args(ctx context.Context, rawArgs m
 	return args, nil
 }
 
-func (ec *executionContext) field_RepositoryOwner_repositories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
-		func(ctx context.Context, v any) (*int32, error) {
-			return ec.unmarshalOInt2ᚖint32(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["first"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
-		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["after"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "ownerAffiliations",
-		func(ctx context.Context, v any) ([]RepositoryAffiliation, error) {
-			return ec.unmarshalORepositoryAffiliation2ᚕgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryAffiliationᚄ(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["ownerAffiliations"] = arg2
-	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "isArchived",
-		func(ctx context.Context, v any) (*bool, error) {
-			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["isArchived"] = arg3
-	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "isFork",
-		func(ctx context.Context, v any) (*bool, error) {
-			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["isFork"] = arg4
-	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "privacy",
-		func(ctx context.Context, v any) (*RepositoryPrivacy, error) {
-			return ec.unmarshalORepositoryPrivacy2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryPrivacy(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["privacy"] = arg5
-	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
-		func(ctx context.Context, v any) (*RepositoryOrder, error) {
-			return ec.unmarshalORepositoryOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryOrder(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["orderBy"] = arg6
-	return args, nil
-}
-
 func (ec *executionContext) field_Repository_issue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -6961,75 +6824,6 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
-
-func (ec *executionContext) _Actor_login(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Actor) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Actor_login(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Login, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Actor_login(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Actor", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Actor_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Actor) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Actor_url(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.URL, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
-			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Actor_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Actor", field, false, false, errors.New("field of type URI does not have child fields"))
-}
-
-func (ec *executionContext) _Actor_avatarUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Actor) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Actor_avatarUrl(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.AvatarURL, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
-			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Actor_avatarUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Actor", field, false, false, errors.New("field of type URI does not have child fields"))
-}
 
 func (ec *executionContext) _AddAssigneesToAssignablePayload_assignable(ctx context.Context, field graphql.CollectedField, obj *AddAssigneesToAssignablePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -8567,8 +8361,8 @@ func (ec *executionContext) _EnablePullRequestAutoMergePayload_actor(ctx context
 			return obj.Actor, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -8581,7 +8375,7 @@ func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_actor
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -8852,8 +8646,8 @@ func (ec *executionContext) _Issue_author(ctx context.Context, field graphql.Col
 			return ec.Resolvers.Issue().Author(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -8866,7 +8660,7 @@ func (ec *executionContext) fieldContext_Issue_author(_ context.Context, field g
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -9218,8 +9012,8 @@ func (ec *executionContext) _IssueComment_author(ctx context.Context, field grap
 			return obj.Author, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -9232,7 +9026,7 @@ func (ec *executionContext) fieldContext_IssueComment_author(_ context.Context, 
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -9883,8 +9677,8 @@ func (ec *executionContext) _MergePullRequestPayload_actor(ctx context.Context, 
 			return obj.Actor, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -9897,7 +9691,7 @@ func (ec *executionContext) fieldContext_MergePullRequestPayload_actor(_ context
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -11808,8 +11602,8 @@ func (ec *executionContext) _PullRequest_author(ctx context.Context, field graph
 			return obj.Author, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -11822,7 +11616,7 @@ func (ec *executionContext) fieldContext_PullRequest_author(_ context.Context, f
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -13096,8 +12890,8 @@ func (ec *executionContext) _PullRequestReview_author(ctx context.Context, field
 			return obj.Author, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -13110,7 +12904,7 @@ func (ec *executionContext) fieldContext_PullRequestReview_author(_ context.Cont
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -13243,8 +13037,8 @@ func (ec *executionContext) _PullRequestReviewComment_author(ctx context.Context
 			return obj.Author, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
-			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
 		},
 		true,
 		false,
@@ -13257,7 +13051,7 @@ func (ec *executionContext) fieldContext_PullRequestReviewComment_author(_ conte
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Actor(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -13899,8 +13693,8 @@ func (ec *executionContext) _Query_repositoryOwner(ctx context.Context, field gr
 			return ec.Resolvers.Query().RepositoryOwner(ctx, fc.Args["login"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryOwner) graphql.Marshaler {
-			return ec.marshalORepositoryOwner2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.RepositoryOwner) graphql.Marshaler {
+			return ec.marshalORepositoryOwner2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx, selections, v)
 		},
 		true,
 		false,
@@ -13913,7 +13707,7 @@ func (ec *executionContext) fieldContext_Query_repositoryOwner(ctx context.Conte
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_RepositoryOwner(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	defer func() {
@@ -15338,8 +15132,8 @@ func (ec *executionContext) _Repository_owner(ctx context.Context, field graphql
 			return ec.Resolvers.Repository().Owner(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryOwner) graphql.Marshaler {
-			return ec.marshalNRepositoryOwner2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.RepositoryOwner) graphql.Marshaler {
+			return ec.marshalNRepositoryOwner2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx, selections, v)
 		},
 		true,
 		true,
@@ -15352,7 +15146,7 @@ func (ec *executionContext) fieldContext_Repository_owner(_ context.Context, fie
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_RepositoryOwner(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -15619,142 +15413,6 @@ func (ec *executionContext) _RepositoryConnection_totalCount(ctx context.Context
 }
 func (ec *executionContext) fieldContext_RepositoryConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RepositoryConnection", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _RepositoryOwner_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RepositoryOwner) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RepositoryOwner_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RepositoryOwner_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RepositoryOwner", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RepositoryOwner_login(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RepositoryOwner) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RepositoryOwner_login(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Login, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RepositoryOwner_login(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RepositoryOwner", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _RepositoryOwner_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RepositoryOwner) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RepositoryOwner_url(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.URL, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
-			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RepositoryOwner_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RepositoryOwner", field, false, false, errors.New("field of type URI does not have child fields"))
-}
-
-func (ec *executionContext) _RepositoryOwner_avatarUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RepositoryOwner) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RepositoryOwner_avatarUrl(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.AvatarURL, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
-			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RepositoryOwner_avatarUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RepositoryOwner", field, false, false, errors.New("field of type URI does not have child fields"))
-}
-
-func (ec *executionContext) _RepositoryOwner_repositories(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.RepositoryOwner) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RepositoryOwner_repositories(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.RepositoryOwner().Repositories(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["ownerAffiliations"].([]RepositoryAffiliation), fc.Args["isArchived"].(*bool), fc.Args["isFork"].(*bool), fc.Args["privacy"].(*RepositoryPrivacy), fc.Args["orderBy"].(*RepositoryOrder))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryConnection) graphql.Marshaler {
-			return ec.marshalNRepositoryConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryConnection(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RepositoryOwner_repositories(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RepositoryOwner",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_RepositoryConnection(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_RepositoryOwner_repositories_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
 }
 
 func (ec *executionContext) _RequestReviewsPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *RequestReviewsPayload) (ret graphql.Marshaler) {
@@ -16751,6 +16409,29 @@ func (ec *executionContext) fieldContext_User_bio(_ context.Context, field graph
 	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _User_databaseId(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_databaseId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DatabaseID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_databaseId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _User_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -16794,6 +16475,29 @@ func (ec *executionContext) _User_avatarUrl(ctx context.Context, field graphql.C
 	)
 }
 func (ec *executionContext) fieldContext_User_avatarUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _User_resourcePath(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_resourcePath(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ResourcePath, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_User_resourcePath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type URI does not have child fields"))
 }
 
@@ -19977,6 +19681,26 @@ func (ec *executionContext) unmarshalInputUpdatePullRequestInput(ctx context.Con
 
 // region    ************************** interface.gotpl ***************************
 
+func (ec *executionContext) _Actor(ctx context.Context, sel ast.SelectionSet, obj gqlmodel.Actor) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case gqlmodel.User:
+		return ec._User(ctx, sel, &obj)
+	case *gqlmodel.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of Actor must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _AssignableNode(ctx context.Context, sel ast.SelectionSet, obj AssignableNode) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -20042,13 +19766,6 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
-	case gqlmodel.RepositoryOwner:
-		return ec._RepositoryOwner(ctx, sel, &obj)
-	case *gqlmodel.RepositoryOwner:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._RepositoryOwner(ctx, sel, obj)
 	case gqlmodel.Repository:
 		return ec._Repository(ctx, sel, &obj)
 	case *gqlmodel.Repository:
@@ -20096,6 +19813,26 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of Node must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RepositoryOwner(ctx context.Context, sel ast.SelectionSet, obj gqlmodel.RepositoryOwner) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case gqlmodel.User:
+		return ec._User(ctx, sel, &obj)
+	case *gqlmodel.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RepositoryOwner must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -20171,55 +19908,6 @@ func (ec *executionContext) _StatusCheckRollupContext(ctx context.Context, sel a
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
-
-var actorImplementors = []string{"Actor"}
-
-func (ec *executionContext) _Actor(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Actor) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, actorImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Actor")
-		case "login":
-			out.Values[i] = ec._Actor_login(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "url":
-			out.Values[i] = ec._Actor_url(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "avatarUrl":
-			out.Values[i] = ec._Actor_avatarUrl(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
 
 var addAssigneesToAssignablePayloadImplementors = []string{"AddAssigneesToAssignablePayload"}
 
@@ -24577,96 +24265,6 @@ func (ec *executionContext) _RepositoryConnection(ctx context.Context, sel ast.S
 	return out
 }
 
-var repositoryOwnerImplementors = []string{"RepositoryOwner", "Node"}
-
-func (ec *executionContext) _RepositoryOwner(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.RepositoryOwner) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, repositoryOwnerImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("RepositoryOwner")
-		case "id":
-			out.Values[i] = ec._RepositoryOwner_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "login":
-			out.Values[i] = ec._RepositoryOwner_login(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "url":
-			out.Values[i] = ec._RepositoryOwner_url(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "avatarUrl":
-			out.Values[i] = ec._RepositoryOwner_avatarUrl(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "repositories":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._RepositoryOwner_repositories(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var requestReviewsPayloadImplementors = []string{"RequestReviewsPayload"}
 
 func (ec *executionContext) _RequestReviewsPayload(ctx context.Context, sel ast.SelectionSet, obj *RequestReviewsPayload) graphql.Marshaler {
@@ -25273,7 +24871,7 @@ func (ec *executionContext) _UpdatePullRequestPayload(ctx context.Context, sel a
 	return out
 }
 
-var userImplementors = []string{"User", "Node", "SearchResultItem"}
+var userImplementors = []string{"User", "Node", "Actor", "RepositoryOwner", "SearchResultItem"}
 
 func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.User) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
@@ -25300,6 +24898,8 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._User_email(ctx, field, obj)
 		case "bio":
 			out.Values[i] = ec._User_bio(ctx, field, obj)
+		case "databaseId":
+			out.Values[i] = ec._User_databaseId(ctx, field, obj)
 		case "url":
 			out.Values[i] = ec._User_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -25307,6 +24907,11 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "avatarUrl":
 			out.Values[i] = ec._User_avatarUrl(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "resourcePath":
+			out.Values[i] = ec._User_resourcePath(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -26348,10 +25953,6 @@ func (ec *executionContext) marshalNRepositoryOrderField2githubᚗcomᚋtamndᚋ
 }
 
 func (ec *executionContext) marshalNRepositoryOwner2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RepositoryOwner) graphql.Marshaler {
-	return ec._RepositoryOwner(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNRepositoryOwner2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RepositoryOwner) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -26665,7 +26266,7 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
+func (ec *executionContext) marshalOActor2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx context.Context, sel ast.SelectionSet, v gqlmodel.Actor) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -27606,7 +27207,7 @@ func (ec *executionContext) unmarshalORepositoryOrder2ᚖgithubᚗcomᚋtamndᚋ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalORepositoryOwner2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RepositoryOwner) graphql.Marshaler {
+func (ec *executionContext) marshalORepositoryOwner2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryOwner(ctx context.Context, sel ast.SelectionSet, v gqlmodel.RepositoryOwner) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

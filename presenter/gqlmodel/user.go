@@ -3,15 +3,17 @@ package gqlmodel
 // User is the GraphQL User object, carrying the fields gh api and gh auth
 // status select. It grows toward the full GitHub User type milestone by milestone.
 type User struct {
-	ID        string   // the User node ID
-	Login     string   // the user's login
-	Name      *string  // display name, null when unset
-	Email     *string  // public email, null when unset
-	Bio       *string  // profile bio, null when unset
-	URL       URI      // the user's profile HTML URL
-	AvatarURL URI      // the user's avatar URL
-	CreatedAt DateTime // account creation instant
-	UpdatedAt DateTime // last-update instant
+	ID           string   // the User node ID
+	Login        string   // the user's login
+	Name         *string  // display name, null when unset
+	Email        *string  // public email, null when unset
+	Bio          *string  // profile bio, null when unset
+	DatabaseID   *int32   // the integer database id (REST id)
+	URL          URI      // the user's profile HTML URL
+	AvatarURL    URI      // the user's avatar URL
+	ResourcePath URI      // the path part of the profile URL, e.g. /octocat
+	CreatedAt    DateTime // account creation instant
+	UpdatedAt    DateTime // last-update instant
 }
 
 // IsNode marks User as implementing the Node interface.
@@ -22,6 +24,12 @@ func (u User) GetID() string { return u.ID }
 
 // IsSearchResultItem marks User as a member of the SearchResultItem union.
 func (User) IsSearchResultItem() {}
+
+// IsActor marks User as implementing the Actor interface.
+func (User) IsActor() {}
+
+// IsRepositoryOwner marks User as implementing the RepositoryOwner interface.
+func (User) IsRepositoryOwner() {}
 
 // UserConnection is the Relay connection over a set of users (assignees, etc.).
 type UserConnection struct {
@@ -39,20 +47,12 @@ type Milestone struct {
 	URL    URI    // the milestone's HTML URL
 }
 
-// RepositoryOwner is the owner of a repository. It is also the return type of
-// the repositoryOwner(login) root query for gh repo list.
-type RepositoryOwner struct {
-	ID        string // the owner node ID
-	Login     string // the owner's login
-	URL       URI    // the owner's HTML URL
-	AvatarURL URI    // the owner's avatar URL
+// RepositoryOwner is the GraphQL RepositoryOwner interface: the owner of a
+// repository, and the return type of the repositoryOwner(login) root query.
+// User is the only implementer today.
+type RepositoryOwner interface {
+	IsRepositoryOwner()
 }
-
-// IsNode marks RepositoryOwner as implementing the Node interface.
-func (RepositoryOwner) IsNode() {}
-
-// GetID satisfies the Node interface getter gqlgen requires.
-func (o RepositoryOwner) GetID() string { return o.ID }
 
 // Language is a programming language detected in a repository.
 type Language struct {
