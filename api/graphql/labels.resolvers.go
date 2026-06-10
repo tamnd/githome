@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/tamnd/githome/api/graphql/generated"
-	"github.com/tamnd/githome/domain"
 )
 
 // AddLabelsToLabelable is the resolver for the addLabelsToLabelable field. gh
@@ -113,31 +112,4 @@ func (r *mutationResolver) RemoveAssigneesFromAssignable(ctx context.Context, in
 		Assignable:       assignable,
 		ClientMutationID: input.ClientMutationID,
 	}, nil
-}
-
-// labelableFromIssue converts the updated domain issue into the GraphQL
-// LabelableNode shape. For issues it renders directly; for PRs it re-fetches so
-// the PullRequest shape (with base/head refs etc.) is returned.
-func (r *Resolver) labelableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.LabelableNode, error) {
-	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
-	}
-	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
-}
-
-// assignableFromIssue converts the updated domain issue into the GraphQL
-// AssignableNode shape. Mirrors labelableFromIssue.
-func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.AssignableNode, error) {
-	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
-	}
-	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
 }

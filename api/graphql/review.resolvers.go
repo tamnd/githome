@@ -7,11 +7,9 @@ package graphql
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
-	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
@@ -173,31 +171,6 @@ func (r *pullRequestReviewThreadResolver) Comments(_ context.Context, obj *gqlmo
 		return obj.Comments, nil
 	}
 	return &gqlmodel.PullRequestReviewCommentConnection{}, nil
-}
-
-// gqlReview renders a domain review into the generated PullRequestReview wire type.
-func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string, format nodeid.Format) *generated.PullRequestReview {
-	pullNum := strconv.FormatInt(rv.PullNumber, 10)
-	reviewID := strconv.FormatInt(rv.ID, 10)
-	htmlURL := urls.RepoHTML(owner, repo) + "/pull/" + pullNum + "#pullrequestreview-" + reviewID
-	r := &generated.PullRequestReview{
-		ID:    nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
-		State: generated.PullRequestReviewState(rv.State),
-		Body:  rv.Body,
-		URL:   gqlmodel.URI(htmlURL),
-	}
-	if rv.User != nil {
-		r.Author = &gqlmodel.Actor{
-			Login:     rv.User.Login,
-			URL:       gqlmodel.URI(urls.UserHTML(rv.User.Login)),
-			AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(rv.User.ID, 10))),
-		}
-	}
-	if rv.SubmittedAt != nil {
-		dt := gqlmodel.NewDateTime(*rv.SubmittedAt)
-		r.SubmittedAt = &dt
-	}
-	return r
 }
 
 // PullRequestReviewThread returns generated.PullRequestReviewThreadResolver implementation.

@@ -7,17 +7,12 @@ package graphql
 
 import (
 	"context"
+	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 )
-
-// branchProtectionRuleID is a placeholder node ID for branch protection rules.
-// Githome does not yet store rules, so we use a fixed sentinel rather than a
-// real node-id encode so clients that pass the id back in an update receive it
-// unchanged.
-const branchProtectionRuleID = "BPR_placeholder"
 
 // CreateRef is the resolver for the createRef field. gh api and automation that
 // creates branches via GraphQL send this mutation.
@@ -31,8 +26,12 @@ func (r *mutationResolver) CreateRef(ctx context.Context, input generated.Create
 	if err != nil {
 		return nil, mapErr(err)
 	}
+	shortName := ref.Name
+	if i := strings.LastIndex(ref.Name, "/"); i >= 0 {
+		shortName = ref.Name[i+1:]
+	}
 	return &generated.CreateRefPayload{
-		Ref:              presenter.GQLRef(repo.PK, ref.Name, ref.Target),
+		Ref:              presenter.GQLRef(repo.PK, ref.Name, shortName, ref.Target),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }

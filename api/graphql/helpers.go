@@ -9,14 +9,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
+
+// branchProtectionRuleID is a placeholder node ID for branch protection rules.
+// Githome does not yet store rules, so we use a fixed sentinel rather than a
+// real node-id encode so clients that pass the id back in an update receive it
+// unchanged.
+const branchProtectionRuleID = "BPR_placeholder"
 
 // setThreadResolved marks a review thread resolved or unresolved through the
 // review service and returns the updated thread for the mutation payload.
@@ -124,23 +132,6 @@ func threadDBIDFromID(id string) (int64, error) {
 		return 0, unresolvable("PullRequestReviewThread", id)
 	}
 	return dbID, nil
-}
-
-// prRefFromID decodes a PullRequest node ID into the owner, repo, and number
-// the domain's pull request methods address a PR by.
-func (r *Resolver) prRefFromID(ctx context.Context, id string) (owner, name string, number int64, err error) {
-	kind, dbID, decErr := nodeid.Decode(id)
-	if decErr != nil || kind != nodeid.KindPullRequest {
-		return "", "", 0, unresolvable("PullRequest", id)
-	}
-	owner, name, number, err = r.Pulls.PRRef(ctx, dbID)
-	if errors.Is(err, domain.ErrPullNotFound) {
-		return "", "", 0, unresolvable("PullRequest", id)
-	}
-	if err != nil {
-		return "", "", 0, mapErr(err)
-	}
-	return owner, name, number, nil
 }
 
 // reviewDBIDFromID decodes a PullRequestReview node ID into the review's DB id.
@@ -268,4 +259,107 @@ func mapErr(err error) error {
 	default:
 		return err
 	}
+}
+
+// mapMergeErr translates merge-specific domain errors into the GraphQL error
+// messages a client expects, matching GitHub's phrasing where possible.
+func mapMergeErr(err error) error {
+	switch {
+	case errors.Is(err, domain.ErrNotMergeable):
+		return gqlError{"Pull request is not mergeable"}
+	case errors.Is(err, domain.ErrHeadMismatch):
+		return gqlError{"Head sha mismatch"}
+	case errors.Is(err, domain.ErrInvalidMergeMethod):
+		return gqlError{"Merge method is invalid"}
+	default:
+		return mapErr(err)
+	}
+}
+
+// labelNamesFromIDs decodes a slice of label node IDs into label names, skipping
+// any ID that does not decode to a known label.
+func (r *Resolver) labelNamesFromIDs(ctx context.Context, ids []string) ([]string, error) {
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		kind, dbID, err := nodeid.Decode(id)
+		if err != nil || kind != nodeid.KindLabel {
+			continue
+		}
+		name, err := r.Issues.LabelNameByDBID(ctx, dbID)
+		if err != nil {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names, nil
+}
+
+// userLoginsFromIDs decodes a slice of user node IDs into user logins, skipping
+// any ID that does not decode to a known user.
+func (r *Resolver) userLoginsFromIDs(ctx context.Context, ids []string) ([]string, error) {
+	logins := make([]string, 0, len(ids))
+	for _, id := range ids {
+		kind, pk, err := nodeid.Decode(id)
+		if err != nil || kind != nodeid.KindUser {
+			continue
+		}
+		login, err := r.Issues.UserLoginByPK(ctx, pk)
+		if err != nil {
+			continue
+		}
+		logins = append(logins, login)
+	}
+	return logins, nil
+}
+
+// labelableFromIssue converts the updated domain issue into the GraphQL
+// LabelableNode shape. For issues it renders directly; for PRs it re-fetches so
+// the PullRequest shape (with base/head refs etc.) is returned.
+func (r *Resolver) labelableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.LabelableNode, error) {
+	if !isPR {
+		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+}
+
+// assignableFromIssue converts the updated domain issue into the GraphQL
+// AssignableNode shape. Mirrors labelableFromIssue.
+func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.AssignableNode, error) {
+	if !isPR {
+		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+}
+
+// gqlReview renders a domain review into the generated PullRequestReview wire type.
+func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string, format nodeid.Format) *generated.PullRequestReview {
+	pullNum := strconv.FormatInt(rv.PullNumber, 10)
+	reviewID := strconv.FormatInt(rv.ID, 10)
+	htmlURL := urls.RepoHTML(owner, repo) + "/pull/" + pullNum + "#pullrequestreview-" + reviewID
+	r := &generated.PullRequestReview{
+		ID:    nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
+		State: generated.PullRequestReviewState(rv.State),
+		Body:  rv.Body,
+		URL:   gqlmodel.URI(htmlURL),
+	}
+	if rv.User != nil {
+		r.Author = &gqlmodel.Actor{
+			Login:     rv.User.Login,
+			URL:       gqlmodel.URI(urls.UserHTML(rv.User.Login)),
+			AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(rv.User.ID, 10))),
+		}
+	}
+	if rv.SubmittedAt != nil {
+		dt := gqlmodel.NewDateTime(*rv.SubmittedAt)
+		r.SubmittedAt = &dt
+	}
+	return r
 }

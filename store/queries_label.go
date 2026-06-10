@@ -205,12 +205,6 @@ func (t *Tx) InsertLabel(ctx context.Context, l *LabelRow) error {
 	return nil
 }
 
-// GetLabelByDBID resolves a single label by its public database id (db_id).
-func (s *Store) GetLabelByDBID(ctx context.Context, dbID int64) (*LabelRow, error) {
-	q := s.rebind(`SELECT ` + labelColumns + ` FROM labels WHERE db_id = ?`)
-	return scanLabel(s.db.QueryRowContext(ctx, q, dbID))
-}
-
 func scanLabel(row interface{ Scan(...any) error }) (*LabelRow, error) {
 	l, err := scanLabelRows(row)
 	if errors.Is(err, sql.ErrNoRows) {

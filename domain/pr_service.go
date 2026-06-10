@@ -266,32 +266,6 @@ func (s *PRService) GetPRByID(ctx context.Context, viewerPK, dbID int64) (*PullR
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }
 
-// PRRef resolves the owner/repo/number coordinates of a pull request by its
-// internal DB id. The GraphQL layer uses it to convert a PullRequest node id
-// into the coordinates the domain methods need.
-func (s *PRService) PRRef(ctx context.Context, dbID int64) (owner, name string, number int64, err error) {
-	pullRow, err := s.store.GetPullByDBID(ctx, dbID)
-	if errors.Is(err, store.ErrNotFound) {
-		return "", "", 0, ErrPullNotFound
-	}
-	if err != nil {
-		return "", "", 0, err
-	}
-	issueRow, err := s.store.GetIssueByPK(ctx, pullRow.IssuePK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	repoRow, err := s.store.RepoByPK(ctx, pullRow.RepoPK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	ownerRow, err := s.store.UserByPK(ctx, repoRow.OwnerPK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	return ownerRow.Login, repoRow.Name, issueRow.Number, nil
-}
-
 // UpdatePR applies the non-nil fields of patch to an existing open pull request.
 // Issue-level fields (title, body, state, labels, assignees, milestone) are
 // delegated to the issue service; pull-level fields (base branch, draft,
