@@ -51,6 +51,9 @@ type PullRequest {
   labels(first: Int, after: String): LabelConnection
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
+  # isInMergeQueue is whether this pull request is currently in a merge queue.
+  # Githome does not implement merge queues; always false.
+  isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
   commits(first: Int, after: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.

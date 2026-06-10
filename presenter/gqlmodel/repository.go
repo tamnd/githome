@@ -30,7 +30,24 @@ type Repository struct {
 	// GraphQL schema.
 	RepoOwner string
 	RepoName  string
+
+	// These merge-method flags are pre-filled by the presenter; no resolvers needed.
+	AutoMergeAllowed   bool
+	MergeCommitAllowed bool
+	SquashMergeAllowed bool
+	RebaseMergeAllowed bool
 }
+
+// RepositoryPermission is the GraphQL enum for a viewer's access level.
+type RepositoryPermission string
+
+const (
+	RepositoryPermissionAdmin    RepositoryPermission = "ADMIN"
+	RepositoryPermissionMaintain RepositoryPermission = "MAINTAIN"
+	RepositoryPermissionWrite    RepositoryPermission = "WRITE"
+	RepositoryPermissionTriage   RepositoryPermission = "TRIAGE"
+	RepositoryPermissionRead     RepositoryPermission = "READ"
+)
 
 // Ref is a git reference. The id field carries the opaque node ID clients pass
 // to deleteRef. Prefix is the full prefix (refs/heads/ or refs/tags/).

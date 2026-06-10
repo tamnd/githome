@@ -29,9 +29,10 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		Labels:    b.gqlLabelConnection(owner, repo, iss.Labels, format),
 		Assignees: b.GQLUserConnection(iss.Assignees, format),
 		Milestone: b.GQLMilestone(owner, repo, iss.Milestone, format),
-		Comments:  &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
-		RepoOwner: owner,
-		RepoName:  repo,
+		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
+		ReactionGroups: []*gqlmodel.ReactionGroup{},
+		RepoOwner:      owner,
+		RepoName:       repo,
 		PK:        iss.PK,
 		UserPK:    iss.UserPK,
 	}

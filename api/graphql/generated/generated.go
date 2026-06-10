@@ -140,23 +140,24 @@ type ComplexityRoot struct {
 	}
 
 	Issue struct {
-		Assignees   func(childComplexity int, first *int32, after *string) int
-		Author      func(childComplexity int) int
-		Body        func(childComplexity int) int
-		Closed      func(childComplexity int) int
-		ClosedAt    func(childComplexity int) int
-		Comments    func(childComplexity int, first *int32, after *string) int
-		CreatedAt   func(childComplexity int) int
-		ID          func(childComplexity int) int
-		Labels      func(childComplexity int, first *int32, after *string) int
-		Locked      func(childComplexity int) int
-		Milestone   func(childComplexity int) int
-		Number      func(childComplexity int) int
-		State       func(childComplexity int) int
-		StateReason func(childComplexity int) int
-		Title       func(childComplexity int) int
-		URL         func(childComplexity int) int
-		UpdatedAt   func(childComplexity int) int
+		Assignees      func(childComplexity int, first *int32, after *string) int
+		Author         func(childComplexity int) int
+		Body           func(childComplexity int) int
+		Closed         func(childComplexity int) int
+		ClosedAt       func(childComplexity int) int
+		Comments       func(childComplexity int, first *int32, after *string) int
+		CreatedAt      func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Labels         func(childComplexity int, first *int32, after *string) int
+		Locked         func(childComplexity int) int
+		Milestone      func(childComplexity int) int
+		Number         func(childComplexity int) int
+		ReactionGroups func(childComplexity int) int
+		State          func(childComplexity int) int
+		StateReason    func(childComplexity int) int
+		Title          func(childComplexity int) int
+		URL            func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
 	}
 
 	IssueComment struct {
@@ -287,6 +288,7 @@ type ComplexityRoot struct {
 		HeadRefOid       func(childComplexity int) int
 		ID               func(childComplexity int) int
 		IsDraft          func(childComplexity int) int
+		IsInMergeQueue   func(childComplexity int) int
 		Labels           func(childComplexity int, first *int32, after *string) int
 		Locked           func(childComplexity int) int
 		MergeStateStatus func(childComplexity int) int
@@ -397,6 +399,15 @@ type ComplexityRoot struct {
 		Viewer     func(childComplexity int) int
 	}
 
+	ReactingUserConnection struct {
+		TotalCount func(childComplexity int) int
+	}
+
+	ReactionGroup struct {
+		Content func(childComplexity int) int
+		Users   func(childComplexity int) int
+	}
+
 	Ref struct {
 		ID     func(childComplexity int) int
 		Name   func(childComplexity int) int
@@ -420,33 +431,38 @@ type ComplexityRoot struct {
 	}
 
 	Repository struct {
-		CreatedAt        func(childComplexity int) int
-		DefaultBranchRef func(childComplexity int) int
-		Description      func(childComplexity int) int
-		DiskUsage        func(childComplexity int) int
-		ForkCount        func(childComplexity int) int
-		HomepageURL      func(childComplexity int) int
-		ID               func(childComplexity int) int
-		IsArchived       func(childComplexity int) int
-		IsEmpty          func(childComplexity int) int
-		IsFork           func(childComplexity int) int
-		IsInOrganization func(childComplexity int) int
-		IsPrivate        func(childComplexity int) int
-		Issue            func(childComplexity int, number int32) int
-		Issues           func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) int
-		LicenseInfo      func(childComplexity int) int
-		Name             func(childComplexity int) int
-		NameWithOwner    func(childComplexity int) int
-		Owner            func(childComplexity int) int
-		PrimaryLanguage  func(childComplexity int) int
-		PullRequest      func(childComplexity int, number int32) int
-		PullRequests     func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) int
-		PushedAt         func(childComplexity int) int
-		Ref              func(childComplexity int, qualifiedName string) int
-		SSHURL           func(childComplexity int) int
-		StargazerCount   func(childComplexity int) int
-		URL              func(childComplexity int) int
-		UpdatedAt        func(childComplexity int) int
+		AutoMergeAllowed   func(childComplexity int) int
+		CreatedAt          func(childComplexity int) int
+		DefaultBranchRef   func(childComplexity int) int
+		Description        func(childComplexity int) int
+		DiskUsage          func(childComplexity int) int
+		ForkCount          func(childComplexity int) int
+		HomepageURL        func(childComplexity int) int
+		ID                 func(childComplexity int) int
+		IsArchived         func(childComplexity int) int
+		IsEmpty            func(childComplexity int) int
+		IsFork             func(childComplexity int) int
+		IsInOrganization   func(childComplexity int) int
+		IsPrivate          func(childComplexity int) int
+		Issue              func(childComplexity int, number int32) int
+		Issues             func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) int
+		LicenseInfo        func(childComplexity int) int
+		MergeCommitAllowed func(childComplexity int) int
+		Name               func(childComplexity int) int
+		NameWithOwner      func(childComplexity int) int
+		Owner              func(childComplexity int) int
+		PrimaryLanguage    func(childComplexity int) int
+		PullRequest        func(childComplexity int, number int32) int
+		PullRequests       func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) int
+		PushedAt           func(childComplexity int) int
+		RebaseMergeAllowed func(childComplexity int) int
+		Ref                func(childComplexity int, qualifiedName string) int
+		SSHURL             func(childComplexity int) int
+		SquashMergeAllowed func(childComplexity int) int
+		StargazerCount     func(childComplexity int) int
+		URL                func(childComplexity int) int
+		UpdatedAt          func(childComplexity int) int
+		ViewerPermission   func(childComplexity int) int
 	}
 
 	RepositoryOwner struct {
@@ -566,6 +582,7 @@ type PullRequestResolver interface {
 	Labels(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.LabelConnection, error)
 	Assignees(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.UserConnection, error)
 	Milestone(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error)
+
 	Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error)
 	Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error)
 	ReviewDecision(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.PullRequestReviewDecision, error)
@@ -589,6 +606,8 @@ type RepositoryResolver interface {
 	PrimaryLanguage(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Language, error)
 	LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error)
 	Owner(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryOwner, error)
+	ViewerPermission(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryPermission, error)
+
 	Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error)
 	Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) (*gqlmodel.IssueConnection, error)
 	PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error)
@@ -995,6 +1014,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.Number(childComplexity), true
+	case "Issue.reactionGroups":
+		if e.ComplexityRoot.Issue.ReactionGroups == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.ReactionGroups(childComplexity), true
 	case "Issue.state":
 		if e.ComplexityRoot.Issue.State == nil {
 			break
@@ -1695,6 +1720,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PullRequest.IsDraft(childComplexity), true
+	case "PullRequest.isInMergeQueue":
+		if e.ComplexityRoot.PullRequest.IsInMergeQueue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequest.IsInMergeQueue(childComplexity), true
 	case "PullRequest.labels":
 		if e.ComplexityRoot.PullRequest.Labels == nil {
 			break
@@ -2124,6 +2155,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Viewer(childComplexity), true
 
+	case "ReactingUserConnection.totalCount":
+		if e.ComplexityRoot.ReactingUserConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReactingUserConnection.TotalCount(childComplexity), true
+
+	case "ReactionGroup.content":
+		if e.ComplexityRoot.ReactionGroup.Content == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReactionGroup.Content(childComplexity), true
+	case "ReactionGroup.users":
+		if e.ComplexityRoot.ReactionGroup.Users == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReactionGroup.Users(childComplexity), true
+
 	case "Ref.id":
 		if e.ComplexityRoot.Ref.ID == nil {
 			break
@@ -2188,6 +2239,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ReopenIssuePayload.Issue(childComplexity), true
 
+	case "Repository.autoMergeAllowed":
+		if e.ComplexityRoot.Repository.AutoMergeAllowed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.AutoMergeAllowed(childComplexity), true
 	case "Repository.createdAt":
 		if e.ComplexityRoot.Repository.CreatedAt == nil {
 			break
@@ -2288,6 +2345,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.LicenseInfo(childComplexity), true
+	case "Repository.mergeCommitAllowed":
+		if e.ComplexityRoot.Repository.MergeCommitAllowed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.MergeCommitAllowed(childComplexity), true
 	case "Repository.name":
 		if e.ComplexityRoot.Repository.Name == nil {
 			break
@@ -2340,6 +2403,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.PushedAt(childComplexity), true
+	case "Repository.rebaseMergeAllowed":
+		if e.ComplexityRoot.Repository.RebaseMergeAllowed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.RebaseMergeAllowed(childComplexity), true
 	case "Repository.ref":
 		if e.ComplexityRoot.Repository.Ref == nil {
 			break
@@ -2357,6 +2426,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.SSHURL(childComplexity), true
+	case "Repository.squashMergeAllowed":
+		if e.ComplexityRoot.Repository.SquashMergeAllowed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.SquashMergeAllowed(childComplexity), true
 	case "Repository.stargazerCount":
 		if e.ComplexityRoot.Repository.StargazerCount == nil {
 			break
@@ -2375,6 +2450,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.UpdatedAt(childComplexity), true
+	case "Repository.viewerPermission":
+		if e.ComplexityRoot.Repository.ViewerPermission == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.ViewerPermission(childComplexity), true
 
 	case "RepositoryOwner.avatarUrl":
 		if e.ComplexityRoot.RepositoryOwner.AvatarURL == nil {
@@ -2739,6 +2820,9 @@ type Issue {
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
   comments(first: Int, after: String): IssueCommentConnection!
+  # reactionGroups aggregates emoji reactions on the issue. Githome does not store
+  # reactions; always returns an empty list.
+  reactionGroups: [ReactionGroup!]!
 }
 
 # Milestone is a repository milestone.
@@ -2821,6 +2905,29 @@ type IssueCommentConnection {
 type IssueCommentEdge {
   cursor: String!
   node: IssueComment
+}
+
+# ReactionGroup aggregates one reaction emoji and the users who used it.
+type ReactionGroup {
+  content: ReactionContent!
+  users: ReactingUserConnection!
+}
+
+# ReactingUserConnection is the connection over users who reacted.
+type ReactingUserConnection {
+  totalCount: Int!
+}
+
+# ReactionContent is the emoji a reaction carries.
+enum ReactionContent {
+  THUMBS_UP
+  THUMBS_DOWN
+  LAUGH
+  HOORAY
+  CONFUSED
+  HEART
+  ROCKET
+  EYES
 }
 
 # Mutation is the GraphQL write root. gh issue create, comment, and close send
@@ -3022,6 +3129,9 @@ type PullRequest {
   labels(first: Int, after: String): LabelConnection
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
+  # isInMergeQueue is whether this pull request is currently in a merge queue.
+  # Githome does not implement merge queues; always false.
+  isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
   commits(first: Int, after: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
@@ -3615,6 +3725,27 @@ type Repository {
   primaryLanguage: Language
   licenseInfo: License
   owner: RepositoryOwner!
+  # viewerPermission is the authenticated viewer's access level on this repository.
+  # Null for an anonymous viewer.
+  viewerPermission: RepositoryPermission
+  # autoMergeAllowed is whether auto-merge is enabled on this repository.
+  # Githome does not implement auto-merge; always false.
+  autoMergeAllowed: Boolean!
+  # mergeCommitAllowed is whether merge commits are allowed.
+  mergeCommitAllowed: Boolean!
+  # squashMergeAllowed is whether squash merges are allowed.
+  squashMergeAllowed: Boolean!
+  # rebaseMergeAllowed is whether rebase merges are allowed.
+  rebaseMergeAllowed: Boolean!
+}
+
+# RepositoryPermission is the viewer's access level on a repository.
+enum RepositoryPermission {
+  ADMIN
+  MAINTAIN
+  WRITE
+  TRIAGE
+  READ
 }
 
 # RepositoryOwner is the owner of a repository, either a User or Organization.
@@ -3901,6 +4032,8 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_milestone(ctx, field)
 	case "comments":
 		return ec.fieldContext_Issue_comments(ctx, field)
+	case "reactionGroups":
+		return ec.fieldContext_Issue_reactionGroups(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Issue", field.Name)
 }
@@ -4121,6 +4254,8 @@ func (ec *executionContext) childFields_PullRequest(ctx context.Context, field g
 		return ec.fieldContext_PullRequest_assignees(ctx, field)
 	case "milestone":
 		return ec.fieldContext_PullRequest_milestone(ctx, field)
+	case "isInMergeQueue":
+		return ec.fieldContext_PullRequest_isInMergeQueue(ctx, field)
 	case "commits":
 		return ec.fieldContext_PullRequest_commits(ctx, field)
 	case "files":
@@ -4313,6 +4448,24 @@ func (ec *executionContext) childFields_PullRequestReviewThreadConnection(ctx co
 	return nil, fmt.Errorf("no field named %q was found under type PullRequestReviewThreadConnection", field.Name)
 }
 
+func (ec *executionContext) childFields_ReactingUserConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "totalCount":
+		return ec.fieldContext_ReactingUserConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ReactingUserConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_ReactionGroup(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "content":
+		return ec.fieldContext_ReactionGroup_content(ctx, field)
+	case "users":
+		return ec.fieldContext_ReactionGroup_users(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ReactionGroup", field.Name)
+}
+
 func (ec *executionContext) childFields_Ref(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -4405,6 +4558,16 @@ func (ec *executionContext) childFields_Repository(ctx context.Context, field gr
 		return ec.fieldContext_Repository_licenseInfo(ctx, field)
 	case "owner":
 		return ec.fieldContext_Repository_owner(ctx, field)
+	case "viewerPermission":
+		return ec.fieldContext_Repository_viewerPermission(ctx, field)
+	case "autoMergeAllowed":
+		return ec.fieldContext_Repository_autoMergeAllowed(ctx, field)
+	case "mergeCommitAllowed":
+		return ec.fieldContext_Repository_mergeCommitAllowed(ctx, field)
+	case "squashMergeAllowed":
+		return ec.fieldContext_Repository_squashMergeAllowed(ctx, field)
+	case "rebaseMergeAllowed":
+		return ec.fieldContext_Repository_rebaseMergeAllowed(ctx, field)
 	case "issue":
 		return ec.fieldContext_Repository_issue(ctx, field)
 	case "issues":
@@ -7194,6 +7357,38 @@ func (ec *executionContext) fieldContext_Issue_comments(ctx context.Context, fie
 	if fc.Args, err = ec.field_Issue_comments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Issue_reactionGroups(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_reactionGroups(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReactionGroups, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*gqlmodel.ReactionGroup) graphql.Marshaler {
+			return ec.marshalNReactionGroup2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroupᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_reactionGroups(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ReactionGroup(ctx, field)
+		},
 	}
 	return fc, nil
 }
@@ -10039,6 +10234,29 @@ func (ec *executionContext) fieldContext_PullRequest_milestone(_ context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _PullRequest_isInMergeQueue(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequest) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequest_isInMergeQueue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsInMergeQueue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequest_isInMergeQueue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequest", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
 func (ec *executionContext) _PullRequest_commits(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequest) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11704,6 +11922,84 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _ReactingUserConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.ReactingUserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReactingUserConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ReactingUserConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ReactingUserConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ReactionGroup_content(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.ReactionGroup) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReactionGroup_content(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Content, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.ReactionContent) graphql.Marshaler {
+			return ec.marshalNReactionContent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionContent(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ReactionGroup_content(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ReactionGroup", field, false, false, errors.New("field of type ReactionContent does not have child fields"))
+}
+
+func (ec *executionContext) _ReactionGroup_users(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.ReactionGroup) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReactionGroup_users(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Users, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.ReactingUserConnection) graphql.Marshaler {
+			return ec.marshalNReactingUserConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactingUserConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ReactionGroup_users(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReactionGroup",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ReactingUserConnection(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Ref_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Ref) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12536,6 +12832,121 @@ func (ec *executionContext) fieldContext_Repository_owner(_ context.Context, fie
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Repository_viewerPermission(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_viewerPermission(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Repository().ViewerPermission(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryPermission) graphql.Marshaler {
+			return ec.marshalORepositoryPermission2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryPermission(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_viewerPermission(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, true, true, errors.New("field of type RepositoryPermission does not have child fields"))
+}
+
+func (ec *executionContext) _Repository_autoMergeAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_autoMergeAllowed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoMergeAllowed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_autoMergeAllowed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Repository_mergeCommitAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_mergeCommitAllowed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MergeCommitAllowed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_mergeCommitAllowed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Repository_squashMergeAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_squashMergeAllowed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SquashMergeAllowed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_squashMergeAllowed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Repository_rebaseMergeAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_rebaseMergeAllowed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RebaseMergeAllowed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_rebaseMergeAllowed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _Repository_issue(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
@@ -17269,6 +17680,11 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "reactionGroups":
+			out.Values[i] = ec._Issue_reactionGroups(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -18313,6 +18729,11 @@ func (ec *executionContext) _PullRequest(ctx context.Context, sel ast.SelectionS
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "isInMergeQueue":
+			out.Values[i] = ec._PullRequest_isInMergeQueue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "commits":
 			field := field
 
@@ -19416,6 +19837,89 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
+var reactingUserConnectionImplementors = []string{"ReactingUserConnection"}
+
+func (ec *executionContext) _ReactingUserConnection(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.ReactingUserConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, reactingUserConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ReactingUserConnection")
+		case "totalCount":
+			out.Values[i] = ec._ReactingUserConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var reactionGroupImplementors = []string{"ReactionGroup"}
+
+func (ec *executionContext) _ReactionGroup(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.ReactionGroup) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, reactionGroupImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ReactionGroup")
+		case "content":
+			out.Values[i] = ec._ReactionGroup_content(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "users":
+			out.Values[i] = ec._ReactionGroup_users(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var refImplementors = []string{"Ref"}
 
 func (ec *executionContext) _Ref(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Ref) graphql.Marshaler {
@@ -19807,6 +20311,59 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "viewerPermission":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Repository_viewerPermission(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "autoMergeAllowed":
+			out.Values[i] = ec._Repository_autoMergeAllowed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "mergeCommitAllowed":
+			out.Values[i] = ec._Repository_mergeCommitAllowed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "squashMergeAllowed":
+			out.Values[i] = ec._Repository_squashMergeAllowed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "rebaseMergeAllowed":
+			out.Values[i] = ec._Repository_rebaseMergeAllowed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "issue":
 			field := field
 
@@ -21279,6 +21836,59 @@ func (ec *executionContext) marshalNPullRequestState2githubᚗcomᚋtamndᚋgith
 	return res
 }
 
+func (ec *executionContext) marshalNReactingUserConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactingUserConnection(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ReactingUserConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ReactingUserConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNReactionContent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionContent(ctx context.Context, v any) (gqlmodel.ReactionContent, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.ReactionContent(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNReactionContent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionContent(ctx context.Context, sel ast.SelectionSet, v gqlmodel.ReactionContent) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNReactionGroup2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroupᚄ(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.ReactionGroup) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNReactionGroup2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroup(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNReactionGroup2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐReactionGroup(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.ReactionGroup) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ReactionGroup(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNRemoveAssigneesFromAssignableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveAssigneesFromAssignableInput(ctx context.Context, v any) (RemoveAssigneesFromAssignableInput, error) {
 	res, err := ec.unmarshalInputRemoveAssigneesFromAssignableInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22375,6 +22985,25 @@ func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋtamndᚋgithome
 		return graphql.Null
 	}
 	return ec._Repository(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalORepositoryPermission2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryPermission(ctx context.Context, v any) (*gqlmodel.RepositoryPermission, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.RepositoryPermission(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalORepositoryPermission2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryPermission(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.RepositoryPermission) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
 }
 
 func (ec *executionContext) marshalORequestReviewsPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRequestReviewsPayload(ctx context.Context, sel ast.SelectionSet, v *RequestReviewsPayload) graphql.Marshaler {

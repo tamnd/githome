@@ -55,7 +55,8 @@ type Issue struct {
 	Labels      *LabelConnection  // the attached labels (resolved by dataloader)
 	Assignees   *UserConnection   // the assignees (resolved on demand)
 	Milestone   *Milestone        // the milestone (resolved on demand)
-	Comments    *IssueCommentConnection
+	Comments       *IssueCommentConnection
+	ReactionGroups []*ReactionGroup
 
 	// RepoOwner and RepoName carry the repository coordinates so the comments
 	// field resolver can page the issue's comments. They are not part of the
@@ -123,6 +124,31 @@ type IssueCommentConnection struct {
 	Nodes      []*IssueComment
 	TotalCount int32
 }
+
+// ReactionGroup aggregates one reaction emoji and the users who reacted.
+type ReactionGroup struct {
+	Content ReactionContent
+	Users   *ReactingUserConnection
+}
+
+// ReactingUserConnection is the connection over users who used a reaction.
+type ReactingUserConnection struct {
+	TotalCount int32
+}
+
+// ReactionContent is the emoji a reaction carries.
+type ReactionContent string
+
+const (
+	ReactionContentThumbsUp   ReactionContent = "THUMBS_UP"
+	ReactionContentThumbsDown ReactionContent = "THUMBS_DOWN"
+	ReactionContentLaugh      ReactionContent = "LAUGH"
+	ReactionContentHooray     ReactionContent = "HOORAY"
+	ReactionContentConfused   ReactionContent = "CONFUSED"
+	ReactionContentHeart      ReactionContent = "HEART"
+	ReactionContentRocket     ReactionContent = "ROCKET"
+	ReactionContentEyes       ReactionContent = "EYES"
+)
 
 // IsLabelableNode marks Issue as a member of the LabelableNode union type.
 func (Issue) IsLabelableNode() {}

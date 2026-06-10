@@ -98,6 +98,7 @@ type PullRequest struct {
 	Milestone        *Milestone       // resolved on demand
 	BaseRef          *Ref             // resolved on demand (carries the Ref node ID)
 	HeadRef          *Ref             // resolved on demand (carries the Ref node ID)
+	IsInMergeQueue   bool             // always false; Githome has no merge queue
 
 	// RepoOwner and RepoName carry the repository coordinates so the files and
 	// commits field resolvers can read them through the domain. They are not part

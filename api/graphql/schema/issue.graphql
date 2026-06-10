@@ -46,6 +46,9 @@ type Issue {
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
   comments(first: Int, after: String): IssueCommentConnection!
+  # reactionGroups aggregates emoji reactions on the issue. Githome does not store
+  # reactions; always returns an empty list.
+  reactionGroups: [ReactionGroup!]!
 }
 
 # Milestone is a repository milestone.
@@ -128,6 +131,29 @@ type IssueCommentConnection {
 type IssueCommentEdge {
   cursor: String!
   node: IssueComment
+}
+
+# ReactionGroup aggregates one reaction emoji and the users who used it.
+type ReactionGroup {
+  content: ReactionContent!
+  users: ReactingUserConnection!
+}
+
+# ReactingUserConnection is the connection over users who reacted.
+type ReactingUserConnection {
+  totalCount: Int!
+}
+
+# ReactionContent is the emoji a reaction carries.
+enum ReactionContent {
+  THUMBS_UP
+  THUMBS_DOWN
+  LAUGH
+  HOORAY
+  CONFUSED
+  HEART
+  ROCKET
+  EYES
 }
 
 # Mutation is the GraphQL write root. gh issue create, comment, and close send

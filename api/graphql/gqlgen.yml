@@ -86,6 +86,9 @@ models:
         resolver: true
       licenseInfo:
         resolver: true
+      # viewerPermission is computed from the viewer's relationship to the repo.
+      viewerPermission:
+        resolver: true
   User:
     model: github.com/tamnd/githome/presenter/gqlmodel.User
   Commit:
@@ -138,6 +141,10 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestReviewEvent
   DiffSide:
     model: github.com/tamnd/githome/presenter/gqlmodel.DiffSide
+  RepositoryPermission:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryPermission
+  ReactionContent:
+    model: github.com/tamnd/githome/presenter/gqlmodel.ReactionContent
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int32

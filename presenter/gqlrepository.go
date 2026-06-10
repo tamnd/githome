@@ -29,10 +29,14 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		HomepageURL:      gqlHomepageURL(r.Homepage),
 		CreatedAt:        gqlmodel.NewDateTime(r.CreatedAt),
 		UpdatedAt:        gqlmodel.NewDateTime(r.UpdatedAt),
-		URL:              gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
-		SSHURL:           gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
-		RepoOwner:        r.Owner.Login,
-		RepoName:         r.Name,
+		URL:                gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
+		SSHURL:             gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
+		RepoOwner:          r.Owner.Login,
+		RepoName:           r.Name,
+		AutoMergeAllowed:   false,
+		MergeCommitAllowed: true,
+		SquashMergeAllowed: true,
+		RebaseMergeAllowed: true,
 	}
 	if r.PushedAt != nil {
 		pushed := gqlmodel.NewDateTime(*r.PushedAt)

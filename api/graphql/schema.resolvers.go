@@ -113,6 +113,21 @@ func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository
 	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
 }
 
+// ViewerPermission is the resolver for the viewerPermission field. Returns ADMIN
+// when the viewer owns the repository (Githome's only write role today) and READ
+// for every other viewer, including anonymous ones.
+func (r *repositoryResolver) ViewerPermission(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryPermission, error) {
+	viewer := viewerID(ctx)
+	if viewer != 0 {
+		if _, err := r.Repos.AuthorizeWrite(ctx, viewer, obj.RepoOwner, obj.RepoName); err == nil {
+			v := gqlmodel.RepositoryPermissionAdmin
+			return &v, nil
+		}
+	}
+	v := gqlmodel.RepositoryPermissionRead
+	return &v, nil
+}
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
