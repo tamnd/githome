@@ -6,6 +6,12 @@ scalar DateTime
 scalar URI
 scalar GitObjectID
 
+# Node is the interface every object with a node ID implements. Clients use
+# node(id:) and nodes(ids:) to look up objects by their opaque IDs.
+interface Node {
+  id: ID!
+}
+
 type Query {
   # repository looks up a single repository by its owner login and name. It is
   # null when the repository does not exist or the viewer cannot see it.
@@ -14,10 +20,24 @@ type Query {
   viewer: User!
   # user looks up a user by login.
   user(login: String!): User
+  # repositoryOwner looks up a user or organization by login. Returns null when
+  # no matching owner exists.
+  repositoryOwner(login: String!): RepositoryOwner
+  # node looks up any object by its opaque node ID. Returns null when the ID
+  # cannot be resolved or the viewer cannot see the object.
+  node(id: ID!): Node
+  # nodes looks up a list of objects by their opaque node IDs. Each element is
+  # null when the ID cannot be resolved or the viewer cannot see the object.
+  nodes(ids: [ID!]!): [Node]!
+  # rateLimit returns the current rate-limit state for the authenticated user.
+  rateLimit: RateLimit
+  # search returns results matching a query string across repositories, issues,
+  # pull requests, and users.
+  search(query: String!, type: SearchType!, first: Int, after: String): SearchResultItemConnection!
 }
 
 # Repository is a git repository.
-type Repository {
+type Repository implements Node {
   id: ID!
   name: String!
   nameWithOwner: String!
@@ -36,6 +56,19 @@ type Repository {
   pushedAt: DateTime
   url: URI!
   sshUrl: URI!
+  # httpsCloneUrl is the HTTPS clone URL for the repository.
+  httpsCloneUrl: URI!
+  # viewerPermission is the viewer's effective permission on the repository.
+  viewerPermission: RepositoryPermission
+  # autoMergeAllowed is whether auto-merge can be enabled on pull requests in
+  # this repository. Githome always returns true.
+  autoMergeAllowed: Boolean!
+  # mergeCommitAllowed is whether merge commits are allowed in pull requests.
+  mergeCommitAllowed: Boolean!
+  # squashMergeAllowed is whether squash merges are allowed in pull requests.
+  squashMergeAllowed: Boolean!
+  # rebaseMergeAllowed is whether rebase merges are allowed in pull requests.
+  rebaseMergeAllowed: Boolean!
   # ref looks up a single ref by its qualified name, e.g. "refs/heads/main".
   # Returns null when the ref does not exist.
   ref(qualifiedName: String!): Ref
@@ -45,11 +78,72 @@ type Repository {
   owner: RepositoryOwner!
 }
 
+# RepositoryPermission is the viewer's effective permission on a repository.
+enum RepositoryPermission {
+  ADMIN
+  MAINTAIN
+  WRITE
+  TRIAGE
+  READ
+}
+
 # RepositoryOwner is the owner of a repository, either a User or Organization.
-type RepositoryOwner {
+type RepositoryOwner implements Node {
+  id: ID!
   login: String!
   url: URI!
   avatarUrl: URI!
+  # repositories lists the repositories owned by this owner.
+  repositories(
+    first: Int
+    after: String
+    ownerAffiliations: [RepositoryAffiliation!]
+    isArchived: Boolean
+    isFork: Boolean
+    privacy: RepositoryPrivacy
+    orderBy: RepositoryOrder
+  ): RepositoryConnection!
+}
+
+# RepositoryAffiliation is the viewer's relationship to a repository.
+enum RepositoryAffiliation {
+  OWNER
+  COLLABORATOR
+  ORGANIZATION_MEMBER
+}
+
+# RepositoryPrivacy is the visibility of a repository.
+enum RepositoryPrivacy {
+  PUBLIC
+  PRIVATE
+}
+
+# RepositoryOrderField is the field to order repositories by.
+enum RepositoryOrderField {
+  CREATED_AT
+  UPDATED_AT
+  PUSHED_AT
+  NAME
+  STARGAZERS
+}
+
+# OrderDirection is the direction to order results in.
+enum OrderDirection {
+  ASC
+  DESC
+}
+
+# RepositoryOrder specifies how to order repositories.
+input RepositoryOrder {
+  field: RepositoryOrderField!
+  direction: OrderDirection!
+}
+
+# RepositoryConnection is the Relay connection over a set of repositories.
+type RepositoryConnection {
+  nodes: [Repository]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 # Language is a programming language detected in a repository.
@@ -64,7 +158,7 @@ type License {
 }
 
 # User is a GitHub user account.
-type User {
+type User implements Node {
   id: ID!
   login: String!
   name: String
@@ -74,11 +168,21 @@ type User {
   avatarUrl: URI!
   createdAt: DateTime!
   updatedAt: DateTime!
+  # repositories lists the repositories owned by this user.
+  repositories(
+    first: Int
+    after: String
+    ownerAffiliations: [RepositoryAffiliation!]
+    isArchived: Boolean
+    isFork: Boolean
+    privacy: RepositoryPrivacy
+    orderBy: RepositoryOrder
+  ): RepositoryConnection!
 }
 
 # Ref is a git reference: a branch or a tag. The id field carries the opaque
 # node ID clients pass to deleteRef.
-type Ref {
+type Ref implements Node {
   id: ID!
   name: String!
   target: GitObject
@@ -88,4 +192,35 @@ type Ref {
 # GitObject is a git object addressed by its SHA.
 type GitObject {
   oid: GitObjectID!
+}
+
+# RateLimit is the current rate-limit state for the viewer.
+type RateLimit {
+  limit: Int!
+  cost: Int!
+  remaining: Int!
+  resetAt: DateTime!
+  nodeCount: Int!
+  used: Int!
+}
+
+# SearchType is the category of object to search.
+enum SearchType {
+  ISSUE
+  REPOSITORY
+  USER
+  DISCUSSION
+}
+
+# SearchResultItem is a single result in a search.
+union SearchResultItem = Repository | Issue | PullRequest | User
+
+# SearchResultItemConnection is the Relay connection over search results.
+type SearchResultItemConnection {
+  nodes: [SearchResultItem]
+  pageInfo: PageInfo!
+  issueCount: Int!
+  repositoryCount: Int!
+  userCount: Int!
+  wikiCount: Int!
 }

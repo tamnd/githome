@@ -61,6 +61,16 @@ func (f *fakeRepoStore) RepoByDBID(_ context.Context, dbID int64) (*store.RepoRo
 	return nil, store.ErrNotFound
 }
 
+func (f *fakeRepoStore) ReposByOwner(_ context.Context, ownerPK int64) ([]*store.RepoRow, error) {
+	var out []*store.RepoRow
+	for _, r := range f.repos {
+		if r.OwnerPK == ownerPK {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeRepoStore) UserByPK(_ context.Context, pk int64) (*store.UserRow, error) {
 	u, ok := f.users[pk]
 	if !ok {

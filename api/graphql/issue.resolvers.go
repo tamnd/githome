@@ -33,7 +33,7 @@ func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmo
 // Labels is the resolver for the labels field. It loads the issue's labels
 // through the per-request label dataloader so that concurrent nested field
 // resolutions batch into one label query per request.
-func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
+func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error) {
 	l := loadersFrom(ctx)
 	if l == nil {
 		return obj.Labels, nil // fallback: loaders not wired (tests)
@@ -47,7 +47,7 @@ func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, _ *int3
 
 // Assignees is the resolver for the assignees field. GQLIssue fills the slice
 // eagerly, so this resolver returns the pre-loaded connection directly.
-func (r *issueResolver) Assignees(_ context.Context, obj *gqlmodel.Issue, _ *int32, _ *string) (*gqlmodel.UserConnection, error) {
+func (r *issueResolver) Assignees(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.UserConnection, error) {
 	if obj.Assignees != nil {
 		return obj.Assignees, nil
 	}
@@ -56,7 +56,7 @@ func (r *issueResolver) Assignees(_ context.Context, obj *gqlmodel.Issue, _ *int
 
 // Milestone is the resolver for the milestone field. GQLIssue fills the
 // milestone eagerly, so this resolver returns the pre-loaded value directly.
-func (r *issueResolver) Milestone(_ context.Context, obj *gqlmodel.Issue) (*gqlmodel.Milestone, error) {
+func (r *issueResolver) Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Milestone, error) {
 	return obj.Milestone, nil
 }
 
@@ -80,6 +80,12 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 		total = obj.Comments.TotalCount
 	}
 	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
+}
+
+// ReactionGroups is the resolver for the reactionGroups field. Githome does not
+// track emoji reactions, so this always returns an empty slice.
+func (r *issueResolver) ReactionGroups(ctx context.Context, obj *gqlmodel.Issue) ([]*gqlmodel.ReactionGroup, error) {
+	return []*gqlmodel.ReactionGroup{}, nil
 }
 
 // CreateIssue is the resolver for the createIssue field. It opens an issue on the

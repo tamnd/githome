@@ -63,6 +63,14 @@ func (s *Store) PendingReviewFor(ctx context.Context, pullPK, userPK int64) (*Re
 	return scanReview(s.db.QueryRowContext(ctx, q, pullPK, userPK))
 }
 
+// DeleteReview hard-deletes a pending review by primary key. Only pending
+// (PENDING state) reviews may be deleted; submitted reviews are immutable.
+func (s *Store) DeleteReview(ctx context.Context, pk int64) error {
+	q := s.rebind(`DELETE FROM pull_request_reviews WHERE pk = ? AND state = 'PENDING'`)
+	_, err := s.db.ExecContext(ctx, q, pk)
+	return err
+}
+
 // ListReviews returns a pull request's submitted reviews in chronological order.
 // Pending drafts are excluded: they are private to their author until submitted.
 func (s *Store) ListReviews(ctx context.Context, pullPK int64) ([]ReviewRow, error) {

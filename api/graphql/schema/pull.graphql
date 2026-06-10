@@ -21,7 +21,7 @@ extend type Repository {
 }
 
 # PullRequest is a repository pull request.
-type PullRequest {
+type PullRequest implements Node {
   id: ID!
   number: Int!
   title: String!
@@ -51,10 +51,20 @@ type PullRequest {
   labels(first: Int, after: String): LabelConnection
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
+  # autoMergeRequest is the auto-merge configuration when enabled, null otherwise.
+  autoMergeRequest: AutoMergeRequest
+  # isInMergeQueue is whether the pull request is queued to merge. Githome does
+  # not implement a merge queue, so this is always false.
+  isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
   commits(first: Int, after: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
   files(first: Int, after: String): PullRequestChangedFileConnection!
+}
+
+# AutoMergeRequest is the auto-merge configuration attached to a pull request.
+type AutoMergeRequest {
+  mergeMethod: PullRequestMergeMethod!
 }
 
 # PullRequestState is whether a pull request is open, closed, or merged.
@@ -159,6 +169,8 @@ extend type Mutation {
   convertPullRequestToDraft(input: ConvertPullRequestToDraftInput!): ConvertPullRequestToDraftPayload
   # markPullRequestReadyForReview marks a pull request ready for review.
   markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
+  # disablePullRequestAutoMerge disables auto-merge on a pull request.
+  disablePullRequestAutoMerge(input: DisablePullRequestAutoMergeInput!): DisablePullRequestAutoMergePayload
 }
 
 input CreatePullRequestInput {
@@ -254,6 +266,16 @@ input MarkPullRequestReadyForReviewInput {
 }
 
 type MarkPullRequestReadyForReviewPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input DisablePullRequestAutoMergeInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type DisablePullRequestAutoMergePayload {
   pullRequest: PullRequest
   clientMutationId: String
 }

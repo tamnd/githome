@@ -36,26 +36,53 @@ type Actor struct {
 	AvatarURL URI    // the actor's avatar URL
 }
 
+// ReactionContent is the GraphQL ReactionContent enum.
+type ReactionContent string
+
+// The ReactionContent values.
+const (
+	ReactionContentThumbsUp   ReactionContent = "THUMBS_UP"
+	ReactionContentThumbsDown ReactionContent = "THUMBS_DOWN"
+	ReactionContentLaugh      ReactionContent = "LAUGH"
+	ReactionContentHooray     ReactionContent = "HOORAY"
+	ReactionContentConfused   ReactionContent = "CONFUSED"
+	ReactionContentHeart      ReactionContent = "HEART"
+	ReactionContentRocket     ReactionContent = "ROCKET"
+	ReactionContentEyes       ReactionContent = "EYES"
+)
+
+// ReactingUserConnection is the slim connection gh reads for reaction counts.
+type ReactingUserConnection struct {
+	TotalCount int32
+}
+
+// ReactionGroup summarises how many users reacted with a given emoji on an issue.
+type ReactionGroup struct {
+	Content ReactionContent
+	Users   ReactingUserConnection
+}
+
 // Issue is the GraphQL Issue object, reduced to the fields gh issue view and gh
 // issue list select.
 type Issue struct {
-	ID          string            // the Issue node ID
-	Number      int32             // the per-repository issue number
-	Title       string            // the issue title
-	Body        string            // the issue body, empty string when unset
-	State       IssueState        // OPEN or CLOSED
-	StateReason *IssueStateReason // null until the issue has been closed
-	URL         URI               // the issue's HTML URL
-	Locked      bool              // whether the conversation is locked
-	Closed      bool              // whether the issue is closed
-	Author      *Actor            // null for a ghost author (resolved by dataloader)
-	CreatedAt   DateTime          // creation instant
-	UpdatedAt   DateTime          // last-update instant
-	ClosedAt    *DateTime         // null while open
-	Labels      *LabelConnection  // the attached labels (resolved by dataloader)
-	Assignees   *UserConnection   // the assignees (resolved on demand)
-	Milestone   *Milestone        // the milestone (resolved on demand)
-	Comments    *IssueCommentConnection
+	ID             string            // the Issue node ID
+	Number         int32             // the per-repository issue number
+	Title          string            // the issue title
+	Body           string            // the issue body, empty string when unset
+	State          IssueState        // OPEN or CLOSED
+	StateReason    *IssueStateReason // null until the issue has been closed
+	URL            URI               // the issue's HTML URL
+	Locked         bool              // whether the conversation is locked
+	Closed         bool              // whether the issue is closed
+	Author         *Actor            // null for a ghost author (resolved by dataloader)
+	CreatedAt      DateTime          // creation instant
+	UpdatedAt      DateTime          // last-update instant
+	ClosedAt       *DateTime         // null while open
+	Labels         *LabelConnection  // the attached labels (resolved by dataloader)
+	Assignees      *UserConnection   // the assignees (resolved on demand)
+	Milestone      *Milestone        // the milestone (resolved on demand)
+	Comments       *IssueCommentConnection
+	ReactionGroups []ReactionGroup // emoji reaction counts; always non-nil (empty when none)
 
 	// RepoOwner and RepoName carry the repository coordinates so the comments
 	// field resolver can page the issue's comments. They are not part of the
@@ -100,6 +127,12 @@ type Label struct {
 	Description *string // null when unset
 }
 
+// IsNode marks Label as implementing the Node interface.
+func (Label) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (l Label) GetID() string { return l.ID }
+
 // LabelConnection is the connection over an issue's or repository's labels. The
 // issue documents read it as nodes plus totalCount, so the page-info and edges a
 // full connection carries are added when a paginated label query needs them.
@@ -124,8 +157,17 @@ type IssueCommentConnection struct {
 	TotalCount int32
 }
 
+// IsNode marks Issue as implementing the Node interface.
+func (Issue) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (i Issue) GetID() string { return i.ID }
+
 // IsLabelableNode marks Issue as a member of the LabelableNode union type.
 func (Issue) IsLabelableNode() {}
 
 // IsAssignableNode marks Issue as a member of the AssignableNode union type.
 func (Issue) IsAssignableNode() {}
+
+// IsSearchResultItem marks Issue as a member of the SearchResultItem union.
+func (Issue) IsSearchResultItem() {}

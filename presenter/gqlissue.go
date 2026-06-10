@@ -28,9 +28,10 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		UpdatedAt: gqlmodel.NewDateTime(iss.UpdatedAt),
 		Labels:    b.gqlLabelConnection(owner, repo, iss.Labels, format),
 		Assignees: b.GQLUserConnection(iss.Assignees, format),
-		Milestone: b.GQLMilestone(owner, repo, iss.Milestone, format),
-		Comments:  &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
-		RepoOwner: owner,
+		Milestone:      b.GQLMilestone(owner, repo, iss.Milestone, format),
+		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount)},
+		ReactionGroups: []gqlmodel.ReactionGroup{}, // Githome does not store reactions
+		RepoOwner:      owner,
 		RepoName:  repo,
 		PK:        iss.PK,
 		UserPK:    iss.UserPK,

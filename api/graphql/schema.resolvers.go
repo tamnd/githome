@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/auth"
@@ -71,6 +72,104 @@ func (r *queryResolver) User(ctx context.Context, login string) (*gqlmodel.User,
 	return r.URLs.GQLUser(u, r.NodeFormat), nil
 }
 
+// RepositoryOwner is the resolver for the repositoryOwner field. It looks up
+// the user by login and returns a RepositoryOwner view, or null when the login
+// does not exist (matching GitHub's behavior).
+func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (*gqlmodel.RepositoryOwner, error) {
+	u, err := r.Users.ByLogin(ctx, login)
+	if errors.Is(err, domain.ErrUserNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
+}
+
+// Node is the resolver for the node(id) field. It decodes the opaque node ID,
+// dispatches to the matching domain service, and returns the node or null when
+// the id does not resolve to a live object.
+func (r *queryResolver) Node(ctx context.Context, id string) (generated.Node, error) {
+	node, err := r.resolveNode(ctx, id)
+	if err != nil || node == nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// Nodes is the resolver for the nodes(ids) field. It resolves each id
+// independently and returns null in each slot that does not resolve.
+func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.Node, error) {
+	out := make([]generated.Node, len(ids))
+	for i, id := range ids {
+		node, err := r.resolveNode(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = node
+	}
+	return out, nil
+}
+
+// RateLimit is the resolver for the rateLimit field. Githome does not enforce
+// API rate limits, so it returns a fixed stub that reports unlimited headroom.
+func (r *queryResolver) RateLimit(ctx context.Context) (*gqlmodel.RateLimit, error) {
+	return &gqlmodel.RateLimit{
+		Limit:     5000,
+		Cost:      1,
+		Remaining: 4999,
+		Used:      1,
+		NodeCount: 0,
+		ResetAt:   gqlmodel.NewDateTime(time.Now().UTC().Add(24 * time.Hour)),
+	}, nil
+}
+
+// Search is the resolver for the search field. It fans out to the domain search
+// service depending on the requested type. Only REPOSITORY and ISSUE are
+// implemented today; other types return an empty connection.
+func (r *queryResolver) Search(ctx context.Context, query string, typeArg generated.SearchType, first *int32, after *string) (*generated.SearchResultItemConnection, error) {
+	limit := int32(30)
+	if first != nil && *first > 0 {
+		limit = *first
+		if limit > 100 {
+			limit = 100
+		}
+	}
+	conn := &generated.SearchResultItemConnection{
+		PageInfo: &gqlmodel.PageInfo{},
+	}
+	switch typeArg {
+	case generated.SearchTypeRepository:
+		repos, total, err := r.SearchSvc.SearchRepositories(ctx, viewerID(ctx), query, "updated", "desc", 1, int(limit))
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		nodes := make([]generated.SearchResultItem, 0, len(repos))
+		for _, repo := range repos {
+			var branch *git.Branch
+			if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
+				branch = &b
+			}
+			out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+			nodes = append(nodes, out)
+		}
+		conn.Nodes = nodes
+		conn.RepositoryCount = int32(total)
+	case generated.SearchTypeIssue:
+		hits, total, err := r.SearchSvc.SearchIssues(ctx, viewerID(ctx), query, "created", "desc", 1, int(limit))
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		nodes := make([]generated.SearchResultItem, 0, len(hits))
+		for _, h := range hits {
+			nodes = append(nodes, r.URLs.GQLIssue(h.Repo.Owner.Login, h.Repo.Name, h.Issue, r.NodeFormat))
+		}
+		conn.Nodes = nodes
+		conn.IssueCount = int32(total)
+	}
+	return conn, nil
+}
+
 // Ref resolves a single reference in the repository by its fully qualified name
 // (refs/heads/main, refs/tags/v1.0.0). A missing or invalid ref resolves to
 // null, never an error, matching GitHub's behavior.
@@ -93,13 +192,13 @@ func (r *repositoryResolver) Ref(ctx context.Context, obj *gqlmodel.Repository, 
 
 // PrimaryLanguage returns the repository's primary programming language. Githome
 // does not track per-file language statistics, so this is always null.
-func (r *repositoryResolver) PrimaryLanguage(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.Language, error) {
+func (r *repositoryResolver) PrimaryLanguage(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Language, error) {
 	return nil, nil
 }
 
 // LicenseInfo returns the repository's license. Githome does not parse SPDX
 // identifiers from repository trees, so this is always null.
-func (r *repositoryResolver) LicenseInfo(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.License, error) {
+func (r *repositoryResolver) LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error) {
 	return nil, nil
 }
 
@@ -113,11 +212,33 @@ func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository
 	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
 }
 
+// Repositories is the resolver for the repositories field on RepositoryOwner.
+// It lists all visible repositories for the owner's login.
+func (r *repositoryOwnerResolver) Repositories(ctx context.Context, obj *gqlmodel.RepositoryOwner, first *int32, after *string, ownerAffiliations []generated.RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *generated.RepositoryPrivacy, orderBy *generated.RepositoryOrder) (*gqlmodel.RepositoryConnection, error) {
+	return r.listReposForLogin(ctx, obj.Login, first)
+}
+
+// Repositories is the resolver for the repositories field on User.
+// It lists all visible repositories for the user's login.
+func (r *userResolver) Repositories(ctx context.Context, obj *gqlmodel.User, first *int32, after *string, ownerAffiliations []generated.RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *generated.RepositoryPrivacy, orderBy *generated.RepositoryOrder) (*gqlmodel.RepositoryConnection, error) {
+	return r.listReposForLogin(ctx, obj.Login, first)
+}
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 // Repository returns generated.RepositoryResolver implementation.
 func (r *Resolver) Repository() generated.RepositoryResolver { return &repositoryResolver{r} }
 
+// RepositoryOwner returns generated.RepositoryOwnerResolver implementation.
+func (r *Resolver) RepositoryOwner() generated.RepositoryOwnerResolver {
+	return &repositoryOwnerResolver{r}
+}
+
+// User returns generated.UserResolver implementation.
+func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
+
 type queryResolver struct{ *Resolver }
 type repositoryResolver struct{ *Resolver }
+type repositoryOwnerResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }

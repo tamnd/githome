@@ -26,7 +26,7 @@ func (r *commitResolver) StatusCheckRollup(ctx context.Context, obj *gqlmodel.Co
 	if rollup.TotalCount == 0 {
 		return nil, nil
 	}
-	return presenter.GQLStatusCheckRollup(rollup), nil
+	return presenter.GQLStatusCheckRollupFor(rollup, obj.RepoOwner, obj.RepoName, r.NodeFormat), nil
 }
 
 // ResolveReviewThread is the resolver for the resolveReviewThread field. It marks
@@ -132,6 +132,84 @@ func (r *mutationResolver) SubmitPullRequestReview(ctx context.Context, input ge
 	}, nil
 }
 
+// DeletePullRequestReview is the resolver for the deletePullRequestReview field.
+// It deletes a pending review draft. Only the review author may delete their
+// own pending review.
+func (r *mutationResolver) DeletePullRequestReview(ctx context.Context, input generated.DeletePullRequestReviewInput) (*generated.DeletePullRequestReviewPayload, error) {
+	reviewDBID, err := reviewDBIDFromID(input.PullRequestReviewID)
+	if err != nil {
+		return nil, err
+	}
+	review, err := r.Reviews.DeleteReview(ctx, viewerID(ctx), reviewDBID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	owner, name, _, err := r.Reviews.ReviewRef(ctx, viewerID(ctx), reviewDBID)
+	if err != nil {
+		owner, name = "", ""
+	}
+	return &generated.DeletePullRequestReviewPayload{
+		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.NodeFormat),
+		ClientMutationID:  input.ClientMutationID,
+	}, nil
+}
+
+// AddPullRequestReviewComment is the resolver for the addPullRequestReviewComment
+// field. gh pr review --comment sends this mutation to add an inline comment to
+// an existing review or open a new single-comment review.
+func (r *mutationResolver) AddPullRequestReviewComment(ctx context.Context, input generated.AddPullRequestReviewCommentInput) (*generated.AddPullRequestReviewCommentPayload, error) {
+	var owner, name string
+	var number int64
+	if input.PullRequestID != nil {
+		o, n, num, err := r.prRefFromID(ctx, *input.PullRequestID)
+		if err != nil {
+			return nil, err
+		}
+		owner, name, number = o, n, num
+	} else if input.PullRequestReviewID != nil {
+		dbID, err := reviewDBIDFromID(*input.PullRequestReviewID)
+		if err != nil {
+			return nil, err
+		}
+		o, n, num, err := r.Reviews.ReviewRef(ctx, viewerID(ctx), dbID)
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		owner, name, number = o, n, num
+	} else {
+		return nil, errBadID
+	}
+	ci := domain.ReviewCommentInput{Body: input.Body}
+	if input.Path != nil {
+		ci.Path = *input.Path
+	}
+	if input.Side != nil {
+		ci.Side = string(*input.Side)
+	}
+	if input.Line != nil {
+		l := int64(*input.Line)
+		ci.Line = &l
+	}
+	if input.StartLine != nil {
+		sl := int64(*input.StartLine)
+		ci.StartLine = &sl
+	}
+	if input.Position != nil {
+		p := int64(*input.Position)
+		ci.Position = &p
+	}
+	comment, err := r.Reviews.CreateComment(ctx, viewerID(ctx), owner, name, number, ci)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	c := r.URLs.GQLReviewComment(owner, name, comment, r.NodeFormat)
+	return &generated.AddPullRequestReviewCommentPayload{
+		Comment:          c,
+		CommentEdge:      &generated.PullRequestReviewCommentEdge{Cursor: encodeCursor(0), Node: c},
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
 // ReviewDecision is the resolver for the reviewDecision field. It returns the
 // pull request's derived review decision, null when no submitted review blocks or
 // approves it.
@@ -163,7 +241,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 // Comments is the resolver for the comments field. The presenter already folded
 // the thread's comments into the connection on the parent thread, so the resolver
 // validates the page arguments and returns it.
-func (r *pullRequestReviewThreadResolver) Comments(_ context.Context, obj *gqlmodel.PullRequestReviewThread, first *int32, after *string) (*gqlmodel.PullRequestReviewCommentConnection, error) {
+func (r *pullRequestReviewThreadResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequestReviewThread, first *int32, after *string) (*gqlmodel.PullRequestReviewCommentConnection, error) {
 	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
 		return nil, err
 	}
@@ -173,9 +251,48 @@ func (r *pullRequestReviewThreadResolver) Comments(_ context.Context, obj *gqlmo
 	return &gqlmodel.PullRequestReviewCommentConnection{}, nil
 }
 
+// Contexts is the resolver for the contexts field. It re-fetches the full
+// rollup from the domain using the coordinates stored in the StatusCheckRollup
+// struct, then folds each check run and commit status into a union context node.
+func (r *statusCheckRollupResolver) Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*generated.StatusCheckRollupContextConnection, error) {
+	rollup, err := r.Checks.Rollup(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, obj.SHA)
+	if err != nil {
+		return &generated.StatusCheckRollupContextConnection{}, nil
+	}
+	limit := len(rollup.CheckRuns) + len(rollup.Statuses)
+	if first != nil && int(*first) < limit {
+		limit = int(*first)
+	}
+	nodes := make([]generated.StatusCheckRollupContext, 0, limit)
+	for _, cr := range rollup.CheckRuns {
+		if len(nodes) >= limit {
+			break
+		}
+		c := presenter.GQLCheckRun(cr, r.NodeFormat)
+		nodes = append(nodes, c)
+	}
+	for _, s := range rollup.Statuses {
+		if len(nodes) >= limit {
+			break
+		}
+		sc := presenter.GQLStatusContext(s)
+		nodes = append(nodes, sc)
+	}
+	return &generated.StatusCheckRollupContextConnection{
+		Nodes:      nodes,
+		TotalCount: int32(len(rollup.CheckRuns) + len(rollup.Statuses)),
+	}, nil
+}
+
 // PullRequestReviewThread returns generated.PullRequestReviewThreadResolver implementation.
 func (r *Resolver) PullRequestReviewThread() generated.PullRequestReviewThreadResolver {
 	return &pullRequestReviewThreadResolver{r}
 }
 
+// StatusCheckRollup returns generated.StatusCheckRollupResolver implementation.
+func (r *Resolver) StatusCheckRollup() generated.StatusCheckRollupResolver {
+	return &statusCheckRollupResolver{r}
+}
+
 type pullRequestReviewThreadResolver struct{ *Resolver }
+type statusCheckRollupResolver struct{ *Resolver }

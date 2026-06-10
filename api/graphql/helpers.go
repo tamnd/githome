@@ -15,10 +15,14 @@ import (
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
+
+// errBadID is returned when a node ID cannot be decoded.
+var errBadID = errors.New("invalid node ID")
 
 // branchProtectionRuleID is a placeholder node ID for branch protection rules.
 // Githome does not yet store rules, so we use a fixed sentinel rather than a
@@ -337,6 +341,102 @@ func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, 
 		return nil, mapErr(err)
 	}
 	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+}
+
+// resolveNode decodes a node ID and fetches the matching domain object,
+// returning a generated.Node or nil when the ID does not resolve.
+func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, error) {
+	kind, dbID, err := nodeid.Decode(id)
+	if err != nil {
+		return nil, nil
+	}
+	viewer := viewerID(ctx)
+	switch kind {
+	case nodeid.KindRepository:
+		repo, err := r.Repos.GetRepoByID(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		var branch *git.Branch
+		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
+			branch = &b
+		}
+		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		return out, nil
+	case nodeid.KindIssue:
+		owner, name, number, err := r.Issues.IssueRef(ctx, dbID)
+		if errors.Is(err, domain.ErrIssueNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		iss, err := r.Issues.GetIssue(ctx, viewer, owner, name, number)
+		if errors.Is(err, domain.ErrIssueNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+	case nodeid.KindPullRequest:
+		pr, err := r.Pulls.GetPRByID(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLPullRequest(pr.Repo.Owner.Login, pr.Repo.Name, pr, r.NodeFormat), nil
+	case nodeid.KindUser:
+		u, err := r.Users.Viewer(ctx, dbID)
+		if err != nil {
+			return nil, nil
+		}
+		return r.URLs.GQLUser(u, r.NodeFormat), nil
+	default:
+		return nil, nil
+	}
+}
+
+// listReposForLogin resolves a list of repositories for a user identified by
+// login, applying visibility rules for the viewer.
+func (r *Resolver) listReposForLogin(ctx context.Context, login string, first *int32) (*gqlmodel.RepositoryConnection, error) {
+	u, err := r.Users.ByLogin(ctx, login)
+	if errors.Is(err, domain.ErrUserNotFound) {
+		return &gqlmodel.RepositoryConnection{PageInfo: &gqlmodel.PageInfo{}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	repos, err := r.Repos.ListRepos(ctx, viewerID(ctx), u.ID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	limit := len(repos)
+	if first != nil && int(*first) < limit {
+		limit = int(*first)
+	}
+	nodes := make([]*gqlmodel.Repository, 0, limit)
+	for i, repo := range repos {
+		if i >= limit {
+			break
+		}
+		var branch *git.Branch
+		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
+			branch = &b
+		}
+		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		nodes = append(nodes, &out)
+	}
+	return &gqlmodel.RepositoryConnection{
+		Nodes:      nodes,
+		PageInfo:   &gqlmodel.PageInfo{},
+		TotalCount: int32(len(repos)),
+	}, nil
 }
 
 // gqlReview renders a domain review into the generated PullRequestReview wire type.

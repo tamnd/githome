@@ -1125,6 +1125,24 @@ func (s *IssueService) LabelNameByDBID(ctx context.Context, dbID int64) (string,
 	return row.Name, nil
 }
 
+// LabelRepoRef resolves a label by its public database ID and returns the
+// label name together with the owner login and repository name. Used by the
+// GraphQL deleteLabel and updateLabel mutations which receive a label node ID.
+func (s *IssueService) LabelRepoRef(ctx context.Context, dbID int64) (name, owner, repoName string, err error) {
+	row, err := s.store.GetLabelByDBID(ctx, dbID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", "", ErrLabelNotFound
+	}
+	if err != nil {
+		return "", "", "", err
+	}
+	repoRow, err := s.repos.GetRepoByPK(ctx, 0, row.RepoPK)
+	if err != nil {
+		return "", "", "", err
+	}
+	return row.Name, repoRow.Owner.Login, repoRow.Name, nil
+}
+
 // UserLoginByPK resolves a user's login by their internal primary key.
 func (s *IssueService) UserLoginByPK(ctx context.Context, pk int64) (string, error) {
 	row, err := s.store.UserByPK(ctx, pk)

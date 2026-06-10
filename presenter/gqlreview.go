@@ -68,9 +68,121 @@ func (b *URLBuilder) GQLReviewComment(owner, repo string, c *domain.ReviewCommen
 	}
 }
 
-// GQLStatusCheckRollup renders a domain rollup into the GraphQL shape.
-func GQLStatusCheckRollup(r *domain.StatusCheckRollup) *gqlmodel.StatusCheckRollup {
-	return &gqlmodel.StatusCheckRollup{State: rollupStatusState(r.State)}
+// GQLStatusCheckRollup renders a domain rollup into the GraphQL shape. The
+// contexts field is resolved lazily; the repo coordinates are embedded so the
+// contexts resolver can re-fetch the full rollup from the domain.
+func GQLStatusCheckRollup(r *domain.StatusCheckRollup, _ nodeid.Format) *gqlmodel.StatusCheckRollup {
+	return &gqlmodel.StatusCheckRollup{
+		State:     rollupStatusState(r.State),
+		RepoOwner: "", // caller fills via CommitWithRollup
+		RepoName:  "",
+		SHA:       r.SHA,
+	}
+}
+
+// GQLStatusCheckRollupFor is like GQLStatusCheckRollup but also carries the
+// repo coordinates the contexts resolver needs to re-fetch the full domain data.
+func GQLStatusCheckRollupFor(r *domain.StatusCheckRollup, owner, repo string, _ nodeid.Format) *gqlmodel.StatusCheckRollup {
+	return &gqlmodel.StatusCheckRollup{
+		State:     rollupStatusState(r.State),
+		RepoOwner: owner,
+		RepoName:  repo,
+		SHA:       r.SHA,
+	}
+}
+
+// GQLCheckRun renders a domain CheckRun into the GraphQL CheckRun shape.
+func GQLCheckRun(cr *domain.CheckRun, format nodeid.Format) gqlmodel.CheckRun {
+	return gqlCheckRun(cr, format)
+}
+
+// GQLStatusContext renders a domain CommitStatus into the GraphQL StatusContext shape.
+func GQLStatusContext(s *domain.CommitStatus) gqlmodel.StatusContext {
+	return gqlStatusContext(s)
+}
+
+// gqlCheckRun converts a domain CheckRun into the GraphQL rollup context shape.
+func gqlCheckRun(cr *domain.CheckRun, format nodeid.Format) gqlmodel.CheckRun {
+	out := gqlmodel.CheckRun{
+		ID:     nodeid.Encode(nodeid.KindCheckRun, cr.ID, format),
+		Name:   cr.Name,
+		Status: checkStatusState(cr.Status),
+		URL:    gqlmodel.URI(""),
+	}
+	if cr.DetailsURL != nil {
+		u := gqlmodel.URI(*cr.DetailsURL)
+		out.DetailsURL = &u
+		out.URL = u
+	}
+	if cr.Conclusion != nil {
+		c := checkConclusionState(*cr.Conclusion)
+		out.Conclusion = &c
+	}
+	if cr.StartedAt != nil {
+		dt := gqlmodel.NewDateTime(*cr.StartedAt)
+		out.StartedAt = &dt
+	}
+	if cr.CompletedAt != nil {
+		dt := gqlmodel.NewDateTime(*cr.CompletedAt)
+		out.CompletedAt = &dt
+	}
+	return out
+}
+
+// gqlStatusContext converts a domain CommitStatus into the GraphQL rollup context shape.
+func gqlStatusContext(s *domain.CommitStatus) gqlmodel.StatusContext {
+	out := gqlmodel.StatusContext{
+		Context: s.Context,
+		State:   rollupStatusState(s.State),
+	}
+	if s.TargetURL != nil {
+		u := gqlmodel.URI(*s.TargetURL)
+		out.TargetURL = &u
+	}
+	if s.Description != nil {
+		out.Description = s.Description
+	}
+	return out
+}
+
+// checkStatusState maps a domain check run status string to the GraphQL enum.
+func checkStatusState(status string) gqlmodel.CheckStatusState {
+	switch status {
+	case "queued":
+		return gqlmodel.CheckStatusStateQueued
+	case "in_progress":
+		return gqlmodel.CheckStatusStateInProgress
+	case "completed":
+		return gqlmodel.CheckStatusStateCompleted
+	case "waiting":
+		return gqlmodel.CheckStatusStateWaiting
+	default:
+		return gqlmodel.CheckStatusStatePending
+	}
+}
+
+// checkConclusionState maps a domain conclusion string to the GraphQL enum.
+func checkConclusionState(c string) gqlmodel.CheckConclusionState {
+	switch c {
+	case "action_required":
+		return gqlmodel.CheckConclusionStateActionRequired
+	case "timed_out":
+		return gqlmodel.CheckConclusionStateTimedOut
+	case "cancelled":
+		return gqlmodel.CheckConclusionStateCancelled
+	case "failure":
+		return gqlmodel.CheckConclusionStateFailure
+	case "success":
+		return gqlmodel.CheckConclusionStateSuccess
+	case "neutral":
+		return gqlmodel.CheckConclusionStateNeutral
+	case "skipped":
+		return gqlmodel.CheckConclusionStateSkipped
+	case "stale":
+		return gqlmodel.CheckConclusionStateStale
+	default:
+		return gqlmodel.CheckConclusionStateNeutral
+	}
 }
 
 // rollupStatusState maps a domain rollup state to the GraphQL enum, defaulting an

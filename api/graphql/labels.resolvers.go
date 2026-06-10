@@ -9,6 +9,8 @@ import (
 	"context"
 
 	"github.com/tamnd/githome/api/graphql/generated"
+	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
 )
 
 // AddLabelsToLabelable is the resolver for the addLabelsToLabelable field. gh
@@ -110,6 +112,72 @@ func (r *mutationResolver) RemoveAssigneesFromAssignable(ctx context.Context, in
 	}
 	return &generated.RemoveAssigneesFromAssignablePayload{
 		Assignable:       assignable,
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// CreateLabel is the resolver for the createLabel field. gh label create sends
+// this mutation to add a new label to a repository.
+func (r *mutationResolver) CreateLabel(ctx context.Context, input generated.CreateLabelInput) (*generated.CreateLabelPayload, error) {
+	repo, err := r.repoFromID(ctx, input.RepositoryID)
+	if err != nil {
+		return nil, err
+	}
+	in := domain.LabelInput{Name: input.Name, Color: input.Color, Description: input.Description}
+	label, err := r.Issues.CreateLabel(ctx, viewerID(ctx), repo.Owner.Login, repo.Name, in)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.CreateLabelPayload{
+		Label:            r.URLs.GQLLabel(label, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// DeleteLabel is the resolver for the deleteLabel field. gh label delete sends
+// this mutation to remove a label from a repository.
+func (r *mutationResolver) DeleteLabel(ctx context.Context, input generated.DeleteLabelInput) (*generated.DeleteLabelPayload, error) {
+	_, dbID, err := nodeid.Decode(input.ID)
+	if err != nil {
+		return nil, errBadID
+	}
+	name, owner, repoName, err := r.Issues.LabelRepoRef(ctx, dbID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	if err := r.Issues.DeleteLabel(ctx, viewerID(ctx), owner, repoName, name); err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.DeleteLabelPayload{ClientMutationID: input.ClientMutationID}, nil
+}
+
+// UpdateLabel is the resolver for the updateLabel field. gh label edit sends
+// this mutation to rename or recolor a label.
+func (r *mutationResolver) UpdateLabel(ctx context.Context, input generated.UpdateLabelInput) (*generated.UpdateLabelPayload, error) {
+	_, dbID, err := nodeid.Decode(input.ID)
+	if err != nil {
+		return nil, errBadID
+	}
+	current, owner, repoName, err := r.Issues.LabelRepoRef(ctx, dbID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	patch := domain.LabelInput{
+		Name:        current,
+		Description: input.Description,
+	}
+	if input.Name != nil {
+		patch.Name = *input.Name
+	}
+	if input.Color != nil {
+		patch.Color = *input.Color
+	}
+	label, err := r.Issues.UpdateLabel(ctx, viewerID(ctx), owner, repoName, current, patch)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UpdateLabelPayload{
+		Label:            r.URLs.GQLLabel(label, r.NodeFormat),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
