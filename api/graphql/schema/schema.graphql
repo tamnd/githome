@@ -26,8 +26,10 @@ type Repository {
   defaultBranchRef: Ref
 }
 
-# Ref is a git reference: a branch or a tag.
+# Ref is a git reference: a branch or a tag. The id field carries the opaque
+# node ID clients pass to deleteRef.
 type Ref {
+  id: ID!
   name: String!
   target: GitObject
 }

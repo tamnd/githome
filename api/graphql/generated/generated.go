@@ -47,9 +47,41 @@ type ComplexityRoot struct {
 		URL       func(childComplexity int) int
 	}
 
+	AddAssigneesToAssignablePayload struct {
+		Assignable       func(childComplexity int) int
+		ClientMutationID func(childComplexity int) int
+	}
+
 	AddCommentPayload struct {
 		ClientMutationID func(childComplexity int) int
 		CommentEdge      func(childComplexity int) int
+	}
+
+	AddLabelsToLabelablePayload struct {
+		ClientMutationID func(childComplexity int) int
+		Labelable        func(childComplexity int) int
+	}
+
+	AddPullRequestReviewPayload struct {
+		ClientMutationID  func(childComplexity int) int
+		PullRequestReview func(childComplexity int) int
+		ReviewEdge        func(childComplexity int) int
+	}
+
+	BranchProtectionRule struct {
+		AllowsDeletions              func(childComplexity int) int
+		AllowsForcePushes            func(childComplexity int) int
+		DismissesStaleReviews        func(childComplexity int) int
+		ID                           func(childComplexity int) int
+		IsAdminEnforced              func(childComplexity int) int
+		Pattern                      func(childComplexity int) int
+		RequiredApprovingReviewCount func(childComplexity int) int
+		RequiresApprovingReviews     func(childComplexity int) int
+		RequiresCodeOwnerReviews     func(childComplexity int) int
+		RequiresLinearHistory        func(childComplexity int) int
+		RequiresStatusChecks         func(childComplexity int) int
+		RequiresStrictStatusChecks   func(childComplexity int) int
+		RestrictsReviewDismissals    func(childComplexity int) int
 	}
 
 	CloseIssuePayload struct {
@@ -64,9 +96,38 @@ type ComplexityRoot struct {
 		StatusCheckRollup func(childComplexity int) int
 	}
 
+	CreateBranchProtectionRulePayload struct {
+		BranchProtectionRule func(childComplexity int) int
+		ClientMutationID     func(childComplexity int) int
+	}
+
 	CreateIssuePayload struct {
 		ClientMutationID func(childComplexity int) int
 		Issue            func(childComplexity int) int
+	}
+
+	CreatePullRequestPayload struct {
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
+	}
+
+	CreateRefPayload struct {
+		ClientMutationID func(childComplexity int) int
+		Ref              func(childComplexity int) int
+	}
+
+	DeleteBranchProtectionRulePayload struct {
+		ClientMutationID func(childComplexity int) int
+	}
+
+	DeleteRefPayload struct {
+		ClientMutationID func(childComplexity int) int
+	}
+
+	EnablePullRequestAutoMergePayload struct {
+		Actor            func(childComplexity int) int
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
 	}
 
 	GitObject struct {
@@ -134,13 +195,35 @@ type ComplexityRoot struct {
 		TotalCount func(childComplexity int) int
 	}
 
+	MergePullRequestPayload struct {
+		Actor            func(childComplexity int) int
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
+	}
+
 	Mutation struct {
-		AddComment            func(childComplexity int, input AddCommentInput) int
-		CloseIssue            func(childComplexity int, input CloseIssueInput) int
-		CreateIssue           func(childComplexity int, input CreateIssueInput) int
-		ReopenIssue           func(childComplexity int, input ReopenIssueInput) int
-		ResolveReviewThread   func(childComplexity int, input ResolveReviewThreadInput) int
-		UnresolveReviewThread func(childComplexity int, input UnresolveReviewThreadInput) int
+		AddAssigneesToAssignable      func(childComplexity int, input AddAssigneesToAssignableInput) int
+		AddComment                    func(childComplexity int, input AddCommentInput) int
+		AddLabelsToLabelable          func(childComplexity int, input AddLabelsToLabelableInput) int
+		AddPullRequestReview          func(childComplexity int, input AddPullRequestReviewInput) int
+		CloseIssue                    func(childComplexity int, input CloseIssueInput) int
+		CreateBranchProtectionRule    func(childComplexity int, input CreateBranchProtectionRuleInput) int
+		CreateIssue                   func(childComplexity int, input CreateIssueInput) int
+		CreatePullRequest             func(childComplexity int, input CreatePullRequestInput) int
+		CreateRef                     func(childComplexity int, input CreateRefInput) int
+		DeleteBranchProtectionRule    func(childComplexity int, input DeleteBranchProtectionRuleInput) int
+		DeleteRef                     func(childComplexity int, input DeleteRefInput) int
+		EnablePullRequestAutoMerge    func(childComplexity int, input EnablePullRequestAutoMergeInput) int
+		MergePullRequest              func(childComplexity int, input MergePullRequestInput) int
+		RemoveAssigneesFromAssignable func(childComplexity int, input RemoveAssigneesFromAssignableInput) int
+		RemoveLabelsFromLabelable     func(childComplexity int, input RemoveLabelsFromLabelableInput) int
+		ReopenIssue                   func(childComplexity int, input ReopenIssueInput) int
+		RequestReviews                func(childComplexity int, input RequestReviewsInput) int
+		ResolveReviewThread           func(childComplexity int, input ResolveReviewThreadInput) int
+		SubmitPullRequestReview       func(childComplexity int, input SubmitPullRequestReviewInput) int
+		UnresolveReviewThread         func(childComplexity int, input UnresolveReviewThreadInput) int
+		UpdateBranchProtectionRule    func(childComplexity int, input UpdateBranchProtectionRuleInput) int
+		UpdatePullRequest             func(childComplexity int, input UpdatePullRequestInput) int
 	}
 
 	PageInfo struct {
@@ -215,6 +298,15 @@ type ComplexityRoot struct {
 		Node   func(childComplexity int) int
 	}
 
+	PullRequestReview struct {
+		Author      func(childComplexity int) int
+		Body        func(childComplexity int) int
+		ID          func(childComplexity int) int
+		State       func(childComplexity int) int
+		SubmittedAt func(childComplexity int) int
+		URL         func(childComplexity int) int
+	}
+
 	PullRequestReviewComment struct {
 		Author    func(childComplexity int) int
 		Body      func(childComplexity int) int
@@ -228,6 +320,11 @@ type ComplexityRoot struct {
 	PullRequestReviewCommentConnection struct {
 		Nodes      func(childComplexity int) int
 		TotalCount func(childComplexity int) int
+	}
+
+	PullRequestReviewEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	PullRequestReviewThread struct {
@@ -249,8 +346,19 @@ type ComplexityRoot struct {
 	}
 
 	Ref struct {
+		ID     func(childComplexity int) int
 		Name   func(childComplexity int) int
 		Target func(childComplexity int) int
+	}
+
+	RemoveAssigneesFromAssignablePayload struct {
+		Assignable       func(childComplexity int) int
+		ClientMutationID func(childComplexity int) int
+	}
+
+	RemoveLabelsFromLabelablePayload struct {
+		ClientMutationID func(childComplexity int) int
+		Labelable        func(childComplexity int) int
 	}
 
 	ReopenIssuePayload struct {
@@ -274,6 +382,11 @@ type ComplexityRoot struct {
 		URL              func(childComplexity int) int
 	}
 
+	RequestReviewsPayload struct {
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
+	}
+
 	ResolveReviewThreadPayload struct {
 		ClientMutationID func(childComplexity int) int
 		Thread           func(childComplexity int) int
@@ -283,9 +396,24 @@ type ComplexityRoot struct {
 		State func(childComplexity int) int
 	}
 
+	SubmitPullRequestReviewPayload struct {
+		ClientMutationID  func(childComplexity int) int
+		PullRequestReview func(childComplexity int) int
+	}
+
 	UnresolveReviewThreadPayload struct {
 		ClientMutationID func(childComplexity int) int
 		Thread           func(childComplexity int) int
+	}
+
+	UpdateBranchProtectionRulePayload struct {
+		BranchProtectionRule func(childComplexity int) int
+		ClientMutationID     func(childComplexity int) int
+	}
+
+	UpdatePullRequestPayload struct {
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
 	}
 }
 
@@ -303,8 +431,24 @@ type MutationResolver interface {
 	AddComment(ctx context.Context, input AddCommentInput) (*AddCommentPayload, error)
 	CloseIssue(ctx context.Context, input CloseIssueInput) (*CloseIssuePayload, error)
 	ReopenIssue(ctx context.Context, input ReopenIssueInput) (*ReopenIssuePayload, error)
+	AddLabelsToLabelable(ctx context.Context, input AddLabelsToLabelableInput) (*AddLabelsToLabelablePayload, error)
+	RemoveLabelsFromLabelable(ctx context.Context, input RemoveLabelsFromLabelableInput) (*RemoveLabelsFromLabelablePayload, error)
+	AddAssigneesToAssignable(ctx context.Context, input AddAssigneesToAssignableInput) (*AddAssigneesToAssignablePayload, error)
+	RemoveAssigneesFromAssignable(ctx context.Context, input RemoveAssigneesFromAssignableInput) (*RemoveAssigneesFromAssignablePayload, error)
+	CreatePullRequest(ctx context.Context, input CreatePullRequestInput) (*CreatePullRequestPayload, error)
+	MergePullRequest(ctx context.Context, input MergePullRequestInput) (*MergePullRequestPayload, error)
+	EnablePullRequestAutoMerge(ctx context.Context, input EnablePullRequestAutoMergeInput) (*EnablePullRequestAutoMergePayload, error)
+	UpdatePullRequest(ctx context.Context, input UpdatePullRequestInput) (*UpdatePullRequestPayload, error)
+	RequestReviews(ctx context.Context, input RequestReviewsInput) (*RequestReviewsPayload, error)
+	CreateRef(ctx context.Context, input CreateRefInput) (*CreateRefPayload, error)
+	DeleteRef(ctx context.Context, input DeleteRefInput) (*DeleteRefPayload, error)
+	CreateBranchProtectionRule(ctx context.Context, input CreateBranchProtectionRuleInput) (*CreateBranchProtectionRulePayload, error)
+	UpdateBranchProtectionRule(ctx context.Context, input UpdateBranchProtectionRuleInput) (*UpdateBranchProtectionRulePayload, error)
+	DeleteBranchProtectionRule(ctx context.Context, input DeleteBranchProtectionRuleInput) (*DeleteBranchProtectionRulePayload, error)
 	ResolveReviewThread(ctx context.Context, input ResolveReviewThreadInput) (*ResolveReviewThreadPayload, error)
 	UnresolveReviewThread(ctx context.Context, input UnresolveReviewThreadInput) (*UnresolveReviewThreadPayload, error)
+	AddPullRequestReview(ctx context.Context, input AddPullRequestReviewInput) (*AddPullRequestReviewPayload, error)
+	SubmitPullRequestReview(ctx context.Context, input SubmitPullRequestReviewInput) (*SubmitPullRequestReviewPayload, error)
 }
 type PullRequestResolver interface {
 	Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error)
@@ -358,6 +502,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Actor.URL(childComplexity), true
 
+	case "AddAssigneesToAssignablePayload.assignable":
+		if e.ComplexityRoot.AddAssigneesToAssignablePayload.Assignable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddAssigneesToAssignablePayload.Assignable(childComplexity), true
+	case "AddAssigneesToAssignablePayload.clientMutationId":
+		if e.ComplexityRoot.AddAssigneesToAssignablePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddAssigneesToAssignablePayload.ClientMutationID(childComplexity), true
+
 	case "AddCommentPayload.clientMutationId":
 		if e.ComplexityRoot.AddCommentPayload.ClientMutationID == nil {
 			break
@@ -370,6 +527,117 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AddCommentPayload.CommentEdge(childComplexity), true
+
+	case "AddLabelsToLabelablePayload.clientMutationId":
+		if e.ComplexityRoot.AddLabelsToLabelablePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddLabelsToLabelablePayload.ClientMutationID(childComplexity), true
+	case "AddLabelsToLabelablePayload.labelable":
+		if e.ComplexityRoot.AddLabelsToLabelablePayload.Labelable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddLabelsToLabelablePayload.Labelable(childComplexity), true
+
+	case "AddPullRequestReviewPayload.clientMutationId":
+		if e.ComplexityRoot.AddPullRequestReviewPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddPullRequestReviewPayload.ClientMutationID(childComplexity), true
+	case "AddPullRequestReviewPayload.pullRequestReview":
+		if e.ComplexityRoot.AddPullRequestReviewPayload.PullRequestReview == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddPullRequestReviewPayload.PullRequestReview(childComplexity), true
+	case "AddPullRequestReviewPayload.reviewEdge":
+		if e.ComplexityRoot.AddPullRequestReviewPayload.ReviewEdge == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddPullRequestReviewPayload.ReviewEdge(childComplexity), true
+
+	case "BranchProtectionRule.allowsDeletions":
+		if e.ComplexityRoot.BranchProtectionRule.AllowsDeletions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.AllowsDeletions(childComplexity), true
+	case "BranchProtectionRule.allowsForcePushes":
+		if e.ComplexityRoot.BranchProtectionRule.AllowsForcePushes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.AllowsForcePushes(childComplexity), true
+	case "BranchProtectionRule.dismissesStaleReviews":
+		if e.ComplexityRoot.BranchProtectionRule.DismissesStaleReviews == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.DismissesStaleReviews(childComplexity), true
+	case "BranchProtectionRule.id":
+		if e.ComplexityRoot.BranchProtectionRule.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.ID(childComplexity), true
+	case "BranchProtectionRule.isAdminEnforced":
+		if e.ComplexityRoot.BranchProtectionRule.IsAdminEnforced == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.IsAdminEnforced(childComplexity), true
+	case "BranchProtectionRule.pattern":
+		if e.ComplexityRoot.BranchProtectionRule.Pattern == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.Pattern(childComplexity), true
+	case "BranchProtectionRule.requiredApprovingReviewCount":
+		if e.ComplexityRoot.BranchProtectionRule.RequiredApprovingReviewCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiredApprovingReviewCount(childComplexity), true
+	case "BranchProtectionRule.requiresApprovingReviews":
+		if e.ComplexityRoot.BranchProtectionRule.RequiresApprovingReviews == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiresApprovingReviews(childComplexity), true
+	case "BranchProtectionRule.requiresCodeOwnerReviews":
+		if e.ComplexityRoot.BranchProtectionRule.RequiresCodeOwnerReviews == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiresCodeOwnerReviews(childComplexity), true
+	case "BranchProtectionRule.requiresLinearHistory":
+		if e.ComplexityRoot.BranchProtectionRule.RequiresLinearHistory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiresLinearHistory(childComplexity), true
+	case "BranchProtectionRule.requiresStatusChecks":
+		if e.ComplexityRoot.BranchProtectionRule.RequiresStatusChecks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiresStatusChecks(childComplexity), true
+	case "BranchProtectionRule.requiresStrictStatusChecks":
+		if e.ComplexityRoot.BranchProtectionRule.RequiresStrictStatusChecks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RequiresStrictStatusChecks(childComplexity), true
+	case "BranchProtectionRule.restrictsReviewDismissals":
+		if e.ComplexityRoot.BranchProtectionRule.RestrictsReviewDismissals == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BranchProtectionRule.RestrictsReviewDismissals(childComplexity), true
 
 	case "CloseIssuePayload.clientMutationId":
 		if e.ComplexityRoot.CloseIssuePayload.ClientMutationID == nil {
@@ -409,6 +677,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Commit.StatusCheckRollup(childComplexity), true
 
+	case "CreateBranchProtectionRulePayload.branchProtectionRule":
+		if e.ComplexityRoot.CreateBranchProtectionRulePayload.BranchProtectionRule == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreateBranchProtectionRulePayload.BranchProtectionRule(childComplexity), true
+	case "CreateBranchProtectionRulePayload.clientMutationId":
+		if e.ComplexityRoot.CreateBranchProtectionRulePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreateBranchProtectionRulePayload.ClientMutationID(childComplexity), true
+
 	case "CreateIssuePayload.clientMutationId":
 		if e.ComplexityRoot.CreateIssuePayload.ClientMutationID == nil {
 			break
@@ -421,6 +702,65 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreateIssuePayload.Issue(childComplexity), true
+
+	case "CreatePullRequestPayload.clientMutationId":
+		if e.ComplexityRoot.CreatePullRequestPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatePullRequestPayload.ClientMutationID(childComplexity), true
+	case "CreatePullRequestPayload.pullRequest":
+		if e.ComplexityRoot.CreatePullRequestPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatePullRequestPayload.PullRequest(childComplexity), true
+
+	case "CreateRefPayload.clientMutationId":
+		if e.ComplexityRoot.CreateRefPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreateRefPayload.ClientMutationID(childComplexity), true
+	case "CreateRefPayload.ref":
+		if e.ComplexityRoot.CreateRefPayload.Ref == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreateRefPayload.Ref(childComplexity), true
+
+	case "DeleteBranchProtectionRulePayload.clientMutationId":
+		if e.ComplexityRoot.DeleteBranchProtectionRulePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeleteBranchProtectionRulePayload.ClientMutationID(childComplexity), true
+
+	case "DeleteRefPayload.clientMutationId":
+		if e.ComplexityRoot.DeleteRefPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeleteRefPayload.ClientMutationID(childComplexity), true
+
+	case "EnablePullRequestAutoMergePayload.actor":
+		if e.ComplexityRoot.EnablePullRequestAutoMergePayload.Actor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EnablePullRequestAutoMergePayload.Actor(childComplexity), true
+	case "EnablePullRequestAutoMergePayload.clientMutationId":
+		if e.ComplexityRoot.EnablePullRequestAutoMergePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EnablePullRequestAutoMergePayload.ClientMutationID(childComplexity), true
+	case "EnablePullRequestAutoMergePayload.pullRequest":
+		if e.ComplexityRoot.EnablePullRequestAutoMergePayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EnablePullRequestAutoMergePayload.PullRequest(childComplexity), true
 
 	case "GitObject.oid":
 		if e.ComplexityRoot.GitObject.Oid == nil {
@@ -669,6 +1009,36 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LabelConnection.TotalCount(childComplexity), true
 
+	case "MergePullRequestPayload.actor":
+		if e.ComplexityRoot.MergePullRequestPayload.Actor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MergePullRequestPayload.Actor(childComplexity), true
+	case "MergePullRequestPayload.clientMutationId":
+		if e.ComplexityRoot.MergePullRequestPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MergePullRequestPayload.ClientMutationID(childComplexity), true
+	case "MergePullRequestPayload.pullRequest":
+		if e.ComplexityRoot.MergePullRequestPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MergePullRequestPayload.PullRequest(childComplexity), true
+
+	case "Mutation.addAssigneesToAssignable":
+		if e.ComplexityRoot.Mutation.AddAssigneesToAssignable == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_addAssigneesToAssignable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.AddAssigneesToAssignable(childComplexity, args["input"].(AddAssigneesToAssignableInput)), true
 	case "Mutation.addComment":
 		if e.ComplexityRoot.Mutation.AddComment == nil {
 			break
@@ -680,6 +1050,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.AddComment(childComplexity, args["input"].(AddCommentInput)), true
+	case "Mutation.addLabelsToLabelable":
+		if e.ComplexityRoot.Mutation.AddLabelsToLabelable == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_addLabelsToLabelable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.AddLabelsToLabelable(childComplexity, args["input"].(AddLabelsToLabelableInput)), true
+	case "Mutation.addPullRequestReview":
+		if e.ComplexityRoot.Mutation.AddPullRequestReview == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_addPullRequestReview_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.AddPullRequestReview(childComplexity, args["input"].(AddPullRequestReviewInput)), true
 	case "Mutation.closeIssue":
 		if e.ComplexityRoot.Mutation.CloseIssue == nil {
 			break
@@ -691,6 +1083,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CloseIssue(childComplexity, args["input"].(CloseIssueInput)), true
+	case "Mutation.createBranchProtectionRule":
+		if e.ComplexityRoot.Mutation.CreateBranchProtectionRule == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createBranchProtectionRule_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateBranchProtectionRule(childComplexity, args["input"].(CreateBranchProtectionRuleInput)), true
 	case "Mutation.createIssue":
 		if e.ComplexityRoot.Mutation.CreateIssue == nil {
 			break
@@ -702,6 +1105,94 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateIssue(childComplexity, args["input"].(CreateIssueInput)), true
+	case "Mutation.createPullRequest":
+		if e.ComplexityRoot.Mutation.CreatePullRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createPullRequest_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreatePullRequest(childComplexity, args["input"].(CreatePullRequestInput)), true
+	case "Mutation.createRef":
+		if e.ComplexityRoot.Mutation.CreateRef == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createRef_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateRef(childComplexity, args["input"].(CreateRefInput)), true
+	case "Mutation.deleteBranchProtectionRule":
+		if e.ComplexityRoot.Mutation.DeleteBranchProtectionRule == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteBranchProtectionRule_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteBranchProtectionRule(childComplexity, args["input"].(DeleteBranchProtectionRuleInput)), true
+	case "Mutation.deleteRef":
+		if e.ComplexityRoot.Mutation.DeleteRef == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteRef_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteRef(childComplexity, args["input"].(DeleteRefInput)), true
+	case "Mutation.enablePullRequestAutoMerge":
+		if e.ComplexityRoot.Mutation.EnablePullRequestAutoMerge == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_enablePullRequestAutoMerge_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.EnablePullRequestAutoMerge(childComplexity, args["input"].(EnablePullRequestAutoMergeInput)), true
+	case "Mutation.mergePullRequest":
+		if e.ComplexityRoot.Mutation.MergePullRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_mergePullRequest_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.MergePullRequest(childComplexity, args["input"].(MergePullRequestInput)), true
+	case "Mutation.removeAssigneesFromAssignable":
+		if e.ComplexityRoot.Mutation.RemoveAssigneesFromAssignable == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_removeAssigneesFromAssignable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RemoveAssigneesFromAssignable(childComplexity, args["input"].(RemoveAssigneesFromAssignableInput)), true
+	case "Mutation.removeLabelsFromLabelable":
+		if e.ComplexityRoot.Mutation.RemoveLabelsFromLabelable == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_removeLabelsFromLabelable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RemoveLabelsFromLabelable(childComplexity, args["input"].(RemoveLabelsFromLabelableInput)), true
 	case "Mutation.reopenIssue":
 		if e.ComplexityRoot.Mutation.ReopenIssue == nil {
 			break
@@ -713,6 +1204,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ReopenIssue(childComplexity, args["input"].(ReopenIssueInput)), true
+	case "Mutation.requestReviews":
+		if e.ComplexityRoot.Mutation.RequestReviews == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_requestReviews_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RequestReviews(childComplexity, args["input"].(RequestReviewsInput)), true
 	case "Mutation.resolveReviewThread":
 		if e.ComplexityRoot.Mutation.ResolveReviewThread == nil {
 			break
@@ -724,6 +1226,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ResolveReviewThread(childComplexity, args["input"].(ResolveReviewThreadInput)), true
+	case "Mutation.submitPullRequestReview":
+		if e.ComplexityRoot.Mutation.SubmitPullRequestReview == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_submitPullRequestReview_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SubmitPullRequestReview(childComplexity, args["input"].(SubmitPullRequestReviewInput)), true
 	case "Mutation.unresolveReviewThread":
 		if e.ComplexityRoot.Mutation.UnresolveReviewThread == nil {
 			break
@@ -735,6 +1248,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UnresolveReviewThread(childComplexity, args["input"].(UnresolveReviewThreadInput)), true
+	case "Mutation.updateBranchProtectionRule":
+		if e.ComplexityRoot.Mutation.UpdateBranchProtectionRule == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateBranchProtectionRule_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateBranchProtectionRule(childComplexity, args["input"].(UpdateBranchProtectionRuleInput)), true
+	case "Mutation.updatePullRequest":
+		if e.ComplexityRoot.Mutation.UpdatePullRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePullRequest_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdatePullRequest(childComplexity, args["input"].(UpdatePullRequestInput)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -1047,6 +1582,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PullRequestEdge.Node(childComplexity), true
 
+	case "PullRequestReview.author":
+		if e.ComplexityRoot.PullRequestReview.Author == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.Author(childComplexity), true
+	case "PullRequestReview.body":
+		if e.ComplexityRoot.PullRequestReview.Body == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.Body(childComplexity), true
+	case "PullRequestReview.id":
+		if e.ComplexityRoot.PullRequestReview.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.ID(childComplexity), true
+	case "PullRequestReview.state":
+		if e.ComplexityRoot.PullRequestReview.State == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.State(childComplexity), true
+	case "PullRequestReview.submittedAt":
+		if e.ComplexityRoot.PullRequestReview.SubmittedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.SubmittedAt(childComplexity), true
+	case "PullRequestReview.url":
+		if e.ComplexityRoot.PullRequestReview.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReview.URL(childComplexity), true
+
 	case "PullRequestReviewComment.author":
 		if e.ComplexityRoot.PullRequestReviewComment.Author == nil {
 			break
@@ -1102,6 +1674,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PullRequestReviewCommentConnection.TotalCount(childComplexity), true
+
+	case "PullRequestReviewEdge.cursor":
+		if e.ComplexityRoot.PullRequestReviewEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReviewEdge.Cursor(childComplexity), true
+	case "PullRequestReviewEdge.node":
+		if e.ComplexityRoot.PullRequestReviewEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequestReviewEdge.Node(childComplexity), true
 
 	case "PullRequestReviewThread.comments":
 		if e.ComplexityRoot.PullRequestReviewThread.Comments == nil {
@@ -1170,6 +1755,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Repository(childComplexity, args["owner"].(string), args["name"].(string)), true
 
+	case "Ref.id":
+		if e.ComplexityRoot.Ref.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Ref.ID(childComplexity), true
 	case "Ref.name":
 		if e.ComplexityRoot.Ref.Name == nil {
 			break
@@ -1182,6 +1773,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Ref.Target(childComplexity), true
+
+	case "RemoveAssigneesFromAssignablePayload.assignable":
+		if e.ComplexityRoot.RemoveAssigneesFromAssignablePayload.Assignable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoveAssigneesFromAssignablePayload.Assignable(childComplexity), true
+	case "RemoveAssigneesFromAssignablePayload.clientMutationId":
+		if e.ComplexityRoot.RemoveAssigneesFromAssignablePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoveAssigneesFromAssignablePayload.ClientMutationID(childComplexity), true
+
+	case "RemoveLabelsFromLabelablePayload.clientMutationId":
+		if e.ComplexityRoot.RemoveLabelsFromLabelablePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoveLabelsFromLabelablePayload.ClientMutationID(childComplexity), true
+	case "RemoveLabelsFromLabelablePayload.labelable":
+		if e.ComplexityRoot.RemoveLabelsFromLabelablePayload.Labelable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoveLabelsFromLabelablePayload.Labelable(childComplexity), true
 
 	case "ReopenIssuePayload.clientMutationId":
 		if e.ComplexityRoot.ReopenIssuePayload.ClientMutationID == nil {
@@ -1295,6 +1912,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Repository.URL(childComplexity), true
 
+	case "RequestReviewsPayload.clientMutationId":
+		if e.ComplexityRoot.RequestReviewsPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RequestReviewsPayload.ClientMutationID(childComplexity), true
+	case "RequestReviewsPayload.pullRequest":
+		if e.ComplexityRoot.RequestReviewsPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RequestReviewsPayload.PullRequest(childComplexity), true
+
 	case "ResolveReviewThreadPayload.clientMutationId":
 		if e.ComplexityRoot.ResolveReviewThreadPayload.ClientMutationID == nil {
 			break
@@ -1315,6 +1945,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StatusCheckRollup.State(childComplexity), true
 
+	case "SubmitPullRequestReviewPayload.clientMutationId":
+		if e.ComplexityRoot.SubmitPullRequestReviewPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SubmitPullRequestReviewPayload.ClientMutationID(childComplexity), true
+	case "SubmitPullRequestReviewPayload.pullRequestReview":
+		if e.ComplexityRoot.SubmitPullRequestReviewPayload.PullRequestReview == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SubmitPullRequestReviewPayload.PullRequestReview(childComplexity), true
+
 	case "UnresolveReviewThreadPayload.clientMutationId":
 		if e.ComplexityRoot.UnresolveReviewThreadPayload.ClientMutationID == nil {
 			break
@@ -1328,6 +1971,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.UnresolveReviewThreadPayload.Thread(childComplexity), true
 
+	case "UpdateBranchProtectionRulePayload.branchProtectionRule":
+		if e.ComplexityRoot.UpdateBranchProtectionRulePayload.BranchProtectionRule == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UpdateBranchProtectionRulePayload.BranchProtectionRule(childComplexity), true
+	case "UpdateBranchProtectionRulePayload.clientMutationId":
+		if e.ComplexityRoot.UpdateBranchProtectionRulePayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UpdateBranchProtectionRulePayload.ClientMutationID(childComplexity), true
+
+	case "UpdatePullRequestPayload.clientMutationId":
+		if e.ComplexityRoot.UpdatePullRequestPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UpdatePullRequestPayload.ClientMutationID(childComplexity), true
+	case "UpdatePullRequestPayload.pullRequest":
+		if e.ComplexityRoot.UpdatePullRequestPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UpdatePullRequestPayload.PullRequest(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -1336,12 +2005,30 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputAddAssigneesToAssignableInput,
 		ec.unmarshalInputAddCommentInput,
+		ec.unmarshalInputAddLabelsToLabelableInput,
+		ec.unmarshalInputAddPullRequestReviewInput,
+		ec.unmarshalInputBranchProtectionRuleInput,
 		ec.unmarshalInputCloseIssueInput,
+		ec.unmarshalInputCreateBranchProtectionRuleInput,
 		ec.unmarshalInputCreateIssueInput,
+		ec.unmarshalInputCreatePullRequestInput,
+		ec.unmarshalInputCreateRefInput,
+		ec.unmarshalInputDeleteBranchProtectionRuleInput,
+		ec.unmarshalInputDeleteRefInput,
+		ec.unmarshalInputDraftPullRequestReviewComment,
+		ec.unmarshalInputEnablePullRequestAutoMergeInput,
+		ec.unmarshalInputMergePullRequestInput,
+		ec.unmarshalInputRemoveAssigneesFromAssignableInput,
+		ec.unmarshalInputRemoveLabelsFromLabelableInput,
 		ec.unmarshalInputReopenIssueInput,
+		ec.unmarshalInputRequestReviewsInput,
 		ec.unmarshalInputResolveReviewThreadInput,
+		ec.unmarshalInputSubmitPullRequestReviewInput,
 		ec.unmarshalInputUnresolveReviewThreadInput,
+		ec.unmarshalInputUpdateBranchProtectionRuleInput,
+		ec.unmarshalInputUpdatePullRequestInput,
 	)
 	first := true
 
@@ -1592,6 +2279,75 @@ type ReopenIssuePayload {
   clientMutationId: String
 }
 `, BuiltIn: false},
+	{Name: "../schema/labels.graphql", Input: `# The label and assignee mutation slice of the GraphQL schema. gh issue edit
+# and gh pr edit send these mutations when adding or removing labels and
+# assignees. Each takes a Labelable or Assignable node ID (an issue or pull
+# request) so the same mutations cover both resource types.
+
+extend type Mutation {
+  # addLabelsToLabelable attaches labels to an issue or pull request.
+  addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
+  # removeLabelsFromLabelable detaches labels from an issue or pull request.
+  removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
+  # addAssigneesToAssignable links assignees to an issue or pull request.
+  addAssigneesToAssignable(input: AddAssigneesToAssignableInput!): AddAssigneesToAssignablePayload
+  # removeAssigneesFromAssignable unlinks assignees from an issue or pull request.
+  removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
+}
+
+# Labelable is the union of Issue and PullRequest with a labels connection.
+# The mutations carry the labelableId so the same operation covers both.
+input AddLabelsToLabelableInput {
+  labelableId: ID!
+  labelIds: [ID!]!
+  clientMutationId: String
+}
+
+type AddLabelsToLabelablePayload {
+  labelable: LabelableNode
+  clientMutationId: String
+}
+
+input RemoveLabelsFromLabelableInput {
+  labelableId: ID!
+  labelIds: [ID!]!
+  clientMutationId: String
+}
+
+type RemoveLabelsFromLabelablePayload {
+  labelable: LabelableNode
+  clientMutationId: String
+}
+
+# LabelableNode is the return type for label mutations. It carries the issue or
+# pull request that was mutated so the client can read back its current labels.
+union LabelableNode = Issue | PullRequest
+
+input AddAssigneesToAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type AddAssigneesToAssignablePayload {
+  assignable: AssignableNode
+  clientMutationId: String
+}
+
+input RemoveAssigneesFromAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type RemoveAssigneesFromAssignablePayload {
+  assignable: AssignableNode
+  clientMutationId: String
+}
+
+# AssignableNode is the return type for assignee mutations.
+union AssignableNode = Issue | PullRequest
+`, BuiltIn: false},
 	{Name: "../schema/pull.graphql", Input: `# The pull request slice of the GraphQL schema. It adds the pull request read
 # fields gh pr view and gh pr diff select onto Repository. Object types bind to
 # the hand-written structs in presenter/gqlmodel; the enums bind to the typed
@@ -1725,6 +2481,227 @@ type PullRequestCommitConnection {
   nodes: [PullRequestCommit]
   totalCount: Int!
 }
+
+# PullRequestMergeMethod is the strategy to use when merging a pull request.
+enum PullRequestMergeMethod {
+  MERGE
+  SQUASH
+  REBASE
+}
+
+extend type Mutation {
+  # createPullRequest opens a new pull request.
+  createPullRequest(input: CreatePullRequestInput!): CreatePullRequestPayload
+  # mergePullRequest merges a pull request.
+  mergePullRequest(input: MergePullRequestInput!): MergePullRequestPayload
+  # enablePullRequestAutoMerge enables auto-merge on a pull request.
+  enablePullRequestAutoMerge(input: EnablePullRequestAutoMergeInput!): EnablePullRequestAutoMergePayload
+  # updatePullRequest edits a pull request's metadata.
+  updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  # requestReviews adds or removes review requests on a pull request.
+  requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
+}
+
+input CreatePullRequestInput {
+  repositoryId: ID!
+  baseRefName: String!
+  headRefName: String!
+  title: String!
+  body: String
+  draft: Boolean
+  maintainerCanModify: Boolean
+  clientMutationId: String
+}
+
+type CreatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input MergePullRequestInput {
+  pullRequestId: ID!
+  mergeMethod: PullRequestMergeMethod
+  commitHeadline: String
+  commitBody: String
+  expectedHeadOid: GitObjectID
+  authorEmail: String
+  clientMutationId: String
+}
+
+type MergePullRequestPayload {
+  pullRequest: PullRequest
+  actor: Actor
+  clientMutationId: String
+}
+
+input EnablePullRequestAutoMergeInput {
+  pullRequestId: ID!
+  mergeMethod: PullRequestMergeMethod
+  commitHeadline: String
+  commitBody: String
+  authorEmail: String
+  clientMutationId: String
+}
+
+type EnablePullRequestAutoMergePayload {
+  pullRequest: PullRequest
+  actor: Actor
+  clientMutationId: String
+}
+
+input UpdatePullRequestInput {
+  pullRequestId: ID!
+  title: String
+  body: String
+  baseRefName: String
+  maintainerCanModify: Boolean
+  assigneeIds: [ID!]
+  labelIds: [ID!]
+  milestoneId: ID
+  clientMutationId: String
+}
+
+type UpdatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input RequestReviewsInput {
+  pullRequestId: ID!
+  userIds: [ID!]
+  teamIds: [ID!]
+  union: Boolean
+  clientMutationId: String
+}
+
+type RequestReviewsPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+`, BuiltIn: false},
+	{Name: "../schema/ref.graphql", Input: `# The ref mutation slice of the GraphQL schema. createRef and deleteRef let
+# clients create and remove git references (branches, tags) through the GraphQL
+# API. Branch protection rule mutations for Terraform follow the same pattern.
+
+extend type Mutation {
+  # createRef creates a new git reference in a repository.
+  createRef(input: CreateRefInput!): CreateRefPayload
+  # deleteRef removes an existing git reference.
+  deleteRef(input: DeleteRefInput!): DeleteRefPayload
+  # createBranchProtectionRule creates a branch protection rule.
+  createBranchProtectionRule(input: CreateBranchProtectionRuleInput!): CreateBranchProtectionRulePayload
+  # updateBranchProtectionRule updates an existing branch protection rule.
+  updateBranchProtectionRule(input: UpdateBranchProtectionRuleInput!): UpdateBranchProtectionRulePayload
+  # deleteBranchProtectionRule removes a branch protection rule.
+  deleteBranchProtectionRule(input: DeleteBranchProtectionRuleInput!): DeleteBranchProtectionRulePayload
+}
+
+input CreateRefInput {
+  repositoryId: ID!
+  name: String!
+  oid: GitObjectID!
+  clientMutationId: String
+}
+
+type CreateRefPayload {
+  ref: Ref
+  clientMutationId: String
+}
+
+input DeleteRefInput {
+  refId: ID!
+  clientMutationId: String
+}
+
+type DeleteRefPayload {
+  clientMutationId: String
+}
+
+# BranchProtectionRule is a protection rule applied to one or more branch name
+# patterns.
+type BranchProtectionRule {
+  id: ID!
+  pattern: String!
+  requiresApprovingReviews: Boolean!
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean!
+  requiresStrictStatusChecks: Boolean!
+  requiresCodeOwnerReviews: Boolean!
+  dismissesStaleReviews: Boolean!
+  restrictsReviewDismissals: Boolean!
+  isAdminEnforced: Boolean!
+  requiresLinearHistory: Boolean!
+  allowsForcePushes: Boolean!
+  allowsDeletions: Boolean!
+}
+
+input BranchProtectionRuleInput {
+  pattern: String!
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+}
+
+input CreateBranchProtectionRuleInput {
+  repositoryId: ID!
+  pattern: String!
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+  clientMutationId: String
+}
+
+type CreateBranchProtectionRulePayload {
+  branchProtectionRule: BranchProtectionRule
+  clientMutationId: String
+}
+
+input UpdateBranchProtectionRuleInput {
+  branchProtectionRuleId: ID!
+  pattern: String
+  requiresApprovingReviews: Boolean
+  requiredApprovingReviewCount: Int
+  requiresStatusChecks: Boolean
+  requiresStrictStatusChecks: Boolean
+  requiresCodeOwnerReviews: Boolean
+  dismissesStaleReviews: Boolean
+  restrictsReviewDismissals: Boolean
+  isAdminEnforced: Boolean
+  requiresLinearHistory: Boolean
+  allowsForcePushes: Boolean
+  allowsDeletions: Boolean
+  clientMutationId: String
+}
+
+type UpdateBranchProtectionRulePayload {
+  branchProtectionRule: BranchProtectionRule
+  clientMutationId: String
+}
+
+input DeleteBranchProtectionRuleInput {
+  branchProtectionRuleId: ID!
+  clientMutationId: String
+}
+
+type DeleteBranchProtectionRulePayload {
+  clientMutationId: String
+}
 `, BuiltIn: false},
 	{Name: "../schema/review.graphql", Input: `# The code review slice of the GraphQL schema. It adds the review fields gh pr
 # view and gh pr status select onto PullRequest and its head Commit: the derived
@@ -1802,11 +2779,29 @@ type StatusCheckRollup {
   state: StatusState!
 }
 
+# PullRequestReviewEvent is the action a submitted review carries.
+enum PullRequestReviewEvent {
+  APPROVE
+  COMMENT
+  REQUEST_CHANGES
+  DISMISS
+}
+
+# DiffSide is the side of a diff a review comment anchors to.
+enum DiffSide {
+  LEFT
+  RIGHT
+}
+
 extend type Mutation {
   # resolveReviewThread marks a review conversation resolved.
   resolveReviewThread(input: ResolveReviewThreadInput!): ResolveReviewThreadPayload
   # unresolveReviewThread reopens a resolved review conversation.
   unresolveReviewThread(input: UnresolveReviewThreadInput!): UnresolveReviewThreadPayload
+  # addPullRequestReview adds a review to a pull request.
+  addPullRequestReview(input: AddPullRequestReviewInput!): AddPullRequestReviewPayload
+  # submitPullRequestReview submits a pending draft review.
+  submitPullRequestReview(input: SubmitPullRequestReviewInput!): SubmitPullRequestReviewPayload
 }
 
 input ResolveReviewThreadInput {
@@ -1826,6 +2821,68 @@ input UnresolveReviewThreadInput {
 
 type UnresolveReviewThreadPayload {
   thread: PullRequestReviewThread
+  clientMutationId: String
+}
+
+# PullRequestReview is a submitted review on a pull request. It is the return
+# type for addPullRequestReview and submitPullRequestReview.
+type PullRequestReview {
+  id: ID!
+  state: PullRequestReviewState!
+  body: String!
+  author: Actor
+  submittedAt: DateTime
+  url: URI!
+}
+
+# PullRequestReviewState is a submitted review's state.
+enum PullRequestReviewState {
+  PENDING
+  COMMENTED
+  APPROVED
+  CHANGES_REQUESTED
+  DISMISSED
+}
+
+input DraftPullRequestReviewComment {
+  path: String!
+  position: Int
+  body: String!
+  line: Int
+  side: DiffSide
+  startLine: Int
+  startSide: DiffSide
+}
+
+input AddPullRequestReviewInput {
+  pullRequestId: ID!
+  commitOID: GitObjectID
+  body: String
+  event: PullRequestReviewEvent
+  comments: [DraftPullRequestReviewComment]
+  clientMutationId: String
+}
+
+type AddPullRequestReviewPayload {
+  pullRequestReview: PullRequestReview
+  reviewEdge: PullRequestReviewEdge
+  clientMutationId: String
+}
+
+type PullRequestReviewEdge {
+  cursor: String!
+  node: PullRequestReview
+}
+
+input SubmitPullRequestReviewInput {
+  pullRequestReviewId: ID!
+  event: PullRequestReviewEvent!
+  body: String
+  clientMutationId: String
+}
+
+type SubmitPullRequestReviewPayload {
+  pullRequestReview: PullRequestReview
   clientMutationId: String
 }
 `, BuiltIn: false},
@@ -1857,8 +2914,10 @@ type Repository {
   defaultBranchRef: Ref
 }
 
-# Ref is a git reference: a branch or a tag.
+# Ref is a git reference: a branch or a tag. The id field carries the opaque
+# node ID clients pass to deleteRef.
 type Ref {
+  id: ID!
   name: String!
   target: GitObject
 }
@@ -1887,6 +2946,16 @@ func (ec *executionContext) childFields_Actor(ctx context.Context, field graphql
 	return nil, fmt.Errorf("no field named %q was found under type Actor", field.Name)
 }
 
+func (ec *executionContext) childFields_AddAssigneesToAssignablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "assignable":
+		return ec.fieldContext_AddAssigneesToAssignablePayload_assignable(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_AddAssigneesToAssignablePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AddAssigneesToAssignablePayload", field.Name)
+}
+
 func (ec *executionContext) childFields_AddCommentPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "commentEdge":
@@ -1895,6 +2964,60 @@ func (ec *executionContext) childFields_AddCommentPayload(ctx context.Context, f
 		return ec.fieldContext_AddCommentPayload_clientMutationId(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AddCommentPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_AddLabelsToLabelablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "labelable":
+		return ec.fieldContext_AddLabelsToLabelablePayload_labelable(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_AddLabelsToLabelablePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AddLabelsToLabelablePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_AddPullRequestReviewPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequestReview":
+		return ec.fieldContext_AddPullRequestReviewPayload_pullRequestReview(ctx, field)
+	case "reviewEdge":
+		return ec.fieldContext_AddPullRequestReviewPayload_reviewEdge(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_AddPullRequestReviewPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AddPullRequestReviewPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_BranchProtectionRule(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_BranchProtectionRule_id(ctx, field)
+	case "pattern":
+		return ec.fieldContext_BranchProtectionRule_pattern(ctx, field)
+	case "requiresApprovingReviews":
+		return ec.fieldContext_BranchProtectionRule_requiresApprovingReviews(ctx, field)
+	case "requiredApprovingReviewCount":
+		return ec.fieldContext_BranchProtectionRule_requiredApprovingReviewCount(ctx, field)
+	case "requiresStatusChecks":
+		return ec.fieldContext_BranchProtectionRule_requiresStatusChecks(ctx, field)
+	case "requiresStrictStatusChecks":
+		return ec.fieldContext_BranchProtectionRule_requiresStrictStatusChecks(ctx, field)
+	case "requiresCodeOwnerReviews":
+		return ec.fieldContext_BranchProtectionRule_requiresCodeOwnerReviews(ctx, field)
+	case "dismissesStaleReviews":
+		return ec.fieldContext_BranchProtectionRule_dismissesStaleReviews(ctx, field)
+	case "restrictsReviewDismissals":
+		return ec.fieldContext_BranchProtectionRule_restrictsReviewDismissals(ctx, field)
+	case "isAdminEnforced":
+		return ec.fieldContext_BranchProtectionRule_isAdminEnforced(ctx, field)
+	case "requiresLinearHistory":
+		return ec.fieldContext_BranchProtectionRule_requiresLinearHistory(ctx, field)
+	case "allowsForcePushes":
+		return ec.fieldContext_BranchProtectionRule_allowsForcePushes(ctx, field)
+	case "allowsDeletions":
+		return ec.fieldContext_BranchProtectionRule_allowsDeletions(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BranchProtectionRule", field.Name)
 }
 
 func (ec *executionContext) childFields_CloseIssuePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1921,6 +3044,16 @@ func (ec *executionContext) childFields_Commit(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type Commit", field.Name)
 }
 
+func (ec *executionContext) childFields_CreateBranchProtectionRulePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "branchProtectionRule":
+		return ec.fieldContext_CreateBranchProtectionRulePayload_branchProtectionRule(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_CreateBranchProtectionRulePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CreateBranchProtectionRulePayload", field.Name)
+}
+
 func (ec *executionContext) childFields_CreateIssuePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "issue":
@@ -1929,6 +3062,54 @@ func (ec *executionContext) childFields_CreateIssuePayload(ctx context.Context, 
 		return ec.fieldContext_CreateIssuePayload_clientMutationId(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CreateIssuePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_CreatePullRequestPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_CreatePullRequestPayload_pullRequest(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_CreatePullRequestPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CreatePullRequestPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_CreateRefPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "ref":
+		return ec.fieldContext_CreateRefPayload_ref(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_CreateRefPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CreateRefPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_DeleteBranchProtectionRulePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "clientMutationId":
+		return ec.fieldContext_DeleteBranchProtectionRulePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeleteBranchProtectionRulePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_DeleteRefPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "clientMutationId":
+		return ec.fieldContext_DeleteRefPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeleteRefPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_EnablePullRequestAutoMergePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_EnablePullRequestAutoMergePayload_pullRequest(ctx, field)
+	case "actor":
+		return ec.fieldContext_EnablePullRequestAutoMergePayload_actor(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type EnablePullRequestAutoMergePayload", field.Name)
 }
 
 func (ec *executionContext) childFields_GitObject(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2059,6 +3240,18 @@ func (ec *executionContext) childFields_LabelConnection(ctx context.Context, fie
 		return ec.fieldContext_LabelConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LabelConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_MergePullRequestPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_MergePullRequestPayload_pullRequest(ctx, field)
+	case "actor":
+		return ec.fieldContext_MergePullRequestPayload_actor(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_MergePullRequestPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MergePullRequestPayload", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2205,6 +3398,24 @@ func (ec *executionContext) childFields_PullRequestEdge(ctx context.Context, fie
 	return nil, fmt.Errorf("no field named %q was found under type PullRequestEdge", field.Name)
 }
 
+func (ec *executionContext) childFields_PullRequestReview(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_PullRequestReview_id(ctx, field)
+	case "state":
+		return ec.fieldContext_PullRequestReview_state(ctx, field)
+	case "body":
+		return ec.fieldContext_PullRequestReview_body(ctx, field)
+	case "author":
+		return ec.fieldContext_PullRequestReview_author(ctx, field)
+	case "submittedAt":
+		return ec.fieldContext_PullRequestReview_submittedAt(ctx, field)
+	case "url":
+		return ec.fieldContext_PullRequestReview_url(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PullRequestReview", field.Name)
+}
+
 func (ec *executionContext) childFields_PullRequestReviewComment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -2233,6 +3444,16 @@ func (ec *executionContext) childFields_PullRequestReviewCommentConnection(ctx c
 		return ec.fieldContext_PullRequestReviewCommentConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PullRequestReviewCommentConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_PullRequestReviewEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_PullRequestReviewEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_PullRequestReviewEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PullRequestReviewEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_PullRequestReviewThread(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2265,12 +3486,34 @@ func (ec *executionContext) childFields_PullRequestReviewThreadConnection(ctx co
 
 func (ec *executionContext) childFields_Ref(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
+	case "id":
+		return ec.fieldContext_Ref_id(ctx, field)
 	case "name":
 		return ec.fieldContext_Ref_name(ctx, field)
 	case "target":
 		return ec.fieldContext_Ref_target(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Ref", field.Name)
+}
+
+func (ec *executionContext) childFields_RemoveAssigneesFromAssignablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "assignable":
+		return ec.fieldContext_RemoveAssigneesFromAssignablePayload_assignable(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_RemoveAssigneesFromAssignablePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RemoveAssigneesFromAssignablePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_RemoveLabelsFromLabelablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "labelable":
+		return ec.fieldContext_RemoveLabelsFromLabelablePayload_labelable(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_RemoveLabelsFromLabelablePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RemoveLabelsFromLabelablePayload", field.Name)
 }
 
 func (ec *executionContext) childFields_ReopenIssuePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2315,6 +3558,16 @@ func (ec *executionContext) childFields_Repository(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 }
 
+func (ec *executionContext) childFields_RequestReviewsPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_RequestReviewsPayload_pullRequest(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_RequestReviewsPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RequestReviewsPayload", field.Name)
+}
+
 func (ec *executionContext) childFields_ResolveReviewThreadPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "thread":
@@ -2333,6 +3586,16 @@ func (ec *executionContext) childFields_StatusCheckRollup(ctx context.Context, f
 	return nil, fmt.Errorf("no field named %q was found under type StatusCheckRollup", field.Name)
 }
 
+func (ec *executionContext) childFields_SubmitPullRequestReviewPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequestReview":
+		return ec.fieldContext_SubmitPullRequestReviewPayload_pullRequestReview(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_SubmitPullRequestReviewPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SubmitPullRequestReviewPayload", field.Name)
+}
+
 func (ec *executionContext) childFields_UnresolveReviewThreadPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "thread":
@@ -2341,6 +3604,26 @@ func (ec *executionContext) childFields_UnresolveReviewThreadPayload(ctx context
 		return ec.fieldContext_UnresolveReviewThreadPayload_clientMutationId(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UnresolveReviewThreadPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_UpdateBranchProtectionRulePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "branchProtectionRule":
+		return ec.fieldContext_UpdateBranchProtectionRulePayload_branchProtectionRule(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_UpdateBranchProtectionRulePayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UpdateBranchProtectionRulePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_UpdatePullRequestPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_UpdatePullRequestPayload_pullRequest(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_UpdatePullRequestPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UpdatePullRequestPayload", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2503,12 +3786,54 @@ func (ec *executionContext) field_Issue_labels_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_addAssigneesToAssignable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (AddAssigneesToAssignableInput, error) {
+			return ec.unmarshalNAddAssigneesToAssignableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddAssigneesToAssignableInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_addComment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (AddCommentInput, error) {
 			return ec.unmarshalNAddCommentInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddCommentInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_addLabelsToLabelable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (AddLabelsToLabelableInput, error) {
+			return ec.unmarshalNAddLabelsToLabelableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddLabelsToLabelableInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_addPullRequestReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (AddPullRequestReviewInput, error) {
+			return ec.unmarshalNAddPullRequestReviewInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddPullRequestReviewInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -2531,12 +3856,138 @@ func (ec *executionContext) field_Mutation_closeIssue_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createBranchProtectionRule_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (CreateBranchProtectionRuleInput, error) {
+			return ec.unmarshalNCreateBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateBranchProtectionRuleInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createIssue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (CreateIssueInput, error) {
 			return ec.unmarshalNCreateIssueInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateIssueInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createPullRequest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (CreatePullRequestInput, error) {
+			return ec.unmarshalNCreatePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreatePullRequestInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createRef_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (CreateRefInput, error) {
+			return ec.unmarshalNCreateRefInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateRefInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteBranchProtectionRule_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (DeleteBranchProtectionRuleInput, error) {
+			return ec.unmarshalNDeleteBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteBranchProtectionRuleInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteRef_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (DeleteRefInput, error) {
+			return ec.unmarshalNDeleteRefInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteRefInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_enablePullRequestAutoMerge_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (EnablePullRequestAutoMergeInput, error) {
+			return ec.unmarshalNEnablePullRequestAutoMergeInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐEnablePullRequestAutoMergeInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_mergePullRequest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (MergePullRequestInput, error) {
+			return ec.unmarshalNMergePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐMergePullRequestInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_removeAssigneesFromAssignable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RemoveAssigneesFromAssignableInput, error) {
+			return ec.unmarshalNRemoveAssigneesFromAssignableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveAssigneesFromAssignableInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_removeLabelsFromLabelable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RemoveLabelsFromLabelableInput, error) {
+			return ec.unmarshalNRemoveLabelsFromLabelableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveLabelsFromLabelableInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -2559,6 +4010,20 @@ func (ec *executionContext) field_Mutation_reopenIssue_args(ctx context.Context,
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_requestReviews_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RequestReviewsInput, error) {
+			return ec.unmarshalNRequestReviewsInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRequestReviewsInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_resolveReviewThread_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2573,12 +4038,54 @@ func (ec *executionContext) field_Mutation_resolveReviewThread_args(ctx context.
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_submitPullRequestReview_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (SubmitPullRequestReviewInput, error) {
+			return ec.unmarshalNSubmitPullRequestReviewInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSubmitPullRequestReviewInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_unresolveReviewThread_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (UnresolveReviewThreadInput, error) {
 			return ec.unmarshalNUnresolveReviewThreadInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUnresolveReviewThreadInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateBranchProtectionRule_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (UpdateBranchProtectionRuleInput, error) {
+			return ec.unmarshalNUpdateBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdateBranchProtectionRuleInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePullRequest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (UpdatePullRequestInput, error) {
+			return ec.unmarshalNUpdatePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdatePullRequestInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -2964,6 +4471,52 @@ func (ec *executionContext) fieldContext_Actor_avatarUrl(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Actor", field, false, false, errors.New("field of type URI does not have child fields"))
 }
 
+func (ec *executionContext) _AddAssigneesToAssignablePayload_assignable(ctx context.Context, field graphql.CollectedField, obj *AddAssigneesToAssignablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddAssigneesToAssignablePayload_assignable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Assignable, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v AssignableNode) graphql.Marshaler {
+			return ec.marshalOAssignableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAssignableNode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddAssigneesToAssignablePayload_assignable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AddAssigneesToAssignablePayload", field, false, false, errors.New("field of type AssignableNode does not have child fields"))
+}
+
+func (ec *executionContext) _AddAssigneesToAssignablePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *AddAssigneesToAssignablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddAssigneesToAssignablePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddAssigneesToAssignablePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AddAssigneesToAssignablePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _AddCommentPayload_commentEdge(ctx context.Context, field graphql.CollectedField, obj *AddCommentPayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3017,6 +4570,438 @@ func (ec *executionContext) _AddCommentPayload_clientMutationId(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_AddCommentPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AddCommentPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AddLabelsToLabelablePayload_labelable(ctx context.Context, field graphql.CollectedField, obj *AddLabelsToLabelablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddLabelsToLabelablePayload_labelable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Labelable, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v LabelableNode) graphql.Marshaler {
+			return ec.marshalOLabelableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelableNode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddLabelsToLabelablePayload_labelable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AddLabelsToLabelablePayload", field, false, false, errors.New("field of type LabelableNode does not have child fields"))
+}
+
+func (ec *executionContext) _AddLabelsToLabelablePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *AddLabelsToLabelablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddLabelsToLabelablePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddLabelsToLabelablePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AddLabelsToLabelablePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AddPullRequestReviewPayload_pullRequestReview(ctx context.Context, field graphql.CollectedField, obj *AddPullRequestReviewPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddPullRequestReviewPayload_pullRequestReview(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequestReview, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PullRequestReview) graphql.Marshaler {
+			return ec.marshalOPullRequestReview2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReview(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddPullRequestReviewPayload_pullRequestReview(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AddPullRequestReviewPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequestReview(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AddPullRequestReviewPayload_reviewEdge(ctx context.Context, field graphql.CollectedField, obj *AddPullRequestReviewPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddPullRequestReviewPayload_reviewEdge(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReviewEdge, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PullRequestReviewEdge) graphql.Marshaler {
+			return ec.marshalOPullRequestReviewEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReviewEdge(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddPullRequestReviewPayload_reviewEdge(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AddPullRequestReviewPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequestReviewEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AddPullRequestReviewPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *AddPullRequestReviewPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddPullRequestReviewPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddPullRequestReviewPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AddPullRequestReviewPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_id(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_pattern(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_pattern(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Pattern, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_pattern(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiresApprovingReviews(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiresApprovingReviews(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiresApprovingReviews, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiresApprovingReviews(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiredApprovingReviewCount(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiredApprovingReviewCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiredApprovingReviewCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiredApprovingReviewCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiresStatusChecks(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiresStatusChecks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiresStatusChecks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiresStatusChecks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiresStrictStatusChecks(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiresStrictStatusChecks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiresStrictStatusChecks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiresStrictStatusChecks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiresCodeOwnerReviews(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiresCodeOwnerReviews(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiresCodeOwnerReviews, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiresCodeOwnerReviews(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_dismissesStaleReviews(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_dismissesStaleReviews(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DismissesStaleReviews, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_dismissesStaleReviews(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_restrictsReviewDismissals(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_restrictsReviewDismissals(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RestrictsReviewDismissals, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_restrictsReviewDismissals(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_isAdminEnforced(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_isAdminEnforced(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsAdminEnforced, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_isAdminEnforced(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_requiresLinearHistory(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_requiresLinearHistory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequiresLinearHistory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_requiresLinearHistory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_allowsForcePushes(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_allowsForcePushes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowsForcePushes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_allowsForcePushes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _BranchProtectionRule_allowsDeletions(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BranchProtectionRule_allowsDeletions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowsDeletions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BranchProtectionRule_allowsDeletions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BranchProtectionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _CloseIssuePayload_issue(ctx context.Context, field graphql.CollectedField, obj *CloseIssuePayload) (ret graphql.Marshaler) {
@@ -3175,6 +5160,61 @@ func (ec *executionContext) fieldContext_Commit_statusCheckRollup(_ context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _CreateBranchProtectionRulePayload_branchProtectionRule(ctx context.Context, field graphql.CollectedField, obj *CreateBranchProtectionRulePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreateBranchProtectionRulePayload_branchProtectionRule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BranchProtectionRule, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *BranchProtectionRule) graphql.Marshaler {
+			return ec.marshalOBranchProtectionRule2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐBranchProtectionRule(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreateBranchProtectionRulePayload_branchProtectionRule(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CreateBranchProtectionRulePayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BranchProtectionRule(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CreateBranchProtectionRulePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *CreateBranchProtectionRulePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreateBranchProtectionRulePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreateBranchProtectionRulePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreateBranchProtectionRulePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _CreateIssuePayload_issue(ctx context.Context, field graphql.CollectedField, obj *CreateIssuePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3228,6 +5268,249 @@ func (ec *executionContext) _CreateIssuePayload_clientMutationId(ctx context.Con
 }
 func (ec *executionContext) fieldContext_CreateIssuePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreateIssuePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CreatePullRequestPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *CreatePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatePullRequestPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreatePullRequestPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CreatePullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CreatePullRequestPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *CreatePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatePullRequestPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreatePullRequestPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatePullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CreateRefPayload_ref(ctx context.Context, field graphql.CollectedField, obj *CreateRefPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreateRefPayload_ref(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ref, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Ref) graphql.Marshaler {
+			return ec.marshalORef2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRef(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreateRefPayload_ref(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CreateRefPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Ref(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CreateRefPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *CreateRefPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreateRefPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CreateRefPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreateRefPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeleteBranchProtectionRulePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *DeleteBranchProtectionRulePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeleteBranchProtectionRulePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DeleteBranchProtectionRulePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeleteBranchProtectionRulePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeleteRefPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *DeleteRefPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeleteRefPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DeleteRefPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeleteRefPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _EnablePullRequestAutoMergePayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *EnablePullRequestAutoMergePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EnablePullRequestAutoMergePayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EnablePullRequestAutoMergePayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EnablePullRequestAutoMergePayload_actor(ctx context.Context, field graphql.CollectedField, obj *EnablePullRequestAutoMergePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EnablePullRequestAutoMergePayload_actor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Actor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EnablePullRequestAutoMergePayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Actor(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EnablePullRequestAutoMergePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *EnablePullRequestAutoMergePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EnablePullRequestAutoMergePayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _GitObject_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.GitObject) (ret graphql.Marshaler) {
@@ -4227,6 +6510,93 @@ func (ec *executionContext) fieldContext_LabelConnection_totalCount(_ context.Co
 	return graphql.NewScalarFieldContext("LabelConnection", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _MergePullRequestPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *MergePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MergePullRequestPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MergePullRequestPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MergePullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MergePullRequestPayload_actor(ctx context.Context, field graphql.CollectedField, obj *MergePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MergePullRequestPayload_actor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Actor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MergePullRequestPayload_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MergePullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Actor(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MergePullRequestPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *MergePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MergePullRequestPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MergePullRequestPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MergePullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Mutation_createIssue(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4403,6 +6773,622 @@ func (ec *executionContext) fieldContext_Mutation_reopenIssue(ctx context.Contex
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_addLabelsToLabelable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_addLabelsToLabelable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().AddLabelsToLabelable(ctx, fc.Args["input"].(AddLabelsToLabelableInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *AddLabelsToLabelablePayload) graphql.Marshaler {
+			return ec.marshalOAddLabelsToLabelablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddLabelsToLabelablePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_addLabelsToLabelable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AddLabelsToLabelablePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_addLabelsToLabelable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_removeLabelsFromLabelable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_removeLabelsFromLabelable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RemoveLabelsFromLabelable(ctx, fc.Args["input"].(RemoveLabelsFromLabelableInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *RemoveLabelsFromLabelablePayload) graphql.Marshaler {
+			return ec.marshalORemoveLabelsFromLabelablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveLabelsFromLabelablePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_removeLabelsFromLabelable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RemoveLabelsFromLabelablePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_removeLabelsFromLabelable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_addAssigneesToAssignable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_addAssigneesToAssignable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().AddAssigneesToAssignable(ctx, fc.Args["input"].(AddAssigneesToAssignableInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *AddAssigneesToAssignablePayload) graphql.Marshaler {
+			return ec.marshalOAddAssigneesToAssignablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddAssigneesToAssignablePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_addAssigneesToAssignable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AddAssigneesToAssignablePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_addAssigneesToAssignable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_removeAssigneesFromAssignable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_removeAssigneesFromAssignable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RemoveAssigneesFromAssignable(ctx, fc.Args["input"].(RemoveAssigneesFromAssignableInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *RemoveAssigneesFromAssignablePayload) graphql.Marshaler {
+			return ec.marshalORemoveAssigneesFromAssignablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveAssigneesFromAssignablePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_removeAssigneesFromAssignable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RemoveAssigneesFromAssignablePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_removeAssigneesFromAssignable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createPullRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createPullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreatePullRequest(ctx, fc.Args["input"].(CreatePullRequestInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CreatePullRequestPayload) graphql.Marshaler {
+			return ec.marshalOCreatePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreatePullRequestPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createPullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CreatePullRequestPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createPullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_mergePullRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_mergePullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().MergePullRequest(ctx, fc.Args["input"].(MergePullRequestInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *MergePullRequestPayload) graphql.Marshaler {
+			return ec.marshalOMergePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐMergePullRequestPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_mergePullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MergePullRequestPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_mergePullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_enablePullRequestAutoMerge(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_enablePullRequestAutoMerge(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().EnablePullRequestAutoMerge(ctx, fc.Args["input"].(EnablePullRequestAutoMergeInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *EnablePullRequestAutoMergePayload) graphql.Marshaler {
+			return ec.marshalOEnablePullRequestAutoMergePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐEnablePullRequestAutoMergePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_enablePullRequestAutoMerge(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_EnablePullRequestAutoMergePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_enablePullRequestAutoMerge_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePullRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updatePullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdatePullRequest(ctx, fc.Args["input"].(UpdatePullRequestInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *UpdatePullRequestPayload) graphql.Marshaler {
+			return ec.marshalOUpdatePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdatePullRequestPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updatePullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UpdatePullRequestPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_requestReviews(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_requestReviews(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RequestReviews(ctx, fc.Args["input"].(RequestReviewsInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *RequestReviewsPayload) graphql.Marshaler {
+			return ec.marshalORequestReviewsPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRequestReviewsPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_requestReviews(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RequestReviewsPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_requestReviews_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createRef(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createRef(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateRef(ctx, fc.Args["input"].(CreateRefInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CreateRefPayload) graphql.Marshaler {
+			return ec.marshalOCreateRefPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateRefPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createRef(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CreateRefPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createRef_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteRef(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteRef(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteRef(ctx, fc.Args["input"].(DeleteRefInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *DeleteRefPayload) graphql.Marshaler {
+			return ec.marshalODeleteRefPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteRefPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteRef(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeleteRefPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteRef_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createBranchProtectionRule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateBranchProtectionRule(ctx, fc.Args["input"].(CreateBranchProtectionRuleInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CreateBranchProtectionRulePayload) graphql.Marshaler {
+			return ec.marshalOCreateBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateBranchProtectionRulePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CreateBranchProtectionRulePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createBranchProtectionRule_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateBranchProtectionRule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateBranchProtectionRule(ctx, fc.Args["input"].(UpdateBranchProtectionRuleInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *UpdateBranchProtectionRulePayload) graphql.Marshaler {
+			return ec.marshalOUpdateBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdateBranchProtectionRulePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UpdateBranchProtectionRulePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateBranchProtectionRule_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteBranchProtectionRule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteBranchProtectionRule(ctx, fc.Args["input"].(DeleteBranchProtectionRuleInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *DeleteBranchProtectionRulePayload) graphql.Marshaler {
+			return ec.marshalODeleteBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteBranchProtectionRulePayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteBranchProtectionRule(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeleteBranchProtectionRulePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteBranchProtectionRule_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_resolveReviewThread(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4485,6 +7471,94 @@ func (ec *executionContext) fieldContext_Mutation_unresolveReviewThread(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_unresolveReviewThread_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_addPullRequestReview(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_addPullRequestReview(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().AddPullRequestReview(ctx, fc.Args["input"].(AddPullRequestReviewInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *AddPullRequestReviewPayload) graphql.Marshaler {
+			return ec.marshalOAddPullRequestReviewPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddPullRequestReviewPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_addPullRequestReview(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AddPullRequestReviewPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_addPullRequestReview_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_submitPullRequestReview(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_submitPullRequestReview(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SubmitPullRequestReview(ctx, fc.Args["input"].(SubmitPullRequestReviewInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *SubmitPullRequestReviewPayload) graphql.Marshaler {
+			return ec.marshalOSubmitPullRequestReviewPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSubmitPullRequestReviewPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_submitPullRequestReview(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SubmitPullRequestReviewPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_submitPullRequestReview_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5730,6 +8804,153 @@ func (ec *executionContext) fieldContext_PullRequestEdge_node(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _PullRequestReview_id(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReview", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReview_state(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_state(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.State, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v PullRequestReviewState) graphql.Marshaler {
+			return ec.marshalNPullRequestReviewState2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReviewState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReview", field, false, false, errors.New("field of type PullRequestReviewState does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReview_body(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_body(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Body, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_body(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReview", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReview_author(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_author(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Author, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Actor) graphql.Marshaler {
+			return ec.marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_author(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PullRequestReview",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Actor(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PullRequestReview_submittedAt(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_submittedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SubmittedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_submittedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReview", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReview_url(ctx context.Context, field graphql.CollectedField, obj *PullRequestReview) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReview_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReview_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReview", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
 func (ec *executionContext) _PullRequestReviewComment_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequestReviewComment) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5953,6 +9174,61 @@ func (ec *executionContext) _PullRequestReviewCommentConnection_totalCount(ctx c
 }
 func (ec *executionContext) fieldContext_PullRequestReviewCommentConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("PullRequestReviewCommentConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReviewEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *PullRequestReviewEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReviewEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReviewEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PullRequestReviewEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PullRequestReviewEdge_node(ctx context.Context, field graphql.CollectedField, obj *PullRequestReviewEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequestReviewEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PullRequestReview) graphql.Marshaler {
+			return ec.marshalOPullRequestReview2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReview(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequestReviewEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PullRequestReviewEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequestReview(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _PullRequestReviewThread_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequestReviewThread) (ret graphql.Marshaler) {
@@ -6289,6 +9565,29 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Ref_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Ref) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Ref_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Ref_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Ref", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
 func (ec *executionContext) _Ref_name(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Ref) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6342,6 +9641,98 @@ func (ec *executionContext) fieldContext_Ref_target(_ context.Context, field gra
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _RemoveAssigneesFromAssignablePayload_assignable(ctx context.Context, field graphql.CollectedField, obj *RemoveAssigneesFromAssignablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoveAssigneesFromAssignablePayload_assignable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Assignable, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v AssignableNode) graphql.Marshaler {
+			return ec.marshalOAssignableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAssignableNode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RemoveAssigneesFromAssignablePayload_assignable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoveAssigneesFromAssignablePayload", field, false, false, errors.New("field of type AssignableNode does not have child fields"))
+}
+
+func (ec *executionContext) _RemoveAssigneesFromAssignablePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *RemoveAssigneesFromAssignablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoveAssigneesFromAssignablePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RemoveAssigneesFromAssignablePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoveAssigneesFromAssignablePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RemoveLabelsFromLabelablePayload_labelable(ctx context.Context, field graphql.CollectedField, obj *RemoveLabelsFromLabelablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoveLabelsFromLabelablePayload_labelable(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Labelable, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v LabelableNode) graphql.Marshaler {
+			return ec.marshalOLabelableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelableNode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RemoveLabelsFromLabelablePayload_labelable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoveLabelsFromLabelablePayload", field, false, false, errors.New("field of type LabelableNode does not have child fields"))
+}
+
+func (ec *executionContext) _RemoveLabelsFromLabelablePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *RemoveLabelsFromLabelablePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoveLabelsFromLabelablePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RemoveLabelsFromLabelablePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoveLabelsFromLabelablePayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _ReopenIssuePayload_issue(ctx context.Context, field graphql.CollectedField, obj *ReopenIssuePayload) (ret graphql.Marshaler) {
@@ -6791,6 +10182,61 @@ func (ec *executionContext) fieldContext_Repository_pullRequests(ctx context.Con
 	return fc, nil
 }
 
+func (ec *executionContext) _RequestReviewsPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *RequestReviewsPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RequestReviewsPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RequestReviewsPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RequestReviewsPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RequestReviewsPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *RequestReviewsPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RequestReviewsPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RequestReviewsPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RequestReviewsPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _ResolveReviewThreadPayload_thread(ctx context.Context, field graphql.CollectedField, obj *ResolveReviewThreadPayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6869,6 +10315,61 @@ func (ec *executionContext) fieldContext_StatusCheckRollup_state(_ context.Conte
 	return graphql.NewScalarFieldContext("StatusCheckRollup", field, false, false, errors.New("field of type StatusState does not have child fields"))
 }
 
+func (ec *executionContext) _SubmitPullRequestReviewPayload_pullRequestReview(ctx context.Context, field graphql.CollectedField, obj *SubmitPullRequestReviewPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SubmitPullRequestReviewPayload_pullRequestReview(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequestReview, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PullRequestReview) graphql.Marshaler {
+			return ec.marshalOPullRequestReview2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReview(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SubmitPullRequestReviewPayload_pullRequestReview(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SubmitPullRequestReviewPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequestReview(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SubmitPullRequestReviewPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *SubmitPullRequestReviewPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SubmitPullRequestReviewPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SubmitPullRequestReviewPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SubmitPullRequestReviewPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _UnresolveReviewThreadPayload_thread(ctx context.Context, field graphql.CollectedField, obj *UnresolveReviewThreadPayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6922,6 +10423,116 @@ func (ec *executionContext) _UnresolveReviewThreadPayload_clientMutationId(ctx c
 }
 func (ec *executionContext) fieldContext_UnresolveReviewThreadPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UnresolveReviewThreadPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UpdateBranchProtectionRulePayload_branchProtectionRule(ctx context.Context, field graphql.CollectedField, obj *UpdateBranchProtectionRulePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UpdateBranchProtectionRulePayload_branchProtectionRule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BranchProtectionRule, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *BranchProtectionRule) graphql.Marshaler {
+			return ec.marshalOBranchProtectionRule2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐBranchProtectionRule(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UpdateBranchProtectionRulePayload_branchProtectionRule(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UpdateBranchProtectionRulePayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BranchProtectionRule(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UpdateBranchProtectionRulePayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *UpdateBranchProtectionRulePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UpdateBranchProtectionRulePayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UpdateBranchProtectionRulePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UpdateBranchProtectionRulePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UpdatePullRequestPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *UpdatePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UpdatePullRequestPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UpdatePullRequestPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UpdatePullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UpdatePullRequestPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *UpdatePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UpdatePullRequestPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UpdatePullRequestPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UpdatePullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -7983,6 +11594,50 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputAddAssigneesToAssignableInput(ctx context.Context, obj any) (AddAssigneesToAssignableInput, error) {
+	var it AddAssigneesToAssignableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"assignableId", "assigneeIds", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "assignableId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assignableId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssignableID = data
+		case "assigneeIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assigneeIds"))
+			data, err := ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssigneeIds = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputAddCommentInput(ctx context.Context, obj any) (AddCommentInput, error) {
 	var it AddCommentInput
 	if obj == nil {
@@ -8027,6 +11682,222 @@ func (ec *executionContext) unmarshalInputAddCommentInput(ctx context.Context, o
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputAddLabelsToLabelableInput(ctx context.Context, obj any) (AddLabelsToLabelableInput, error) {
+	var it AddLabelsToLabelableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"labelableId", "labelIds", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "labelableId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelableId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelableID = data
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputAddPullRequestReviewInput(ctx context.Context, obj any) (AddPullRequestReviewInput, error) {
+	var it AddPullRequestReviewInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "commitOID", "body", "event", "comments", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "commitOID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commitOID"))
+			data, err := ec.unmarshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommitOid = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		case "event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("event"))
+			data, err := ec.unmarshalOPullRequestReviewEvent2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Event = data
+		case "comments":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("comments"))
+			data, err := ec.unmarshalODraftPullRequestReviewComment2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewComment(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Comments = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputBranchProtectionRuleInput(ctx context.Context, obj any) (BranchProtectionRuleInput, error) {
+	var it BranchProtectionRuleInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pattern", "requiresApprovingReviews", "requiredApprovingReviewCount", "requiresStatusChecks", "requiresStrictStatusChecks", "requiresCodeOwnerReviews", "dismissesStaleReviews", "restrictsReviewDismissals", "isAdminEnforced", "requiresLinearHistory", "allowsForcePushes", "allowsDeletions"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pattern":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pattern"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pattern = data
+		case "requiresApprovingReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresApprovingReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresApprovingReviews = data
+		case "requiredApprovingReviewCount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiredApprovingReviewCount"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiredApprovingReviewCount = data
+		case "requiresStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStatusChecks = data
+		case "requiresStrictStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStrictStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStrictStatusChecks = data
+		case "requiresCodeOwnerReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresCodeOwnerReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresCodeOwnerReviews = data
+		case "dismissesStaleReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("dismissesStaleReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DismissesStaleReviews = data
+		case "restrictsReviewDismissals":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("restrictsReviewDismissals"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RestrictsReviewDismissals = data
+		case "isAdminEnforced":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isAdminEnforced"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsAdminEnforced = data
+		case "requiresLinearHistory":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresLinearHistory"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresLinearHistory = data
+		case "allowsForcePushes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsForcePushes"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsForcePushes = data
+		case "allowsDeletions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsDeletions"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsDeletions = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCloseIssueInput(ctx context.Context, obj any) (CloseIssueInput, error) {
 	var it CloseIssueInput
 	if obj == nil {
@@ -8059,6 +11930,127 @@ func (ec *executionContext) unmarshalInputCloseIssueInput(ctx context.Context, o
 				return it, err
 			}
 			it.StateReason = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputCreateBranchProtectionRuleInput(ctx context.Context, obj any) (CreateBranchProtectionRuleInput, error) {
+	var it CreateBranchProtectionRuleInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"repositoryId", "pattern", "requiresApprovingReviews", "requiredApprovingReviewCount", "requiresStatusChecks", "requiresStrictStatusChecks", "requiresCodeOwnerReviews", "dismissesStaleReviews", "restrictsReviewDismissals", "isAdminEnforced", "requiresLinearHistory", "allowsForcePushes", "allowsDeletions", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "repositoryId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RepositoryID = data
+		case "pattern":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pattern"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pattern = data
+		case "requiresApprovingReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresApprovingReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresApprovingReviews = data
+		case "requiredApprovingReviewCount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiredApprovingReviewCount"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiredApprovingReviewCount = data
+		case "requiresStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStatusChecks = data
+		case "requiresStrictStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStrictStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStrictStatusChecks = data
+		case "requiresCodeOwnerReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresCodeOwnerReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresCodeOwnerReviews = data
+		case "dismissesStaleReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("dismissesStaleReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DismissesStaleReviews = data
+		case "restrictsReviewDismissals":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("restrictsReviewDismissals"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RestrictsReviewDismissals = data
+		case "isAdminEnforced":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isAdminEnforced"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsAdminEnforced = data
+		case "requiresLinearHistory":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresLinearHistory"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresLinearHistory = data
+		case "allowsForcePushes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsForcePushes"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsForcePushes = data
+		case "allowsDeletions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsDeletions"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsDeletions = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -8122,6 +12114,507 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreatePullRequestInput(ctx context.Context, obj any) (CreatePullRequestInput, error) {
+	var it CreatePullRequestInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"repositoryId", "baseRefName", "headRefName", "title", "body", "draft", "maintainerCanModify", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "repositoryId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RepositoryID = data
+		case "baseRefName":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("baseRefName"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BaseRefName = data
+		case "headRefName":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("headRefName"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.HeadRefName = data
+		case "title":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Title = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		case "draft":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("draft"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Draft = data
+		case "maintainerCanModify":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("maintainerCanModify"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MaintainerCanModify = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputCreateRefInput(ctx context.Context, obj any) (CreateRefInput, error) {
+	var it CreateRefInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"repositoryId", "name", "oid", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "repositoryId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RepositoryID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "oid":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("oid"))
+			data, err := ec.unmarshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Oid = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDeleteBranchProtectionRuleInput(ctx context.Context, obj any) (DeleteBranchProtectionRuleInput, error) {
+	var it DeleteBranchProtectionRuleInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"branchProtectionRuleId", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "branchProtectionRuleId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branchProtectionRuleId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BranchProtectionRuleID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDeleteRefInput(ctx context.Context, obj any) (DeleteRefInput, error) {
+	var it DeleteRefInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"refId", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "refId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("refId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RefID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDraftPullRequestReviewComment(ctx context.Context, obj any) (DraftPullRequestReviewComment, error) {
+	var it DraftPullRequestReviewComment
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"path", "position", "body", "line", "side", "startLine", "startSide"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "position":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("position"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Position = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		case "line":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("line"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Line = data
+		case "side":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("side"))
+			data, err := ec.unmarshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Side = data
+		case "startLine":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startLine"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartLine = data
+		case "startSide":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startSide"))
+			data, err := ec.unmarshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartSide = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputEnablePullRequestAutoMergeInput(ctx context.Context, obj any) (EnablePullRequestAutoMergeInput, error) {
+	var it EnablePullRequestAutoMergeInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "mergeMethod", "commitHeadline", "commitBody", "authorEmail", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "mergeMethod":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("mergeMethod"))
+			data, err := ec.unmarshalOPullRequestMergeMethod2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestMergeMethod(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MergeMethod = data
+		case "commitHeadline":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commitHeadline"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommitHeadline = data
+		case "commitBody":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commitBody"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommitBody = data
+		case "authorEmail":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("authorEmail"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AuthorEmail = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputMergePullRequestInput(ctx context.Context, obj any) (MergePullRequestInput, error) {
+	var it MergePullRequestInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "mergeMethod", "commitHeadline", "commitBody", "expectedHeadOid", "authorEmail", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "mergeMethod":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("mergeMethod"))
+			data, err := ec.unmarshalOPullRequestMergeMethod2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestMergeMethod(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MergeMethod = data
+		case "commitHeadline":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commitHeadline"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommitHeadline = data
+		case "commitBody":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commitBody"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommitBody = data
+		case "expectedHeadOid":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("expectedHeadOid"))
+			data, err := ec.unmarshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ExpectedHeadOid = data
+		case "authorEmail":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("authorEmail"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AuthorEmail = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRemoveAssigneesFromAssignableInput(ctx context.Context, obj any) (RemoveAssigneesFromAssignableInput, error) {
+	var it RemoveAssigneesFromAssignableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"assignableId", "assigneeIds", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "assignableId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assignableId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssignableID = data
+		case "assigneeIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assigneeIds"))
+			data, err := ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssigneeIds = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRemoveLabelsFromLabelableInput(ctx context.Context, obj any) (RemoveLabelsFromLabelableInput, error) {
+	var it RemoveLabelsFromLabelableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"labelableId", "labelIds", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "labelableId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelableId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelableID = data
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputReopenIssueInput(ctx context.Context, obj any) (ReopenIssueInput, error) {
 	var it ReopenIssueInput
 	if obj == nil {
@@ -8147,6 +12640,64 @@ func (ec *executionContext) unmarshalInputReopenIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.IssueID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRequestReviewsInput(ctx context.Context, obj any) (RequestReviewsInput, error) {
+	var it RequestReviewsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "userIds", "teamIds", "union", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "userIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.UserIds = data
+		case "teamIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("teamIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TeamIds = data
+		case "union":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("union"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Union = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -8196,6 +12747,57 @@ func (ec *executionContext) unmarshalInputResolveReviewThreadInput(ctx context.C
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputSubmitPullRequestReviewInput(ctx context.Context, obj any) (SubmitPullRequestReviewInput, error) {
+	var it SubmitPullRequestReviewInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestReviewId", "event", "body", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestReviewId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestReviewId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestReviewID = data
+		case "event":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("event"))
+			data, err := ec.unmarshalNPullRequestReviewEvent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Event = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUnresolveReviewThreadInput(ctx context.Context, obj any) (UnresolveReviewThreadInput, error) {
 	var it UnresolveReviewThreadInput
 	if obj == nil {
@@ -8233,9 +12835,270 @@ func (ec *executionContext) unmarshalInputUnresolveReviewThreadInput(ctx context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUpdateBranchProtectionRuleInput(ctx context.Context, obj any) (UpdateBranchProtectionRuleInput, error) {
+	var it UpdateBranchProtectionRuleInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"branchProtectionRuleId", "pattern", "requiresApprovingReviews", "requiredApprovingReviewCount", "requiresStatusChecks", "requiresStrictStatusChecks", "requiresCodeOwnerReviews", "dismissesStaleReviews", "restrictsReviewDismissals", "isAdminEnforced", "requiresLinearHistory", "allowsForcePushes", "allowsDeletions", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "branchProtectionRuleId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branchProtectionRuleId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BranchProtectionRuleID = data
+		case "pattern":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pattern"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pattern = data
+		case "requiresApprovingReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresApprovingReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresApprovingReviews = data
+		case "requiredApprovingReviewCount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiredApprovingReviewCount"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiredApprovingReviewCount = data
+		case "requiresStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStatusChecks = data
+		case "requiresStrictStatusChecks":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresStrictStatusChecks"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresStrictStatusChecks = data
+		case "requiresCodeOwnerReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresCodeOwnerReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresCodeOwnerReviews = data
+		case "dismissesStaleReviews":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("dismissesStaleReviews"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DismissesStaleReviews = data
+		case "restrictsReviewDismissals":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("restrictsReviewDismissals"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RestrictsReviewDismissals = data
+		case "isAdminEnforced":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isAdminEnforced"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsAdminEnforced = data
+		case "requiresLinearHistory":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("requiresLinearHistory"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RequiresLinearHistory = data
+		case "allowsForcePushes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsForcePushes"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsForcePushes = data
+		case "allowsDeletions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allowsDeletions"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllowsDeletions = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdatePullRequestInput(ctx context.Context, obj any) (UpdatePullRequestInput, error) {
+	var it UpdatePullRequestInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "title", "body", "baseRefName", "maintainerCanModify", "assigneeIds", "labelIds", "milestoneId", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "title":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Title = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		case "baseRefName":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("baseRefName"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BaseRefName = data
+		case "maintainerCanModify":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("maintainerCanModify"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MaintainerCanModify = data
+		case "assigneeIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assigneeIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssigneeIds = data
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = data
+		case "milestoneId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestoneId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MilestoneID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
+
+func (ec *executionContext) _AssignableNode(ctx context.Context, sel ast.SelectionSet, obj AssignableNode) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case gqlmodel.PullRequest:
+		return ec._PullRequest(ctx, sel, &obj)
+	case *gqlmodel.PullRequest:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PullRequest(ctx, sel, obj)
+	case gqlmodel.Issue:
+		return ec._Issue(ctx, sel, &obj)
+	case *gqlmodel.Issue:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Issue(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of AssignableNode must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _LabelableNode(ctx context.Context, sel ast.SelectionSet, obj LabelableNode) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case gqlmodel.PullRequest:
+		return ec._PullRequest(ctx, sel, &obj)
+	case *gqlmodel.PullRequest:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PullRequest(ctx, sel, obj)
+	case gqlmodel.Issue:
+		return ec._Issue(ctx, sel, &obj)
+	case *gqlmodel.Issue:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Issue(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of LabelableNode must implement graphql.Marshaler", obj))
+		}
+	}
+}
 
 // endregion ************************** interface.gotpl ***************************
 
@@ -8290,6 +13153,44 @@ func (ec *executionContext) _Actor(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var addAssigneesToAssignablePayloadImplementors = []string{"AddAssigneesToAssignablePayload"}
+
+func (ec *executionContext) _AddAssigneesToAssignablePayload(ctx context.Context, sel ast.SelectionSet, obj *AddAssigneesToAssignablePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, addAssigneesToAssignablePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AddAssigneesToAssignablePayload")
+		case "assignable":
+			out.Values[i] = ec._AddAssigneesToAssignablePayload_assignable(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._AddAssigneesToAssignablePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var addCommentPayloadImplementors = []string{"AddCommentPayload"}
 
 func (ec *executionContext) _AddCommentPayload(ctx context.Context, sel ast.SelectionSet, obj *AddCommentPayload) graphql.Marshaler {
@@ -8305,6 +13206,180 @@ func (ec *executionContext) _AddCommentPayload(ctx context.Context, sel ast.Sele
 			out.Values[i] = ec._AddCommentPayload_commentEdge(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._AddCommentPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var addLabelsToLabelablePayloadImplementors = []string{"AddLabelsToLabelablePayload"}
+
+func (ec *executionContext) _AddLabelsToLabelablePayload(ctx context.Context, sel ast.SelectionSet, obj *AddLabelsToLabelablePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, addLabelsToLabelablePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AddLabelsToLabelablePayload")
+		case "labelable":
+			out.Values[i] = ec._AddLabelsToLabelablePayload_labelable(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._AddLabelsToLabelablePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var addPullRequestReviewPayloadImplementors = []string{"AddPullRequestReviewPayload"}
+
+func (ec *executionContext) _AddPullRequestReviewPayload(ctx context.Context, sel ast.SelectionSet, obj *AddPullRequestReviewPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, addPullRequestReviewPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AddPullRequestReviewPayload")
+		case "pullRequestReview":
+			out.Values[i] = ec._AddPullRequestReviewPayload_pullRequestReview(ctx, field, obj)
+		case "reviewEdge":
+			out.Values[i] = ec._AddPullRequestReviewPayload_reviewEdge(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._AddPullRequestReviewPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var branchProtectionRuleImplementors = []string{"BranchProtectionRule"}
+
+func (ec *executionContext) _BranchProtectionRule(ctx context.Context, sel ast.SelectionSet, obj *BranchProtectionRule) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, branchProtectionRuleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BranchProtectionRule")
+		case "id":
+			out.Values[i] = ec._BranchProtectionRule_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pattern":
+			out.Values[i] = ec._BranchProtectionRule_pattern(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "requiresApprovingReviews":
+			out.Values[i] = ec._BranchProtectionRule_requiresApprovingReviews(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "requiredApprovingReviewCount":
+			out.Values[i] = ec._BranchProtectionRule_requiredApprovingReviewCount(ctx, field, obj)
+		case "requiresStatusChecks":
+			out.Values[i] = ec._BranchProtectionRule_requiresStatusChecks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "requiresStrictStatusChecks":
+			out.Values[i] = ec._BranchProtectionRule_requiresStrictStatusChecks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "requiresCodeOwnerReviews":
+			out.Values[i] = ec._BranchProtectionRule_requiresCodeOwnerReviews(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "dismissesStaleReviews":
+			out.Values[i] = ec._BranchProtectionRule_dismissesStaleReviews(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "restrictsReviewDismissals":
+			out.Values[i] = ec._BranchProtectionRule_restrictsReviewDismissals(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isAdminEnforced":
+			out.Values[i] = ec._BranchProtectionRule_isAdminEnforced(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "requiresLinearHistory":
+			out.Values[i] = ec._BranchProtectionRule_requiresLinearHistory(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "allowsForcePushes":
+			out.Values[i] = ec._BranchProtectionRule_allowsForcePushes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "allowsDeletions":
+			out.Values[i] = ec._BranchProtectionRule_allowsDeletions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8448,6 +13523,44 @@ func (ec *executionContext) _Commit(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var createBranchProtectionRulePayloadImplementors = []string{"CreateBranchProtectionRulePayload"}
+
+func (ec *executionContext) _CreateBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, obj *CreateBranchProtectionRulePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, createBranchProtectionRulePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreateBranchProtectionRulePayload")
+		case "branchProtectionRule":
+			out.Values[i] = ec._CreateBranchProtectionRulePayload_branchProtectionRule(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._CreateBranchProtectionRulePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var createIssuePayloadImplementors = []string{"CreateIssuePayload"}
 
 func (ec *executionContext) _CreateIssuePayload(ctx context.Context, sel ast.SelectionSet, obj *CreateIssuePayload) graphql.Marshaler {
@@ -8463,6 +13576,194 @@ func (ec *executionContext) _CreateIssuePayload(ctx context.Context, sel ast.Sel
 			out.Values[i] = ec._CreateIssuePayload_issue(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._CreateIssuePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var createPullRequestPayloadImplementors = []string{"CreatePullRequestPayload"}
+
+func (ec *executionContext) _CreatePullRequestPayload(ctx context.Context, sel ast.SelectionSet, obj *CreatePullRequestPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, createPullRequestPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatePullRequestPayload")
+		case "pullRequest":
+			out.Values[i] = ec._CreatePullRequestPayload_pullRequest(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._CreatePullRequestPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var createRefPayloadImplementors = []string{"CreateRefPayload"}
+
+func (ec *executionContext) _CreateRefPayload(ctx context.Context, sel ast.SelectionSet, obj *CreateRefPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, createRefPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreateRefPayload")
+		case "ref":
+			out.Values[i] = ec._CreateRefPayload_ref(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._CreateRefPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deleteBranchProtectionRulePayloadImplementors = []string{"DeleteBranchProtectionRulePayload"}
+
+func (ec *executionContext) _DeleteBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, obj *DeleteBranchProtectionRulePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deleteBranchProtectionRulePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeleteBranchProtectionRulePayload")
+		case "clientMutationId":
+			out.Values[i] = ec._DeleteBranchProtectionRulePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deleteRefPayloadImplementors = []string{"DeleteRefPayload"}
+
+func (ec *executionContext) _DeleteRefPayload(ctx context.Context, sel ast.SelectionSet, obj *DeleteRefPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deleteRefPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeleteRefPayload")
+		case "clientMutationId":
+			out.Values[i] = ec._DeleteRefPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var enablePullRequestAutoMergePayloadImplementors = []string{"EnablePullRequestAutoMergePayload"}
+
+func (ec *executionContext) _EnablePullRequestAutoMergePayload(ctx context.Context, sel ast.SelectionSet, obj *EnablePullRequestAutoMergePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, enablePullRequestAutoMergePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EnablePullRequestAutoMergePayload")
+		case "pullRequest":
+			out.Values[i] = ec._EnablePullRequestAutoMergePayload_pullRequest(ctx, field, obj)
+		case "actor":
+			out.Values[i] = ec._EnablePullRequestAutoMergePayload_actor(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._EnablePullRequestAutoMergePayload_clientMutationId(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8525,7 +13826,7 @@ func (ec *executionContext) _GitObject(ctx context.Context, sel ast.SelectionSet
 	return out
 }
 
-var issueImplementors = []string{"Issue"}
+var issueImplementors = []string{"Issue", "LabelableNode", "AssignableNode"}
 
 func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Issue) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, issueImplementors)
@@ -9039,6 +14340,46 @@ func (ec *executionContext) _LabelConnection(ctx context.Context, sel ast.Select
 	return out
 }
 
+var mergePullRequestPayloadImplementors = []string{"MergePullRequestPayload"}
+
+func (ec *executionContext) _MergePullRequestPayload(ctx context.Context, sel ast.SelectionSet, obj *MergePullRequestPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, mergePullRequestPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MergePullRequestPayload")
+		case "pullRequest":
+			out.Values[i] = ec._MergePullRequestPayload_pullRequest(ctx, field, obj)
+		case "actor":
+			out.Values[i] = ec._MergePullRequestPayload_actor(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._MergePullRequestPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -9074,6 +14415,62 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_reopenIssue(ctx, field)
 			})
+		case "addLabelsToLabelable":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_addLabelsToLabelable(ctx, field)
+			})
+		case "removeLabelsFromLabelable":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_removeLabelsFromLabelable(ctx, field)
+			})
+		case "addAssigneesToAssignable":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_addAssigneesToAssignable(ctx, field)
+			})
+		case "removeAssigneesFromAssignable":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_removeAssigneesFromAssignable(ctx, field)
+			})
+		case "createPullRequest":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createPullRequest(ctx, field)
+			})
+		case "mergePullRequest":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_mergePullRequest(ctx, field)
+			})
+		case "enablePullRequestAutoMerge":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_enablePullRequestAutoMerge(ctx, field)
+			})
+		case "updatePullRequest":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePullRequest(ctx, field)
+			})
+		case "requestReviews":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_requestReviews(ctx, field)
+			})
+		case "createRef":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createRef(ctx, field)
+			})
+		case "deleteRef":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteRef(ctx, field)
+			})
+		case "createBranchProtectionRule":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createBranchProtectionRule(ctx, field)
+			})
+		case "updateBranchProtectionRule":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateBranchProtectionRule(ctx, field)
+			})
+		case "deleteBranchProtectionRule":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteBranchProtectionRule(ctx, field)
+			})
 		case "resolveReviewThread":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_resolveReviewThread(ctx, field)
@@ -9081,6 +14478,14 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "unresolveReviewThread":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_unresolveReviewThread(ctx, field)
+			})
+		case "addPullRequestReview":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_addPullRequestReview(ctx, field)
+			})
+		case "submitPullRequestReview":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_submitPullRequestReview(ctx, field)
 			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -9153,7 +14558,7 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
-var pullRequestImplementors = []string{"PullRequest"}
+var pullRequestImplementors = []string{"PullRequest", "LabelableNode", "AssignableNode"}
 
 func (ec *executionContext) _PullRequest(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.PullRequest) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestImplementors)
@@ -9708,6 +15113,64 @@ func (ec *executionContext) _PullRequestEdge(ctx context.Context, sel ast.Select
 	return out
 }
 
+var pullRequestReviewImplementors = []string{"PullRequestReview"}
+
+func (ec *executionContext) _PullRequestReview(ctx context.Context, sel ast.SelectionSet, obj *PullRequestReview) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestReviewImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PullRequestReview")
+		case "id":
+			out.Values[i] = ec._PullRequestReview_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "state":
+			out.Values[i] = ec._PullRequestReview_state(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "body":
+			out.Values[i] = ec._PullRequestReview_body(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "author":
+			out.Values[i] = ec._PullRequestReview_author(ctx, field, obj)
+		case "submittedAt":
+			out.Values[i] = ec._PullRequestReview_submittedAt(ctx, field, obj)
+		case "url":
+			out.Values[i] = ec._PullRequestReview_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var pullRequestReviewCommentImplementors = []string{"PullRequestReviewComment"}
 
 func (ec *executionContext) _PullRequestReviewComment(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.PullRequestReviewComment) graphql.Marshaler {
@@ -9792,6 +15255,47 @@ func (ec *executionContext) _PullRequestReviewCommentConnection(ctx context.Cont
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var pullRequestReviewEdgeImplementors = []string{"PullRequestReviewEdge"}
+
+func (ec *executionContext) _PullRequestReviewEdge(ctx context.Context, sel ast.SelectionSet, obj *PullRequestReviewEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestReviewEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PullRequestReviewEdge")
+		case "cursor":
+			out.Values[i] = ec._PullRequestReviewEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._PullRequestReviewEdge_node(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10028,6 +15532,11 @@ func (ec *executionContext) _Ref(ctx context.Context, sel ast.SelectionSet, obj 
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Ref")
+		case "id":
+			out.Values[i] = ec._Ref_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "name":
 			out.Values[i] = ec._Ref_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10035,6 +15544,82 @@ func (ec *executionContext) _Ref(ctx context.Context, sel ast.SelectionSet, obj 
 			}
 		case "target":
 			out.Values[i] = ec._Ref_target(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var removeAssigneesFromAssignablePayloadImplementors = []string{"RemoveAssigneesFromAssignablePayload"}
+
+func (ec *executionContext) _RemoveAssigneesFromAssignablePayload(ctx context.Context, sel ast.SelectionSet, obj *RemoveAssigneesFromAssignablePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, removeAssigneesFromAssignablePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RemoveAssigneesFromAssignablePayload")
+		case "assignable":
+			out.Values[i] = ec._RemoveAssigneesFromAssignablePayload_assignable(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._RemoveAssigneesFromAssignablePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var removeLabelsFromLabelablePayloadImplementors = []string{"RemoveLabelsFromLabelablePayload"}
+
+func (ec *executionContext) _RemoveLabelsFromLabelablePayload(ctx context.Context, sel ast.SelectionSet, obj *RemoveLabelsFromLabelablePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, removeLabelsFromLabelablePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RemoveLabelsFromLabelablePayload")
+		case "labelable":
+			out.Values[i] = ec._RemoveLabelsFromLabelablePayload_labelable(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._RemoveLabelsFromLabelablePayload_clientMutationId(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10304,6 +15889,44 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var requestReviewsPayloadImplementors = []string{"RequestReviewsPayload"}
+
+func (ec *executionContext) _RequestReviewsPayload(ctx context.Context, sel ast.SelectionSet, obj *RequestReviewsPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, requestReviewsPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RequestReviewsPayload")
+		case "pullRequest":
+			out.Values[i] = ec._RequestReviewsPayload_pullRequest(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._RequestReviewsPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var resolveReviewThreadPayloadImplementors = []string{"ResolveReviewThreadPayload"}
 
 func (ec *executionContext) _ResolveReviewThreadPayload(ctx context.Context, sel ast.SelectionSet, obj *ResolveReviewThreadPayload) graphql.Marshaler {
@@ -10381,6 +16004,44 @@ func (ec *executionContext) _StatusCheckRollup(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var submitPullRequestReviewPayloadImplementors = []string{"SubmitPullRequestReviewPayload"}
+
+func (ec *executionContext) _SubmitPullRequestReviewPayload(ctx context.Context, sel ast.SelectionSet, obj *SubmitPullRequestReviewPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, submitPullRequestReviewPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SubmitPullRequestReviewPayload")
+		case "pullRequestReview":
+			out.Values[i] = ec._SubmitPullRequestReviewPayload_pullRequestReview(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._SubmitPullRequestReviewPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var unresolveReviewThreadPayloadImplementors = []string{"UnresolveReviewThreadPayload"}
 
 func (ec *executionContext) _UnresolveReviewThreadPayload(ctx context.Context, sel ast.SelectionSet, obj *UnresolveReviewThreadPayload) graphql.Marshaler {
@@ -10396,6 +16057,82 @@ func (ec *executionContext) _UnresolveReviewThreadPayload(ctx context.Context, s
 			out.Values[i] = ec._UnresolveReviewThreadPayload_thread(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._UnresolveReviewThreadPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var updateBranchProtectionRulePayloadImplementors = []string{"UpdateBranchProtectionRulePayload"}
+
+func (ec *executionContext) _UpdateBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, obj *UpdateBranchProtectionRulePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, updateBranchProtectionRulePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UpdateBranchProtectionRulePayload")
+		case "branchProtectionRule":
+			out.Values[i] = ec._UpdateBranchProtectionRulePayload_branchProtectionRule(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._UpdateBranchProtectionRulePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var updatePullRequestPayloadImplementors = []string{"UpdatePullRequestPayload"}
+
+func (ec *executionContext) _UpdatePullRequestPayload(ctx context.Context, sel ast.SelectionSet, obj *UpdatePullRequestPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, updatePullRequestPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UpdatePullRequestPayload")
+		case "pullRequest":
+			out.Values[i] = ec._UpdatePullRequestPayload_pullRequest(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._UpdatePullRequestPayload_clientMutationId(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10754,8 +16491,23 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) unmarshalNAddAssigneesToAssignableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddAssigneesToAssignableInput(ctx context.Context, v any) (AddAssigneesToAssignableInput, error) {
+	res, err := ec.unmarshalInputAddAssigneesToAssignableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNAddCommentInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddCommentInput(ctx context.Context, v any) (AddCommentInput, error) {
 	res, err := ec.unmarshalInputAddCommentInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNAddLabelsToLabelableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddLabelsToLabelableInput(ctx context.Context, v any) (AddLabelsToLabelableInput, error) {
+	res, err := ec.unmarshalInputAddLabelsToLabelableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNAddPullRequestReviewInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddPullRequestReviewInput(ctx context.Context, v any) (AddPullRequestReviewInput, error) {
+	res, err := ec.unmarshalInputAddPullRequestReviewInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -10790,8 +16542,23 @@ func (ec *executionContext) marshalNCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋp
 	return ec._Commit(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNCreateBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateBranchProtectionRuleInput(ctx context.Context, v any) (CreateBranchProtectionRuleInput, error) {
+	res, err := ec.unmarshalInputCreateBranchProtectionRuleInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreateIssueInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateIssueInput(ctx context.Context, v any) (CreateIssueInput, error) {
 	res, err := ec.unmarshalInputCreateIssueInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNCreatePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreatePullRequestInput(ctx context.Context, v any) (CreatePullRequestInput, error) {
+	res, err := ec.unmarshalInputCreatePullRequestInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNCreateRefInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateRefInput(ctx context.Context, v any) (CreateRefInput, error) {
+	res, err := ec.unmarshalInputCreateRefInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -10803,6 +16570,21 @@ func (ec *executionContext) unmarshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋ
 
 func (ec *executionContext) marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx context.Context, sel ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) unmarshalNDeleteBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteBranchProtectionRuleInput(ctx context.Context, v any) (DeleteBranchProtectionRuleInput, error) {
+	res, err := ec.unmarshalInputDeleteBranchProtectionRuleInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeleteRefInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteRefInput(ctx context.Context, v any) (DeleteRefInput, error) {
+	res, err := ec.unmarshalInputDeleteRefInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNEnablePullRequestAutoMergeInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐEnablePullRequestAutoMergeInput(ctx context.Context, v any) (EnablePullRequestAutoMergeInput, error) {
+	res, err := ec.unmarshalInputEnablePullRequestAutoMergeInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx context.Context, v any) (gqlmodel.GitObjectID, error) {
@@ -10829,6 +16611,36 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
@@ -10890,6 +16702,11 @@ func (ec *executionContext) marshalNIssueState2githubᚗcomᚋtamndᚋgithomeᚋ
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNMergePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐMergePullRequestInput(ctx context.Context, v any) (MergePullRequestInput, error) {
+	res, err := ec.unmarshalInputMergePullRequestInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNMergeStateStatus2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐMergeStateStatus(ctx context.Context, v any) (gqlmodel.MergeStateStatus, error) {
@@ -11009,6 +16826,33 @@ func (ec *executionContext) marshalNPullRequestReviewCommentConnection2ᚖgithub
 	return ec._PullRequestReviewCommentConnection(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNPullRequestReviewEvent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx context.Context, v any) (gqlmodel.PullRequestReviewEvent, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.PullRequestReviewEvent(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPullRequestReviewEvent2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx context.Context, sel ast.SelectionSet, v gqlmodel.PullRequestReviewEvent) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNPullRequestReviewState2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReviewState(ctx context.Context, v any) (PullRequestReviewState, error) {
+	var res PullRequestReviewState
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPullRequestReviewState2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReviewState(ctx context.Context, sel ast.SelectionSet, v PullRequestReviewState) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNPullRequestReviewThreadConnection2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewThreadConnection(ctx context.Context, sel ast.SelectionSet, v gqlmodel.PullRequestReviewThreadConnection) graphql.Marshaler {
 	return ec._PullRequestReviewThreadConnection(ctx, sel, &v)
 }
@@ -11040,8 +16884,23 @@ func (ec *executionContext) marshalNPullRequestState2githubᚗcomᚋtamndᚋgith
 	return res
 }
 
+func (ec *executionContext) unmarshalNRemoveAssigneesFromAssignableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveAssigneesFromAssignableInput(ctx context.Context, v any) (RemoveAssigneesFromAssignableInput, error) {
+	res, err := ec.unmarshalInputRemoveAssigneesFromAssignableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRemoveLabelsFromLabelableInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveLabelsFromLabelableInput(ctx context.Context, v any) (RemoveLabelsFromLabelableInput, error) {
+	res, err := ec.unmarshalInputRemoveLabelsFromLabelableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNReopenIssueInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenIssueInput(ctx context.Context, v any) (ReopenIssueInput, error) {
 	res, err := ec.unmarshalInputReopenIssueInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRequestReviewsInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRequestReviewsInput(ctx context.Context, v any) (RequestReviewsInput, error) {
+	res, err := ec.unmarshalInputRequestReviewsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -11083,6 +16942,11 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNSubmitPullRequestReviewInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSubmitPullRequestReviewInput(ctx context.Context, v any) (SubmitPullRequestReviewInput, error) {
+	res, err := ec.unmarshalInputSubmitPullRequestReviewInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx context.Context, v any) (gqlmodel.URI, error) {
 	var res gqlmodel.URI
 	err := res.UnmarshalGQL(v)
@@ -11095,6 +16959,16 @@ func (ec *executionContext) marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresent
 
 func (ec *executionContext) unmarshalNUnresolveReviewThreadInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUnresolveReviewThreadInput(ctx context.Context, v any) (UnresolveReviewThreadInput, error) {
 	res, err := ec.unmarshalInputUnresolveReviewThreadInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateBranchProtectionRuleInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdateBranchProtectionRuleInput(ctx context.Context, v any) (UpdateBranchProtectionRuleInput, error) {
+	res, err := ec.unmarshalInputUpdateBranchProtectionRuleInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdatePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdatePullRequestInput(ctx context.Context, v any) (UpdatePullRequestInput, error) {
+	res, err := ec.unmarshalInputUpdatePullRequestInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -11246,11 +17120,39 @@ func (ec *executionContext) marshalOActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpr
 	return ec._Actor(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOAddAssigneesToAssignablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddAssigneesToAssignablePayload(ctx context.Context, sel ast.SelectionSet, v *AddAssigneesToAssignablePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AddAssigneesToAssignablePayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOAddCommentPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddCommentPayload(ctx context.Context, sel ast.SelectionSet, v *AddCommentPayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._AddCommentPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOAddLabelsToLabelablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddLabelsToLabelablePayload(ctx context.Context, sel ast.SelectionSet, v *AddLabelsToLabelablePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AddLabelsToLabelablePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOAddPullRequestReviewPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAddPullRequestReviewPayload(ctx context.Context, sel ast.SelectionSet, v *AddPullRequestReviewPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AddPullRequestReviewPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOAssignableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐAssignableNode(ctx context.Context, sel ast.SelectionSet, v AssignableNode) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AssignableNode(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
@@ -11283,6 +17185,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalOBranchProtectionRule2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐBranchProtectionRule(ctx context.Context, sel ast.SelectionSet, v *BranchProtectionRule) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._BranchProtectionRule(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOCloseIssuePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCloseIssuePayload(ctx context.Context, sel ast.SelectionSet, v *CloseIssuePayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -11290,11 +17199,32 @@ func (ec *executionContext) marshalOCloseIssuePayload2ᚖgithubᚗcomᚋtamndᚋ
 	return ec._CloseIssuePayload(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOCreateBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, v *CreateBranchProtectionRulePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CreateBranchProtectionRulePayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOCreateIssuePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateIssuePayload(ctx context.Context, sel ast.SelectionSet, v *CreateIssuePayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._CreateIssuePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOCreatePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreatePullRequestPayload(ctx context.Context, sel ast.SelectionSet, v *CreatePullRequestPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CreatePullRequestPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOCreateRefPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCreateRefPayload(ctx context.Context, sel ast.SelectionSet, v *CreateRefPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CreateRefPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx context.Context, v any) (*gqlmodel.DateTime, error) {
@@ -11313,11 +17243,147 @@ func (ec *executionContext) marshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithome�
 	return v
 }
 
+func (ec *executionContext) marshalODeleteBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, v *DeleteBranchProtectionRulePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._DeleteBranchProtectionRulePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalODeleteRefPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDeleteRefPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteRefPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._DeleteRefPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx context.Context, v any) (*gqlmodel.DiffSide, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.DiffSide(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.DiffSide) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
+func (ec *executionContext) unmarshalODraftPullRequestReviewComment2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewComment(ctx context.Context, v any) ([]*DraftPullRequestReviewComment, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*DraftPullRequestReviewComment, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalODraftPullRequestReviewComment2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewComment(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalODraftPullRequestReviewComment2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewComment(ctx context.Context, v any) (*DraftPullRequestReviewComment, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputDraftPullRequestReviewComment(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEnablePullRequestAutoMergePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐEnablePullRequestAutoMergePayload(ctx context.Context, sel ast.SelectionSet, v *EnablePullRequestAutoMergePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EnablePullRequestAutoMergePayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOGitObject2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitObject) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._GitObject(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx context.Context, v any) (*gqlmodel.GitObjectID, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(gqlmodel.GitObjectID)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitObjectID) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) unmarshalOID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalID(*v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
@@ -11504,6 +17570,20 @@ func (ec *executionContext) marshalOLabelConnection2ᚖgithubᚗcomᚋtamndᚋgi
 	return ec._LabelConnection(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOLabelableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelableNode(ctx context.Context, sel ast.SelectionSet, v LabelableNode) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._LabelableNode(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOMergePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐMergePullRequestPayload(ctx context.Context, sel ast.SelectionSet, v *MergePullRequestPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._MergePullRequestPayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOPullRequest2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.PullRequest) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -11584,6 +17664,32 @@ func (ec *executionContext) marshalOPullRequestEdge2ᚖgithubᚗcomᚋtamndᚋgi
 	return ec._PullRequestEdge(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOPullRequestMergeMethod2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestMergeMethod(ctx context.Context, v any) (*gqlmodel.PullRequestMergeMethod, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.PullRequestMergeMethod(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOPullRequestMergeMethod2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestMergeMethod(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.PullRequestMergeMethod) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
+func (ec *executionContext) marshalOPullRequestReview2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReview(ctx context.Context, sel ast.SelectionSet, v *PullRequestReview) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PullRequestReview(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOPullRequestReviewComment2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewComment(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.PullRequestReviewComment) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -11614,6 +17720,32 @@ func (ec *executionContext) unmarshalOPullRequestReviewDecision2ᚖgithubᚗcom�
 }
 
 func (ec *executionContext) marshalOPullRequestReviewDecision2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewDecision(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.PullRequestReviewDecision) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
+func (ec *executionContext) marshalOPullRequestReviewEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐPullRequestReviewEdge(ctx context.Context, sel ast.SelectionSet, v *PullRequestReviewEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PullRequestReviewEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOPullRequestReviewEvent2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx context.Context, v any) (*gqlmodel.PullRequestReviewEvent, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := gqlmodel.PullRequestReviewEvent(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOPullRequestReviewEvent2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequestReviewEvent(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.PullRequestReviewEvent) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -11687,6 +17819,20 @@ func (ec *executionContext) marshalORef2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpres
 	return ec._Ref(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalORemoveAssigneesFromAssignablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveAssigneesFromAssignablePayload(ctx context.Context, sel ast.SelectionSet, v *RemoveAssigneesFromAssignablePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RemoveAssigneesFromAssignablePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalORemoveLabelsFromLabelablePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRemoveLabelsFromLabelablePayload(ctx context.Context, sel ast.SelectionSet, v *RemoveLabelsFromLabelablePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RemoveLabelsFromLabelablePayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOReopenIssuePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenIssuePayload(ctx context.Context, sel ast.SelectionSet, v *ReopenIssuePayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -11699,6 +17845,13 @@ func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋtamndᚋgithome
 		return graphql.Null
 	}
 	return ec._Repository(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalORequestReviewsPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRequestReviewsPayload(ctx context.Context, sel ast.SelectionSet, v *RequestReviewsPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RequestReviewsPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOResolveReviewThreadPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐResolveReviewThreadPayload(ctx context.Context, sel ast.SelectionSet, v *ResolveReviewThreadPayload) graphql.Marshaler {
@@ -11733,11 +17886,32 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return res
 }
 
+func (ec *executionContext) marshalOSubmitPullRequestReviewPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSubmitPullRequestReviewPayload(ctx context.Context, sel ast.SelectionSet, v *SubmitPullRequestReviewPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SubmitPullRequestReviewPayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOUnresolveReviewThreadPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUnresolveReviewThreadPayload(ctx context.Context, sel ast.SelectionSet, v *UnresolveReviewThreadPayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._UnresolveReviewThreadPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOUpdateBranchProtectionRulePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdateBranchProtectionRulePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateBranchProtectionRulePayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._UpdateBranchProtectionRulePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOUpdatePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐUpdatePullRequestPayload(ctx context.Context, sel ast.SelectionSet, v *UpdatePullRequestPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._UpdatePullRequestPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

@@ -18,6 +18,7 @@ type Repository struct {
 
 // Ref is a git reference reduced to its name and the object it points at.
 type Ref struct {
+	ID     string     // the Ref node ID
 	Name   string     // the short ref name, such as main
 	Target *GitObject // the object the ref names
 }

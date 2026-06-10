@@ -14,6 +14,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.33
 	github.com/yuin/goldmark v1.8.2
 	github.com/yuin/goldmark-emoji v1.0.6
+	golang.org/x/crypto v0.50.0
 	golang.org/x/net v0.53.0
 	modernc.org/sqlite v1.51.0
 )
@@ -52,7 +53,6 @@ require (
 	github.com/sosodev/duration v1.4.0 // indirect
 	github.com/urfave/cli/v3 v3.8.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect

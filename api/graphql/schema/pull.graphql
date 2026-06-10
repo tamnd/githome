@@ -131,3 +131,100 @@ type PullRequestCommitConnection {
   nodes: [PullRequestCommit]
   totalCount: Int!
 }
+
+# PullRequestMergeMethod is the strategy to use when merging a pull request.
+enum PullRequestMergeMethod {
+  MERGE
+  SQUASH
+  REBASE
+}
+
+extend type Mutation {
+  # createPullRequest opens a new pull request.
+  createPullRequest(input: CreatePullRequestInput!): CreatePullRequestPayload
+  # mergePullRequest merges a pull request.
+  mergePullRequest(input: MergePullRequestInput!): MergePullRequestPayload
+  # enablePullRequestAutoMerge enables auto-merge on a pull request.
+  enablePullRequestAutoMerge(input: EnablePullRequestAutoMergeInput!): EnablePullRequestAutoMergePayload
+  # updatePullRequest edits a pull request's metadata.
+  updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  # requestReviews adds or removes review requests on a pull request.
+  requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
+}
+
+input CreatePullRequestInput {
+  repositoryId: ID!
+  baseRefName: String!
+  headRefName: String!
+  title: String!
+  body: String
+  draft: Boolean
+  maintainerCanModify: Boolean
+  clientMutationId: String
+}
+
+type CreatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input MergePullRequestInput {
+  pullRequestId: ID!
+  mergeMethod: PullRequestMergeMethod
+  commitHeadline: String
+  commitBody: String
+  expectedHeadOid: GitObjectID
+  authorEmail: String
+  clientMutationId: String
+}
+
+type MergePullRequestPayload {
+  pullRequest: PullRequest
+  actor: Actor
+  clientMutationId: String
+}
+
+input EnablePullRequestAutoMergeInput {
+  pullRequestId: ID!
+  mergeMethod: PullRequestMergeMethod
+  commitHeadline: String
+  commitBody: String
+  authorEmail: String
+  clientMutationId: String
+}
+
+type EnablePullRequestAutoMergePayload {
+  pullRequest: PullRequest
+  actor: Actor
+  clientMutationId: String
+}
+
+input UpdatePullRequestInput {
+  pullRequestId: ID!
+  title: String
+  body: String
+  baseRefName: String
+  maintainerCanModify: Boolean
+  assigneeIds: [ID!]
+  labelIds: [ID!]
+  milestoneId: ID
+  clientMutationId: String
+}
+
+type UpdatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input RequestReviewsInput {
+  pullRequestId: ID!
+  userIds: [ID!]
+  teamIds: [ID!]
+  union: Boolean
+  clientMutationId: String
+}
+
+type RequestReviewsPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}

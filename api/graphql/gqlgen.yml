@@ -86,6 +86,12 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.IssueState
   IssueStateReason:
     model: github.com/tamnd/githome/presenter/gqlmodel.IssueStateReason
+  PullRequestMergeMethod:
+    model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestMergeMethod
+  PullRequestReviewEvent:
+    model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestReviewEvent
+  DiffSide:
+    model: github.com/tamnd/githome/presenter/gqlmodel.DiffSide
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int32

@@ -121,3 +121,8 @@ type IssueCommentConnection struct {
 	Nodes      []*IssueComment
 	TotalCount int32
 }
+
+// IsLabelableNode and IsAssignableNode mark Issue as a member of the
+// LabelableNode and AssignableNode union types in the GraphQL schema.
+func (Issue) IsLabelableNode()  {}
+func (Issue) IsAssignableNode() {}
