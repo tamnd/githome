@@ -58,6 +58,32 @@ func handlePullMerge(d Deps) mizu.Handler {
 	}
 }
 
+// pullMergeCheck serves GET /repos/{owner}/{repo}/pulls/{number}/merge, the
+// is-it-merged probe go-github's IsMerged and octokit's checkIfMerged call.
+// GitHub answers 204 with no body for a merged pull request and the plain 404
+// envelope for one that exists but has not been merged, the same 404 an unknown
+// number gets.
+func pullMergeCheck(d Deps, c *mizu.Ctx, number int64) error {
+	if d.Pulls == nil {
+		writeError(c.Writer(), errNotFound())
+		return nil
+	}
+	actor := auth.ActorFrom(c.Request().Context())
+	pr, err := d.Pulls.GetPR(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number)
+	if pullError(c.Writer(), err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if pr.Merged {
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+	writeError(c.Writer(), errNotFound())
+	return nil
+}
+
 // mergeMethod maps the merge_method request value to the git merge method,
 // defaulting an empty value to a merge commit and rejecting anything else.
 func mergeMethod(v string) (git.MergeMethod, bool) {

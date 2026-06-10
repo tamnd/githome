@@ -233,3 +233,38 @@ func TestMergePullContract(t *testing.T) {
 		t.Fatalf("second merge status %d, want 405, body %s", resp.StatusCode, body)
 	}
 }
+
+// TestPullMergeCheck covers GET /pulls/{number}/merge: 404 with the standard
+// envelope while the pull request is open, 204 with an empty body once merged.
+func TestPullMergeCheck(t *testing.T) {
+	fx := pullServer(t)
+	fx.openPull(t)
+
+	resp, body := authedGet(t, fx.srv, "/repos/octocat/hello/pulls/1/merge", "token "+fx.token)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unmerged check status %d, want 404, body %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), `"message":"Not Found"`) {
+		t.Errorf("unmerged check body missing envelope: %s", body)
+	}
+
+	resp, body = authedSend(t, fx.srv, http.MethodPut, "/repos/octocat/hello/pulls/1/merge", fx.token,
+		`{"merge_method":"merge"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("merge status %d, body %s", resp.StatusCode, body)
+	}
+
+	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello/pulls/1/merge", "token "+fx.token)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("merged check status %d, want 204, body %s", resp.StatusCode, body)
+	}
+	if len(body) != 0 {
+		t.Errorf("merged check carries a body: %s", body)
+	}
+
+	// An unknown number is the same 404 as an unmerged pull request.
+	resp, _ = authedGet(t, fx.srv, "/repos/octocat/hello/pulls/99/merge", "token "+fx.token)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown pull check status %d, want 404", resp.StatusCode)
+	}
+}
