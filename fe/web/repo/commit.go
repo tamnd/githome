@@ -44,8 +44,8 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 	// Build parent short-SHA + URL pairs.
 	var parentSHAs, parentURLs []string
 	for _, p := range commit.Parents {
-		parentSHAs = append(parentSHAs, shortSHA(string(p)))
-		parentURLs = append(parentURLs, route.Commit(owner, repo.Name, string(p)))
+		parentSHAs = append(parentSHAs, shortSHA(p))
+		parentURLs = append(parentURLs, route.Commit(owner, repo.Name, p))
 	}
 
 	vm := view.CommitVM{

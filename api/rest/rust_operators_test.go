@@ -39,8 +39,8 @@ import (
 // contains a mode-160000 entry.
 func TestRustOperators(t *testing.T) {
 	const (
-		nIssues          = 50
-		nPRs             = 50
+		nIssues           = 50
+		nPRs              = 50
 		commentsPerReview = 5
 	)
 	ctx := context.Background()
@@ -303,9 +303,9 @@ func buildRustSmokeGitAt(t *testing.T, dir string) {
 
 	// Regular source files.
 	files := map[string]string{
-		"README.md":                        "# rust\n",
-		"compiler/rustc_ast/src/lib.rs":    "// ast\n",
-		"library/std/src/lib.rs":           "// std\n",
+		"README.md":                     "# rust\n",
+		"compiler/rustc_ast/src/lib.rs": "// ast\n",
+		"library/std/src/lib.rs":        "// std\n",
 	}
 	for rel, body := range files {
 		full := filepath.Join(work, rel)
