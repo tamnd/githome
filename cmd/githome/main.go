@@ -110,6 +110,7 @@ func run() error {
 	eventSvc := domain.NewEventService(st, repoSvc)
 	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
 	keySvc := domain.NewKeyService(st)
+	teamSvc := domain.NewTeamService(st)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
 	// The webhook deliverer renders each recorded event through the presenter and
@@ -148,6 +149,7 @@ func run() error {
 		Reviews:    reviewSvc,
 		Checks:     checksSvc,
 		Keys:       keySvc,
+		Teams:      teamSvc,
 		Hooks:      hookSvc,
 		Events:     eventSvc,
 		Search:     searchSvc,

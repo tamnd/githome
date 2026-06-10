@@ -13,7 +13,7 @@ import (
 const repoColumns = `r.pk, r.db_id, r.owner_pk, r.name, r.description, r.homepage,
 	r.private, r.fork, r.default_branch, r.has_issues, r.has_projects, r.has_wiki,
 	r.has_downloads, r.archived, r.disabled, r.is_template, r.open_issues_count,
-	r.pushed_at, r.created_at, r.updated_at`
+	r.pushed_at, r.created_at, r.updated_at, r.topics`
 
 // RepoByOwnerName resolves a repository by its owner login (case-insensitively,
 // matching GitHub's case-preserving account and repo names) and repo name. It
@@ -60,7 +60,7 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING pk, db_id, created_at, updated_at,
 		          has_issues, has_projects, has_wiki, has_downloads,
-		          archived, disabled, is_template`)
+		          archived, disabled, is_template, topics`)
 	var (
 		created, updated                              nullTime
 		hasIssues, hasProjects, hasWiki, hasDownloads boolVal
@@ -72,7 +72,7 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	).Scan(
 		&r.PK, &r.DBID, &created, &updated,
 		&hasIssues, &hasProjects, &hasWiki, &hasDownloads,
-		&archived, &disabled, &isTemplate,
+		&archived, &disabled, &isTemplate, &r.Topics,
 	)
 	if err != nil {
 		return err
@@ -81,6 +81,9 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	r.HasIssues, r.HasProjects = hasIssues.Bool, hasProjects.Bool
 	r.HasWiki, r.HasDownloads = hasWiki.Bool, hasDownloads.Bool
 	r.Archived, r.Disabled, r.IsTemplate = archived.Bool, disabled.Bool, isTemplate.Bool
+	if r.Topics == "" {
+		r.Topics = "[]"
+	}
 	return nil
 }
 
@@ -190,7 +193,7 @@ func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
 		&r.PK, &r.DBID, &r.OwnerPK, &r.Name, &description, &homepage,
 		&private, &fork, &r.DefaultBranch, &hasIssues, &hasProjects, &hasWiki,
 		&hasDownloads, &archived, &disabled, &isTemplate, &r.OpenIssuesCount,
-		&pushed, &created, &updated,
+		&pushed, &created, &updated, &r.Topics,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -205,5 +208,8 @@ func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
 	r.Archived, r.Disabled, r.IsTemplate = archived.Bool, disabled.Bool, isTemplate.Bool
 	r.PushedAt = pushed.ptr()
 	r.CreatedAt, r.UpdatedAt = created.Time, updated.Time
+	if r.Topics == "" {
+		r.Topics = "[]"
+	}
 	return &r, nil
 }
