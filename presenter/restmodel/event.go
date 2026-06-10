@@ -174,3 +174,37 @@ type PullRequestEventPayload struct {
 	Number      int64       `json:"number"`
 	PullRequest PullRequest `json:"pull_request"`
 }
+
+// WebhookCreate is the body of a create delivery (branch or tag created).
+type WebhookCreate struct {
+	Ref          string     `json:"ref"`
+	RefType      string     `json:"ref_type"` // "branch" or "tag"
+	MasterBranch string     `json:"master_branch"`
+	Description  *string    `json:"description"`
+	PusherType   string     `json:"pusher_type"`
+	Repository   Repository `json:"repository"`
+	Sender       SimpleUser `json:"sender"`
+}
+
+// WebhookDelete is the body of a delete delivery (branch or tag deleted).
+type WebhookDelete struct {
+	Ref        string     `json:"ref"`
+	RefType    string     `json:"ref_type"` // "branch" or "tag"
+	PusherType string     `json:"pusher_type"`
+	Repository Repository `json:"repository"`
+	Sender     SimpleUser `json:"sender"`
+}
+
+// CreateEventPayload is the Events-API payload for a CreateEvent.
+type CreateEventPayload struct {
+	Ref         string `json:"ref"`
+	RefType     string `json:"ref_type"`
+	MasterBranch string `json:"master_branch"`
+	Description  string `json:"description"`
+}
+
+// DeleteEventPayload is the Events-API payload for a DeleteEvent.
+type DeleteEventPayload struct {
+	Ref     string `json:"ref"`
+	RefType string `json:"ref_type"`
+}
