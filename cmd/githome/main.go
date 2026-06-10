@@ -94,6 +94,13 @@ func run() error {
 	authSvc := auth.NewService(st, cfg.URLs.HTML.String())
 	defer authSvc.Close()
 
+	// Seed the OAuth app rows first-party clients hardcode, so "gh auth login"
+	// can open its device flow against a fresh install. Idempotent: an existing
+	// row is left alone.
+	if err := authSvc.EnsureFirstPartyApps(ctx); err != nil {
+		return fmt.Errorf("seed first-party oauth apps: %w", err)
+	}
+
 	gitStore := git.NewStore(cfg.RepoRoot())
 	if cfg.GitBinaryPath != "" {
 		gitStore.SetGitBin(cfg.GitBinaryPath)

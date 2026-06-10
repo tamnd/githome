@@ -19,6 +19,7 @@ type Store interface {
 
 	// OAuth device flow.
 	OAuthAppByClientID(ctx context.Context, clientID string) (*store.OAuthAppRow, error)
+	InsertOAuthApp(ctx context.Context, a *store.OAuthAppRow) error
 	InsertToken(ctx context.Context, t *store.TokenRow) error
 	InsertDeviceCode(ctx context.Context, d *store.DeviceCodeRow) error
 	DeviceCodeByHash(ctx context.Context, hash []byte) (*store.DeviceCodeRow, error)

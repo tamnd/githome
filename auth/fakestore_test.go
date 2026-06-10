@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"maps"
 	"time"
 
@@ -82,6 +83,14 @@ func (f *fakeStore) OAuthAppByClientID(_ context.Context, clientID string) (*sto
 		return a, nil
 	}
 	return nil, store.ErrNotFound
+}
+
+func (f *fakeStore) InsertOAuthApp(_ context.Context, a *store.OAuthAppRow) error {
+	if _, ok := f.apps[a.ClientID]; ok {
+		return errors.New("UNIQUE constraint failed: oauth_apps.client_id")
+	}
+	f.addApp(a)
+	return nil
 }
 
 func (f *fakeStore) InsertToken(_ context.Context, t *store.TokenRow) error {
