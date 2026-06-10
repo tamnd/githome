@@ -300,12 +300,3 @@ func (s *Store) ListAllReviewComments(ctx context.Context, repoPK int64) ([]Revi
 	return s.queryReviewComments(ctx, `WHERE repo_pk = ? ORDER BY created_at, pk`, repoPK)
 }
 
-// DeleteReview removes a review row by primary key.
-func (s *Store) DeleteReview(ctx context.Context, pk int64) error {
-	q := s.rebind(`DELETE FROM pull_request_reviews WHERE pk = ?`)
-	res, err := s.db.ExecContext(ctx, q, pk)
-	if err != nil {
-		return err
-	}
-	return affectedOrNotFound(res)
-}

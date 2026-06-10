@@ -66,7 +66,6 @@ type reviewStore interface {
 	UpdateReviewCommentBody(ctx context.Context, pk int64, body string) error
 	DeleteReviewComment(ctx context.Context, pk int64) error
 	ListAllReviewComments(ctx context.Context, repoPK int64) ([]store.ReviewCommentRow, error)
-	DeleteReview(ctx context.Context, pk int64) error
 	SetThreadResolved(ctx context.Context, rootPK int64, resolved bool, resolverPK *int64) error
 
 	ListCommitStatuses(ctx context.Context, repoPK int64, sha string) ([]store.CommitStatusRow, error)
@@ -978,24 +977,3 @@ func (s *ReviewService) ListAllReviewComments(ctx context.Context, viewerPK int6
 	return out, nil
 }
 
-// DeleteReview removes a pull request review (must be in PENDING state).
-func (s *ReviewService) DeleteReview(ctx context.Context, actorPK, reviewDBID int64) (*Review, error) {
-	row, err := s.store.GetReviewByDBID(ctx, reviewDBID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-	if row.UserPK != actorPK {
-		return nil, ErrForbidden
-	}
-	review, err := s.assembleReview(ctx, row, 0)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.store.DeleteReview(ctx, row.PK); err != nil {
-		return nil, err
-	}
-	return review, nil
-}
