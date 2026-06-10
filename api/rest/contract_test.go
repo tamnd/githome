@@ -154,6 +154,34 @@ func TestOAuthDiscovery(t *testing.T) {
 	}
 }
 
+func TestOAuthAuthCodeGrantAccepted(t *testing.T) {
+	// Verify that POST /login/oauth/access_token with grant_type=authorization_code
+	// returns a well-formed OAuth JSON response, not "unsupported_grant_type".
+	// The code is bogus so we get "bad_verification_code" — but that proves the
+	// endpoint understood the authorization_code grant type.
+	srv, _ := authServer(t)
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/login/oauth/access_token", bytes.NewBufferString(
+		"grant_type=authorization_code&client_id=testclient&code=bogus&redirect_uri=http%3A%2F%2Flocalhost%2Fcb",
+	))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST access_token: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	buf := make([]byte, 4096)
+	n, _ := resp.Body.Read(buf)
+	body := buf[:n]
+	// Must not be "unsupported_grant_type" — the route understood authorization_code.
+	if contains(body, "unsupported_grant_type") {
+		t.Errorf("unexpected unsupported_grant_type; authorization_code grant must be accepted: %s", body)
+	}
+}
+
 func TestEnterpriseVersionHeader(t *testing.T) {
 	srv := testServer(t)
 	resp, _ := get(t, srv, "/api/v3/meta")

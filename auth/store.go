@@ -28,6 +28,10 @@ type Store interface {
 	SetDevicePolled(ctx context.Context, pk int64, at time.Time) error
 	DeleteDeviceCode(ctx context.Context, pk int64) error
 
+	// OAuth web flow (authorization code grant).
+	InsertAuthCode(ctx context.Context, a *store.AuthCodeRow) error
+	ConsumeAuthCode(ctx context.Context, codeHash []byte) (*store.AuthCodeRow, error)
+
 	// GitHub App auth.
 	GitHubAppByPK(ctx context.Context, pk int64) (*store.GitHubAppRow, error)
 	InstallationByPK(ctx context.Context, pk int64) (*store.InstallationRow, error)

@@ -13,21 +13,23 @@ import (
 // keeps the dependency on a real database out of the unit tests while exercising
 // the exact method surface the auth package reaches for.
 type fakeStore struct {
-	seq      int64
-	users    map[int64]*store.UserRow
-	tokens   map[int64]*store.TokenRow
-	apps     map[string]*store.OAuthAppRow
-	devices  map[int64]*store.DeviceCodeRow
-	lastUsed map[int64]time.Time
+	seq       int64
+	users     map[int64]*store.UserRow
+	tokens    map[int64]*store.TokenRow
+	apps      map[string]*store.OAuthAppRow
+	devices   map[int64]*store.DeviceCodeRow
+	authCodes map[int64]*store.AuthCodeRow
+	lastUsed  map[int64]time.Time
 }
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{
-		users:    map[int64]*store.UserRow{},
-		tokens:   map[int64]*store.TokenRow{},
-		apps:     map[string]*store.OAuthAppRow{},
-		devices:  map[int64]*store.DeviceCodeRow{},
-		lastUsed: map[int64]time.Time{},
+		users:     map[int64]*store.UserRow{},
+		tokens:    map[int64]*store.TokenRow{},
+		apps:      map[string]*store.OAuthAppRow{},
+		devices:   map[int64]*store.DeviceCodeRow{},
+		authCodes: map[int64]*store.AuthCodeRow{},
+		lastUsed:  map[int64]time.Time{},
 	}
 }
 
@@ -149,6 +151,26 @@ func (f *fakeStore) SetDevicePolled(_ context.Context, pk int64, at time.Time) e
 func (f *fakeStore) DeleteDeviceCode(_ context.Context, pk int64) error {
 	delete(f.devices, pk)
 	return nil
+}
+
+func (f *fakeStore) InsertAuthCode(_ context.Context, a *store.AuthCodeRow) error {
+	a.PK = f.nextPK()
+	a.CreatedAt = time.Now()
+	f.authCodes[a.PK] = a
+	return nil
+}
+
+func (f *fakeStore) ConsumeAuthCode(_ context.Context, codeHash []byte) (*store.AuthCodeRow, error) {
+	for _, a := range f.authCodes {
+		if bytes.Equal(a.CodeHash, codeHash) {
+			if a.Used || time.Now().After(a.ExpiresAt) {
+				return nil, store.ErrNotFound
+			}
+			a.Used = true
+			return a, nil
+		}
+	}
+	return nil, store.ErrNotFound
 }
 
 func (f *fakeStore) GitHubAppByPK(_ context.Context, _ int64) (*store.GitHubAppRow, error) {

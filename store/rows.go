@@ -289,6 +289,21 @@ type DeviceCodeRow struct {
 	CreatedAt      time.Time
 }
 
+// AuthCodeRow is a row of the oauth_auth_codes table. It backs the OAuth
+// authorization-code grant (RFC 6749 §4.1). Each code is single-use and
+// expires in 10 minutes. CodeHash is SHA-256(raw code).
+type AuthCodeRow struct {
+	PK          int64
+	CodeHash    []byte
+	OAuthAppPK  int64
+	UserPK      int64
+	RedirectURI string
+	Scopes      string
+	Used        bool
+	ExpiresAt   time.Time
+	CreatedAt   time.Time
+}
+
 // EventRow is a row of the events table: one append-only record of an action a
 // user took on a repository. It feeds both the pull-based Events API and the
 // push-based webhook fan-out. IssuePK is nullable because push and repository

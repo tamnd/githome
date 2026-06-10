@@ -1,0 +1,39 @@
+{{define "content" -}}
+{{/* The data is oauthAuthorizeVM. OAuth authorization consent page. Signed-in
+     users see the app name and scope being requested, with Allow and Deny
+     buttons. Anonymous users are redirected to /login before reaching here. */ -}}
+<div class="auth-page">
+  <div class="auth-box">
+    <a class="auth-logo" href="/">
+      {{octicon "mark-github" 48}}
+    </a>
+    <h1 class="auth-title">Authorize {{.AppName}}</h1>
+
+    {{if .Error -}}
+    <div class="flash flash-error">{{.Error}}</div>
+    {{- else -}}
+    <p class="auth-description">
+      <strong>{{.AppName}}</strong> is requesting access to your Githome account.
+      {{if .Scope}}<br>Requested scopes: <code>{{.Scope}}</code>{{end}}
+    </p>
+
+    <form class="auth-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+      <input type="hidden" name="client_id"    value="{{.ClientID}}">
+      <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
+      <input type="hidden" name="scope"        value="{{.Scope}}">
+      <input type="hidden" name="state"        value="{{.State}}">
+
+      <div class="auth-oauth-actions">
+        <button class="btn btn-primary" type="submit" name="action" value="allow">
+          Authorize {{.AppName}}
+        </button>
+        <button class="btn" type="submit" name="action" value="deny">
+          Cancel
+        </button>
+      </div>
+    </form>
+    {{- end}}
+  </div>
+</div>
+{{- end}}
