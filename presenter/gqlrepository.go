@@ -34,6 +34,7 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		SSHURL:             gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
 		HTTPSCloneURL:      gqlmodel.URI(b.RepoGitHTTP(r.Owner.Login, r.Name)),
 		ViewerPermission:   &perm, // all authenticated users get ADMIN on their own repos
+		HasIssuesEnabled:   r.HasIssues,
 		AutoMergeAllowed:   true,
 		MergeCommitAllowed: true,
 		SquashMergeAllowed: true,

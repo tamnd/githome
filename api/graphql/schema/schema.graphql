@@ -60,6 +60,9 @@ type Repository implements Node {
   httpsCloneUrl: URI!
   # viewerPermission is the viewer's effective permission on the repository.
   viewerPermission: RepositoryPermission
+  # hasIssuesEnabled is whether the repository accepts issues. gh issue list
+  # checks it before listing.
+  hasIssuesEnabled: Boolean!
   # autoMergeAllowed is whether auto-merge can be enabled on pull requests in
   # this repository. Githome always returns true.
   autoMergeAllowed: Boolean!

@@ -8,7 +8,6 @@ package graphql
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -171,9 +170,11 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 	return conn, nil
 }
 
-// ViewerPermission is the resolver for the viewerPermission field.
+// ViewerPermission is the resolver for the viewerPermission field. The presenter
+// computes the permission when it renders the repository; return it as-is. It is
+// null for an anonymous viewer.
 func (r *repositoryResolver) ViewerPermission(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryPermission, error) {
-	panic(fmt.Errorf("not implemented: ViewerPermission - viewerPermission"))
+	return obj.ViewerPermission, nil
 }
 
 // Ref resolves a single reference in the repository by its fully qualified name

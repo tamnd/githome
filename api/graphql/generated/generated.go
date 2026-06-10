@@ -495,6 +495,7 @@ type ComplexityRoot struct {
 		DiskUsage          func(childComplexity int) int
 		ForkCount          func(childComplexity int) int
 		HTTPSCloneURL      func(childComplexity int) int
+		HasIssuesEnabled   func(childComplexity int) int
 		HomepageURL        func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		IsArchived         func(childComplexity int) int
@@ -2648,6 +2649,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.HTTPSCloneURL(childComplexity), true
+	case "Repository.hasIssuesEnabled":
+		if e.ComplexityRoot.Repository.HasIssuesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.HasIssuesEnabled(childComplexity), true
 	case "Repository.homepageUrl":
 		if e.ComplexityRoot.Repository.HomepageURL == nil {
 			break
@@ -4393,6 +4400,9 @@ type Repository implements Node {
   httpsCloneUrl: URI!
   # viewerPermission is the viewer's effective permission on the repository.
   viewerPermission: RepositoryPermission
+  # hasIssuesEnabled is whether the repository accepts issues. gh issue list
+  # checks it before listing.
+  hasIssuesEnabled: Boolean!
   # autoMergeAllowed is whether auto-merge can be enabled on pull requests in
   # this repository. Githome always returns true.
   autoMergeAllowed: Boolean!
@@ -5389,6 +5399,8 @@ func (ec *executionContext) childFields_Repository(ctx context.Context, field gr
 		return ec.fieldContext_Repository_httpsCloneUrl(ctx, field)
 	case "viewerPermission":
 		return ec.fieldContext_Repository_viewerPermission(ctx, field)
+	case "hasIssuesEnabled":
+		return ec.fieldContext_Repository_hasIssuesEnabled(ctx, field)
 	case "autoMergeAllowed":
 		return ec.fieldContext_Repository_autoMergeAllowed(ctx, field)
 	case "mergeCommitAllowed":
@@ -14888,6 +14900,29 @@ func (ec *executionContext) fieldContext_Repository_viewerPermission(_ context.C
 	return graphql.NewScalarFieldContext("Repository", field, true, true, errors.New("field of type RepositoryPermission does not have child fields"))
 }
 
+func (ec *executionContext) _Repository_hasIssuesEnabled(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_hasIssuesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HasIssuesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_hasIssuesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
 func (ec *executionContext) _Repository_autoMergeAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -23901,6 +23936,11 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "hasIssuesEnabled":
+			out.Values[i] = ec._Repository_hasIssuesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "autoMergeAllowed":
 			out.Values[i] = ec._Repository_autoMergeAllowed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
