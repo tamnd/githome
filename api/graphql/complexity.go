@@ -49,6 +49,15 @@ func buildComplexityRoot() generated.ComplexityRoot {
 	c.PullRequest.ReviewThreads = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)
 	}
+	c.PullRequest.Reviews = func(childComplexity int, first *int32, _ *string) int {
+		return multFirst(first, childComplexity)
+	}
+	c.PullRequest.ReviewRequests = func(childComplexity int, first *int32, _ *string) int {
+		return multFirst(first, childComplexity)
+	}
+	c.PullRequest.Comments = func(childComplexity int, first *int32, _ *string) int {
+		return multFirst(first, childComplexity)
+	}
 	c.PullRequestReviewThread.Comments = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)
 	}

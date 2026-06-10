@@ -214,7 +214,8 @@ func (r *mutationResolver) AddPullRequestReviewComment(ctx context.Context, inpu
 // pull request's derived review decision, null when no submitted review blocks or
 // approves it.
 func (r *pullRequestResolver) ReviewDecision(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.PullRequestReviewDecision, error) {
-	decision, err := r.Reviews.ReviewDecision(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	// r.Resolver.Reviews to bypass the Reviews method on this type.
+	decision, err := r.Resolver.Reviews.ReviewDecision(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -227,7 +228,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
 		return nil, err
 	}
-	threads, err := r.Reviews.ReviewThreads(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	threads, err := r.Resolver.Reviews.ReviewThreads(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -236,6 +237,59 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 		nodes = append(nodes, r.URLs.GQLReviewThread(obj.RepoOwner, obj.RepoName, th, r.NodeFormat))
 	}
 	return &gqlmodel.PullRequestReviewThreadConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// Reviews is the resolver for the reviews field. It reads the pull request's
+// submitted reviews through the review service on demand.
+func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
+	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+		return nil, err
+	}
+	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*generated.PullRequestReview, 0, len(revs))
+	for _, rv := range revs {
+		nodes = append(nodes, gqlReview(rv, r.URLs, obj.RepoOwner, obj.RepoName, r.NodeFormat))
+	}
+	return &generated.PullRequestReviewConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// ReviewRequests is the resolver for the reviewRequests field. Githome does not
+// persist review requests in a separate table; this returns an empty connection
+// so VS Code and other clients that select the field do not error.
+func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
+	return &generated.ReviewRequestConnection{Nodes: []*generated.ReviewRequest{}, TotalCount: 0}, nil
+}
+
+// AutoMergeRequest is the resolver for the autoMergeRequest field. Githome does
+// not persist auto-merge configuration; this always returns null.
+func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmodel.PullRequest) (*generated.PullRequestAutoMergeRequest, error) {
+	return nil, nil
+}
+
+// Comments is the resolver for the comments field on PullRequest. It reads the
+// pull request's issue-level comments through the issue service; not inline review
+// comments, which are under reviewThreads.
+func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
+	for _, cm := range comments {
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+	}
+	total := obj.CommentsCount
+	if total < int32(len(nodes)) {
+		total = int32(len(nodes))
+	}
+	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
 }
 
 // Comments is the resolver for the comments field. The presenter already folded
