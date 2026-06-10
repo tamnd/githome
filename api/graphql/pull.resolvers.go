@@ -361,24 +361,46 @@ func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repo
 // PullRequests is the resolver for the pullRequests field. A repository the actor
 // cannot see resolves to an empty connection, never an error, so its existence
 // does not leak.
-func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) (*gqlmodel.PullRequestConnection, error) {
+func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *generated.IssueOrder) (*gqlmodel.PullRequestConnection, error) {
 	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
+	if page.backward {
+		return nil, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
+	}
 	owner, name := splitNWO(obj.NameWithOwner)
-	prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
-		State:   pullStateFilter(states),
-		Page:    page.page(),
-		PerPage: page.limit,
-	})
+
+	// The unfiltered listing in its native newest-first order pages straight
+	// through the store.
+	if headRefName == nil && baseRefName == nil && len(labels) == 0 && defaultPROrder(orderBy) {
+		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+			State:   pullStateFilter(states),
+			Page:    page.page(),
+			PerPage: page.limit,
+		})
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			return emptyPullRequestConnection(), nil
+		}
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+	}
+
+	// A filter or a non-native order scans the newest pull requests (capped),
+	// matches in memory, then windows. gh pr view <branch> lands here through
+	// headRefName.
+	matched, err := r.scanPullRequests(ctx, owner, name, states, headRefName, baseRefName, labels)
 	if errors.Is(err, domain.ErrRepoNotFound) {
 		return emptyPullRequestConnection(), nil
 	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+	sortPullRequests(matched, orderBy)
+	start, end := page.window(len(matched))
+	return r.buildPullRequestConnection(owner, name, matched[start:end], len(matched), start), nil
 }
 
 // Commit returns generated.CommitResolver implementation.

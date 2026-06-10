@@ -256,19 +256,16 @@ func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository
 
 // Issues is the resolver for the issues field. A repository the actor cannot see
 // resolves to an empty connection, never an error, so its existence does not leak.
-func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) (*gqlmodel.IssueConnection, error) {
+func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string) (*gqlmodel.IssueConnection, error) {
 	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
+	if page.backward {
+		return nil, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
+	}
 	owner, name := splitNWO(obj.NameWithOwner)
-	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, domain.IssueQuery{
-		State:     stateFilter(states),
-		Sort:      "created",
-		Direction: "desc",
-		Page:      page.page(),
-		PerPage:   page.limit,
-	})
+	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, issueListQuery(states, filterBy, orderBy, labels, page))
 	if errors.Is(err, domain.ErrRepoNotFound) {
 		return emptyIssueConnection(), nil
 	}

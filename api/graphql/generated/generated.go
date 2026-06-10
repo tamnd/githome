@@ -504,7 +504,7 @@ type ComplexityRoot struct {
 		IsInOrganization   func(childComplexity int) int
 		IsPrivate          func(childComplexity int) int
 		Issue              func(childComplexity int, number int32) int
-		Issues             func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) int
+		Issues             func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *IssueFilters, orderBy *IssueOrder, labels []string) int
 		LicenseInfo        func(childComplexity int) int
 		MergeCommitAllowed func(childComplexity int) int
 		Name               func(childComplexity int) int
@@ -512,7 +512,7 @@ type ComplexityRoot struct {
 		Owner              func(childComplexity int) int
 		PrimaryLanguage    func(childComplexity int) int
 		PullRequest        func(childComplexity int, number int32) int
-		PullRequests       func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) int
+		PullRequests       func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *IssueOrder) int
 		PushedAt           func(childComplexity int) int
 		RebaseMergeAllowed func(childComplexity int) int
 		Ref                func(childComplexity int, qualifiedName string) int
@@ -710,9 +710,9 @@ type RepositoryResolver interface {
 	LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error)
 	Owner(ctx context.Context, obj *gqlmodel.Repository) (gqlmodel.RepositoryOwner, error)
 	Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error)
-	Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) (*gqlmodel.IssueConnection, error)
+	Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *IssueFilters, orderBy *IssueOrder, labels []string) (*gqlmodel.IssueConnection, error)
 	PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error)
-	PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState) (*gqlmodel.PullRequestConnection, error)
+	PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *IssueOrder) (*gqlmodel.PullRequestConnection, error)
 }
 type StatusCheckRollupResolver interface {
 	Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*StatusCheckRollupContextConnection, error)
@@ -2718,7 +2718,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Repository.Issues(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["states"].([]gqlmodel.IssueState)), true
+		return e.ComplexityRoot.Repository.Issues(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["states"].([]gqlmodel.IssueState), args["filterBy"].(*IssueFilters), args["orderBy"].(*IssueOrder), args["labels"].([]string)), true
 	case "Repository.licenseInfo":
 		if e.ComplexityRoot.Repository.LicenseInfo == nil {
 			break
@@ -2776,7 +2776,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Repository.PullRequests(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["states"].([]gqlmodel.PullRequestState)), true
+		return e.ComplexityRoot.Repository.PullRequests(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["states"].([]gqlmodel.PullRequestState), args["headRefName"].(*string), args["baseRefName"].(*string), args["labels"].([]string), args["orderBy"].(*IssueOrder)), true
 	case "Repository.pushedAt":
 		if e.ComplexityRoot.Repository.PushedAt == nil {
 			break
@@ -3192,6 +3192,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputDisablePullRequestAutoMergeInput,
 		ec.unmarshalInputDraftPullRequestReviewComment,
 		ec.unmarshalInputEnablePullRequestAutoMergeInput,
+		ec.unmarshalInputIssueFilters,
+		ec.unmarshalInputIssueOrder,
 		ec.unmarshalInputMarkPullRequestReadyForReviewInput,
 		ec.unmarshalInputMergePullRequestInput,
 		ec.unmarshalInputRemoveAssigneesFromAssignableInput,
@@ -3299,7 +3301,37 @@ extend type Repository {
     last: Int
     before: String
     states: [IssueState!]
+    filterBy: IssueFilters
+    orderBy: IssueOrder
+    labels: [String!]
   ): IssueConnection!
+}
+
+# IssueFilters narrows an issue listing, the way gh issue list filters by
+# assignee, author, label, and milestone.
+input IssueFilters {
+  assignee: String
+  createdBy: String
+  labels: [String!]
+  mentioned: String
+  milestone: String
+  milestoneNumber: String
+  since: DateTime
+  states: [IssueState!]
+  viewerSubscribed: Boolean
+}
+
+# IssueOrderField is the field to order issues (and pull requests) by.
+enum IssueOrderField {
+  CREATED_AT
+  UPDATED_AT
+  COMMENTS
+}
+
+# IssueOrder specifies how to order issues and pull requests.
+input IssueOrder {
+  field: IssueOrderField!
+  direction: OrderDirection!
 }
 
 # Actor is an entity that can author issues, comments, and reviews. It is an
@@ -3643,13 +3675,18 @@ extend type Repository {
   # null when no such pull request exists.
   pullRequest(number: Int!): PullRequest
   # pullRequests is the Relay connection over the repository's pull requests,
-  # newest first.
+  # newest first. headRefName is how gh pr view <branch> finds the pull request
+  # for a branch; labels and baseRefName narrow listings the same way.
   pullRequests(
     first: Int
     after: String
     last: Int
     before: String
     states: [PullRequestState!]
+    headRefName: String
+    baseRefName: String
+    labels: [String!]
+    orderBy: IssueOrder
   ): PullRequestConnection!
 }
 
@@ -6668,6 +6705,30 @@ func (ec *executionContext) field_Repository_issues_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["states"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "filterBy",
+		func(ctx context.Context, v any) (*IssueFilters, error) {
+			return ec.unmarshalOIssueFilters2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueFilters(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filterBy"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*IssueOrder, error) {
+			return ec.unmarshalOIssueOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "labels",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["labels"] = arg7
 	return args, nil
 }
 
@@ -6728,6 +6789,38 @@ func (ec *executionContext) field_Repository_pullRequests_args(ctx context.Conte
 		return nil, err
 	}
 	args["states"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "headRefName",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["headRefName"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "baseRefName",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["baseRefName"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "labels",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["labels"] = arg7
+	arg8, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*IssueOrder, error) {
+			return ec.unmarshalOIssueOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg8
 	return args, nil
 }
 
@@ -15289,7 +15382,7 @@ func (ec *executionContext) _Repository_issues(ctx context.Context, field graphq
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Repository().Issues(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["states"].([]gqlmodel.IssueState))
+			return ec.Resolvers.Repository().Issues(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["states"].([]gqlmodel.IssueState), fc.Args["filterBy"].(*IssueFilters), fc.Args["orderBy"].(*IssueOrder), fc.Args["labels"].([]string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueConnection) graphql.Marshaler {
@@ -15377,7 +15470,7 @@ func (ec *executionContext) _Repository_pullRequests(ctx context.Context, field 
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Repository().PullRequests(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["states"].([]gqlmodel.PullRequestState))
+			return ec.Resolvers.Repository().PullRequests(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["states"].([]gqlmodel.PullRequestState), fc.Args["headRefName"].(*string), fc.Args["baseRefName"].(*string), fc.Args["labels"].([]string), fc.Args["orderBy"].(*IssueOrder))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequestConnection) graphql.Marshaler {
@@ -18957,6 +19050,129 @@ func (ec *executionContext) unmarshalInputEnablePullRequestAutoMergeInput(ctx co
 				return it, err
 			}
 			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputIssueFilters(ctx context.Context, obj any) (IssueFilters, error) {
+	var it IssueFilters
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"assignee", "createdBy", "labels", "mentioned", "milestone", "milestoneNumber", "since", "states", "viewerSubscribed"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "assignee":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assignee"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Assignee = data
+		case "createdBy":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("createdBy"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CreatedBy = data
+		case "labels":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labels"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Labels = data
+		case "mentioned":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("mentioned"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Mentioned = data
+		case "milestone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestone"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Milestone = data
+		case "milestoneNumber":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestoneNumber"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MilestoneNumber = data
+		case "since":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("since"))
+			data, err := ec.unmarshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Since = data
+		case "states":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("states"))
+			data, err := ec.unmarshalOIssueState2ᚕgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueStateᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.States = data
+		case "viewerSubscribed":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("viewerSubscribed"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ViewerSubscribed = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputIssueOrder(ctx context.Context, obj any) (IssueOrder, error) {
+	var it IssueOrder
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"field", "direction"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNIssueOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrderField(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalNOrderDirection2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐOrderDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
 		}
 	}
 	return it, nil
@@ -25691,6 +25907,16 @@ func (ec *executionContext) marshalNIssueConnection2ᚖgithubᚗcomᚋtamndᚋgi
 	return ec._IssueConnection(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNIssueOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrderField(ctx context.Context, v any) (IssueOrderField, error) {
+	var res IssueOrderField
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIssueOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrderField(ctx context.Context, sel ast.SelectionSet, v IssueOrderField) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNIssueState2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueState(ctx context.Context, v any) (gqlmodel.IssueState, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := gqlmodel.IssueState(tmp)
@@ -26796,6 +27022,22 @@ func (ec *executionContext) marshalOIssueEdge2ᚖgithubᚗcomᚋtamndᚋgithome�
 	return ec._IssueEdge(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOIssueFilters2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueFilters(ctx context.Context, v any) (*IssueFilters, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputIssueFilters(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOIssueOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrder(ctx context.Context, v any) (*IssueOrder, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputIssueOrder(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOIssueState2ᚕgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueStateᚄ(ctx context.Context, v any) ([]gqlmodel.IssueState, error) {
 	if v == nil {
 		return nil, nil
@@ -27414,6 +27656,42 @@ func (ec *executionContext) marshalOStatusCheckRollupContext2ᚕgithubᚗcomᚋt
 		fc.Result = &v[i]
 		return ec.marshalOStatusCheckRollupContext2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐStatusCheckRollupContext(ctx, sel, v[i])
 	})
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
 
 	return ret
 }

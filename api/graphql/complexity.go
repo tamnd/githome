@@ -37,11 +37,11 @@ func buildComplexityRoot() generated.ComplexityRoot {
 		return multFirst(first, childComplexity)
 	}
 
-	c.Repository.Issues = func(childComplexity int, first *int32, _ *string, _ *int32, _ *string, _ []gqlmodel.IssueState) int {
-		return multFirst(first, childComplexity)
+	c.Repository.Issues = func(childComplexity int, first *int32, _ *string, last *int32, _ *string, _ []gqlmodel.IssueState, _ *generated.IssueFilters, _ *generated.IssueOrder, _ []string) int {
+		return multPage(first, last, childComplexity)
 	}
-	c.Repository.PullRequests = func(childComplexity int, first *int32, _ *string, _ *int32, _ *string, _ []gqlmodel.PullRequestState) int {
-		return multFirst(first, childComplexity)
+	c.Repository.PullRequests = func(childComplexity int, first *int32, _ *string, last *int32, _ *string, _ []gqlmodel.PullRequestState, _ *string, _ *string, _ []string, _ *generated.IssueOrder) int {
+		return multPage(first, last, childComplexity)
 	}
 	c.Issue.Comments = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
 		return multPage(first, last, childComplexity)

@@ -16,7 +16,37 @@ extend type Repository {
     last: Int
     before: String
     states: [IssueState!]
+    filterBy: IssueFilters
+    orderBy: IssueOrder
+    labels: [String!]
   ): IssueConnection!
+}
+
+# IssueFilters narrows an issue listing, the way gh issue list filters by
+# assignee, author, label, and milestone.
+input IssueFilters {
+  assignee: String
+  createdBy: String
+  labels: [String!]
+  mentioned: String
+  milestone: String
+  milestoneNumber: String
+  since: DateTime
+  states: [IssueState!]
+  viewerSubscribed: Boolean
+}
+
+# IssueOrderField is the field to order issues (and pull requests) by.
+enum IssueOrderField {
+  CREATED_AT
+  UPDATED_AT
+  COMMENTS
+}
+
+# IssueOrder specifies how to order issues and pull requests.
+input IssueOrder {
+  field: IssueOrderField!
+  direction: OrderDirection!
 }
 
 # Actor is an entity that can author issues, comments, and reviews. It is an

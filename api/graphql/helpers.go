@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -491,4 +492,173 @@ func (r *Resolver) commentsWindow(ctx context.Context, owner, name string, numbe
 		hi = len(rows)
 	}
 	return rows[lo:hi], nil
+}
+
+// issueListQuery maps the GraphQL issue list arguments onto the domain query.
+// gh issue list sends its assignee, author, label, and milestone filters
+// through filterBy; the labels argument is the older spelling some clients
+// still send. mentioned, since, and viewerSubscribed are not modeled, so they
+// narrow nothing rather than erroring.
+func issueListQuery(states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string, page issuePage) domain.IssueQuery {
+	q := domain.IssueQuery{
+		State:     stateFilter(states),
+		Sort:      "created",
+		Direction: "desc",
+		Labels:    labels,
+		Page:      page.page(),
+		PerPage:   page.limit,
+	}
+	if filterBy != nil {
+		if filterBy.Assignee != nil {
+			q.AssigneeLogin = *filterBy.Assignee
+		}
+		if filterBy.CreatedBy != nil {
+			q.CreatorLogin = *filterBy.CreatedBy
+		}
+		if len(filterBy.Labels) > 0 {
+			q.Labels = append(append([]string{}, q.Labels...), filterBy.Labels...)
+		}
+		if len(filterBy.States) > 0 {
+			q.State = stateFilter(filterBy.States)
+		}
+		// GitHub's filter carries the milestone number as a string in either
+		// field; a title that does not parse as a number matches nothing here.
+		for _, ms := range []*string{filterBy.MilestoneNumber, filterBy.Milestone} {
+			if ms == nil {
+				continue
+			}
+			if n, err := strconv.ParseInt(*ms, 10, 64); err == nil {
+				q.MilestoneNumber = &n
+				break
+			}
+		}
+	}
+	if orderBy != nil {
+		switch orderBy.Field {
+		case generated.IssueOrderFieldUpdatedAt:
+			q.Sort = "updated"
+		case generated.IssueOrderFieldComments:
+			q.Sort = "comments"
+		}
+		if orderBy.Direction == generated.OrderDirectionAsc {
+			q.Direction = "asc"
+		}
+	}
+	return q
+}
+
+// defaultPROrder reports whether the requested order is the listing's native
+// newest-first order, which needs no in-memory sort.
+func defaultPROrder(o *generated.IssueOrder) bool {
+	return o == nil || (o.Field == generated.IssueOrderFieldCreatedAt && o.Direction == generated.OrderDirectionDesc)
+}
+
+// prScanCap bounds the filtered pull request scan so a head/base/label filter
+// on a huge repository stays a few page reads rather than a table walk.
+const prScanCap = 1000
+
+// scanPullRequests reads the repository's pull requests newest first, page by
+// page, and keeps the ones matching the list filters. gh's filtered listings
+// (pr view <branch>, pr list --label) want the newest matches, which the scan
+// reads first; matches past the cap are not found.
+func (r *Resolver) scanPullRequests(ctx context.Context, owner, name string, states []gqlmodel.PullRequestState, head, base *string, labels []string) ([]*domain.PullRequest, error) {
+	var matched []*domain.PullRequest
+	for pageN, seen := 1, 0; seen < prScanCap; pageN++ {
+		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+			State:   pullStateFilter(states),
+			Page:    pageN,
+			PerPage: maxPageSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, pr := range prs {
+			if prMatches(pr, states, head, base, labels) {
+				matched = append(matched, pr)
+			}
+		}
+		seen += len(prs)
+		if len(prs) < maxPageSize || seen >= total {
+			break
+		}
+	}
+	return matched, nil
+}
+
+// prMatches reports whether a pull request passes the list filters: the exact
+// requested states (MERGED vs CLOSED, which the coarse store filter folds
+// together), the head and base branch names, and every requested label.
+func prMatches(pr *domain.PullRequest, states []gqlmodel.PullRequestState, head, base *string, labels []string) bool {
+	if !prStateMatches(pr, states) {
+		return false
+	}
+	if head != nil && pr.Head.Ref != *head {
+		return false
+	}
+	if base != nil && pr.Base.Ref != *base {
+		return false
+	}
+	for _, want := range labels {
+		found := false
+		for _, l := range pr.Labels {
+			if strings.EqualFold(l.Name, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+// prStateMatches reports whether the pull request is in one of the requested
+// GraphQL states. An empty list matches everything.
+func prStateMatches(pr *domain.PullRequest, states []gqlmodel.PullRequestState) bool {
+	if len(states) == 0 {
+		return true
+	}
+	for _, s := range states {
+		switch s {
+		case gqlmodel.PullRequestStateOpen:
+			if pr.State == "open" {
+				return true
+			}
+		case gqlmodel.PullRequestStateClosed:
+			if pr.State == "closed" && !pr.Merged {
+				return true
+			}
+		case gqlmodel.PullRequestStateMerged:
+			if pr.Merged {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sortPullRequests orders the scanned set by the requested field in place. The
+// scan reads newest first, so the native CREATED_AT DESC order needs nothing.
+func sortPullRequests(prs []*domain.PullRequest, orderBy *generated.IssueOrder) {
+	if defaultPROrder(orderBy) {
+		return
+	}
+	asc := orderBy.Direction == generated.OrderDirectionAsc
+	cmp := func(i, j int) int {
+		switch orderBy.Field {
+		case generated.IssueOrderFieldUpdatedAt:
+			return prs[i].UpdatedAt.Compare(prs[j].UpdatedAt)
+		case generated.IssueOrderFieldComments:
+			return prs[i].CommentsCount - prs[j].CommentsCount
+		default:
+			return prs[i].CreatedAt.Compare(prs[j].CreatedAt)
+		}
+	}
+	sort.SliceStable(prs, func(i, j int) bool {
+		if asc {
+			return cmp(i, j) < 0
+		}
+		return cmp(i, j) > 0
+	})
 }

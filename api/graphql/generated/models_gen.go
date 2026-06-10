@@ -305,6 +305,23 @@ type IssueCommentEdge struct {
 	Node   *gqlmodel.IssueComment `json:"node,omitempty"`
 }
 
+type IssueFilters struct {
+	Assignee         *string               `json:"assignee,omitempty"`
+	CreatedBy        *string               `json:"createdBy,omitempty"`
+	Labels           []string              `json:"labels,omitempty"`
+	Mentioned        *string               `json:"mentioned,omitempty"`
+	Milestone        *string               `json:"milestone,omitempty"`
+	MilestoneNumber  *string               `json:"milestoneNumber,omitempty"`
+	Since            *gqlmodel.DateTime    `json:"since,omitempty"`
+	States           []gqlmodel.IssueState `json:"states,omitempty"`
+	ViewerSubscribed *bool                 `json:"viewerSubscribed,omitempty"`
+}
+
+type IssueOrder struct {
+	Field     IssueOrderField `json:"field"`
+	Direction OrderDirection  `json:"direction"`
+}
+
 type MarkPullRequestReadyForReviewInput struct {
 	PullRequestID    string  `json:"pullRequestId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -584,6 +601,63 @@ func (e *IssueClosedStateReason) UnmarshalJSON(b []byte) error {
 }
 
 func (e IssueClosedStateReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type IssueOrderField string
+
+const (
+	IssueOrderFieldCreatedAt IssueOrderField = "CREATED_AT"
+	IssueOrderFieldUpdatedAt IssueOrderField = "UPDATED_AT"
+	IssueOrderFieldComments  IssueOrderField = "COMMENTS"
+)
+
+var AllIssueOrderField = []IssueOrderField{
+	IssueOrderFieldCreatedAt,
+	IssueOrderFieldUpdatedAt,
+	IssueOrderFieldComments,
+}
+
+func (e IssueOrderField) IsValid() bool {
+	switch e {
+	case IssueOrderFieldCreatedAt, IssueOrderFieldUpdatedAt, IssueOrderFieldComments:
+		return true
+	}
+	return false
+}
+
+func (e IssueOrderField) String() string {
+	return string(e)
+}
+
+func (e *IssueOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IssueOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IssueOrderField", str)
+	}
+	return nil
+}
+
+func (e IssueOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IssueOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IssueOrderField) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

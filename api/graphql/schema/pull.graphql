@@ -10,13 +10,18 @@ extend type Repository {
   # null when no such pull request exists.
   pullRequest(number: Int!): PullRequest
   # pullRequests is the Relay connection over the repository's pull requests,
-  # newest first.
+  # newest first. headRefName is how gh pr view <branch> finds the pull request
+  # for a branch; labels and baseRefName narrow listings the same way.
   pullRequests(
     first: Int
     after: String
     last: Int
     before: String
     states: [PullRequestState!]
+    headRefName: String
+    baseRefName: String
+    labels: [String!]
+    orderBy: IssueOrder
   ): PullRequestConnection!
 }
 
