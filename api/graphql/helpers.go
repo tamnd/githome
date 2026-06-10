@@ -459,3 +459,36 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 	}
 	return r
 }
+
+// commentsWindow reads the absolute comment window [start, end) for an issue
+// or pull request through the offset-paged listing. The listing is page
+// aligned, so it reads the aligned page (or the two pages) covering the window
+// and trims to it. gh sends comments(last: 1) for the issueCommentLast
+// fragment, which lands here as the window [total-1, total).
+func (r *Resolver) commentsWindow(ctx context.Context, owner, name string, number int64, start, end int) ([]*domain.Comment, error) {
+	if end <= start {
+		return nil, nil
+	}
+	size := end - start
+	pageIdx := start / size // zero-based index of the aligned page
+	rows, err := r.Issues.ListComments(ctx, viewerID(ctx), owner, name, number, int64(pageIdx+1), int64(size))
+	if err != nil {
+		return nil, err
+	}
+	skip := start - pageIdx*size
+	if skip > 0 {
+		next, err := r.Issues.ListComments(ctx, viewerID(ctx), owner, name, number, int64(pageIdx+2), int64(size))
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, next...)
+	}
+	lo, hi := skip, skip+size
+	if lo > len(rows) {
+		lo = len(rows)
+	}
+	if hi > len(rows) {
+		hi = len(rows)
+	}
+	return rows[lo:hi], nil
+}

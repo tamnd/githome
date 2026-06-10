@@ -181,7 +181,7 @@ type ComplexityRoot struct {
 		Body           func(childComplexity int) int
 		Closed         func(childComplexity int) int
 		ClosedAt       func(childComplexity int) int
-		Comments       func(childComplexity int, first *int32, after *string) int
+		Comments       func(childComplexity int, first *int32, after *string, last *int32, before *string) int
 		CreatedAt      func(childComplexity int) int
 		ID             func(childComplexity int) int
 		Labels         func(childComplexity int, first *int32, after *string) int
@@ -320,8 +320,8 @@ type ComplexityRoot struct {
 		ChangedFiles     func(childComplexity int) int
 		Closed           func(childComplexity int) int
 		ClosedAt         func(childComplexity int) int
-		Comments         func(childComplexity int, first *int32, after *string) int
-		Commits          func(childComplexity int, first *int32, after *string) int
+		Comments         func(childComplexity int, first *int32, after *string, last *int32, before *string) int
+		Commits          func(childComplexity int, first *int32, after *string, last *int32, before *string) int
 		CreatedAt        func(childComplexity int) int
 		Deletions        func(childComplexity int) int
 		Files            func(childComplexity int, first *int32, after *string) int
@@ -635,7 +635,7 @@ type IssueResolver interface {
 	Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error)
 	Assignees(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.UserConnection, error)
 	Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Milestone, error)
-	Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error)
+	Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error)
 	ReactionGroups(ctx context.Context, obj *gqlmodel.Issue) ([]*gqlmodel.ReactionGroup, error)
 }
 type MutationResolver interface {
@@ -680,11 +680,11 @@ type PullRequestResolver interface {
 	Milestone(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error)
 	AutoMergeRequest(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.AutoMergeRequest, error)
 
-	Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error)
+	Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.PullRequestCommitConnection, error)
 	Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error)
 	Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*PullRequestReviewConnection, error)
 	ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*ReviewRequestConnection, error)
-	Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error)
+	Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error)
 	ReviewDecision(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.PullRequestReviewDecision, error)
 	ReviewThreads(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestReviewThreadConnection, error)
 }
@@ -1181,7 +1181,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Issue.Comments(childComplexity, args["first"].(*int32), args["after"].(*string)), true
+		return e.ComplexityRoot.Issue.Comments(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string)), true
 	case "Issue.createdAt":
 		if e.ComplexityRoot.Issue.CreatedAt == nil {
 			break
@@ -1930,7 +1930,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.PullRequest.Comments(childComplexity, args["first"].(*int32), args["after"].(*string)), true
+		return e.ComplexityRoot.PullRequest.Comments(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string)), true
 	case "PullRequest.commits":
 		if e.ComplexityRoot.PullRequest.Commits == nil {
 			break
@@ -1941,7 +1941,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.PullRequest.Commits(childComplexity, args["first"].(*int32), args["after"].(*string)), true
+		return e.ComplexityRoot.PullRequest.Commits(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string)), true
 	case "PullRequest.createdAt":
 		if e.ComplexityRoot.PullRequest.CreatedAt == nil {
 			break
@@ -3330,7 +3330,7 @@ type Issue implements Node {
   labels(first: Int, after: String): LabelConnection
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
-  comments(first: Int, after: String): IssueCommentConnection!
+  comments(first: Int, after: String, last: Int, before: String): IssueCommentConnection!
   # reactionGroups summarises the emoji reactions on this issue, grouped by
   # content. An empty slice means no reactions have been posted.
   reactionGroups: [ReactionGroup!]!
@@ -3690,7 +3690,7 @@ type PullRequest implements Node {
   # not implement a merge queue, so this is always false.
   isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
-  commits(first: Int, after: String): PullRequestCommitConnection!
+  commits(first: Int, after: String, last: Int, before: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
   files(first: Int, after: String): PullRequestChangedFileConnection!
   # reviews is the connection over submitted reviews on the pull request.
@@ -3698,7 +3698,7 @@ type PullRequest implements Node {
   # reviewRequests is the connection over requested reviewers.
   reviewRequests(first: Int, after: String): ReviewRequestConnection!
   # comments is the connection over issue-level (non-inline) comments.
-  comments(first: Int, after: String): IssueCommentConnection!
+  comments(first: Int, after: String, last: Int, before: String): IssueCommentConnection!
 }
 
 # AutoMergeRequest is the auto-merge configuration attached to a pull request.
@@ -5776,6 +5776,22 @@ func (ec *executionContext) field_Issue_comments_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
 	return args, nil
 }
 
@@ -6298,6 +6314,22 @@ func (ec *executionContext) field_PullRequest_comments_args(ctx context.Context,
 		return nil, err
 	}
 	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
 	return args, nil
 }
 
@@ -6320,6 +6352,22 @@ func (ec *executionContext) field_PullRequest_commits_args(ctx context.Context, 
 		return nil, err
 	}
 	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
 	return args, nil
 }
 
@@ -8877,7 +8925,7 @@ func (ec *executionContext) _Issue_comments(ctx context.Context, field graphql.C
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Issue().Comments(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
+			return ec.Resolvers.Issue().Comments(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueCommentConnection) graphql.Marshaler {
@@ -12113,7 +12161,7 @@ func (ec *executionContext) _PullRequest_commits(ctx context.Context, field grap
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.PullRequest().Commits(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
+			return ec.Resolvers.PullRequest().Commits(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequestCommitConnection) graphql.Marshaler {
@@ -12289,7 +12337,7 @@ func (ec *executionContext) _PullRequest_comments(ctx context.Context, field gra
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.PullRequest().Comments(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
+			return ec.Resolvers.PullRequest().Comments(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueCommentConnection) graphql.Marshaler {

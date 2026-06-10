@@ -255,19 +255,22 @@ func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmode
 
 // Commits is the resolver for the commits field. It reads the pull request's own
 // commits through the git layer on demand, the way gh pr view selects them.
-func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.PullRequestCommitConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
+	if err != nil {
 		return nil, err
 	}
 	commits, err := r.Pulls.Commits(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	nodes := make([]*gqlmodel.PullRequestCommit, 0, len(commits))
-	for _, cm := range commits {
+	total := len(commits)
+	start, end := page.window(total)
+	nodes := make([]*gqlmodel.PullRequestCommit, 0, end-start)
+	for _, cm := range commits[start:end] {
 		nodes = append(nodes, r.URLs.GQLPullRequestCommit(obj.RepoOwner, obj.RepoName, cm))
 	}
-	return &gqlmodel.PullRequestCommitConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+	return &gqlmodel.PullRequestCommitConnection{Nodes: nodes, TotalCount: int32(total)}, nil
 }
 
 // Files is the resolver for the files field. It reads the per-file diff of the
@@ -314,12 +317,19 @@ func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.
 // Comments is the resolver for the comments field on PullRequest. It reads the
 // pull request's issue-level comments through the issue service; not inline review
 // comments, which are under reviewThreads.
-func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
-	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	total := obj.CommentsCount
+	var comments []*domain.Comment
+	if page.backward {
+		start, end := page.window(int(total))
+		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
+	} else {
+		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -327,7 +337,6 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	for _, cm := range comments {
 		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
 	}
-	total := obj.CommentsCount
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}

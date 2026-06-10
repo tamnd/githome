@@ -47,7 +47,7 @@ type Issue implements Node {
   labels(first: Int, after: String): LabelConnection
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
-  comments(first: Int, after: String): IssueCommentConnection!
+  comments(first: Int, after: String, last: Int, before: String): IssueCommentConnection!
   # reactionGroups summarises the emoji reactions on this issue, grouped by
   # content. An empty slice means no reactions have been posted.
   reactionGroups: [ReactionGroup!]!

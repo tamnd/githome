@@ -66,12 +66,22 @@ func (r *issueResolver) Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gq
 
 // Comments is the resolver for the comments field. It pages the issue's comments
 // through the domain on demand, the way gh issue view selects them.
-func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
-	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	total := int32(0)
+	if obj.Comments != nil {
+		total = obj.Comments.TotalCount
+	}
+	var comments []*domain.Comment
+	if page.backward {
+		start, end := page.window(int(total))
+		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
+	} else {
+		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -79,9 +89,8 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	for _, cm := range comments {
 		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
 	}
-	total := int32(len(nodes))
-	if obj.Comments != nil {
-		total = obj.Comments.TotalCount
+	if total < int32(len(nodes)) {
+		total = int32(len(nodes))
 	}
 	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
 }

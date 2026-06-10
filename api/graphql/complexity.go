@@ -28,20 +28,29 @@ func buildComplexityRoot() generated.ComplexityRoot {
 		return n * childComplexity
 	}
 
+	// multPage is multFirst for connections that also page backward: the cost
+	// is whichever of first/last the client sent.
+	multPage := func(first, last *int32, childComplexity int) int {
+		if first == nil && last != nil {
+			return multFirst(last, childComplexity)
+		}
+		return multFirst(first, childComplexity)
+	}
+
 	c.Repository.Issues = func(childComplexity int, first *int32, _ *string, _ *int32, _ *string, _ []gqlmodel.IssueState) int {
 		return multFirst(first, childComplexity)
 	}
 	c.Repository.PullRequests = func(childComplexity int, first *int32, _ *string, _ *int32, _ *string, _ []gqlmodel.PullRequestState) int {
 		return multFirst(first, childComplexity)
 	}
-	c.Issue.Comments = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
+	c.Issue.Comments = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
+		return multPage(first, last, childComplexity)
 	}
 	c.Issue.Labels = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)
 	}
-	c.PullRequest.Commits = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
+	c.PullRequest.Commits = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
+		return multPage(first, last, childComplexity)
 	}
 	c.PullRequest.Files = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)
@@ -55,8 +64,8 @@ func buildComplexityRoot() generated.ComplexityRoot {
 	c.PullRequest.ReviewRequests = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)
 	}
-	c.PullRequest.Comments = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
+	c.PullRequest.Comments = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
+		return multPage(first, last, childComplexity)
 	}
 	c.PullRequestReviewThread.Comments = func(childComplexity int, first *int32, _ *string) int {
 		return multFirst(first, childComplexity)

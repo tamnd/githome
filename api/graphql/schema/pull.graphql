@@ -57,7 +57,7 @@ type PullRequest implements Node {
   # not implement a merge queue, so this is always false.
   isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
-  commits(first: Int, after: String): PullRequestCommitConnection!
+  commits(first: Int, after: String, last: Int, before: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
   files(first: Int, after: String): PullRequestChangedFileConnection!
   # reviews is the connection over submitted reviews on the pull request.
@@ -65,7 +65,7 @@ type PullRequest implements Node {
   # reviewRequests is the connection over requested reviewers.
   reviewRequests(first: Int, after: String): ReviewRequestConnection!
   # comments is the connection over issue-level (non-inline) comments.
-  comments(first: Int, after: String): IssueCommentConnection!
+  comments(first: Int, after: String, last: Int, before: String): IssueCommentConnection!
 }
 
 # AutoMergeRequest is the auto-merge configuration attached to a pull request.
