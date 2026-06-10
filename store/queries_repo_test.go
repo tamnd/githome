@@ -124,3 +124,38 @@ func TestRepoByPKAndDBID(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateRepoReturnsUpdatedRow(t *testing.T) {
+	// Regression: the RETURNING clause used the r-aliased column list on an
+	// unaliased UPDATE, which SQLite rejected with "no such column: r.pk".
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		r := seedRepo(t, st, "octocat", &store.RepoRow{Name: "Hello-World"})
+
+		desc := "now with a description"
+		archived := true
+		got, err := st.UpdateRepo(ctx, r.PK, store.RepoPatch{Description: &desc, Archived: &archived})
+		if err != nil {
+			t.Fatalf("UpdateRepo: %v", err)
+		}
+		if got.Description == nil || *got.Description != desc {
+			t.Errorf("Description = %v, want %q", got.Description, desc)
+		}
+		if !got.Archived {
+			t.Error("Archived not applied")
+		}
+		if got.Name != "Hello-World" {
+			t.Errorf("untouched Name changed: %q", got.Name)
+		}
+		if !got.UpdatedAt.After(r.UpdatedAt) && !got.UpdatedAt.Equal(r.UpdatedAt) {
+			t.Errorf("UpdatedAt went backwards: %v -> %v", r.UpdatedAt, got.UpdatedAt)
+		}
+
+		if _, err := st.UpdateRepo(ctx, r.PK+999, store.RepoPatch{Description: &desc}); !errors.Is(err, store.ErrNotFound) {
+			t.Errorf("missing repo: err = %v, want ErrNotFound", err)
+		}
+	})
+}
