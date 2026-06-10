@@ -1,7 +1,6 @@
-# The Githome GraphQL schema. M2 stands up the first slice: the repository
-# query and the fields gh repo view selects. It grows milestone by milestone
-# toward GitHub's GraphQL v4 contract. Object types bind to hand-written structs
-# in presenter/gqlmodel; the scalars bind to the marshalers there.
+# The Githome GraphQL schema. It grows milestone by milestone toward GitHub's
+# GraphQL v4 contract. Object types bind to hand-written structs in
+# presenter/gqlmodel; the scalars bind to the marshalers there.
 
 scalar DateTime
 scalar URI
@@ -11,19 +10,70 @@ type Query {
   # repository looks up a single repository by its owner login and name. It is
   # null when the repository does not exist or the viewer cannot see it.
   repository(owner: String!, name: String!): Repository
+  # viewer is the currently authenticated user.
+  viewer: User!
+  # user looks up a user by login.
+  user(login: String!): User
 }
 
-# Repository is a git repository. M2 serves the fields gh repo view reads.
+# Repository is a git repository.
 type Repository {
   id: ID!
   name: String!
   nameWithOwner: String!
   description: String
   isPrivate: Boolean!
+  isFork: Boolean!
+  isArchived: Boolean!
+  isEmpty: Boolean!
+  isInOrganization: Boolean!
+  forkCount: Int!
+  stargazerCount: Int!
+  diskUsage: Int
+  homepageUrl: URI
   createdAt: DateTime!
+  updatedAt: DateTime!
   pushedAt: DateTime
   url: URI!
+  sshUrl: URI!
+  # ref looks up a single ref by its qualified name, e.g. "refs/heads/main".
+  # Returns null when the ref does not exist.
+  ref(qualifiedName: String!): Ref
   defaultBranchRef: Ref
+  primaryLanguage: Language
+  licenseInfo: License
+  owner: RepositoryOwner!
+}
+
+# RepositoryOwner is the owner of a repository, either a User or Organization.
+type RepositoryOwner {
+  login: String!
+  url: URI!
+  avatarUrl: URI!
+}
+
+# Language is a programming language detected in a repository.
+type Language {
+  name: String!
+}
+
+# License is an open-source license.
+type License {
+  name: String!
+  spdxId: String
+}
+
+# User is a GitHub user account.
+type User {
+  id: ID!
+  login: String!
+  name: String
+  email: String
+  bio: String
+  url: URI!
+  avatarUrl: URI!
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 # Ref is a git reference: a branch or a tag. The id field carries the opaque
@@ -32,6 +82,7 @@ type Ref {
   id: ID!
   name: String!
   target: GitObject
+  prefix: String!
 }
 
 # GitObject is a git object addressed by its SHA.

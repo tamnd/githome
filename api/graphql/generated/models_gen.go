@@ -109,6 +109,16 @@ type CloseIssuePayload struct {
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
+type ConvertPullRequestToDraftInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ConvertPullRequestToDraftPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
 type CreateBranchProtectionRuleInput struct {
 	RepositoryID                 string  `json:"repositoryId"`
 	Pattern                      string  `json:"pattern"`
@@ -217,6 +227,16 @@ type EnablePullRequestAutoMergePayload struct {
 type IssueCommentEdge struct {
 	Cursor string                 `json:"cursor"`
 	Node   *gqlmodel.IssueComment `json:"node,omitempty"`
+}
+
+type MarkPullRequestReadyForReviewInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type MarkPullRequestReadyForReviewPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type MergePullRequestInput struct {
@@ -352,6 +372,22 @@ type UpdateBranchProtectionRuleInput struct {
 type UpdateBranchProtectionRulePayload struct {
 	BranchProtectionRule *BranchProtectionRule `json:"branchProtectionRule,omitempty"`
 	ClientMutationID     *string               `json:"clientMutationId,omitempty"`
+}
+
+type UpdateIssueInput struct {
+	ID               string               `json:"id"`
+	Title            *string              `json:"title,omitempty"`
+	Body             *string              `json:"body,omitempty"`
+	State            *gqlmodel.IssueState `json:"state,omitempty"`
+	AssigneeIds      []string             `json:"assigneeIds,omitempty"`
+	LabelIds         []string             `json:"labelIds,omitempty"`
+	MilestoneID      *string              `json:"milestoneId,omitempty"`
+	ClientMutationID *string              `json:"clientMutationId,omitempty"`
+}
+
+type UpdateIssuePayload struct {
+	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
+	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
 type UpdatePullRequestInput struct {

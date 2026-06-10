@@ -16,6 +16,7 @@ type Resolver struct {
 	Pulls      *domain.PRService
 	Reviews    *domain.ReviewService
 	Checks     *domain.ChecksService
+	Users      *domain.UserService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }

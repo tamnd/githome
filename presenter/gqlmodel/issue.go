@@ -53,6 +53,8 @@ type Issue struct {
 	UpdatedAt   DateTime          // last-update instant
 	ClosedAt    *DateTime         // null while open
 	Labels      *LabelConnection  // the attached labels (resolved by dataloader)
+	Assignees   *UserConnection   // the assignees (resolved on demand)
+	Milestone   *Milestone        // the milestone (resolved on demand)
 	Comments    *IssueCommentConnection
 
 	// RepoOwner and RepoName carry the repository coordinates so the comments

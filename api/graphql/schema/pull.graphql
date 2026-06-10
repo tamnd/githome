@@ -40,12 +40,17 @@ type PullRequest {
   headRefName: String!
   baseRefOid: GitObjectID!
   headRefOid: GitObjectID!
+  baseRef: Ref
+  headRef: Ref
   additions: Int!
   deletions: Int!
   changedFiles: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
   closedAt: DateTime
+  labels(first: Int, after: String): LabelConnection
+  assignees(first: Int, after: String): UserConnection!
+  milestone: Milestone
   # commits is the connection over the pull request's own commits, oldest first.
   commits(first: Int, after: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
@@ -150,6 +155,10 @@ extend type Mutation {
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
   # requestReviews adds or removes review requests on a pull request.
   requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
+  # convertPullRequestToDraft converts a pull request to a draft.
+  convertPullRequestToDraft(input: ConvertPullRequestToDraftInput!): ConvertPullRequestToDraftPayload
+  # markPullRequestReadyForReview marks a pull request ready for review.
+  markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
 }
 
 input CreatePullRequestInput {
@@ -225,6 +234,26 @@ input RequestReviewsInput {
 }
 
 type RequestReviewsPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ConvertPullRequestToDraftInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ConvertPullRequestToDraftPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input MarkPullRequestReadyForReviewInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type MarkPullRequestReadyForReviewPayload {
   pullRequest: PullRequest
   clientMutationId: String
 }

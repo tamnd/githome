@@ -68,6 +68,7 @@ type PullStore interface {
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
 	SetMergeability(ctx context.Context, issuePK int64, mergeable *bool, state string, rebaseable *bool, additions, deletions, changedFiles, commits int, checkedAt time.Time) error
+	UpdatePullDraft(ctx context.Context, pullPK int64, draft bool) error
 
 	WithTx(ctx context.Context, fn func(*store.Tx) error) error
 
@@ -263,32 +264,6 @@ func (s *PRService) GetPRByID(ctx context.Context, viewerPK, dbID int64) (*PullR
 		return nil, err
 	}
 	return s.assemble(ctx, repo, issueRow, pullRow)
-}
-
-// PRRef resolves the owner/repo/number coordinates of a pull request by its
-// internal DB id. The GraphQL layer uses it to convert a PullRequest node id
-// into the coordinates the domain methods need.
-func (s *PRService) PRRef(ctx context.Context, dbID int64) (owner, name string, number int64, err error) {
-	pullRow, err := s.store.GetPullByDBID(ctx, dbID)
-	if errors.Is(err, store.ErrNotFound) {
-		return "", "", 0, ErrPullNotFound
-	}
-	if err != nil {
-		return "", "", 0, err
-	}
-	issueRow, err := s.store.GetIssueByPK(ctx, pullRow.IssuePK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	repoRow, err := s.store.RepoByPK(ctx, pullRow.RepoPK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	ownerRow, err := s.store.UserByPK(ctx, repoRow.OwnerPK)
-	if err != nil {
-		return "", "", 0, err
-	}
-	return ownerRow.Login, repoRow.Name, issueRow.Number, nil
 }
 
 // UpdatePR applies the non-nil fields of patch to an existing open pull request.
@@ -1077,3 +1052,56 @@ func prSignature(u *User) git.Signature {
 // headRef and mergeRef name the synthetic refs a pull request publishes.
 func headRef(number int64) string  { return "refs/pull/" + strconv.FormatInt(number, 10) + "/head" }
 func mergeRef(number int64) string { return "refs/pull/" + strconv.FormatInt(number, 10) + "/merge" }
+
+// PRRef resolves a pull request's owner, repo name, and number from its public
+// database id. It is used by GraphQL mutation resolvers that receive a
+// PullRequest node ID and need to address the domain by coordinates.
+func (s *PRService) PRRef(ctx context.Context, pullDBID int64) (owner, name string, number int64, err error) {
+	pullRow, err := s.store.GetPullByDBID(ctx, pullDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrPullNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	repoRow, err := s.store.RepoByPK(ctx, pullRow.RepoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrPullNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	ownerRow, err := s.store.UserByPK(ctx, repoRow.OwnerPK)
+	if err != nil {
+		return "", "", 0, err
+	}
+	issueRow, err := s.store.GetIssueByPK(ctx, pullRow.IssuePK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", 0, ErrPullNotFound
+	}
+	if err != nil {
+		return "", "", 0, err
+	}
+	return ownerRow.Login, repoRow.Name, issueRow.Number, nil
+}
+
+// SetDraft marks a pull request as a draft (draft=true) or as ready for review
+// (draft=false) after authorizing write access. A no-op when the flag is already
+// the requested value.
+func (s *PRService) SetDraft(ctx context.Context, actorPK int64, owner, name string, number int64, draft bool) (*PullRequest, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	issueRow, pullRow, err := s.load(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	if pullRow.Draft != draft {
+		if err := s.store.UpdatePullDraft(ctx, pullRow.PK, draft); err != nil {
+			return nil, err
+		}
+		pullRow.Draft = draft
+	}
+	return s.assemble(ctx, repo, issueRow, pullRow)
+}
