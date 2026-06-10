@@ -423,3 +423,33 @@ type CollaboratorRow struct {
 	UserPK     int64
 	Permission string
 }
+
+// GistRow is a row of the gists table, optionally including the file rows.
+type GistRow struct {
+	PK          int64
+	GistID      string
+	OwnerPK     int64
+	Description string
+	Public      bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Files       []GistFileRow
+}
+
+// GistFileRow is a row of the gist_files table.
+type GistFileRow struct {
+	PK       int64
+	GistPK   int64
+	Filename string
+	Content  string
+}
+
+// GistCommentRow is a row of the gist_comments table.
+type GistCommentRow struct {
+	PK        int64
+	GistPK    int64
+	UserPK    int64
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
