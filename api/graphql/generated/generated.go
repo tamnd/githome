@@ -260,11 +260,13 @@ type ComplexityRoot struct {
 	}
 
 	Milestone struct {
-		ID     func(childComplexity int) int
-		Number func(childComplexity int) int
-		State  func(childComplexity int) int
-		Title  func(childComplexity int) int
-		URL    func(childComplexity int) int
+		Description func(childComplexity int) int
+		DueOn       func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Number      func(childComplexity int) int
+		State       func(childComplexity int) int
+		Title       func(childComplexity int) int
+		URL         func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -1451,6 +1453,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MergePullRequestPayload.PullRequest(childComplexity), true
 
+	case "Milestone.description":
+		if e.ComplexityRoot.Milestone.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Description(childComplexity), true
+	case "Milestone.dueOn":
+		if e.ComplexityRoot.Milestone.DueOn == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.DueOn(childComplexity), true
 	case "Milestone.id":
 		if e.ComplexityRoot.Milestone.ID == nil {
 			break
@@ -3391,11 +3405,14 @@ type ReactingUserConnection {
   totalCount: Int!
 }
 
-# Milestone is a repository milestone.
+# Milestone is a repository milestone. gh issue view and pr view select
+# number, title, description, and dueOn.
 type Milestone {
   id: ID!
   number: Int!
   title: String!
+  description: String
+  dueOn: DateTime
   state: String!
   url: URI!
 }
@@ -5036,6 +5053,10 @@ func (ec *executionContext) childFields_Milestone(ctx context.Context, field gra
 		return ec.fieldContext_Milestone_number(ctx, field)
 	case "title":
 		return ec.fieldContext_Milestone_title(ctx, field)
+	case "description":
+		return ec.fieldContext_Milestone_description(ctx, field)
+	case "dueOn":
+		return ec.fieldContext_Milestone_dueOn(ctx, field)
 	case "state":
 		return ec.fieldContext_Milestone_state(ctx, field)
 	case "url":
@@ -9940,6 +9961,52 @@ func (ec *executionContext) _Milestone_title(ctx context.Context, field graphql.
 }
 func (ec *executionContext) fieldContext_Milestone_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Milestone", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Milestone_description(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Milestone_dueOn(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_dueOn(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DueOn, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_dueOn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, errors.New("field of type DateTime does not have child fields"))
 }
 
 func (ec *executionContext) _Milestone_state(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Milestone) (ret graphql.Marshaler) {
@@ -22013,6 +22080,10 @@ func (ec *executionContext) _Milestone(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "description":
+			out.Values[i] = ec._Milestone_description(ctx, field, obj)
+		case "dueOn":
+			out.Values[i] = ec._Milestone_dueOn(ctx, field, obj)
 		case "state":
 			out.Values[i] = ec._Milestone_state(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

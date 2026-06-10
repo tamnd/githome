@@ -106,11 +106,14 @@ type ReactingUserConnection {
   totalCount: Int!
 }
 
-# Milestone is a repository milestone.
+# Milestone is a repository milestone. gh issue view and pr view select
+# number, title, description, and dueOn.
 type Milestone {
   id: ID!
   number: Int!
   title: String!
+  description: String
+  dueOn: DateTime
   state: String!
   url: URI!
 }

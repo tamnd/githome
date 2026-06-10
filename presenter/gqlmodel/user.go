@@ -40,11 +40,13 @@ type UserConnection struct {
 // Milestone is the GraphQL Milestone object: the milestone an issue or pull
 // request is attached to. The fields are the subset gh issue view selects.
 type Milestone struct {
-	ID     string // the Milestone node ID
-	Number int32  // the per-repository milestone number
-	Title  string // the milestone title
-	State  string // "open" or "closed"
-	URL    URI    // the milestone's HTML URL
+	ID          string    // the Milestone node ID
+	Number      int32     // the per-repository milestone number
+	Title       string    // the milestone title
+	Description *string   // null when unset
+	DueOn       *DateTime // the due date, null when unset
+	State       string    // "open" or "closed"
+	URL         URI       // the milestone's HTML URL
 }
 
 // RepositoryOwner is the GraphQL RepositoryOwner interface: the owner of a

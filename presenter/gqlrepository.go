@@ -107,13 +107,19 @@ func (b *URLBuilder) GQLMilestone(owner, repo string, m *domain.Milestone, forma
 	if m == nil {
 		return nil
 	}
-	return &gqlmodel.Milestone{
-		ID:     nodeid.Encode(nodeid.KindMilestone, m.ID, format),
-		Number: int32(m.Number),
-		Title:  m.Title,
-		State:  m.State,
-		URL:    gqlmodel.URI(b.RepoHTML(owner, repo) + "/milestone/" + int64str(m.Number)),
+	out := &gqlmodel.Milestone{
+		ID:          nodeid.Encode(nodeid.KindMilestone, m.ID, format),
+		Number:      int32(m.Number),
+		Title:       m.Title,
+		Description: m.Description,
+		State:       m.State,
+		URL:         gqlmodel.URI(b.RepoHTML(owner, repo) + "/milestone/" + int64str(m.Number)),
 	}
+	if m.DueOn != nil {
+		due := gqlmodel.NewDateTime(*m.DueOn)
+		out.DueOn = &due
+	}
+	return out
 }
 
 // GQLRepositoryOwner renders a repository's owner into the GraphQL
