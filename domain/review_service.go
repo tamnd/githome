@@ -63,6 +63,9 @@ type reviewStore interface {
 	GetReviewCommentByPK(ctx context.Context, pk int64) (*store.ReviewCommentRow, error)
 	ListReviewComments(ctx context.Context, pullPK int64) ([]store.ReviewCommentRow, error)
 	ListReviewCommentsForReview(ctx context.Context, reviewPK int64) ([]store.ReviewCommentRow, error)
+	UpdateReviewCommentBody(ctx context.Context, pk int64, body string) error
+	DeleteReviewComment(ctx context.Context, pk int64) error
+	ListAllReviewComments(ctx context.Context, repoPK int64) ([]store.ReviewCommentRow, error)
 	SetThreadResolved(ctx context.Context, rootPK int64, resolved bool, resolverPK *int64) error
 
 	ListCommitStatuses(ctx context.Context, repoPK int64, sha string) ([]store.CommitStatusRow, error)
@@ -918,3 +921,59 @@ func isOutdated(diff *pullDiff, row *store.ReviewCommentRow) bool {
 	}
 	return !fd.contains(int(*row.Line), row.Side)
 }
+
+// EditReviewComment updates the body of an inline review comment.
+func (s *ReviewService) EditReviewComment(ctx context.Context, actorPK, commentDBID int64, body string) (*ReviewComment, error) {
+	row, err := s.store.GetReviewComment(ctx, commentDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if row.UserPK != actorPK {
+		return nil, ErrForbidden
+	}
+	if err := s.store.UpdateReviewCommentBody(ctx, row.PK, body); err != nil {
+		return nil, err
+	}
+	row.Body = body
+	return s.assembleComment(ctx, row, 0)
+}
+
+// DeleteReviewComment removes an inline review comment.
+func (s *ReviewService) DeleteReviewComment(ctx context.Context, actorPK, commentDBID int64) error {
+	row, err := s.store.GetReviewComment(ctx, commentDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if row.UserPK != actorPK {
+		return ErrForbidden
+	}
+	return s.store.DeleteReviewComment(ctx, row.PK)
+}
+
+// ListAllReviewComments returns all inline review comments in a repository.
+func (s *ReviewService) ListAllReviewComments(ctx context.Context, viewerPK int64, owner, name string) ([]*ReviewComment, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListAllReviewComments(ctx, repo.PK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*ReviewComment, 0, len(rows))
+	for i := range rows {
+		c, err := s.assembleComment(ctx, &rows[i], 0)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+

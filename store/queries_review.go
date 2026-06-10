@@ -284,3 +284,19 @@ func scanReviewCommentRows(row interface{ Scan(...any) error }) (*ReviewCommentR
 	c.CreatedAt, c.UpdatedAt = created.Time, upd.Time
 	return &c, nil
 }
+
+// DeleteReviewComment removes an inline comment by primary key.
+func (s *Store) DeleteReviewComment(ctx context.Context, pk int64) error {
+	q := s.rebind(`DELETE FROM pull_request_review_comments WHERE pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, pk)
+	if err != nil {
+		return err
+	}
+	return affectedOrNotFound(res)
+}
+
+// ListAllReviewComments returns all inline comments in a repository, oldest first.
+func (s *Store) ListAllReviewComments(ctx context.Context, repoPK int64) ([]ReviewCommentRow, error) {
+	return s.queryReviewComments(ctx, `WHERE repo_pk = ? ORDER BY created_at, pk`, repoPK)
+}
+

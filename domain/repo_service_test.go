@@ -87,16 +87,6 @@ func (f *fakeRepoStore) TouchRepoPushedAt(_ context.Context, pk int64, at time.T
 	return nil
 }
 
-func (f *fakeRepoStore) ReposByOwner(_ context.Context, ownerPK int64) ([]*store.RepoRow, error) {
-	var out []*store.RepoRow
-	for _, r := range f.repos {
-		if r.OwnerPK == ownerPK {
-			out = append(out, r)
-		}
-	}
-	return out, nil
-}
-
 func (f *fakeRepoStore) UserByLogin(_ context.Context, login string) (*store.UserRow, error) {
 	for _, u := range f.users {
 		if strings.EqualFold(u.Login, login) {
