@@ -348,6 +348,11 @@ type PullRequestReviewCommentEdge struct {
 	Node   *gqlmodel.PullRequestReviewComment `json:"node,omitempty"`
 }
 
+type PullRequestReviewConnection struct {
+	Nodes      []*PullRequestReview `json:"nodes,omitempty"`
+	TotalCount int32                `json:"totalCount"`
+}
+
 type PullRequestReviewEdge struct {
 	Cursor string             `json:"cursor"`
 	Node   *PullRequestReview `json:"node,omitempty"`
@@ -414,6 +419,15 @@ type ResolveReviewThreadInput struct {
 type ResolveReviewThreadPayload struct {
 	Thread           *gqlmodel.PullRequestReviewThread `json:"thread,omitempty"`
 	ClientMutationID *string                           `json:"clientMutationId,omitempty"`
+}
+
+type ReviewRequest struct {
+	RequestedReviewer *gqlmodel.User `json:"requestedReviewer,omitempty"`
+}
+
+type ReviewRequestConnection struct {
+	Nodes      []*ReviewRequest `json:"nodes,omitempty"`
+	TotalCount int32            `json:"totalCount"`
 }
 
 type SearchResultItemConnection struct {

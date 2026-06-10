@@ -229,6 +229,12 @@ type PullRequestReviewEdge {
   node: PullRequestReview
 }
 
+# PullRequestReviewConnection is the connection over a pull request's reviews.
+type PullRequestReviewConnection {
+  nodes: [PullRequestReview]
+  totalCount: Int!
+}
+
 input SubmitPullRequestReviewInput {
   pullRequestReviewId: ID!
   event: PullRequestReviewEvent!

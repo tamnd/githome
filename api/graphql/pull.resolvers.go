@@ -247,6 +247,12 @@ func (r *pullRequestResolver) Milestone(ctx context.Context, obj *gqlmodel.PullR
 	return obj.Milestone, nil
 }
 
+// AutoMergeRequest is the resolver for the autoMergeRequest field. Githome does
+// not persist auto-merge configuration; this always returns null.
+func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.AutoMergeRequest, error) {
+	return nil, nil
+}
+
 // Commits is the resolver for the commits field. It reads the pull request's own
 // commits through the git layer on demand, the way gh pr view selects them.
 func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error) {
@@ -279,6 +285,53 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 		nodes = append(nodes, r.URLs.GQLPullRequestChangedFile(f))
 	}
 	return &gqlmodel.PullRequestChangedFileConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// Reviews is the resolver for the reviews field. It reads the pull request's
+// submitted reviews through the review service on demand.
+func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
+	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+		return nil, err
+	}
+	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*generated.PullRequestReview, 0, len(revs))
+	for _, rv := range revs {
+		nodes = append(nodes, gqlReview(rv, r.URLs, obj.RepoOwner, obj.RepoName, r.NodeFormat))
+	}
+	return &generated.PullRequestReviewConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// ReviewRequests is the resolver for the reviewRequests field. Githome does not
+// persist review requests in a separate table; this returns an empty connection
+// so VS Code and other clients that select the field do not error.
+func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
+	return &generated.ReviewRequestConnection{Nodes: []*generated.ReviewRequest{}, TotalCount: 0}, nil
+}
+
+// Comments is the resolver for the comments field on PullRequest. It reads the
+// pull request's issue-level comments through the issue service; not inline review
+// comments, which are under reviewThreads.
+func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
+	for _, cm := range comments {
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+	}
+	total := obj.CommentsCount
+	if total < int32(len(nodes)) {
+		total = int32(len(nodes))
+	}
+	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
 }
 
 // PullRequest is the resolver for the pullRequest field. A missing pull request,
