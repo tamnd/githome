@@ -378,11 +378,19 @@
   word-break: break-word;
 }
 
-/* Blob view. */
+/* Blob view. The card clips to its rounded border; long lines scroll inside
+   .blob-scroll rather than being cut off at the card edge. */
 .blob {
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
   overflow: hidden;
+}
+
+/* blob-scroll: the horizontal scroll container around the code table. The
+   line text is white-space: pre, so a long line widens the table and scrolls
+   here; the sticky line-number gutter stays at the left edge like GitHub's. */
+.blob-scroll {
+  overflow-x: auto;
 }
 
 /* Blob file size and language badge. */
@@ -435,12 +443,16 @@
 }
 
 .blob-num {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   width: 1%;
   padding: 0 var(--base-size-16);
   text-align: right;
   white-space: nowrap;
   color: var(--fgColor-muted);
   user-select: none;
+  background-color: var(--bgColor-default);
 }
 
 .blob-num-link {
@@ -457,6 +469,12 @@
 }
 
 .blob-line:target {
+  background-color: var(--bgColor-accent-muted);
+}
+
+/* The sticky gutter paints its own background, so the target tint must be
+   restated on it or the highlighted row would lose its number cell. */
+.blob-line:target .blob-num {
   background-color: var(--bgColor-accent-muted);
 }
 
@@ -836,7 +854,9 @@
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-top: 0;
   border-radius: 0 0 var(--borderRadius-medium) var(--borderRadius-medium);
-  overflow: hidden;
+  /* Same clipping bug class as the blob view: pre-formatted lines must
+     scroll, not vanish past the card edge. */
+  overflow-x: auto;
 }
 
 .blame-table {

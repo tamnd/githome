@@ -17,6 +17,7 @@ import (
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
@@ -117,11 +118,17 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountSettings(page, d)
 	mountProfile(page, d)
 
+	// The catch-all owns every URL nothing above claimed. "GET /" is the least
+	// specific pattern on the mux, so each mounted route still wins, and a GET
+	// pattern also answers HEAD. It runs the full page chain, so the 404 it
+	// renders carries the viewer's chrome and theme like any other page.
+	page.Get("/", handleNotFound(d))
+
 	assets := mizu.NewRouter()
 	assets.With(webmw.Recover(d.Render, d.Logger)).
 		Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
 
-	return assetDispatch(assets, root)
+	return themedMethodNotAllowed(assetDispatch(assets, root), d.Render)
 }
 
 // assetDispatch serves the hashed asset tree under render.AssetURLPrefix from
@@ -138,6 +145,72 @@ func assetDispatch(assets, app http.Handler) http.Handler {
 		}
 		app.ServeHTTP(w, r)
 	})
+}
+
+// themedMethodNotAllowed dresses the mux's 405 in the themed error page. The
+// mux knows every registered pattern, so it is the only place the Allow header
+// is always right; rather than recompute that, the wrapper lets the mux answer
+// and intercepts only the plain-text body it writes, then renders the HTML 405
+// over the same header map, Allow included (spec §7.4). A 405 can come from no
+// other writer on this surface: the front's handlers never return one, and the
+// API namespace, whose clients want machine-shaped errors, is passed through
+// untouched.
+func themedMethodNotAllowed(app http.Handler, rs *render.Set) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			app.ServeHTTP(w, r)
+			return
+		}
+		iw := &methodNotAllowedInterceptor{ResponseWriter: w}
+		app.ServeHTTP(iw, r)
+		if iw.intercepted {
+			c := mizu.NewCtx(w, r, nil)
+			_ = rs.MethodNotAllowed(c)
+		}
+	})
+}
+
+// methodNotAllowedInterceptor suppresses a response only when its first
+// WriteHeader is the mux's 405, leaving every other response byte-for-byte
+// alone. Unwrap keeps http.ResponseController able to reach the real writer's
+// Flusher and friends through the wrapper, and Flush passes through directly
+// for writers that get type-asserted instead.
+type methodNotAllowedInterceptor struct {
+	http.ResponseWriter
+	wrote       bool
+	intercepted bool
+}
+
+func (w *methodNotAllowedInterceptor) WriteHeader(code int) {
+	if !w.wrote {
+		w.wrote = true
+		if code == http.StatusMethodNotAllowed {
+			w.intercepted = true
+			return
+		}
+	}
+	if !w.intercepted {
+		w.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (w *methodNotAllowedInterceptor) Write(b []byte) (int, error) {
+	w.wrote = true
+	if w.intercepted {
+		return len(b), nil
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *methodNotAllowedInterceptor) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *methodNotAllowedInterceptor) Flush() {
+	if w.intercepted {
+		return
+	}
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // mountRepo registers the code-browsing routes under /{owner}/{repo}. Every route
@@ -376,7 +449,8 @@ func mountRepoSettings(page *mizu.Router, d Deps) {
 
 // mountSettings registers the account settings tree under /settings. The bare
 // /settings redirects to /settings/profile, the first backed section. Each
-// handler gates on the signed-in viewer itself and 404s an anonymous request.
+// handler gates on the signed-in viewer itself and bounces an anonymous request
+// to the sign-in form with return_to carrying the page it wanted.
 // The /settings literal is a reserved top-level name (fe/route), so it can
 // never be read as a /{owner} profile, and it is registered before the profile
 // catch-all. The profile save writes through the user service; the appearance
@@ -457,17 +531,18 @@ func mountAuth(page *mizu.Router, d Deps) {
 	}
 }
 
-// mountNotifications registers the /notifications inbox route. The inbox is gated
-// to the signed-in viewer (an anonymous request gets a 404 just like any resource
-// the viewer has no right to see), so the route exists unconditionally but
-// renders the empty inbox when the notifications domain layer is not yet backed.
-// The /notifications literal is a reserved top-level name (fe/route), so it is
-// registered before the profile catch-all and is never read as a login. See
-// implementation/12 section 3.
+// mountNotifications registers the /notifications inbox route. The inbox is
+// function-private: it exists for every account, so an anonymous request leaks
+// nothing by being bounced to the sign-in form with return_to carrying the
+// inbox (spec §7.1), the 302 github.com answers. The route exists
+// unconditionally but renders the empty inbox when the notifications domain
+// layer is not yet backed. The /notifications literal is a reserved top-level
+// name (fe/route), so it is registered before the profile catch-all and is
+// never read as a login. See implementation/12 section 3.
 func mountNotifications(page *mizu.Router, d Deps) {
 	page.Get("/notifications", func(c *mizu.Ctx) error {
 		if view.ViewerFrom(c.Context()) == nil {
-			return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
+			return c.Redirect(http.StatusFound, route.LoginWithReturn(c.Request().URL.RequestURI()))
 		}
 		return d.Render.Page(c, "notifications/index", d.View.Notifications(c))
 	})
@@ -479,5 +554,39 @@ func mountNotifications(page *mizu.Router, d Deps) {
 func handleHome(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		return d.Render.Page(c, "home/index", d.View.Home(c))
+	}
+}
+
+// handleNotFound serves the unmounted URL space. A trailing-slash URL 301s to
+// its canonical slash-less form with the query preserved, the redirect
+// github.com sends (spec §5.1); only GET and HEAD ever reach it, since the
+// catch-all is registered for GET and the mux answers other methods itself.
+// The API namespace keeps a machine-shaped 404: with the web front mounted the
+// REST surface omits its own root catch-all (api/rest Deps.WebFront) and an
+// unknown /api path would otherwise get an HTML page, so this hands API
+// clients the same GitHub-shaped body the REST surface uses. Everything else
+// renders the themed 404 (spec §7.1).
+func handleNotFound(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		r := c.Request()
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			return c.Bytes(http.StatusNotFound,
+				[]byte(`{"message":"Not Found","documentation_url":"https://docs.github.com/rest"}`),
+				"application/json; charset=utf-8")
+		}
+		// Trim on the escaped path so an encoded segment survives the redirect
+		// byte for byte. All trailing slashes collapse, so /owner/repo// also
+		// lands on the canonical URL in one hop.
+		if ep := r.URL.EscapedPath(); len(ep) > 1 && strings.HasSuffix(ep, "/") {
+			target := strings.TrimRight(ep, "/")
+			if target == "" {
+				target = "/"
+			}
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			return c.Redirect(http.StatusMovedPermanently, target)
+		}
+		return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
 	}
 }

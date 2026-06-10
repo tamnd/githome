@@ -18,7 +18,7 @@ import (
 // page rather than a blank index.
 func (h *Handlers) Index(c *mizu.Ctx) error {
 	if _, ok := h.gate(c); !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	return redirect(c, route.ProfileSettings())
 }
@@ -29,7 +29,7 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 func (h *Handlers) Appearance(c *mizu.Ctx) error {
 	v, ok := h.gate(c)
 	if !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	m := view.ColorModeFrom(c.Context())
 	vm := view.AppearanceVM{
@@ -51,7 +51,7 @@ func (h *Handlers) Appearance(c *mizu.Ctx) error {
 // exist.
 func (h *Handlers) SaveAppearance(c *mizu.Ctx) error {
 	if _, ok := h.gate(c); !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	mode := formString(c, "mode")
 	light := formString(c, "light_theme")
