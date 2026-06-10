@@ -69,6 +69,7 @@ type IssueStore interface {
 
 	ListLabels(ctx context.Context, repoPK int64) ([]store.LabelRow, error)
 	GetLabel(ctx context.Context, repoPK int64, name string) (*store.LabelRow, error)
+	GetLabelByDBID(ctx context.Context, dbID int64) (*store.LabelRow, error)
 	LabelsByNames(ctx context.Context, repoPK int64, names []string) ([]store.LabelRow, error)
 	InsertLabel(ctx context.Context, l *store.LabelRow) error
 	UpdateLabel(ctx context.Context, l *store.LabelRow) error
@@ -1009,3 +1010,25 @@ func rollup(r store.ReactionRollup) ReactionRollup {
 // nowUTCFunc lets tests pin the clock for the close-transition timestamp; the
 // default is the wall clock in UTC.
 var nowUTC = func() time.Time { return time.Now().UTC() }
+
+// LabelNameByDBID resolves a label's name from its public database id. It is
+// used by GraphQL mutation resolvers that receive label node IDs and need to
+// pass label names to the domain write path.
+func (s *IssueService) LabelNameByDBID(ctx context.Context, dbID int64) (string, error) {
+	row, err := s.store.GetLabelByDBID(ctx, dbID)
+	if err != nil {
+		return "", err
+	}
+	return row.Name, nil
+}
+
+// UserLoginByPK resolves a user's login from their internal primary key. It is
+// used by GraphQL mutation resolvers that receive user node IDs and need to pass
+// logins to the domain write path.
+func (s *IssueService) UserLoginByPK(ctx context.Context, pk int64) (string, error) {
+	row, err := s.store.UserByPK(ctx, pk)
+	if err != nil {
+		return "", err
+	}
+	return row.Login, nil
+}
