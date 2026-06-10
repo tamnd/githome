@@ -11,11 +11,14 @@ import (
 	"github.com/tamnd/githome/store"
 )
 
-var (
-	ErrReleaseNotFound      = errors.New("domain: release not found")
-	ErrReleaseAssetNotFound = errors.New("domain: release asset not found")
-	ErrReleaseTagTaken      = errors.New("domain: release tag already exists")
-)
+// ErrReleaseNotFound is returned when a release cannot be found.
+var ErrReleaseNotFound = errors.New("domain: release not found")
+
+// ErrReleaseAssetNotFound is returned when a release asset cannot be found.
+var ErrReleaseAssetNotFound = errors.New("domain: release asset not found")
+
+// ErrReleaseTagTaken is returned when a release tag already exists.
+var ErrReleaseTagTaken = errors.New("domain: release tag already exists")
 
 // ReleaseStore is the store slice the release service needs.
 type ReleaseStore interface {
@@ -489,7 +492,6 @@ func assetFromRow(a *store.ReleaseAssetRow) *ReleaseAsset {
 		UpdatedAt:     a.UpdatedAt,
 	}
 }
-
 
 // i64Str formats an int64 as a decimal string for use as a filename.
 func i64Str(n int64) string {

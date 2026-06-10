@@ -93,7 +93,7 @@ func (s *Store) ListReleases(ctx context.Context, repoPK int64, includeDrafts bo
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []ReleaseRow
 	for rows.Next() {
 		r, err := scanRelease(rows)
@@ -176,7 +176,7 @@ func (s *Store) ListReleaseAssets(ctx context.Context, releasePK int64) ([]Relea
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []ReleaseAssetRow
 	for rows.Next() {
 		a, err := scanReleaseAsset(rows)
