@@ -190,13 +190,13 @@ func handleCompare(d Deps) mizu.Handler {
 		files := make([]any, 0, len(result.Files))
 		for _, f := range result.Files {
 			files = append(files, map[string]any{
-				"filename":    f.Path,
-				"status":      string(f.Status),
-				"additions":   f.Additions,
-				"deletions":   f.Deletions,
-				"changes":     f.Additions + f.Deletions,
-				"blob_url":    d.URLs.API("repos", repo.Owner.Login, repo.Name, "blob", result.Head.Commit, f.Path),
-				"raw_url":     d.URLs.API("repos", repo.Owner.Login, repo.Name, "raw", result.Head.Commit, f.Path),
+				"filename":     f.Path,
+				"status":       string(f.Status),
+				"additions":    f.Additions,
+				"deletions":    f.Deletions,
+				"changes":      f.Additions + f.Deletions,
+				"blob_url":     d.URLs.API("repos", repo.Owner.Login, repo.Name, "blob", result.Head.Commit, f.Path),
+				"raw_url":      d.URLs.API("repos", repo.Owner.Login, repo.Name, "raw", result.Head.Commit, f.Path),
 				"contents_url": d.URLs.API("repos", repo.Owner.Login, repo.Name, "contents", f.Path),
 			})
 		}
@@ -245,8 +245,8 @@ func mountRepoExtra(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/zipball/{ref}", handleZipball(d))
 	r.Get("/repos/{owner}/{repo}/tarball/{ref}", handleTarball(d))
 	r.Get("/repos/{owner}/{repo}/compare/{basehead}", handleCompare(d))
-	r.Put("/repos/{owner}/{repo}/contents/{path...}", handleContentsCreate(d))
-	r.Delete("/repos/{owner}/{repo}/contents/{path...}", handleContentsDelete(d))
+	r.Put("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsCreate(d), "repo", "public_repo"))
+	r.Delete("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsDelete(d), "repo", "public_repo"))
 }
 
 // keep json import used through writeJSON helper chain

@@ -90,7 +90,7 @@ func Mount(root *mizu.Router, d Deps) {
 	// go-github, GoReleaser and gh all construct the upload URL from the release's
 	// upload_url field which Githome sets to this path.
 	if d.Releases != nil {
-		api.Prefix("/api/uploads").Post("/repos/{owner}/{repo}/releases/{release_id}/assets", handleReleaseAssetUpload(d))
+		api.Prefix("/api/uploads").Post("/repos/{owner}/{repo}/releases/{release_id}/assets", requireScope(handleReleaseAssetUpload(d), "repo", "public_repo"))
 	}
 
 	if !d.WebFront {
@@ -117,7 +117,7 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Repos != nil {
 		if d.Users != nil {
 			r.Get("/user/repos", handleUserReposList(d))
-			r.Post("/user/repos", handleUserRepoCreate(d))
+			r.Post("/user/repos", requireScope(handleUserRepoCreate(d), "repo", "public_repo"))
 		}
 		mountRepos(r, d)
 	}
@@ -164,16 +164,16 @@ func mountAPI(r *mizu.Router, d Deps) {
 // and is wired directly in Mount() against the same upload router.
 func mountReleases(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/releases", handleReleasesList(d))
-	r.Post("/repos/{owner}/{repo}/releases", handleReleaseCreate(d))
+	r.Post("/repos/{owner}/{repo}/releases", requireScope(handleReleaseCreate(d), "repo", "public_repo"))
 	r.Get("/repos/{owner}/{repo}/releases/latest", handleReleaseLatest(d))
 	r.Get("/repos/{owner}/{repo}/releases/tags/{tag}", handleReleaseByTag(d))
 	r.Get("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseGet(d))
-	r.Patch("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseEdit(d))
-	r.Delete("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseDelete(d))
+	r.Patch("/repos/{owner}/{repo}/releases/{release_id}", requireScope(handleReleaseEdit(d), "repo", "public_repo"))
+	r.Delete("/repos/{owner}/{repo}/releases/{release_id}", requireScope(handleReleaseDelete(d), "repo", "public_repo"))
 	r.Get("/repos/{owner}/{repo}/releases/{release_id}/assets", handleReleaseAssetsList(d))
 	r.Get("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetGet(d))
-	r.Patch("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetEdit(d))
-	r.Delete("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetDelete(d))
+	r.Patch("/repos/{owner}/{repo}/releases/assets/{asset_id}", requireScope(handleReleaseAssetEdit(d), "repo", "public_repo"))
+	r.Delete("/repos/{owner}/{repo}/releases/assets/{asset_id}", requireScope(handleReleaseAssetDelete(d), "repo", "public_repo"))
 }
 
 // mountSearch registers the search endpoints on r.
@@ -257,20 +257,21 @@ func mountIssues(r *mizu.Router, d Deps) {
 
 // mountKeys registers the deploy key, user key, and branch protection endpoints on r.
 func mountKeys(r *mizu.Router, d Deps) {
-	// Deploy keys.
-	r.Get("/repos/{owner}/{repo}/keys", handleDeployKeysList(d))
-	r.Post("/repos/{owner}/{repo}/keys", handleDeployKeyCreate(d))
-	r.Get("/repos/{owner}/{repo}/keys/{key_id}", handleDeployKeyGet(d))
-	r.Delete("/repos/{owner}/{repo}/keys/{key_id}", handleDeployKeyDelete(d))
-	// User SSH keys.
-	r.Get("/user/keys", handleUserKeysList(d))
-	r.Post("/user/keys", handleUserKeyCreate(d))
-	r.Get("/user/keys/{key_id}", handleUserKeyGet(d))
-	r.Delete("/user/keys/{key_id}", handleUserKeyDelete(d))
+	// Deploy keys live under the repo scope, like on GitHub.
+	r.Get("/repos/{owner}/{repo}/keys", requireScope(handleDeployKeysList(d), "repo"))
+	r.Post("/repos/{owner}/{repo}/keys", requireScope(handleDeployKeyCreate(d), "repo"))
+	r.Get("/repos/{owner}/{repo}/keys/{key_id}", requireScope(handleDeployKeyGet(d), "repo"))
+	r.Delete("/repos/{owner}/{repo}/keys/{key_id}", requireScope(handleDeployKeyDelete(d), "repo"))
+	// User SSH keys carry the public_key scope family per verb; the scope
+	// lattice lets admin:public_key and write:public_key through a read gate.
+	r.Get("/user/keys", requireScope(handleUserKeysList(d), "read:public_key"))
+	r.Post("/user/keys", requireScope(handleUserKeyCreate(d), "write:public_key"))
+	r.Get("/user/keys/{key_id}", requireScope(handleUserKeyGet(d), "read:public_key"))
+	r.Delete("/user/keys/{key_id}", requireScope(handleUserKeyDelete(d), "admin:public_key"))
 	// Branch protection.
 	r.Get("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionGet(d))
-	r.Put("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionPut(d))
-	r.Delete("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionDelete(d))
+	r.Put("/repos/{owner}/{repo}/branches/{branch}/protection", requireScope(handleBranchProtectionPut(d), "repo"))
+	r.Delete("/repos/{owner}/{repo}/branches/{branch}/protection", requireScope(handleBranchProtectionDelete(d), "repo"))
 }
 
 // mountApp registers the GitHub App meta and installation-token endpoints on r.
@@ -291,14 +292,14 @@ func mountUsers(r *mizu.Router, d Deps) {
 func mountOrgs(r *mizu.Router, d Deps) {
 	r.Get("/orgs/{org}", handleOrgGet(d))
 	r.Get("/orgs/{org}/repos", handleOrgReposList(d))
-	r.Post("/orgs/{org}/repos", handleOrgRepoCreate(d))
+	r.Post("/orgs/{org}/repos", requireScope(handleOrgRepoCreate(d), "repo", "public_repo"))
 }
 
 // mountRepos registers the repository and git-read endpoints on r.
 func mountRepos(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}", handleRepoGet(d))
-	r.Patch("/repos/{owner}/{repo}", handleRepoUpdate(d))
-	r.Delete("/repos/{owner}/{repo}", handleRepoDelete(d))
+	r.Patch("/repos/{owner}/{repo}", requireScope(handleRepoUpdate(d), "repo", "public_repo"))
+	r.Delete("/repos/{owner}/{repo}", requireScope(handleRepoDelete(d), "delete_repo"))
 	r.Get("/repos/{owner}/{repo}/branches", handleBranches(d))
 	r.Get("/repos/{owner}/{repo}/branches/{branch}", handleBranch(d))
 	r.Get("/repos/{owner}/{repo}/tags", handleTags(d))
@@ -310,9 +311,9 @@ func mountRepos(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/git/commits/{sha}", handleGitCommit(d))
 	r.Get("/repos/{owner}/{repo}/git/refs", handleRefs(d))
 	r.Get("/repos/{owner}/{repo}/git/ref/{ref...}", handleRef(d))
-	r.Post("/repos/{owner}/{repo}/git/refs", handleCreateRef(d))
-	r.Patch("/repos/{owner}/{repo}/git/refs/{ref...}", handleUpdateRef(d))
-	r.Delete("/repos/{owner}/{repo}/git/refs/{ref...}", handleDeleteRef(d))
+	r.Post("/repos/{owner}/{repo}/git/refs", requireScope(handleCreateRef(d), "repo", "public_repo"))
+	r.Patch("/repos/{owner}/{repo}/git/refs/{ref...}", requireScope(handleUpdateRef(d), "repo", "public_repo"))
+	r.Delete("/repos/{owner}/{repo}/git/refs/{ref...}", requireScope(handleDeleteRef(d), "repo", "public_repo"))
 }
 
 // errorHandler turns a handler-returned error or a recovered panic into the

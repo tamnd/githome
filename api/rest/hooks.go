@@ -43,22 +43,25 @@ type hookUpdateBody struct {
 
 // mountHooks registers the webhook CRUD and delivery endpoints on r.
 func mountHooks(r *mizu.Router, d Deps) {
-	r.Get("/repos/{owner}/{repo}/hooks", handleHooksList(d))
-	r.Post("/repos/{owner}/{repo}/hooks", handleHookCreate(d))
-	r.Get("/repos/{owner}/{repo}/hooks/{id}", handleHookGet(d))
-	r.Patch("/repos/{owner}/{repo}/hooks/{id}", handleHookUpdate(d))
-	r.Delete("/repos/{owner}/{repo}/hooks/{id}", handleHookDelete(d))
+	// Repo hooks accept the repo scope or the repo_hook family at the verb's
+	// level; the scope lattice lets admin:repo_hook through every gate and
+	// write:repo_hook through the read gates.
+	r.Get("/repos/{owner}/{repo}/hooks", requireScope(handleHooksList(d), "repo", "read:repo_hook"))
+	r.Post("/repos/{owner}/{repo}/hooks", requireScope(handleHookCreate(d), "repo", "write:repo_hook"))
+	r.Get("/repos/{owner}/{repo}/hooks/{id}", requireScope(handleHookGet(d), "repo", "read:repo_hook"))
+	r.Patch("/repos/{owner}/{repo}/hooks/{id}", requireScope(handleHookUpdate(d), "repo", "write:repo_hook"))
+	r.Delete("/repos/{owner}/{repo}/hooks/{id}", requireScope(handleHookDelete(d), "repo", "admin:repo_hook"))
 
-	r.Get("/repos/{owner}/{repo}/hooks/{id}/deliveries", handleHookDeliveriesList(d))
-	r.Get("/repos/{owner}/{repo}/hooks/{id}/deliveries/{delivery_id}", handleHookDeliveryGet(d))
-	r.Post("/repos/{owner}/{repo}/hooks/{id}/deliveries/{delivery_id}/attempts", handleHookRedeliver(d))
+	r.Get("/repos/{owner}/{repo}/hooks/{id}/deliveries", requireScope(handleHookDeliveriesList(d), "repo", "read:repo_hook"))
+	r.Get("/repos/{owner}/{repo}/hooks/{id}/deliveries/{delivery_id}", requireScope(handleHookDeliveryGet(d), "repo", "read:repo_hook"))
+	r.Post("/repos/{owner}/{repo}/hooks/{id}/deliveries/{delivery_id}/attempts", requireScope(handleHookRedeliver(d), "repo", "write:repo_hook"))
 
 	// Org-level webhooks (github_organization_webhook Terraform resource).
-	r.Get("/orgs/{org}/hooks", handleOrgHooksList(d))
-	r.Post("/orgs/{org}/hooks", handleOrgHookCreate(d))
-	r.Get("/orgs/{org}/hooks/{id}", handleOrgHookGet(d))
-	r.Patch("/orgs/{org}/hooks/{id}", handleOrgHookUpdate(d))
-	r.Delete("/orgs/{org}/hooks/{id}", handleOrgHookDelete(d))
+	r.Get("/orgs/{org}/hooks", requireScope(handleOrgHooksList(d), "admin:org_hook"))
+	r.Post("/orgs/{org}/hooks", requireScope(handleOrgHookCreate(d), "admin:org_hook"))
+	r.Get("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookGet(d), "admin:org_hook"))
+	r.Patch("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookUpdate(d), "admin:org_hook"))
+	r.Delete("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookDelete(d), "admin:org_hook"))
 }
 
 // handleHooksList serves GET /repos/{owner}/{repo}/hooks.
@@ -432,18 +435,18 @@ func handleOrgHookDelete(d Deps) mizu.Handler {
 
 func orgHookJSON(id int64, org string, body hookCreateBody, d Deps) map[string]any {
 	return map[string]any{
-		"type":       "Organization",
-		"id":         id,
-		"name":       body.Name,
-		"active":     body.Active == nil || *body.Active,
-		"events":     body.Events,
+		"type":   "Organization",
+		"id":     id,
+		"name":   body.Name,
+		"active": body.Active == nil || *body.Active,
+		"events": body.Events,
 		"config": map[string]any{
 			"url":          body.Config.URL,
 			"content_type": body.Config.ContentType,
 			"insecure_ssl": "0",
 		},
-		"url":         d.URLs.API("orgs", org, "hooks"),
-		"ping_url":    d.URLs.API("orgs", org, "hooks", "0", "pings"),
+		"url":            d.URLs.API("orgs", org, "hooks"),
+		"ping_url":       d.URLs.API("orgs", org, "hooks", "0", "pings"),
 		"deliveries_url": d.URLs.API("orgs", org, "hooks", "0", "deliveries"),
 	}
 }

@@ -349,8 +349,8 @@ func handleForkCreate(d Deps) mizu.Handler {
 func handleInstallationRepos(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"total_count":   0,
-			"repositories":  []any{},
+			"total_count":  0,
+			"repositories": []any{},
 		})
 		return nil
 	}
@@ -399,13 +399,13 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/repos/{owner}/{repo}/contributors", handleRepoContributors(d))
 		r.Get("/repos/{owner}/{repo}/collaborators", handleRepoCollaboratorsList(d))
 		r.Get("/repos/{owner}/{repo}/teams", handleRepoTeamsList(d))
-		r.Post("/repos/{owner}/{repo}/forks", handleForkCreate(d))
+		r.Post("/repos/{owner}/{repo}/forks", requireScope(handleForkCreate(d), "repo", "public_repo"))
 		r.Get("/repos/{owner}/{repo}/commits/{sha}", handleSingleCommitGet(d))
-		r.Post("/repos/{owner}/{repo}/git/blobs", handleGitBlobCreate(d))
-		r.Post("/repos/{owner}/{repo}/git/trees", handleGitTreeCreate(d))
-		r.Post("/repos/{owner}/{repo}/git/commits", handleGitCommitCreate(d))
+		r.Post("/repos/{owner}/{repo}/git/blobs", requireScope(handleGitBlobCreate(d), "repo", "public_repo"))
+		r.Post("/repos/{owner}/{repo}/git/trees", requireScope(handleGitTreeCreate(d), "repo", "public_repo"))
+		r.Post("/repos/{owner}/{repo}/git/commits", requireScope(handleGitCommitCreate(d), "repo", "public_repo"))
 		r.Get("/repos/{owner}/{repo}/git/tags/{sha}", handleGitTagGet(d))
-		r.Post("/repos/{owner}/{repo}/git/tags", handleGitTagCreate(d))
+		r.Post("/repos/{owner}/{repo}/git/tags", requireScope(handleGitTagCreate(d), "repo", "public_repo"))
 		r.Get("/search/commits", handleSearchCommits(d))
 		r.Get("/search/topics", handleSearchTopics(d))
 		r.Get("/search/labels", handleSearchLabels(d))
@@ -433,7 +433,7 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/repos/{owner}/{repo}/check-suites/{suite_id}", handleCheckSuiteGet(d))
 	}
 	if d.Hooks != nil {
-		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/pings", handleWebhookPing(d))
+		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/pings", requireScope(handleWebhookPing(d), "repo", "write:repo_hook"))
 	}
 	if d.Teams != nil {
 		r.Get("/orgs/{org}/teams", handleOrgTeamsList(d))
