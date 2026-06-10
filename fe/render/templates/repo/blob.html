@@ -37,16 +37,18 @@
     {{if eq .Kind "markdown" -}}
     <div class="blob-render markdown-body">{{.Body}}</div>
     {{- else if or (eq .Kind "text") (eq .Kind "svg") -}}
-    <table class="blob-code" aria-label="File content">
-      <tbody>
-        {{range .Lines -}}
-        <tr class="blob-line" id="L{{.Number}}">
-          <td class="blob-num"><a class="blob-num-link" href="#L{{.Number}}" aria-label="Line {{.Number}}">{{.Number}}</a></td>
-          <td class="blob-text"><span class="blob-code-inner">{{.Text}}</span></td>
-        </tr>
-        {{- end}}
-      </tbody>
-    </table>
+    <div class="blob-scroll">
+      <table class="blob-code" aria-label="File content">
+        <tbody>
+          {{range .Lines -}}
+          <tr class="blob-line" id="L{{.Number}}">
+            <td class="blob-num"><a class="blob-num-link" href="#L{{.Number}}" aria-label="Line {{.Number}}">{{.Number}}</a></td>
+            <td class="blob-text"><span class="blob-code-inner">{{.Text}}</span></td>
+          </tr>
+          {{- end}}
+        </tbody>
+      </table>
+    </div>
     {{- else if eq .Kind "image" -}}
     <div class="blob-render blob-image">
       <img src="{{.RawURL}}" alt="{{.Name}}">
