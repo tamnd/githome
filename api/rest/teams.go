@@ -35,6 +35,11 @@ func mountTeams(r *mizu.Router, d Deps) {
 	r.Put("/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}", handleTeamRepoAdd(d))
 	r.Get("/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}", handleTeamRepoGet(d))
 	r.Delete("/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}", handleTeamRepoDelete(d))
+
+	// Org membership (github_organization_member / github_membership Terraform resources).
+	r.Put("/orgs/{org}/memberships/{username}", handleOrgMembershipPut(d))
+	r.Get("/orgs/{org}/memberships/{username}", handleOrgMembershipGet(d))
+	r.Delete("/orgs/{org}/members/{username}", handleOrgMemberDelete(d))
 }
 
 // handleTopicsGet serves GET /repos/{owner}/{repo}/topics.
@@ -544,4 +549,103 @@ func decodeJSONOpt(c *mizu.Ctx, v any) bool {
 		return true
 	}
 	return decodeJSON(c, v)
+}
+
+// handleOrgMembershipPut serves PUT /orgs/{org}/memberships/{username}.
+// GitHub's Terraform provider uses this to add/invite an org member with a role.
+func handleOrgMembershipPut(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		org := c.Param("org")
+		username := c.Param("username")
+		var body struct {
+			Role string `json:"role"` // "member" or "admin"
+		}
+		body.Role = "member"
+		decodeJSONOpt(c, &body)
+		// Verify both the org and user exist.
+		orgUser, err := d.Users.ByLogin(ctx, org)
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		user, err := d.Users.ByLogin(ctx, username)
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		_ = orgUser
+		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, body.Role, "active", d))
+		return nil
+	}
+}
+
+// handleOrgMembershipGet serves GET /orgs/{org}/memberships/{username}.
+func handleOrgMembershipGet(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		org := c.Param("org")
+		username := c.Param("username")
+		_, err := d.Users.ByLogin(ctx, org)
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		user, err := d.Users.ByLogin(ctx, username)
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, "member", "active", d))
+		return nil
+	}
+}
+
+// handleOrgMemberDelete serves DELETE /orgs/{org}/members/{username}.
+func handleOrgMemberDelete(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		_, err := d.Users.ByLogin(ctx, c.Param("username"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
+func orgMembershipJSON(org string, user *domain.User, role, state string, d Deps) map[string]any {
+	return map[string]any{
+		"url":              d.URLs.API("orgs", org, "memberships", user.Login),
+		"state":            state,
+		"role":             role,
+		"organization_url": d.URLs.API("orgs", org),
+		"user":             d.URLs.SimpleUser(user, d.NodeFormat),
+	}
 }
