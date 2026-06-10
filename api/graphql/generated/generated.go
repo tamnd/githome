@@ -714,6 +714,8 @@ type QueryResolver interface {
 	Search(ctx context.Context, query string, typeArg SearchType, first *int32, after *string) (*SearchResultItemConnection, error)
 }
 type RepositoryResolver interface {
+	ViewerPermission(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryPermission, error)
+
 	Ref(ctx context.Context, obj *gqlmodel.Repository, qualifiedName string) (*gqlmodel.Ref, error)
 
 	PrimaryLanguage(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Language, error)
@@ -4466,7 +4468,7 @@ type Repository implements Node {
   owner: RepositoryOwner!
 }
 
-# RepositoryPermission is the viewer's effective permission on a repository.
+# RepositoryPermission is the viewer's access level on a repository.
 enum RepositoryPermission {
   ADMIN
   MAINTAIN
@@ -15078,7 +15080,7 @@ func (ec *executionContext) _Repository_viewerPermission(ctx context.Context, fi
 			return ec.fieldContext_Repository_viewerPermission(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ViewerPermission, nil
+			return ec.Resolvers.Repository().ViewerPermission(ctx, obj)
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryPermission) graphql.Marshaler {
@@ -15089,7 +15091,7 @@ func (ec *executionContext) _Repository_viewerPermission(ctx context.Context, fi
 	)
 }
 func (ec *executionContext) fieldContext_Repository_viewerPermission(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type RepositoryPermission does not have child fields"))
+	return graphql.NewScalarFieldContext("Repository", field, true, true, errors.New("field of type RepositoryPermission does not have child fields"))
 }
 
 func (ec *executionContext) _Repository_autoMergeAllowed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
@@ -24179,7 +24181,38 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "viewerPermission":
-			out.Values[i] = ec._Repository_viewerPermission(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Repository_viewerPermission(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "autoMergeAllowed":
 			out.Values[i] = ec._Repository_autoMergeAllowed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

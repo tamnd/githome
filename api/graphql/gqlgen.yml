@@ -163,10 +163,6 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestReviewEvent
   DiffSide:
     model: github.com/tamnd/githome/presenter/gqlmodel.DiffSide
-  RepositoryPermission:
-    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryPermission
-  ReactionContent:
-    model: github.com/tamnd/githome/presenter/gqlmodel.ReactionContent
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int32

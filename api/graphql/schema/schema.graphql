@@ -76,30 +76,9 @@ type Repository implements Node {
   primaryLanguage: Language
   licenseInfo: License
   owner: RepositoryOwner!
-  # viewerPermission is the authenticated viewer's access level on this repository.
-  # Null for an anonymous viewer.
-  viewerPermission: RepositoryPermission
-  # autoMergeAllowed is whether auto-merge is enabled on this repository.
-  # Githome does not implement auto-merge; always false.
-  autoMergeAllowed: Boolean!
-  # mergeCommitAllowed is whether merge commits are allowed.
-  mergeCommitAllowed: Boolean!
-  # squashMergeAllowed is whether squash merges are allowed.
-  squashMergeAllowed: Boolean!
-  # rebaseMergeAllowed is whether rebase merges are allowed.
-  rebaseMergeAllowed: Boolean!
 }
 
 # RepositoryPermission is the viewer's access level on a repository.
-enum RepositoryPermission {
-  ADMIN
-  MAINTAIN
-  WRITE
-  TRIAGE
-  READ
-}
-
-# RepositoryPermission is the viewer's effective permission on a repository.
 enum RepositoryPermission {
   ADMIN
   MAINTAIN
