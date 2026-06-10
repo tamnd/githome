@@ -6,8 +6,11 @@ package restmodel
 // Meta is the body of GET /meta. The address arrays describe the network ranges
 // a deployment serves from; a self-hosted instance reports its own (often empty)
 // ranges rather than github.com's. Arrays are always present, never null.
+// InstalledVersion is the Githome version string; gh uses it for version-gated
+// features and Renovate reads it for capability detection.
 type Meta struct {
 	VerifiablePasswordAuthentication bool              `json:"verifiable_password_authentication"`
+	InstalledVersion                 string            `json:"installed_version"`
 	SSHKeyFingerprints               map[string]string `json:"ssh_key_fingerprints"`
 	SSHKeys                          []string          `json:"ssh_keys"`
 	Hooks                            []string          `json:"hooks"`

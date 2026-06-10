@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/go-mizu/mizu"
+
+	"github.com/tamnd/githome/config"
 )
 
 // defaultAPIVersion is the baseline dated REST API version, echoed when the
@@ -58,6 +60,16 @@ func apiVersion(next mizu.Handler) mizu.Handler {
 func mediaType(next mizu.Handler) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		c.Header().Set("X-GitHub-Media-Type", "github.v3; format=json")
+		return next(c)
+	}
+}
+
+// enterpriseVersion stamps every /api/v3/ response with the
+// x-github-enterprise-version header. Renovate and other GHES-aware clients
+// read this header to gate features against the server version.
+func enterpriseVersion(next mizu.Handler) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		c.Header().Set("x-github-enterprise-version", config.Version)
 		return next(c)
 	}
 }

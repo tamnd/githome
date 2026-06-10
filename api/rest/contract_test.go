@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,8 @@ import (
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/jsondiff"
 )
+
+func contains(b []byte, sub string) bool { return bytes.Contains(b, []byte(sub)) }
 
 func testConfig() config.Config {
 	return config.Config{
@@ -119,6 +122,44 @@ func TestValidationFailedContract(t *testing.T) {
 		t.Fatalf("status %d, want 422", rec.Code)
 	}
 	jsondiff.AssertCompatible(t, golden(t, "validation_failed.golden.json"), rec.Body.Bytes(), jsondiff.Default("git.test.internal"))
+}
+
+func TestVersionsEndpoint(t *testing.T) {
+	srv := testServer(t)
+	for _, path := range []string{"/api/v3/versions", "/versions"} {
+		resp, body := get(t, srv, path)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s: status %d", path, resp.StatusCode)
+		}
+		// Must return an empty JSON array so gh detects a GHES-compatible host.
+		if s := string(body); s != "[]" && s != "[]\n" {
+			t.Errorf("%s: body = %q, want []", path, body)
+		}
+	}
+}
+
+func TestOAuthDiscovery(t *testing.T) {
+	srv := testServer(t)
+	resp, body := get(t, srv, "/.well-known/oauth-authorization-server")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	// Must contain the device authorization endpoint so git-credential-oauth
+	// and GCM can discover the device flow without hardcoded paths.
+	if !contains(body, "device_authorization_endpoint") {
+		t.Errorf("missing device_authorization_endpoint in: %s", body)
+	}
+	if !contains(body, "token_endpoint") {
+		t.Errorf("missing token_endpoint in: %s", body)
+	}
+}
+
+func TestEnterpriseVersionHeader(t *testing.T) {
+	srv := testServer(t)
+	resp, _ := get(t, srv, "/api/v3/meta")
+	if got := resp.Header.Get("x-github-enterprise-version"); got == "" {
+		t.Error("missing x-github-enterprise-version header on /api/v3/ response")
+	}
 }
 
 func TestStandardHeaders(t *testing.T) {

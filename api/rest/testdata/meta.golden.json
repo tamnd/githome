@@ -1,5 +1,6 @@
 {
   "verifiable_password_authentication": true,
+  "installed_version": "dev",
   "ssh_key_fingerprints": {},
   "ssh_keys": [],
   "hooks": [],
