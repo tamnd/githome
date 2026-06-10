@@ -397,6 +397,7 @@ type BranchProtectionRow struct {
 	EnforceAdmins           bool
 	RestrictionsUsers       string // JSON array
 	RestrictionsTeams       string // JSON array
+	RestrictionsEnabled     bool   // a restrictions object was supplied at all
 	AllowForcePushes        bool
 	AllowDeletions          bool
 	CreatedAt               time.Time

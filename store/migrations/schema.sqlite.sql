@@ -678,3 +678,6 @@ CREATE TABLE gist_comments (
     created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 0017_protection_restrictions
+ALTER TABLE branch_protections ADD COLUMN restrictions_enabled INTEGER NOT NULL DEFAULT 0;
