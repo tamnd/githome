@@ -38,6 +38,7 @@ type Deps struct {
 	Events     *domain.EventService
 	Search     *domain.SearchService
 	Releases   *domain.ReleaseService
+	Gists      *domain.GistService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 
@@ -138,7 +139,7 @@ func mountAPI(r *mizu.Router, d Deps) {
 	if d.Teams != nil {
 		mountTeams(r, d)
 	}
-	mountGists(r)
+	mountGists(r, d)
 	mountRepoExtra(r, d)
 	mountMiscCompat(r, d)
 	if d.Hooks != nil {

@@ -109,6 +109,7 @@ func run() error {
 	hookSvc := domain.NewHookService(st, repoSvc, enqueuer)
 	eventSvc := domain.NewEventService(st, repoSvc)
 	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
+	gistSvc := domain.NewGistService(st)
 	keySvc := domain.NewKeyService(st)
 	teamSvc := domain.NewTeamService(st)
 	urls := presenter.NewURLBuilder(cfg.URLs)
@@ -153,6 +154,7 @@ func run() error {
 		Hooks:      hookSvc,
 		Events:     eventSvc,
 		Search:     searchSvc,
+		Gists:      gistSvc,
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,
 	})
