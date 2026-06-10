@@ -14,6 +14,73 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+// ConvertPullRequestToDraft marks a pull request as a draft.
+func (r *mutationResolver) ConvertPullRequestToDraft(ctx context.Context, input generated.ConvertPullRequestToDraftInput) (*generated.ConvertPullRequestToDraftPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := r.Pulls.SetDraft(ctx, viewerID(ctx), owner, name, number, true)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.ConvertPullRequestToDraftPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// MarkPullRequestReadyForReview removes the draft status from a pull request.
+func (r *mutationResolver) MarkPullRequestReadyForReview(ctx context.Context, input generated.MarkPullRequestReadyForReviewInput) (*generated.MarkPullRequestReadyForReviewPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := r.Pulls.SetDraft(ctx, viewerID(ctx), owner, name, number, false)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.MarkPullRequestReadyForReviewPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// BaseRef returns the base branch ref of the pull request, pre-loaded by the
+// presenter.
+func (r *pullRequestResolver) BaseRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
+	return obj.BaseRef, nil
+}
+
+// HeadRef returns the head branch ref of the pull request, pre-loaded by the
+// presenter.
+func (r *pullRequestResolver) HeadRef(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
+	return obj.HeadRef, nil
+}
+
+// Labels returns the pull request's label connection, pre-loaded by the
+// presenter.
+func (r *pullRequestResolver) Labels(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
+	if obj.Labels != nil {
+		return obj.Labels, nil
+	}
+	return &gqlmodel.LabelConnection{}, nil
+}
+
+// Assignees returns the pull request's assignee connection, pre-loaded by the
+// presenter.
+func (r *pullRequestResolver) Assignees(_ context.Context, obj *gqlmodel.PullRequest, _ *int32, _ *string) (*gqlmodel.UserConnection, error) {
+	if obj.Assignees != nil {
+		return obj.Assignees, nil
+	}
+	return &gqlmodel.UserConnection{}, nil
+}
+
+// Milestone returns the pull request's milestone, pre-loaded by the presenter.
+func (r *pullRequestResolver) Milestone(_ context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Milestone, error) {
+	return obj.Milestone, nil
+}
+
 // Commits is the resolver for the commits field. It reads the pull request's own
 // commits through the git layer on demand, the way gh pr view selects them.
 func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestCommitConnection, error) {

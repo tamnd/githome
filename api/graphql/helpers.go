@@ -98,6 +98,23 @@ func (r *Resolver) issueRefFromID(ctx context.Context, id string) (owner, name s
 	return owner, name, number, nil
 }
 
+// prRefFromID decodes a PullRequest node ID into the owner, repo, and number
+// the domain's pull request methods address it by.
+func (r *Resolver) prRefFromID(ctx context.Context, id string) (owner, name string, number int64, err error) {
+	kind, dbID, decErr := nodeid.Decode(id)
+	if decErr != nil || kind != nodeid.KindPullRequest {
+		return "", "", 0, unresolvable("PullRequest", id)
+	}
+	owner, name, number, err = r.Pulls.PRRef(ctx, dbID)
+	if errors.Is(err, domain.ErrPullNotFound) {
+		return "", "", 0, unresolvable("PullRequest", id)
+	}
+	if err != nil {
+		return "", "", 0, mapErr(err)
+	}
+	return owner, name, number, nil
+}
+
 // threadDBIDFromID decodes a PullRequestReviewThread node ID into the root
 // comment id the review service addresses a thread by. A node ID of the wrong
 // kind returns the GitHub "could not resolve" error.

@@ -8,9 +8,11 @@ package graphql
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -31,7 +33,7 @@ func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmo
 // Labels is the resolver for the labels field. It loads the issue's labels
 // through the per-request label dataloader so that concurrent nested field
 // resolutions batch into one label query per request.
-func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, _ *int32, _ *string) (*gqlmodel.LabelConnection, error) {
+func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error) {
 	l := loadersFrom(ctx)
 	if l == nil {
 		return obj.Labels, nil // fallback: loaders not wired (tests)
@@ -41,6 +43,21 @@ func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, _ *int3
 		return nil, err
 	}
 	return &gqlmodel.LabelConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+}
+
+// Assignees is the resolver for the assignees field. GQLIssue fills the slice
+// eagerly, so this resolver returns the pre-loaded connection directly.
+func (r *issueResolver) Assignees(_ context.Context, obj *gqlmodel.Issue, _ *int32, _ *string) (*gqlmodel.UserConnection, error) {
+	if obj.Assignees != nil {
+		return obj.Assignees, nil
+	}
+	return &gqlmodel.UserConnection{}, nil
+}
+
+// Milestone is the resolver for the milestone field. GQLIssue fills the
+// milestone eagerly, so this resolver returns the pre-loaded value directly.
+func (r *issueResolver) Milestone(_ context.Context, obj *gqlmodel.Issue) (*gqlmodel.Milestone, error) {
+	return obj.Milestone, nil
 }
 
 // Comments is the resolver for the comments field. It pages the issue's comments
@@ -81,6 +98,64 @@ func (r *mutationResolver) CreateIssue(ctx context.Context, input generated.Crea
 		return nil, mapErr(err)
 	}
 	return &generated.CreateIssuePayload{
+		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// UpdateIssue is the resolver for the updateIssue field. It resolves the issue
+// from its node ID and applies the partial patch from the input.
+func (r *mutationResolver) UpdateIssue(ctx context.Context, input generated.UpdateIssueInput) (*generated.UpdateIssuePayload, error) {
+	owner, name, number, err := r.issueRefFromID(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	patch := domain.IssuePatch{Title: input.Title, Body: input.Body}
+	if input.State != nil {
+		s := strings.ToLower(string(*input.State))
+		patch.State = &s
+	}
+	if len(input.LabelIds) > 0 {
+		names := make([]string, 0, len(input.LabelIds))
+		for _, lid := range input.LabelIds {
+			_, dbID, derr := nodeid.Decode(lid)
+			if derr != nil {
+				continue
+			}
+			lname, lerr := r.Issues.LabelNameByDBID(ctx, dbID)
+			if lerr != nil {
+				continue
+			}
+			names = append(names, lname)
+		}
+		patch.Labels = &names
+	}
+	if len(input.AssigneeIds) > 0 {
+		logins := make([]string, 0, len(input.AssigneeIds))
+		for _, uid := range input.AssigneeIds {
+			_, pk, derr := nodeid.Decode(uid)
+			if derr != nil {
+				continue
+			}
+			login, lerr := r.Issues.UserLoginByPK(ctx, pk)
+			if lerr != nil {
+				continue
+			}
+			logins = append(logins, login)
+		}
+		patch.AssigneeLogins = &logins
+	}
+	if input.MilestoneID != nil {
+		_, msNum, derr := nodeid.Decode(*input.MilestoneID)
+		if derr == nil {
+			patch.MilestoneNumber = &msNum
+		}
+	}
+	iss, err := r.Issues.EditIssue(ctx, viewerID(ctx), owner, name, number, patch)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UpdateIssuePayload{
 		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
 		ClientMutationID: input.ClientMutationID,
 	}, nil

@@ -8,11 +8,13 @@ package graphql
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -40,6 +42,75 @@ func (r *queryResolver) Repository(ctx context.Context, owner string, name strin
 
 	out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
 	return &out, nil
+}
+
+// Viewer returns the currently authenticated user. An anonymous request returns
+// null, matching GitHub's behavior for unauthenticated viewer queries.
+func (r *queryResolver) Viewer(ctx context.Context) (*gqlmodel.User, error) {
+	actor := auth.ActorFrom(ctx)
+	if actor.UserID == 0 {
+		return nil, nil
+	}
+	u, err := r.Users.Viewer(ctx, actor.UserID)
+	if err != nil {
+		return nil, nil
+	}
+	return r.URLs.GQLUser(u, r.NodeFormat), nil
+}
+
+// User resolves a public user profile by login. A missing user resolves to null,
+// never an error, matching GitHub's behavior.
+func (r *queryResolver) User(ctx context.Context, login string) (*gqlmodel.User, error) {
+	u, err := r.Users.ByLogin(ctx, login)
+	if errors.Is(err, domain.ErrUserNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.URLs.GQLUser(u, r.NodeFormat), nil
+}
+
+// Ref resolves a single reference in the repository by its fully qualified name
+// (refs/heads/main, refs/tags/v1.0.0). A missing or invalid ref resolves to
+// null, never an error, matching GitHub's behavior.
+func (r *repositoryResolver) Ref(ctx context.Context, obj *gqlmodel.Repository, qualifiedName string) (*gqlmodel.Ref, error) {
+	owner, name := splitNWO(obj.NameWithOwner)
+	repo, err := r.Repos.GetRepo(ctx, viewerID(ctx), owner, name)
+	if err != nil {
+		return nil, nil
+	}
+	ref, err := r.Repos.GetRef(repo, qualifiedName)
+	if err != nil {
+		return nil, nil
+	}
+	shortName := qualifiedName
+	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
+		shortName = qualifiedName[i+1:]
+	}
+	return presenter.GQLRef(repo.PK, qualifiedName, shortName, string(ref.Target)), nil
+}
+
+// PrimaryLanguage returns the repository's primary programming language. Githome
+// does not track per-file language statistics, so this is always null.
+func (r *repositoryResolver) PrimaryLanguage(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.Language, error) {
+	return nil, nil
+}
+
+// LicenseInfo returns the repository's license. Githome does not parse SPDX
+// identifiers from repository trees, so this is always null.
+func (r *repositoryResolver) LicenseInfo(_ context.Context, _ *gqlmodel.Repository) (*gqlmodel.License, error) {
+	return nil, nil
+}
+
+// Owner returns the repository owner. It looks up the owner's full profile so
+// the URL and avatar are present; on any error it falls back to just the login.
+func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryOwner, error) {
+	u, err := r.Users.ByLogin(ctx, obj.RepoOwner)
+	if err != nil {
+		return &gqlmodel.RepositoryOwner{Login: obj.RepoOwner}, nil
+	}
+	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
 }
 
 // Query returns generated.QueryResolver implementation.
