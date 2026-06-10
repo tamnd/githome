@@ -176,6 +176,24 @@ func TestTrailingSlashRedirects(t *testing.T) {
 	}
 }
 
+func TestAnonymousAuthOnlyRoutesBounceToLogin(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	// The function-private surfaces (settings, notifications) exist for every
+	// account, so an anonymous request is bounced to the sign-in form with
+	// return_to instead of a 404 that would pretend the page is not there.
+	for _, path := range []string{"/settings/profile", "/notifications"} {
+		resp, _ := get(t, srv, path)
+		if resp.StatusCode != http.StatusFound {
+			t.Errorf("anonymous GET %s = %d, want 302", path, resp.StatusCode)
+			continue
+		}
+		want := "/login?return_to=" + strings.ReplaceAll(path, "/", "%2F")
+		if got := resp.Header.Get("Location"); got != want {
+			t.Errorf("anonymous GET %s Location = %q, want %q", path, got, want)
+		}
+	}
+}
+
 func TestWrongMethodRendersThemed405(t *testing.T) {
 	srv, _ := buildServer(t, nil)
 	// /settings/keys is GET-only, so a POST is a method mismatch the mux

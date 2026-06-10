@@ -17,6 +17,7 @@ import (
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
@@ -448,7 +449,8 @@ func mountRepoSettings(page *mizu.Router, d Deps) {
 
 // mountSettings registers the account settings tree under /settings. The bare
 // /settings redirects to /settings/profile, the first backed section. Each
-// handler gates on the signed-in viewer itself and 404s an anonymous request.
+// handler gates on the signed-in viewer itself and bounces an anonymous request
+// to the sign-in form with return_to carrying the page it wanted.
 // The /settings literal is a reserved top-level name (fe/route), so it can
 // never be read as a /{owner} profile, and it is registered before the profile
 // catch-all. The profile save writes through the user service; the appearance
@@ -529,17 +531,18 @@ func mountAuth(page *mizu.Router, d Deps) {
 	}
 }
 
-// mountNotifications registers the /notifications inbox route. The inbox is gated
-// to the signed-in viewer (an anonymous request gets a 404 just like any resource
-// the viewer has no right to see), so the route exists unconditionally but
-// renders the empty inbox when the notifications domain layer is not yet backed.
-// The /notifications literal is a reserved top-level name (fe/route), so it is
-// registered before the profile catch-all and is never read as a login. See
-// implementation/12 section 3.
+// mountNotifications registers the /notifications inbox route. The inbox is
+// function-private: it exists for every account, so an anonymous request leaks
+// nothing by being bounced to the sign-in form with return_to carrying the
+// inbox (spec §7.1), the 302 github.com answers. The route exists
+// unconditionally but renders the empty inbox when the notifications domain
+// layer is not yet backed. The /notifications literal is a reserved top-level
+// name (fe/route), so it is registered before the profile catch-all and is
+// never read as a login. See implementation/12 section 3.
 func mountNotifications(page *mizu.Router, d Deps) {
 	page.Get("/notifications", func(c *mizu.Ctx) error {
 		if view.ViewerFrom(c.Context()) == nil {
-			return d.Render.NotFoundWithChrome(c, d.View.Chrome(c, ""))
+			return c.Redirect(http.StatusFound, route.LoginWithReturn(c.Request().URL.RequestURI()))
 		}
 		return d.Render.Page(c, "notifications/index", d.View.Notifications(c))
 	})

@@ -1,8 +1,10 @@
 // Package settings holds the Githome web front's account settings handlers. The
 // account settings tree lives under /settings and is gated to the signed-in
-// viewer: it administers the viewer's own account, so an anonymous request gets
-// the same 404 as any page that is not there, never a sign-in wall that confirms
-// the surface exists. Githome backs one account section today, the appearance
+// viewer: it administers the viewer's own account. The surface is
+// function-private rather than secret (every account has settings), so an
+// anonymous request is bounced to the sign-in form with return_to carrying the
+// page it wanted, the 302 github.com answers; nothing leaks because there is
+// nothing to confirm. Githome backs one account section today, the appearance
 // preference, since the color mode and themes ride cookies the color-mode
 // middleware already reads; the unbacked sections (profile, emails, keys, tokens,
 // sessions, security) get no nav entry rather than a dead link, the same honest
@@ -70,9 +72,9 @@ func New(d Deps) *Handlers {
 const prefCookieMaxAge = 400 * 24 * 60 * 60
 
 // gate resolves the signed-in viewer the session middleware put on the context.
-// The boolean is false for an anonymous request, which every handler turns into a
-// 404: the account settings surface administers the viewer's own account, so to
-// someone not signed in it simply does not exist.
+// The boolean is false for an anonymous request, which every handler turns into
+// the sign-in bounce: the surface administers the viewer's own account, so the
+// only thing to do with no viewer is to go get one.
 func (h *Handlers) gate(c *mizu.Ctx) (*view.Viewer, bool) {
 	v := view.ViewerFrom(c.Context())
 	if v == nil {
@@ -81,8 +83,16 @@ func (h *Handlers) gate(c *mizu.Ctx) (*view.Viewer, bool) {
 	return v, true
 }
 
-// notFound renders the themed 404 for an anonymous request to the settings
-// surface, the same page any missing route renders.
+// signInBounce sends an anonymous request to the sign-in form, with return_to
+// carrying the settings page it wanted so a successful sign-in lands back on
+// it. The settings tree is function-private, not secret, so the bounce
+// confirms nothing a 404 would have hidden (spec §7.1).
+func (h *Handlers) signInBounce(c *mizu.Ctx) error {
+	return c.Redirect(http.StatusFound, route.LoginWithReturn(c.Request().URL.RequestURI()))
+}
+
+// notFound renders the themed 404, used when a signed-in request hits a state
+// that should not happen (for example the viewer row failing to load).
 func (h *Handlers) notFound(c *mizu.Ctx) error {
 	return h.render.NotFoundWithChrome(c, h.view.Chrome(c, ""))
 }

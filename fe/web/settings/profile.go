@@ -21,7 +21,7 @@ import (
 func (h *Handlers) Profile(c *mizu.Ctx) error {
 	v, ok := h.gate(c)
 	if !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	pk := webmw.ViewerID(c.Context())
 	u, err := h.users.Viewer(c.Context(), pk)
@@ -48,7 +48,7 @@ func (h *Handlers) Profile(c *mizu.Ctx) error {
 // back to the form with a flash notice.
 func (h *Handlers) SaveProfile(c *mizu.Ctx) error {
 	if _, ok := h.gate(c); !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	fields := domain.ProfileFields{
 		Name:            formString(c, "name"),
@@ -75,7 +75,7 @@ func (h *Handlers) SaveProfile(c *mizu.Ctx) error {
 func (h *Handlers) Keys(c *mizu.Ctx) error {
 	v, ok := h.gate(c)
 	if !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	vm := struct {
 		Chrome view.Chrome
@@ -92,7 +92,7 @@ func (h *Handlers) Keys(c *mizu.Ctx) error {
 func (h *Handlers) Tokens(c *mizu.Ctx) error {
 	v, ok := h.gate(c)
 	if !ok {
-		return h.notFound(c)
+		return h.signInBounce(c)
 	}
 	vm := struct {
 		Chrome view.Chrome

@@ -263,22 +263,32 @@ func TestIndexRedirectsToProfile(t *testing.T) {
 	}
 }
 
-func TestAnonymousGetsNotFound(t *testing.T) {
+func TestAnonymousBouncesToLogin(t *testing.T) {
 	fx := newFixture(t, nil)
-	// Every settings route is a 404 to an anonymous request: the surface administers
-	// the viewer's own account, so to someone not signed in it does not exist, and it
-	// never answers with a sign-in wall that would confirm the surface.
+	// Every settings route bounces an anonymous request to the sign-in form,
+	// with return_to carrying the page it wanted so a successful sign-in lands
+	// back on it. The surface is function-private, not secret, so the bounce
+	// confirms nothing.
 	for _, path := range []string{"/settings", "/settings/appearance"} {
 		resp, _ := get(t, fx.srv, path)
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("anonymous GET %s = %d, want 404", path, resp.StatusCode)
+		if resp.StatusCode != http.StatusFound {
+			t.Errorf("anonymous GET %s = %d, want 302", path, resp.StatusCode)
+			continue
+		}
+		want := "/login?return_to=" + url.QueryEscape(path)
+		if got := resp.Header.Get("Location"); got != want {
+			t.Errorf("anonymous GET %s Location = %q, want %q", path, got, want)
 		}
 	}
 	resp := postForm(t, fx.srv, "/settings/appearance", url.Values{"mode": {"dark"}})
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("anonymous POST appearance = %d, want 404", resp.StatusCode)
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("anonymous POST appearance = %d, want 302", resp.StatusCode)
 	}
+	// The bounce happens before any work: no flash staged, no cookie written.
 	if len(fx.flash.added) != 0 {
 		t.Errorf("anonymous post staged a flash: %+v", fx.flash.added)
+	}
+	if cookie(resp, "color_mode") != nil {
+		t.Errorf("anonymous post wrote a preference cookie")
 	}
 }
