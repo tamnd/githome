@@ -32,7 +32,7 @@ import (
 //     next K integers (unique and contiguous), scaled beyond the P9 unit test's
 //     K=20 to prove the allocator holds at a wider concurrency width.
 //   - write-throughput-nixpkgs: measures the per-issue write latency at the same
-//     depth, logging the p99 and saturation-boundary behaviour so the SQLite
+//     depth, logging the p99 and saturation-boundary behavior so the SQLite
 //     ceiling is visible (doc 03 section 3).
 //   - tree-browse-nixpkgs: when GITHOME_SCALE_NIXPKGS_GITREPO is set, exercises
 //     root and deep-path tree listing on the real monorepo and asserts the R-git
@@ -250,10 +250,10 @@ func buildSmokeGitAt(t *testing.T, dir string) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(work) })
 	files := map[string]string{
-		"default.nix":             "{ pkgs ? import <nixpkgs> {} }: pkgs.hello\n",
-		"pkgs/hello/default.nix":  "{ stdenv }: stdenv.mkDerivation {}\n",
-		"pkgs/world/default.nix":  "{ stdenv }: stdenv.mkDerivation {}\n",
-		"nixos/modules/test.nix":  "{ config, ... }: {}\n",
+		"default.nix":            "{ pkgs ? import <nixpkgs> {} }: pkgs.hello\n",
+		"pkgs/hello/default.nix": "{ stdenv }: stdenv.mkDerivation {}\n",
+		"pkgs/world/default.nix": "{ stdenv }: stdenv.mkDerivation {}\n",
+		"nixos/modules/test.nix": "{ config, ... }: {}\n",
 	}
 	for rel, body := range files {
 		full := filepath.Join(work, rel)
