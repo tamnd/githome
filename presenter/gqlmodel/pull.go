@@ -98,6 +98,8 @@ type PullRequest struct {
 	Milestone        *Milestone       // resolved on demand
 	BaseRef          *Ref             // resolved on demand (carries the Ref node ID)
 	HeadRef          *Ref             // resolved on demand (carries the Ref node ID)
+	AutoMergeRequest *AutoMergeRequest // null unless auto-merge is enabled
+	IsInMergeQueue   bool             // always false; Githome has no merge queue
 
 	// RepoOwner and RepoName carry the repository coordinates so the files and
 	// commits field resolvers can read them through the domain. They are not part
@@ -111,11 +113,27 @@ type PullRequest struct {
 	IssuePK int64
 }
 
+// AutoMergeRequest is the auto-merge configuration on a pull request. GitHub
+// sets it when auto-merge is enabled; Githome always returns null because it
+// does not implement auto-merge queuing.
+type AutoMergeRequest struct {
+	MergeMethod PullRequestMergeMethod
+}
+
+// IsNode marks PullRequest as implementing the Node interface.
+func (PullRequest) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (p PullRequest) GetID() string { return p.ID }
+
 // IsLabelableNode marks PullRequest as a member of the LabelableNode union type.
 func (PullRequest) IsLabelableNode() {}
 
 // IsAssignableNode marks PullRequest as a member of the AssignableNode union type.
 func (PullRequest) IsAssignableNode() {}
+
+// IsSearchResultItem marks PullRequest as a member of the SearchResultItem union.
+func (PullRequest) IsSearchResultItem() {}
 
 // PullRequestConnection is the Relay connection over a repository's pull
 // requests.

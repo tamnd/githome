@@ -28,7 +28,7 @@ type Actor {
 }
 
 # Issue is a repository issue.
-type Issue {
+type Issue implements Node {
   id: ID!
   number: Int!
   title: String!
@@ -46,6 +46,32 @@ type Issue {
   assignees(first: Int, after: String): UserConnection!
   milestone: Milestone
   comments(first: Int, after: String): IssueCommentConnection!
+  # reactionGroups summarises the emoji reactions on this issue, grouped by
+  # content. An empty slice means no reactions have been posted.
+  reactionGroups: [ReactionGroup!]!
+}
+
+# ReactionContent is an emoji reaction type.
+enum ReactionContent {
+  THUMBS_UP
+  THUMBS_DOWN
+  LAUGH
+  HOORAY
+  CONFUSED
+  HEART
+  ROCKET
+  EYES
+}
+
+# ReactionGroup summarises how many users reacted with a given emoji.
+type ReactionGroup {
+  content: ReactionContent!
+  users: ReactingUserConnection!
+}
+
+# ReactingUserConnection is the slim connection gh reads for reaction counts.
+type ReactingUserConnection {
+  totalCount: Int!
 }
 
 # Milestone is a repository milestone.
@@ -98,7 +124,7 @@ type PageInfo {
 }
 
 # Label is a repository label.
-type Label {
+type Label implements Node {
   id: ID!
   name: String!
   color: String!

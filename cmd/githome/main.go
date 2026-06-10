@@ -162,6 +162,7 @@ func run() error {
 		Reviews:    reviewSvc,
 		Checks:     checksSvc,
 		Users:      userSvc,
+		Search:     searchSvc,
 		Batch:      domain.NewBatcher(st),
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,

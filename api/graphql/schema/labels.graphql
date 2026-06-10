@@ -66,3 +66,47 @@ type RemoveAssigneesFromAssignablePayload {
 
 # AssignableNode is the return type for assignee mutations.
 union AssignableNode = Issue | PullRequest
+
+extend type Mutation {
+  # createLabel creates a new label in a repository.
+  createLabel(input: CreateLabelInput!): CreateLabelPayload
+  # deleteLabel deletes a label from a repository.
+  deleteLabel(input: DeleteLabelInput!): DeleteLabelPayload
+  # updateLabel updates the properties of a label.
+  updateLabel(input: UpdateLabelInput!): UpdateLabelPayload
+}
+
+input CreateLabelInput {
+  repositoryId: ID!
+  name: String!
+  color: String!
+  description: String
+  clientMutationId: String
+}
+
+type CreateLabelPayload {
+  label: Label
+  clientMutationId: String
+}
+
+input DeleteLabelInput {
+  id: ID!
+  clientMutationId: String
+}
+
+type DeleteLabelPayload {
+  clientMutationId: String
+}
+
+input UpdateLabelInput {
+  id: ID!
+  name: String
+  color: String
+  description: String
+  clientMutationId: String
+}
+
+type UpdateLabelPayload {
+  label: Label
+  clientMutationId: String
+}

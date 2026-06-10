@@ -57,6 +57,7 @@ type reviewStore interface {
 	PendingReviewFor(ctx context.Context, pullPK, userPK int64) (*store.ReviewRow, error)
 	ListReviews(ctx context.Context, pullPK int64) ([]store.ReviewRow, error)
 	DismissReview(ctx context.Context, pk int64, message string) error
+	DeleteReview(ctx context.Context, pk int64) error
 
 	GetReviewComment(ctx context.Context, dbID int64) (*store.ReviewCommentRow, error)
 	GetReviewCommentByPK(ctx context.Context, pk int64) (*store.ReviewCommentRow, error)
@@ -238,6 +239,33 @@ func (s *ReviewService) DismissReview(ctx context.Context, actorPK int64, owner,
 	s.enqueueRecompute(ctx, issueRow.PK)
 	s.recordReviewEvent(ctx, actorPK, "dismissed", repo, issueRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
+}
+
+// DeleteReview deletes a pending (PENDING state) review by its database ID. Only
+// the review's author may delete their own pending draft.
+func (s *ReviewService) DeleteReview(ctx context.Context, actorPK int64, reviewDBID int64) (*Review, error) {
+	row, err := s.store.GetReviewByDBID(ctx, reviewDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrReviewNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if row.UserPK != actorPK {
+		return nil, ErrForbidden
+	}
+	if row.State != "PENDING" {
+		return nil, ErrValidation
+	}
+	number, err := s.store.PullNumberByPK(ctx, row.PullPK)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := s.assembleReview(ctx, row, number)
+	if err != nil {
+		return nil, err
+	}
+	return rev, s.store.DeleteReview(ctx, row.PK)
 }
 
 // GetReview resolves one review by id for the viewer.

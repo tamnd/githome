@@ -66,8 +66,73 @@ type PullRequestReviewCommentConnection struct {
 	TotalCount int32
 }
 
+// CheckStatusState is the GraphQL enum for a check run's status.
+type CheckStatusState string
+
+// The CheckStatusState values.
+const (
+	CheckStatusStateQueued     CheckStatusState = "QUEUED"
+	CheckStatusStateInProgress CheckStatusState = "IN_PROGRESS"
+	CheckStatusStateCompleted  CheckStatusState = "COMPLETED"
+	CheckStatusStateWaiting    CheckStatusState = "WAITING"
+	CheckStatusStatePending    CheckStatusState = "PENDING"
+	CheckStatusStateRequested  CheckStatusState = "REQUESTED"
+)
+
+// CheckConclusionState is the GraphQL enum for a completed check run's conclusion.
+type CheckConclusionState string
+
+// The CheckConclusionState values.
+const (
+	CheckConclusionStateActionRequired  CheckConclusionState = "ACTION_REQUIRED"
+	CheckConclusionStateTimedOut        CheckConclusionState = "TIMED_OUT"
+	CheckConclusionStateCancelled       CheckConclusionState = "CANCELLED"
+	CheckConclusionStateFailure         CheckConclusionState = "FAILURE"
+	CheckConclusionStateSuccess         CheckConclusionState = "SUCCESS"
+	CheckConclusionStateNeutral         CheckConclusionState = "NEUTRAL"
+	CheckConclusionStateSkipped         CheckConclusionState = "SKIPPED"
+	CheckConclusionStateStartupFailure  CheckConclusionState = "STARTUP_FAILURE"
+	CheckConclusionStateStale           CheckConclusionState = "STALE"
+)
+
+// CheckRun is the GraphQL CheckRun type as a status check rollup context.
+type CheckRun struct {
+	ID          string               // the CheckRun node ID
+	Name        string               // the check run name
+	Status      CheckStatusState     // the current status
+	Conclusion  *CheckConclusionState // null until completed
+	StartedAt   *DateTime
+	CompletedAt *DateTime
+	URL         URI
+	DetailsURL  *URI
+}
+
+// IsNode marks CheckRun as implementing the Node interface.
+func (CheckRun) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (c CheckRun) GetID() string { return c.ID }
+
+// IsStatusCheckRollupContext marks CheckRun as a union member.
+func (CheckRun) IsStatusCheckRollupContext() {}
+
+// StatusContext is the GraphQL StatusContext type as a status check rollup context.
+type StatusContext struct {
+	Context     string      // the status context name
+	State       StatusState // the status state
+	TargetURL   *URI
+	Description *string
+}
+
+// IsStatusCheckRollupContext marks StatusContext as a union member.
+func (StatusContext) IsStatusCheckRollupContext() {}
+
 // StatusCheckRollup is the GraphQL view of a head commit's combined status and
-// check state.
+// check state. The contexts field is resolved lazily; RepoOwner, RepoName, and
+// SHA carry the coordinates the contexts resolver uses to fetch check details.
 type StatusCheckRollup struct {
-	State StatusState
+	State     StatusState
+	RepoOwner string // not a schema field; used by contexts resolver
+	RepoName  string // not a schema field; used by contexts resolver
+	SHA       string // not a schema field; used by contexts resolver
 }

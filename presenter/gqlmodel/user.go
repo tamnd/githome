@@ -14,6 +14,15 @@ type User struct {
 	UpdatedAt DateTime // last-update instant
 }
 
+// IsNode marks User as implementing the Node interface.
+func (User) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (u User) GetID() string { return u.ID }
+
+// IsSearchResultItem marks User as a member of the SearchResultItem union.
+func (User) IsSearchResultItem() {}
+
 // UserConnection is the Relay connection over a set of users (assignees, etc.).
 type UserConnection struct {
 	Nodes      []*User
@@ -30,14 +39,20 @@ type Milestone struct {
 	URL    URI    // the milestone's HTML URL
 }
 
-// RepositoryOwner is the owner of a repository, rendered as the minimal shape
-// the repository.owner field carries. It carries only the fields that appear in
-// the gh repo view response.
+// RepositoryOwner is the owner of a repository. It is also the return type of
+// the repositoryOwner(login) root query for gh repo list.
 type RepositoryOwner struct {
+	ID        string // the owner node ID
 	Login     string // the owner's login
 	URL       URI    // the owner's HTML URL
 	AvatarURL URI    // the owner's avatar URL
 }
+
+// IsNode marks RepositoryOwner as implementing the Node interface.
+func (RepositoryOwner) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (o RepositoryOwner) GetID() string { return o.ID }
 
 // Language is a programming language detected in a repository.
 type Language struct {
@@ -48,4 +63,14 @@ type Language struct {
 type License struct {
 	Name   string
 	SpdxID *string
+}
+
+// RateLimit is the rate-limit state for the viewer.
+type RateLimit struct {
+	Limit     int32
+	Cost      int32
+	Remaining int32
+	ResetAt   DateTime
+	NodeCount int32
+	Used      int32
 }

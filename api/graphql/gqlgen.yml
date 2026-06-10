@@ -10,8 +10,7 @@ exec:
   package: generated
 
 model:
-  # Object types are hand-written in gqlmodel; gqlgen only emits the gaps here
-  # (none yet in M2, but inputs and enums will land in later milestones).
+  # Object types are hand-written in gqlmodel; gqlgen only emits the gaps here.
   filename: generated/models_gen.go
   package: generated
 
@@ -27,9 +26,6 @@ autobind:
 models:
   Issue:
     fields:
-      # author, labels, assignees, and milestone are resolved on demand so that
-      # concurrent nested field resolutions batch into one load per field per
-      # request. comments are paged through the domain on demand.
       author:
         resolver: true
       labels:
@@ -40,35 +36,30 @@ models:
         resolver: true
       comments:
         resolver: true
+      reactionGroups:
+        resolver: true
   PullRequest:
     fields:
-      # commits and files are read through the git layer on demand.
       commits:
         resolver: true
       files:
         resolver: true
-      # reviewDecision and reviewThreads are fetched through the review service on
-      # demand.
       reviewDecision:
         resolver: true
       reviewThreads:
         resolver: true
-      # labels, assignees, and milestone are loaded on demand from the issue row.
       labels:
         resolver: true
       assignees:
         resolver: true
       milestone:
         resolver: true
-      # baseRef and headRef carry the full ref with its ID for createRef/deleteRef.
       baseRef:
         resolver: true
       headRef:
         resolver: true
   Repository:
     fields:
-      # ref is looked up through the git layer on demand; other fields that
-      # require git or computed data also carry their own resolvers.
       ref:
         resolver: true
       owner:
@@ -77,20 +68,53 @@ models:
         resolver: true
       licenseInfo:
         resolver: true
+      repositories:
+        resolver: true
   User:
     model: github.com/tamnd/githome/presenter/gqlmodel.User
+    fields:
+      repositories:
+        resolver: true
+  RepositoryOwner:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryOwner
+    fields:
+      repositories:
+        resolver: true
   Commit:
     fields:
-      # statusCheckRollup folds the commit's statuses and check runs through the
-      # checks service on demand, so it carries its own resolver.
       statusCheckRollup:
+        resolver: true
+  StatusCheckRollup:
+    model: github.com/tamnd/githome/presenter/gqlmodel.StatusCheckRollup
+    fields:
+      contexts:
         resolver: true
   PullRequestReviewThread:
     fields:
-      # comments takes paging arguments, so the field needs its own resolver; it
-      # returns the connection the presenter already folded onto the struct.
       comments:
         resolver: true
+  CheckRun:
+    model: github.com/tamnd/githome/presenter/gqlmodel.CheckRun
+  StatusContext:
+    model: github.com/tamnd/githome/presenter/gqlmodel.StatusContext
+  CheckStatusState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.CheckStatusState
+  CheckConclusionState:
+    model: github.com/tamnd/githome/presenter/gqlmodel.CheckConclusionState
+  RepositoryPermission:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryPermission
+  RepositoryConnection:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryConnection
+  AutoMergeRequest:
+    model: github.com/tamnd/githome/presenter/gqlmodel.AutoMergeRequest
+  ReactionGroup:
+    model: github.com/tamnd/githome/presenter/gqlmodel.ReactionGroup
+  ReactingUserConnection:
+    model: github.com/tamnd/githome/presenter/gqlmodel.ReactingUserConnection
+  ReactionContent:
+    model: github.com/tamnd/githome/presenter/gqlmodel.ReactionContent
+  RateLimit:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RateLimit
   PullRequestReviewDecision:
     model: github.com/tamnd/githome/presenter/gqlmodel.PullRequestReviewDecision
   StatusState:
@@ -119,8 +143,6 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.Language
   License:
     model: github.com/tamnd/githome/presenter/gqlmodel.License
-  RepositoryOwner:
-    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryOwner
   UserConnection:
     model: github.com/tamnd/githome/presenter/gqlmodel.UserConnection
   PullRequestMergeMethod:

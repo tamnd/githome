@@ -14,6 +14,7 @@ import (
 // commits, in which case defaultBranchRef and pushedAt come back null. format
 // selects the node-ID encoding.
 func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format nodeid.Format) gqlmodel.Repository {
+	perm := gqlmodel.RepositoryPermissionAdmin
 	repo := gqlmodel.Repository{
 		ID:               nodeid.Encode(nodeid.KindRepository, r.ID, format),
 		Name:             r.Name,
@@ -24,13 +25,19 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		IsArchived:       r.Archived,
 		IsEmpty:          r.PushedAt == nil,
 		IsInOrganization: false, // Githome does not yet model organizations
-		ForkCount:        0,     // not stored; resolver can extend later
-		StargazerCount:   0,     // not stored; resolver can extend later
+		ForkCount:        0,     // not stored
+		StargazerCount:   0,     // not stored
 		HomepageURL:      gqlHomepageURL(r.Homepage),
 		CreatedAt:        gqlmodel.NewDateTime(r.CreatedAt),
 		UpdatedAt:        gqlmodel.NewDateTime(r.UpdatedAt),
 		URL:              gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
 		SSHURL:           gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
+		HTTPSCloneURL:    gqlmodel.URI(b.RepoGitHTTP(r.Owner.Login, r.Name)),
+		ViewerPermission: &perm, // all authenticated users get ADMIN on their own repos
+		AutoMergeAllowed: true,
+		MergeCommitAllowed: true,
+		SquashMergeAllowed: true,
+		RebaseMergeAllowed: true,
 		RepoOwner:        r.Owner.Login,
 		RepoName:         r.Name,
 	}
@@ -107,11 +114,12 @@ func (b *URLBuilder) GQLMilestone(owner, repo string, m *domain.Milestone, forma
 
 // GQLRepositoryOwner renders a repository's owner into the GraphQL
 // RepositoryOwner shape.
-func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, _ nodeid.Format) *gqlmodel.RepositoryOwner {
+func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, format nodeid.Format) *gqlmodel.RepositoryOwner {
 	if u == nil {
 		return &gqlmodel.RepositoryOwner{}
 	}
 	return &gqlmodel.RepositoryOwner{
+		ID:        nodeid.Encode(nodeid.KindUser, u.ID, format),
 		Login:     u.Login,
 		URL:       gqlmodel.URI(b.UserHTML(u.Login)),
 		AvatarURL: gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
