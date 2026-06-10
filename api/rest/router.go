@@ -85,6 +85,11 @@ func Mount(root *mizu.Router, d Deps) {
 		api = api.With(authMiddleware(d.Auth))
 	}
 	mountAPI(api.Prefix("/api/v3"), d)
+	if d.URLs != nil {
+		// The prefixed root document also answers without the trailing slash, the
+		// form Octokit and gh build from a configured .../api/v3 base URL.
+		api.Get("/api/v3", handleAPIRoot(d))
+	}
 
 	// Asset uploads go to /api/uploads/repos/... (GHES upload base convention).
 	// go-github, GoReleaser and gh all construct the upload URL from the release's
@@ -106,6 +111,9 @@ func Mount(root *mizu.Router, d Deps) {
 // mountAPI registers the versioned API endpoints on r, which already carries the
 // API middleware chain.
 func mountAPI(r *mizu.Router, d Deps) {
+	if d.URLs != nil {
+		r.Get("/{$}", handleAPIRoot(d))
+	}
 	r.Get("/meta", handleMeta(d.Config))
 	r.Get("/versions", handleVersions)
 	r.Get("/rate_limit", handleRateLimit(d.Config))
