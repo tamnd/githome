@@ -99,6 +99,17 @@ func (s *Set) RepoNotFound(c *mizu.Ctx, chrome any) error {
 		chrome)
 }
 
+// MethodNotAllowed renders the 405 page. The mux computed the method mismatch
+// and set the Allow header before this runs; the page replaces only the
+// plain-text body, so the header contract (spec §7.4) stays intact. It renders
+// with the fallback chrome because the route's middleware never ran.
+func (s *Set) MethodNotAllowed(c *mizu.Ctx) error {
+	return s.renderError(c, http.StatusMethodNotAllowed,
+		"That method is not allowed here.",
+		"This address exists but does not answer the HTTP method the request used. The Allow header lists the ones it does.",
+		nil)
+}
+
 // ServerError renders the 500 page. The underlying error is logged by the
 // recover/middleware layer, not shown to the user. It returns nil because the
 // response is fully written here; returning the original error would let an outer

@@ -127,7 +127,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	assets.With(webmw.Recover(d.Render, d.Logger)).
 		Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
 
-	return assetDispatch(assets, root)
+	return themedMethodNotAllowed(assetDispatch(assets, root), d.Render)
 }
 
 // assetDispatch serves the hashed asset tree under render.AssetURLPrefix from
@@ -144,6 +144,72 @@ func assetDispatch(assets, app http.Handler) http.Handler {
 		}
 		app.ServeHTTP(w, r)
 	})
+}
+
+// themedMethodNotAllowed dresses the mux's 405 in the themed error page. The
+// mux knows every registered pattern, so it is the only place the Allow header
+// is always right; rather than recompute that, the wrapper lets the mux answer
+// and intercepts only the plain-text body it writes, then renders the HTML 405
+// over the same header map, Allow included (spec §7.4). A 405 can come from no
+// other writer on this surface: the front's handlers never return one, and the
+// API namespace, whose clients want machine-shaped errors, is passed through
+// untouched.
+func themedMethodNotAllowed(app http.Handler, rs *render.Set) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			app.ServeHTTP(w, r)
+			return
+		}
+		iw := &methodNotAllowedInterceptor{ResponseWriter: w}
+		app.ServeHTTP(iw, r)
+		if iw.intercepted {
+			c := mizu.NewCtx(w, r, nil)
+			_ = rs.MethodNotAllowed(c)
+		}
+	})
+}
+
+// methodNotAllowedInterceptor suppresses a response only when its first
+// WriteHeader is the mux's 405, leaving every other response byte-for-byte
+// alone. Unwrap keeps http.ResponseController able to reach the real writer's
+// Flusher and friends through the wrapper, and Flush passes through directly
+// for writers that get type-asserted instead.
+type methodNotAllowedInterceptor struct {
+	http.ResponseWriter
+	wrote       bool
+	intercepted bool
+}
+
+func (w *methodNotAllowedInterceptor) WriteHeader(code int) {
+	if !w.wrote {
+		w.wrote = true
+		if code == http.StatusMethodNotAllowed {
+			w.intercepted = true
+			return
+		}
+	}
+	if !w.intercepted {
+		w.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (w *methodNotAllowedInterceptor) Write(b []byte) (int, error) {
+	w.wrote = true
+	if w.intercepted {
+		return len(b), nil
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *methodNotAllowedInterceptor) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *methodNotAllowedInterceptor) Flush() {
+	if w.intercepted {
+		return
+	}
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // mountRepo registers the code-browsing routes under /{owner}/{repo}. Every route

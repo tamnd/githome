@@ -176,6 +176,39 @@ func TestTrailingSlashRedirects(t *testing.T) {
 	}
 }
 
+func TestWrongMethodRendersThemed405(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	// /settings/keys is GET-only, so a POST is a method mismatch the mux
+	// detects. The page must be the themed 405 with the mux's Allow header
+	// still on it.
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/settings/keys", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", resp.StatusCode)
+	}
+	allow := resp.Header.Get("Allow")
+	if !strings.Contains(allow, http.MethodGet) {
+		t.Errorf("Allow = %q, want it to list GET", allow)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("content-type = %q, want text/html", ct)
+	}
+	for _, want := range []string{"<!DOCTYPE html>", "405", "That method is not allowed here."} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("405 page missing %q", want)
+		}
+	}
+}
+
 func TestAssetServedImmutable(t *testing.T) {
 	srv, _ := buildServer(t, nil)
 	hashed := manifestEntry(t, "app.css")
