@@ -213,12 +213,12 @@ func BenchmarkListPulls_30PerPage(b *testing.B) {
 					return err
 				}
 				pr := &PullRow{
-					IssuePK:  iss.PK,
-					RepoPK:   repo.PK,
-					BaseRef:  "main",
-					BaseSHA:  sha,
-					HeadRef:  fmt.Sprintf("feature-%d", i),
-					HeadSHA:  sha,
+					IssuePK:   iss.PK,
+					RepoPK:    repo.PK,
+					BaseRef:   "main",
+					BaseSHA:   sha,
+					HeadRef:   fmt.Sprintf("feature-%d", i),
+					HeadSHA:   sha,
 					CreatedAt: when,
 					UpdatedAt: when,
 				}
