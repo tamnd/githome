@@ -322,6 +322,11 @@ type IssueOrder struct {
 	Direction OrderDirection  `json:"direction"`
 }
 
+type LabelOrder struct {
+	Field     LabelOrderField `json:"field"`
+	Direction OrderDirection  `json:"direction"`
+}
+
 type MarkPullRequestReadyForReviewInput struct {
 	PullRequestID    string  `json:"pullRequestId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -658,6 +663,61 @@ func (e *IssueOrderField) UnmarshalJSON(b []byte) error {
 }
 
 func (e IssueOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type LabelOrderField string
+
+const (
+	LabelOrderFieldName      LabelOrderField = "NAME"
+	LabelOrderFieldCreatedAt LabelOrderField = "CREATED_AT"
+)
+
+var AllLabelOrderField = []LabelOrderField{
+	LabelOrderFieldName,
+	LabelOrderFieldCreatedAt,
+}
+
+func (e LabelOrderField) IsValid() bool {
+	switch e {
+	case LabelOrderFieldName, LabelOrderFieldCreatedAt:
+		return true
+	}
+	return false
+}
+
+func (e LabelOrderField) String() string {
+	return string(e)
+}
+
+func (e *LabelOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LabelOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LabelOrderField", str)
+	}
+	return nil
+}
+
+func (e LabelOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *LabelOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e LabelOrderField) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

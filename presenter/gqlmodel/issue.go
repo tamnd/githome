@@ -118,10 +118,11 @@ type PageInfo struct {
 
 // Label is the GraphQL Label object.
 type Label struct {
-	ID          string  // the Label node ID
-	Name        string  // the label name
-	Color       string  // the six-hex color, no leading hash
-	Description *string // null when unset
+	ID          string   // the Label node ID
+	Name        string   // the label name
+	Color       string   // the six-hex color, no leading hash
+	Description *string  // null when unset
+	CreatedAt   DateTime // creation instant
 }
 
 // IsNode marks Label as implementing the Node interface.
@@ -130,11 +131,10 @@ func (Label) IsNode() {}
 // GetID satisfies the Node interface getter gqlgen requires.
 func (l Label) GetID() string { return l.ID }
 
-// LabelConnection is the connection over an issue's or repository's labels. The
-// issue documents read it as nodes plus totalCount, so the page-info and edges a
-// full connection carries are added when a paginated label query needs them.
+// LabelConnection is the connection over an issue's or repository's labels.
 type LabelConnection struct {
 	Nodes      []*Label
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 

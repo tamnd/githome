@@ -662,3 +662,28 @@ func sortPullRequests(prs []*domain.PullRequest, orderBy *generated.IssueOrder) 
 		return cmp(i, j) > 0
 	})
 }
+
+// sortLabels orders a label listing in place. The store hands labels back in
+// name order, which is also GitHub's default, so absent or NAME ASC ordering
+// needs nothing.
+func sortLabels(ls []*domain.Label, orderBy *generated.LabelOrder) {
+	if orderBy == nil {
+		return
+	}
+	asc := orderBy.Direction == generated.OrderDirectionAsc
+	if orderBy.Field == generated.LabelOrderFieldName && asc {
+		return
+	}
+	cmp := func(i, j int) int {
+		if orderBy.Field == generated.LabelOrderFieldCreatedAt {
+			return ls[i].CreatedAt.Compare(ls[j].CreatedAt)
+		}
+		return strings.Compare(ls[i].Name, ls[j].Name)
+	}
+	sort.SliceStable(ls, func(i, j int) bool {
+		if asc {
+			return cmp(i, j) < 0
+		}
+		return cmp(i, j) > 0
+	})
+}

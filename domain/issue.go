@@ -46,6 +46,7 @@ type Label struct {
 	Color       string
 	Description *string
 	Default     bool
+	CreatedAt   time.Time
 }
 
 // Milestone is the domain view of a milestone, including the open and closed

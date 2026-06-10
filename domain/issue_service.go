@@ -996,6 +996,7 @@ func labelFromRow(r *store.LabelRow) *Label {
 		Color:       r.Color,
 		Description: r.Description,
 		Default:     r.IsDefault,
+		CreatedAt:   r.CreatedAt,
 	}
 }
 

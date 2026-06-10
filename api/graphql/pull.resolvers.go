@@ -231,7 +231,7 @@ func (r *pullRequestResolver) Labels(ctx context.Context, obj *gqlmodel.PullRequ
 	if obj.Labels != nil {
 		return obj.Labels, nil
 	}
-	return &gqlmodel.LabelConnection{}, nil
+	return &gqlmodel.LabelConnection{PageInfo: &gqlmodel.PageInfo{}}, nil
 }
 
 // Assignees returns the assignees of the pull request, pre-loaded by the presenter.

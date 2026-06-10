@@ -46,7 +46,7 @@ func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *
 	if err != nil {
 		return nil, err
 	}
-	return &gqlmodel.LabelConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+	return &gqlmodel.LabelConnection{Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}, nil
 }
 
 // Assignees is the resolver for the assignees field. GQLIssue fills the slice
@@ -266,6 +266,47 @@ func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository
 		return nil, mapErr(err)
 	}
 	return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+}
+
+// Labels is the resolver for the labels field. The store hands back the whole
+// label set in name order, so filtering, reordering, and windowing all happen
+// here; label sets are small enough that this stays cheap. A repository the
+// actor cannot see resolves to an empty connection, never an error.
+func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, orderBy *generated.LabelOrder, query *string) (*gqlmodel.LabelConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
+	if err != nil {
+		return nil, err
+	}
+	owner, name := splitNWO(obj.NameWithOwner)
+	labels, err := r.Resolver.Issues.ListLabels(ctx, viewerID(ctx), owner, name)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return &gqlmodel.LabelConnection{Nodes: []*gqlmodel.Label{}, PageInfo: &gqlmodel.PageInfo{}}, nil
+	}
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	if query != nil && *query != "" {
+		q := strings.ToLower(*query)
+		kept := labels[:0]
+		for _, l := range labels {
+			if strings.Contains(strings.ToLower(l.Name), q) {
+				kept = append(kept, l)
+			}
+		}
+		labels = kept
+	}
+	sortLabels(labels, orderBy)
+	total := len(labels)
+	start, end := page.window(total)
+	nodes := make([]*gqlmodel.Label, 0, end-start)
+	for _, l := range labels[start:end] {
+		nodes = append(nodes, r.URLs.GQLLabel(l, r.NodeFormat))
+	}
+	return &gqlmodel.LabelConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}, nil
 }
 
 // Issues is the resolver for the issues field. A repository the actor cannot see

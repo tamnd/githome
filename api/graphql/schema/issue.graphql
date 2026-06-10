@@ -9,6 +9,16 @@ extend type Repository {
   # issue looks up one issue by its per-repository number. It is null when no
   # such issue exists.
   issue(number: Int!): Issue
+  # labels is the connection over the repository's labels. gh label list pages
+  # it with a name filter and NAME or CREATED_AT ordering.
+  labels(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    orderBy: LabelOrder
+    query: String
+  ): LabelConnection
   # issues is the Relay connection over the repository's issues, newest first.
   issues(
     first: Int
@@ -164,11 +174,25 @@ type Label implements Node {
   name: String!
   color: String!
   description: String
+  createdAt: DateTime!
 }
 
 type LabelConnection {
   nodes: [Label]
+  pageInfo: PageInfo!
   totalCount: Int!
+}
+
+# LabelOrderField is the field to order labels by.
+enum LabelOrderField {
+  NAME
+  CREATED_AT
+}
+
+# LabelOrder specifies how to order labels.
+input LabelOrder {
+  field: LabelOrderField!
+  direction: OrderDirection!
 }
 
 # CommentAuthorAssociation is the author's association with the repository the

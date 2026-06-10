@@ -237,6 +237,7 @@ type ComplexityRoot struct {
 
 	Label struct {
 		Color       func(childComplexity int) int
+		CreatedAt   func(childComplexity int) int
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
 		Name        func(childComplexity int) int
@@ -244,6 +245,7 @@ type ComplexityRoot struct {
 
 	LabelConnection struct {
 		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
 		TotalCount func(childComplexity int) int
 	}
 
@@ -515,6 +517,7 @@ type ComplexityRoot struct {
 		IsPrivate          func(childComplexity int) int
 		Issue              func(childComplexity int, number int32) int
 		Issues             func(childComplexity int, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *IssueFilters, orderBy *IssueOrder, labels []string) int
+		Labels             func(childComplexity int, first *int32, after *string, last *int32, before *string, orderBy *LabelOrder, query *string) int
 		LicenseInfo        func(childComplexity int) int
 		MergeCommitAllowed func(childComplexity int) int
 		Name               func(childComplexity int) int
@@ -723,6 +726,7 @@ type RepositoryResolver interface {
 	LicenseInfo(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.License, error)
 	Owner(ctx context.Context, obj *gqlmodel.Repository) (gqlmodel.RepositoryOwner, error)
 	Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error)
+	Labels(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, orderBy *LabelOrder, query *string) (*gqlmodel.LabelConnection, error)
 	Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *IssueFilters, orderBy *IssueOrder, labels []string) (*gqlmodel.IssueConnection, error)
 	PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error)
 	PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *IssueOrder) (*gqlmodel.PullRequestConnection, error)
@@ -1422,6 +1426,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Label.Color(childComplexity), true
+	case "Label.createdAt":
+		if e.ComplexityRoot.Label.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.CreatedAt(childComplexity), true
 	case "Label.description":
 		if e.ComplexityRoot.Label.Description == nil {
 			break
@@ -1447,6 +1457,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LabelConnection.Nodes(childComplexity), true
+	case "LabelConnection.pageInfo":
+		if e.ComplexityRoot.LabelConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelConnection.PageInfo(childComplexity), true
 	case "LabelConnection.totalCount":
 		if e.ComplexityRoot.LabelConnection.TotalCount == nil {
 			break
@@ -2786,6 +2802,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.Issues(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["states"].([]gqlmodel.IssueState), args["filterBy"].(*IssueFilters), args["orderBy"].(*IssueOrder), args["labels"].([]string)), true
+	case "Repository.labels":
+		if e.ComplexityRoot.Repository.Labels == nil {
+			break
+		}
+
+		args, err := ec.field_Repository_labels_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Repository.Labels(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["orderBy"].(*LabelOrder), args["query"].(*string)), true
 	case "Repository.licenseInfo":
 		if e.ComplexityRoot.Repository.LicenseInfo == nil {
 			break
@@ -3261,6 +3288,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputEnablePullRequestAutoMergeInput,
 		ec.unmarshalInputIssueFilters,
 		ec.unmarshalInputIssueOrder,
+		ec.unmarshalInputLabelOrder,
 		ec.unmarshalInputMarkPullRequestReadyForReviewInput,
 		ec.unmarshalInputMergePullRequestInput,
 		ec.unmarshalInputRemoveAssigneesFromAssignableInput,
@@ -3361,6 +3389,16 @@ extend type Repository {
   # issue looks up one issue by its per-repository number. It is null when no
   # such issue exists.
   issue(number: Int!): Issue
+  # labels is the connection over the repository's labels. gh label list pages
+  # it with a name filter and NAME or CREATED_AT ordering.
+  labels(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    orderBy: LabelOrder
+    query: String
+  ): LabelConnection
   # issues is the Relay connection over the repository's issues, newest first.
   issues(
     first: Int
@@ -3516,11 +3554,25 @@ type Label implements Node {
   name: String!
   color: String!
   description: String
+  createdAt: DateTime!
 }
 
 type LabelConnection {
   nodes: [Label]
+  pageInfo: PageInfo!
   totalCount: Int!
+}
+
+# LabelOrderField is the field to order labels by.
+enum LabelOrderField {
+  NAME
+  CREATED_AT
+}
+
+# LabelOrder specifies how to order labels.
+input LabelOrder {
+  field: LabelOrderField!
+  direction: OrderDirection!
 }
 
 # CommentAuthorAssociation is the author's association with the repository the
@@ -5084,6 +5136,8 @@ func (ec *executionContext) childFields_Label(ctx context.Context, field graphql
 		return ec.fieldContext_Label_color(ctx, field)
 	case "description":
 		return ec.fieldContext_Label_description(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Label_createdAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Label", field.Name)
 }
@@ -5092,6 +5146,8 @@ func (ec *executionContext) childFields_LabelConnection(ctx context.Context, fie
 	switch field.Name {
 	case "nodes":
 		return ec.fieldContext_LabelConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_LabelConnection_pageInfo(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_LabelConnection_totalCount(ctx, field)
 	}
@@ -5572,6 +5628,8 @@ func (ec *executionContext) childFields_Repository(ctx context.Context, field gr
 		return ec.fieldContext_Repository_owner(ctx, field)
 	case "issue":
 		return ec.fieldContext_Repository_issue(ctx, field)
+	case "labels":
+		return ec.fieldContext_Repository_labels(ctx, field)
 	case "issues":
 		return ec.fieldContext_Repository_issues(ctx, field)
 	case "pullRequest":
@@ -6843,6 +6901,60 @@ func (ec *executionContext) field_Repository_issues_args(ctx context.Context, ra
 		return nil, err
 	}
 	args["labels"] = arg7
+	return args, nil
+}
+
+func (ec *executionContext) field_Repository_labels_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*LabelOrder, error) {
+			return ec.unmarshalOLabelOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg5
 	return args, nil
 }
 
@@ -9900,6 +10012,29 @@ func (ec *executionContext) fieldContext_Label_description(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Label_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
 func (ec *executionContext) _LabelConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9927,6 +10062,38 @@ func (ec *executionContext) fieldContext_LabelConnection_nodes(_ context.Context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LabelConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LabelConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LabelConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
 		},
 	}
 	return fc, nil
@@ -15711,6 +15878,50 @@ func (ec *executionContext) fieldContext_Repository_issue(ctx context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Repository_labels(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_labels(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Repository().Labels(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["orderBy"].(*LabelOrder), fc.Args["query"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.LabelConnection) graphql.Marshaler {
+			return ec.marshalOLabelConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabelConnection(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_labels(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LabelConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Repository_labels_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Repository_issues(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -19517,6 +19728,43 @@ func (ec *executionContext) unmarshalInputIssueOrder(ctx context.Context, obj an
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputLabelOrder(ctx context.Context, obj any) (LabelOrder, error) {
+	var it LabelOrder
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"field", "direction"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "field":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("field"))
+			data, err := ec.unmarshalNLabelOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrderField(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Field = data
+		case "direction":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("direction"))
+			data, err := ec.unmarshalNOrderDirection2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐOrderDirection(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Direction = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputMarkPullRequestReadyForReviewInput(ctx context.Context, obj any) (MarkPullRequestReadyForReviewInput, error) {
 	var it MarkPullRequestReadyForReviewInput
 	if obj == nil {
@@ -22167,6 +22415,11 @@ func (ec *executionContext) _Label(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "description":
 			out.Values[i] = ec._Label_description(ctx, field, obj)
+		case "createdAt":
+			out.Values[i] = ec._Label_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -22203,6 +22456,11 @@ func (ec *executionContext) _LabelConnection(ctx context.Context, sel ast.Select
 			out.Values[i] = graphql.MarshalString("LabelConnection")
 		case "nodes":
 			out.Values[i] = ec._LabelConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._LabelConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "totalCount":
 			out.Values[i] = ec._LabelConnection_totalCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -24801,6 +25059,39 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "labels":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Repository_labels(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "issues":
 			field := field
 
@@ -26357,6 +26648,16 @@ func (ec *executionContext) marshalNIssueState2githubᚗcomᚋtamndᚋgithomeᚋ
 	return res
 }
 
+func (ec *executionContext) unmarshalNLabelOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrderField(ctx context.Context, v any) (LabelOrderField, error) {
+	var res LabelOrderField
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNLabelOrderField2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrderField(ctx context.Context, sel ast.SelectionSet, v LabelOrderField) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNMarkPullRequestReadyForReviewInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐMarkPullRequestReadyForReviewInput(ctx context.Context, v any) (MarkPullRequestReadyForReviewInput, error) {
 	res, err := ec.unmarshalInputMarkPullRequestReadyForReviewInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -27581,6 +27882,14 @@ func (ec *executionContext) marshalOLabelConnection2ᚖgithubᚗcomᚋtamndᚋgi
 		return graphql.Null
 	}
 	return ec._LabelConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOLabelOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrder(ctx context.Context, v any) (*LabelOrder, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputLabelOrder(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalOLabelableNode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelableNode(ctx context.Context, sel ast.SelectionSet, v LabelableNode) graphql.Marshaler {

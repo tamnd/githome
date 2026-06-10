@@ -114,6 +114,7 @@ func (b *URLBuilder) GQLLabel(l *domain.Label, format nodeid.Format) *gqlmodel.L
 		Name:        l.Name,
 		Color:       l.Color,
 		Description: l.Description,
+		CreatedAt:   gqlmodel.NewDateTime(l.CreatedAt),
 	}
 }
 
@@ -123,7 +124,7 @@ func (b *URLBuilder) gqlLabelConnection(_, _ string, ls []*domain.Label, format 
 	for _, l := range ls {
 		nodes = append(nodes, b.GQLLabel(l, format))
 	}
-	return &gqlmodel.LabelConnection{Nodes: nodes, TotalCount: int32(len(nodes))}
+	return &gqlmodel.LabelConnection{Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}
 }
 
 // gqlActor renders an issue or comment author into the GraphQL Actor shape,
