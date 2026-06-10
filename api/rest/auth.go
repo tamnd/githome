@@ -34,8 +34,10 @@ func authMiddleware(svc *auth.Service) mizu.Middleware {
 // setScopeHeaders emits X-OAuth-Scopes (the scopes on the credential) and
 // X-Accepted-OAuth-Scopes (the scopes the route checks). Both appear on every
 // response, including anonymous and error cases, because gh and octokit parse
-// them. M1 has no per-route accepted-scope table yet, so the accepted header is
-// empty; later milestones populate it from the route metadata.
+// them. The accepted header starts empty here and a route wrapped in
+// requireScope (scopes.go) overwrites it with its endpoint family's scopes;
+// unwrapped routes keep the empty header, which is what GitHub sends for
+// endpoints with no scope requirement, GET /user among them.
 func setScopeHeaders(c *mizu.Ctx, a *auth.Actor) {
 	var have string
 	if a != nil && len(a.Scopes) > 0 {

@@ -184,9 +184,13 @@ func (s *Service) handleUploadPack(c *mizu.Ctx) error {
 }
 
 // resolveRead authorizes the request actor's read access and returns the
-// repository's bare path. On failure it writes the status (404 for a missing or
-// invisible repository, so a private repo's existence never leaks) and reports
-// ok=false.
+// repository's bare path. An anonymous actor who cannot see the repository is
+// challenged with 401 + WWW-Authenticate: Basic, like the push side and like
+// github.com, so git retries the probe with credentials instead of giving up
+// on a private clone. The challenge is identical for a private and a missing
+// repository, so existence never leaks. Once authenticated, an actor who still
+// cannot see the repository gets a plain 404. On failure it writes the status
+// and reports ok=false.
 func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 	ctx := c.Request().Context()
 	actor, err := s.actorFor(c)
@@ -200,6 +204,11 @@ func (s *Service) resolveRead(c *mizu.Ctx) (bare string, ok bool) {
 
 	row, err := s.Repos.GetRepo(ctx, actor.UserID, owner, repo)
 	if errors.Is(err, domain.ErrRepoNotFound) {
+		if !actor.IsAuthenticated() {
+			c.Writer().Header().Set("WWW-Authenticate", `Basic realm="githome"`)
+			http.Error(c.Writer(), "Unauthorized", http.StatusUnauthorized)
+			return "", false
+		}
 		http.Error(c.Writer(), "Not Found", http.StatusNotFound)
 		return "", false
 	}

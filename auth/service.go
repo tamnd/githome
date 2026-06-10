@@ -107,6 +107,18 @@ func looksLikeToken(s string) bool {
 // resolve validates the checksum offline, then dispatches on the class prefix.
 func (s *Service) resolve(ctx context.Context, raw, _ string) (*Actor, error) {
 	switch {
+	case strings.HasPrefix(raw, PrefixFineGrained):
+		// Fine-grained permissions are not modeled yet, so a github_pat_
+		// credential resolves like a classic PAT and then acts with the full
+		// repo scope: broader than a typical fine-grained grant, never broader
+		// than the classic tokens we already accept. Tighten the mapping once
+		// per-repo permissions exist.
+		actor, err := s.resolveUserToken(ctx, raw, PrefixFineGrained, "pat")
+		if err != nil {
+			return nil, err
+		}
+		actor.Scopes = NormalizeScopes(Scopes{"repo"})
+		return actor, nil
 	case strings.HasPrefix(raw, PrefixClassicPAT):
 		return s.resolveUserToken(ctx, raw, PrefixClassicPAT, "pat")
 	case strings.HasPrefix(raw, PrefixOAuth):

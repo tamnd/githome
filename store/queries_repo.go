@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,11 @@ const repoColumns = `r.pk, r.db_id, r.owner_pk, r.name, r.description, r.homepag
 	r.private, r.fork, r.default_branch, r.has_issues, r.has_projects, r.has_wiki,
 	r.has_downloads, r.archived, r.disabled, r.is_template, r.open_issues_count,
 	r.pushed_at, r.created_at, r.updated_at, r.topics`
+
+// repoColumnsBare is repoColumns with the alias stripped, for RETURNING
+// clauses: SQLite refuses qualified column names there. The scan order stays
+// identical, so scanRepo reads both lists.
+var repoColumnsBare = strings.ReplaceAll(repoColumns, "r.", "")
 
 // RepoByOwnerName resolves a repository by its owner login (case-insensitively,
 // matching GitHub's case-preserving account and repo names) and repo name. It
@@ -121,7 +127,7 @@ func (s *Store) UpdateRepo(ctx context.Context, pk int64, p RepoPatch) (*RepoRow
 		is_template = COALESCE(?, is_template),
 		updated_at = ?
 		WHERE pk = ? AND deleted_at IS NULL
-		RETURNING ` + repoColumns)
+		RETURNING ` + repoColumnsBare)
 	row := s.db.QueryRowContext(ctx, q,
 		p.Name, p.Description, p.Homepage, p.DefaultBranch,
 		p.Private, p.HasIssues, p.HasProjects, p.HasWiki,

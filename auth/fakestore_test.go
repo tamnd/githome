@@ -3,7 +3,9 @@ package auth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"maps"
+	"sort"
 	"time"
 
 	"github.com/tamnd/githome/store"
@@ -84,10 +86,38 @@ func (f *fakeStore) OAuthAppByClientID(_ context.Context, clientID string) (*sto
 	return nil, store.ErrNotFound
 }
 
+func (f *fakeStore) InsertOAuthApp(_ context.Context, a *store.OAuthAppRow) error {
+	if _, ok := f.apps[a.ClientID]; ok {
+		return errors.New("UNIQUE constraint failed: oauth_apps.client_id")
+	}
+	f.addApp(a)
+	return nil
+}
+
 func (f *fakeStore) InsertToken(_ context.Context, t *store.TokenRow) error {
 	t.PK = f.nextPK()
 	t.CreatedAt = time.Now()
 	f.tokens[t.PK] = t
+	return nil
+}
+
+func (f *fakeStore) TokensForUser(_ context.Context, userPK int64) ([]*store.TokenRow, error) {
+	var out []*store.TokenRow
+	for _, t := range f.tokens {
+		if t.UserPK != nil && *t.UserPK == userPK && t.Kind == "pat" && t.RevokedAt == nil {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PK > out[j].PK })
+	return out, nil
+}
+
+func (f *fakeStore) DeleteUserToken(_ context.Context, pk, userPK int64) error {
+	t, ok := f.tokens[pk]
+	if !ok || t.UserPK == nil || *t.UserPK != userPK || t.Kind != "pat" {
+		return store.ErrNotFound
+	}
+	delete(f.tokens, pk)
 	return nil
 }
 

@@ -55,16 +55,16 @@ type TokenRow struct {
 
 // GitHubAppRow is a row of the github_apps table.
 type GitHubAppRow struct {
-	PK               int64
-	DBID             int64
-	OwnerPK          int64
-	Slug             string
-	Name             string
-	ClientID         string
-	PrivateKeyPEM    []byte
-	Permissions      string // JSON object
-	Events           string // JSON array
-	CreatedAt        time.Time
+	PK            int64
+	DBID          int64
+	OwnerPK       int64
+	Slug          string
+	Name          string
+	ClientID      string
+	PrivateKeyPEM []byte
+	Permissions   string // JSON object
+	Events        string // JSON array
+	CreatedAt     time.Time
 }
 
 // InstallationRow is a row of the installations table.
@@ -270,6 +270,7 @@ type OAuthAppRow struct {
 	Name              string
 	OwnerPK           *int64
 	DeviceFlowEnabled bool
+	CallbackURL       string // registered authorization callback; "" means none registered
 	CreatedAt         time.Time
 }
 
@@ -383,23 +384,23 @@ type SSHKeyRow struct {
 
 // BranchProtectionRow is a row of the branch_protections table.
 type BranchProtectionRow struct {
-	PK                       int64
-	RepoPK                   int64
-	BranchPattern            string
-	RequirePRReviews         bool
-	RequiredApprovingCount   int
-	DismissStaleReviews      bool
-	RequireCodeOwnerReviews  bool
-	RequireStatusChecks      bool
-	RequireBranchesUpToDate  bool
-	StatusCheckContexts      string // JSON array
-	EnforceAdmins            bool
-	RestrictionsUsers        string // JSON array
-	RestrictionsTeams        string // JSON array
-	AllowForcePushes         bool
-	AllowDeletions           bool
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	PK                      int64
+	RepoPK                  int64
+	BranchPattern           string
+	RequirePRReviews        bool
+	RequiredApprovingCount  int
+	DismissStaleReviews     bool
+	RequireCodeOwnerReviews bool
+	RequireStatusChecks     bool
+	RequireBranchesUpToDate bool
+	StatusCheckContexts     string // JSON array
+	EnforceAdmins           bool
+	RestrictionsUsers       string // JSON array
+	RestrictionsTeams       string // JSON array
+	AllowForcePushes        bool
+	AllowDeletions          bool
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // TeamRow is a row of the teams table.

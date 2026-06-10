@@ -79,7 +79,8 @@ CREATE TABLE oauth_apps (
     name                TEXT    NOT NULL,
     owner_pk            INTEGER REFERENCES users(pk) ON DELETE CASCADE,
     device_flow_enabled INTEGER NOT NULL DEFAULT 0,
-    created_at          TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at          TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    callback_url        TEXT    NOT NULL DEFAULT ''  -- 0017
 );
 
 CREATE TABLE tokens (

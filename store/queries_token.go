@@ -39,6 +39,48 @@ func (s *Store) InsertToken(ctx context.Context, t *TokenRow) error {
 	return nil
 }
 
+// TokensForUser lists a user's live personal access tokens, newest first, for
+// the settings tokens page. Revoked rows stay out of the list; the hash column
+// rides along but the caller never shows it.
+func (s *Store) TokensForUser(ctx context.Context, userPK int64) ([]*TokenRow, error) {
+	q := s.rebind(`SELECT ` + tokenColumns + ` FROM tokens
+		WHERE user_pk = ? AND kind = 'pat' AND revoked_at IS NULL
+		ORDER BY created_at DESC, pk DESC`)
+	rows, err := s.db.QueryContext(ctx, q, userPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*TokenRow
+	for rows.Next() {
+		t, err := scanToken(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// DeleteUserToken removes one of a user's personal access tokens. The user_pk
+// guard means a user can only ever delete their own token; deleting someone
+// else's pk is the same ErrNotFound as deleting a pk that never existed.
+func (s *Store) DeleteUserToken(ctx context.Context, pk, userPK int64) error {
+	q := s.rebind(`DELETE FROM tokens WHERE pk = ? AND user_pk = ? AND kind = 'pat'`)
+	res, err := s.db.ExecContext(ctx, q, pk, userPK)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // BumpTokenLastUsed records the last-used timestamp for a batch of tokens in one
 // transaction. The async debouncer in auth coalesces touches and calls this at
 // most once every couple of seconds, so the per-row UPDATE loop is cheap.
@@ -63,11 +105,11 @@ func (s *Store) BumpTokenLastUsed(ctx context.Context, at map[int64]time.Time) e
 // scanToken maps one tokens row into a TokenRow.
 func scanToken(row interface{ Scan(...any) error }) (*TokenRow, error) {
 	var (
-		t                                    TokenRow
-		userPK, appPK, instPK, ghAppPK       sql.NullInt64
-		grantJSON                            sql.NullString
-		expires, revoked, lastUsed           nullTime
-		created                              nullTime
+		t                              TokenRow
+		userPK, appPK, instPK, ghAppPK sql.NullInt64
+		grantJSON                      sql.NullString
+		expires, revoked, lastUsed     nullTime
+		created                        nullTime
 	)
 	err := row.Scan(
 		&t.PK, &userPK, &appPK, &instPK, &ghAppPK,

@@ -39,10 +39,17 @@ func SettingsKeys() string {
 	return "/settings/keys"
 }
 
-// SettingsTokens is the personal access tokens page, /settings/tokens. Githome
-// shows a stub today since the token store is not yet backed.
+// SettingsTokens is the personal access tokens page, /settings/tokens: the
+// list of the viewer's classic tokens and the form that mints a new one.
 func SettingsTokens() string {
 	return "/settings/tokens"
+}
+
+// SettingsTokenDelete is the delete-token POST target,
+// /settings/tokens/{id}/delete. Deleting is a POST, never a GET, so a crawler
+// or a prefetch cannot revoke a credential.
+func SettingsTokenDelete(id int64) string {
+	return SettingsTokens() + "/" + strconv.FormatInt(id, 10) + "/delete"
 }
 
 // RepoSettings is a repository's settings root, /{owner}/{repo}/settings. It

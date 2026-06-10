@@ -174,3 +174,38 @@ func TestTokenHashIsSHA256(t *testing.T) {
 		t.Error("HashToken disagrees with sha256(plaintext)")
 	}
 }
+
+func TestAuthenticateFineGrainedPAT(t *testing.T) {
+	f := newFakeStore()
+	uid := f.addUser(&store.UserRow{Login: "octocat", Type: "User"})
+
+	g, err := GenerateToken(PrefixFineGrained)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := g.Hash
+	f.addToken(&store.TokenRow{
+		UserPK:      &uid,
+		TokenHash:   hash[:],
+		TokenPrefix: PrefixFineGrained,
+		LastEight:   g.Last8,
+		Kind:        "pat",
+		Scopes:      "", // fine-grained rows carry no classic scopes
+	})
+
+	svc := NewService(f, "https://git.test.internal")
+	defer svc.Close()
+
+	a, err := svc.Authenticate(context.Background(), "token "+g.Plaintext)
+	if err != nil {
+		t.Fatalf("authenticate: %v", err)
+	}
+	if !a.IsUser() || a.UserID != uid {
+		t.Fatalf("actor = %+v, want user %d", a, uid)
+	}
+	// Until fine-grained permissions are modeled, the token acts with the
+	// full classic repo scope.
+	if got := a.Scopes.Header(); got != "repo" {
+		t.Errorf("scopes = %q, want %q", got, "repo")
+	}
+}

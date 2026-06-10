@@ -58,6 +58,7 @@ type Deps struct {
 	View        *view.Builder
 	Auth        AuthPwStore
 	OAuthSvc    webauth.OAuthService
+	Tokens      websettings.TokenService
 	Repos       *domain.RepoService
 	Hooks       *domain.HookService
 	Checks      *domain.ChecksService
@@ -462,6 +463,7 @@ func mountSettings(page *mizu.Router, d Deps) {
 		View:   d.View,
 		Flash:  d.Flash,
 		Users:  d.Users,
+		Tokens: d.Tokens,
 		Logger: d.Logger,
 	})
 	page.Get("/settings", sh.Index)
@@ -471,6 +473,10 @@ func mountSettings(page *mizu.Router, d Deps) {
 	page.Post("/settings/appearance", sh.SaveAppearance)
 	page.Get("/settings/keys", sh.Keys)
 	page.Get("/settings/tokens", sh.Tokens)
+	if d.Tokens != nil {
+		page.Post("/settings/tokens", sh.CreateToken)
+		page.Post("/settings/tokens/{id}/delete", sh.DeleteToken)
+	}
 }
 
 // mountProfile registers the user and organization profile at /{owner}, the
@@ -528,6 +534,11 @@ func mountAuth(page *mizu.Router, d Deps) {
 		oh := webauth.NewOAuthHandlers(d.OAuthSvc, d.Render, d.View)
 		page.Get("/login/oauth/authorize", oh.AuthorizeForm)
 		page.Post("/login/oauth/authorize", oh.AuthorizeSubmit)
+		// The device-flow approval page, the verification_uri the device-code
+		// response points CLI clients at. Gated to a signed-in viewer inside the
+		// handlers; anonymous requests bounce to /login and back.
+		page.Get("/login/device", oh.DeviceForm)
+		page.Post("/login/device", oh.DeviceSubmit)
 	}
 }
 

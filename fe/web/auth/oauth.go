@@ -12,11 +12,14 @@ import (
 	"github.com/tamnd/githome/fe/webmw"
 )
 
-// OAuthService is the narrow slice of the auth service the OAuth authorize
-// handlers call. *auth.Service satisfies this interface directly.
+// OAuthService is the narrow slice of the auth service the OAuth authorize and
+// device-approval handlers call. *auth.Service satisfies this interface
+// directly.
 type OAuthService interface {
 	GenerateOAuthAuthCode(ctx context.Context, clientID, redirectURI, scope string, userPK int64) (string, error)
 	OAuthAppName(ctx context.Context, clientID string) (string, bool)
+	ApproveDeviceCode(ctx context.Context, userCode string, userPK int64) error
+	DenyDeviceCode(ctx context.Context, userCode string) error
 }
 
 // OAuthHandlers holds the OAuth authorize-page handlers.
