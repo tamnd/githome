@@ -43,7 +43,24 @@ type Issue {
   updatedAt: DateTime!
   closedAt: DateTime
   labels(first: Int, after: String): LabelConnection
+  assignees(first: Int, after: String): UserConnection!
+  milestone: Milestone
   comments(first: Int, after: String): IssueCommentConnection!
+}
+
+# Milestone is a repository milestone.
+type Milestone {
+  id: ID!
+  number: Int!
+  title: String!
+  state: String!
+  url: URI!
+}
+
+# UserConnection is the Relay connection over users (assignees, etc.).
+type UserConnection {
+  nodes: [User]
+  totalCount: Int!
 }
 
 # IssueState is whether an issue is open or closed.
@@ -118,6 +135,7 @@ type IssueCommentEdge {
 # object so the client can read back its url and state.
 type Mutation {
   createIssue(input: CreateIssueInput!): CreateIssuePayload
+  updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
   addComment(input: AddCommentInput!): AddCommentPayload
   closeIssue(input: CloseIssueInput!): CloseIssuePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
@@ -169,6 +187,22 @@ input ReopenIssueInput {
 }
 
 type ReopenIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
+
+input UpdateIssueInput {
+  id: ID!
+  title: String
+  body: String
+  state: IssueState
+  assigneeIds: [ID!]
+  labelIds: [ID!]
+  milestoneId: ID
+  clientMutationId: String
+}
+
+type UpdateIssuePayload {
   issue: Issue
   clientMutationId: String
 }

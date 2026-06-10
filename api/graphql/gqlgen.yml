@@ -27,31 +27,58 @@ autobind:
 models:
   Issue:
     fields:
-      # author and labels are resolved through per-request dataloaders so that
+      # author, labels, assignees, and milestone are resolved on demand so that
       # concurrent nested field resolutions batch into one load per field per
       # request. comments are paged through the domain on demand.
       author:
         resolver: true
       labels:
         resolver: true
+      assignees:
+        resolver: true
+      milestone:
+        resolver: true
       comments:
         resolver: true
   PullRequest:
     fields:
-      # commits and files are read through the git layer on demand, so each needs
-      # its own resolver rather than a struct field the presenter would have to
-      # eagerly fill on every pull request render.
+      # commits and files are read through the git layer on demand.
       commits:
         resolver: true
       files:
         resolver: true
       # reviewDecision and reviewThreads are fetched through the review service on
-      # demand, so each carries its own resolver rather than a struct field every
-      # pull request render would eagerly fill.
+      # demand.
       reviewDecision:
         resolver: true
       reviewThreads:
         resolver: true
+      # labels, assignees, and milestone are loaded on demand from the issue row.
+      labels:
+        resolver: true
+      assignees:
+        resolver: true
+      milestone:
+        resolver: true
+      # baseRef and headRef carry the full ref with its ID for createRef/deleteRef.
+      baseRef:
+        resolver: true
+      headRef:
+        resolver: true
+  Repository:
+    fields:
+      # ref is looked up through the git layer on demand; other fields that
+      # require git or computed data also carry their own resolvers.
+      ref:
+        resolver: true
+      owner:
+        resolver: true
+      primaryLanguage:
+        resolver: true
+      licenseInfo:
+        resolver: true
+  User:
+    model: github.com/tamnd/githome/presenter/gqlmodel.User
   Commit:
     fields:
       # statusCheckRollup folds the commit's statuses and check runs through the
@@ -86,6 +113,16 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.IssueState
   IssueStateReason:
     model: github.com/tamnd/githome/presenter/gqlmodel.IssueStateReason
+  Milestone:
+    model: github.com/tamnd/githome/presenter/gqlmodel.Milestone
+  Language:
+    model: github.com/tamnd/githome/presenter/gqlmodel.Language
+  License:
+    model: github.com/tamnd/githome/presenter/gqlmodel.License
+  RepositoryOwner:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryOwner
+  UserConnection:
+    model: github.com/tamnd/githome/presenter/gqlmodel.UserConnection
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int32
