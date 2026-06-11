@@ -41,6 +41,7 @@ func (b *URLBuilder) Issue(owner, repo string, iss *domain.Issue, format nodeid.
 		Assignees:         b.assignees(iss.Assignees, format),
 		Milestone:         b.milestonePtr(owner, repo, iss.Milestone, format),
 		Locked:            iss.Locked,
+		ActiveLockReason:  iss.ActiveLockReason,
 		Comments:          iss.CommentsCount,
 		ClosedAt:          timePtr(iss.ClosedAt),
 		CreatedAt:         restmodel.NewTime(iss.CreatedAt),

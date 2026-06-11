@@ -757,29 +757,30 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 		roll := rollupMap[row.PK]
 
 		out = append(out, &Issue{
-			PK:            row.PK,
-			ID:            row.DBID,
-			RepoPK:        repo.PK,
-			RepoID:        repo.ID,
-			Number:        row.Number,
-			Title:         row.Title,
-			Body:          row.Body,
-			State:         row.State,
-			StateReason:   row.StateReason,
-			Locked:        row.Locked,
-			IsPull:        row.IsPull,
-			User:          author,
-			UserPK:        row.UserPK,
-			Assignees:     assignees,
-			Labels:        labelsFromRows(labelMap[row.PK]),
-			Milestone:     milestone,
-			ClosedBy:      closedBy,
-			Reactions:     rollup(roll),
-			CommentsCount: row.CommentsCount,
-			ClosedAt:      row.ClosedAt,
-			CreatedAt:     row.CreatedAt,
-			UpdatedAt:     row.UpdatedAt,
-			lockVersion:   row.LockVersion,
+			PK:               row.PK,
+			ID:               row.DBID,
+			RepoPK:           repo.PK,
+			RepoID:           repo.ID,
+			Number:           row.Number,
+			Title:            row.Title,
+			Body:             row.Body,
+			State:            row.State,
+			StateReason:      row.StateReason,
+			Locked:           row.Locked,
+			ActiveLockReason: row.ActiveLockReason,
+			IsPull:           row.IsPull,
+			User:             author,
+			UserPK:           row.UserPK,
+			Assignees:        assignees,
+			Labels:           labelsFromRows(labelMap[row.PK]),
+			Milestone:        milestone,
+			ClosedBy:         closedBy,
+			Reactions:        rollup(roll),
+			CommentsCount:    row.CommentsCount,
+			ClosedAt:         row.ClosedAt,
+			CreatedAt:        row.CreatedAt,
+			UpdatedAt:        row.UpdatedAt,
+			lockVersion:      row.LockVersion,
 		})
 	}
 	return out, nil
@@ -832,29 +833,30 @@ func (s *IssueService) assembleIssue(ctx context.Context, repo *Repo, row *store
 	}
 
 	iss := &Issue{
-		PK:            row.PK,
-		ID:            row.DBID,
-		RepoPK:        repo.PK,
-		RepoID:        repo.ID,
-		Number:        row.Number,
-		Title:         row.Title,
-		Body:          row.Body,
-		State:         row.State,
-		StateReason:   row.StateReason,
-		Locked:        row.Locked,
-		IsPull:        row.IsPull,
-		User:          author,
-		UserPK:        row.UserPK,
-		Assignees:     assignees,
-		Labels:        labelsFromRows(labelRows),
-		Milestone:     milestone,
-		ClosedBy:      closedBy,
-		Reactions:     rollup(roll),
-		CommentsCount: row.CommentsCount,
-		ClosedAt:      row.ClosedAt,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-		lockVersion:   row.LockVersion,
+		PK:               row.PK,
+		ID:               row.DBID,
+		RepoPK:           repo.PK,
+		RepoID:           repo.ID,
+		Number:           row.Number,
+		Title:            row.Title,
+		Body:             row.Body,
+		State:            row.State,
+		StateReason:      row.StateReason,
+		Locked:           row.Locked,
+		ActiveLockReason: row.ActiveLockReason,
+		IsPull:           row.IsPull,
+		User:             author,
+		UserPK:           row.UserPK,
+		Assignees:        assignees,
+		Labels:           labelsFromRows(labelRows),
+		Milestone:        milestone,
+		ClosedBy:         closedBy,
+		Reactions:        rollup(roll),
+		CommentsCount:    row.CommentsCount,
+		ClosedAt:         row.ClosedAt,
+		CreatedAt:        row.CreatedAt,
+		UpdatedAt:        row.UpdatedAt,
+		lockVersion:      row.LockVersion,
 	}
 	return iss, nil
 }
@@ -978,29 +980,30 @@ func (s *IssueService) assembleIssueSearch(ctx context.Context, repoMap map[int6
 		roll := rollupMap[row.PK]
 
 		out = append(out, &Issue{
-			PK:            row.PK,
-			ID:            row.DBID,
-			RepoPK:        repo.PK,
-			RepoID:        repo.ID,
-			Number:        row.Number,
-			Title:         row.Title,
-			Body:          row.Body,
-			State:         row.State,
-			StateReason:   row.StateReason,
-			Locked:        row.Locked,
-			IsPull:        row.IsPull,
-			User:          author,
-			UserPK:        row.UserPK,
-			Assignees:     assignees,
-			Labels:        labelsFromRows(labelMap[row.PK]),
-			Milestone:     milestone,
-			ClosedBy:      closedBy,
-			Reactions:     rollup(roll),
-			CommentsCount: row.CommentsCount,
-			ClosedAt:      row.ClosedAt,
-			CreatedAt:     row.CreatedAt,
-			UpdatedAt:     row.UpdatedAt,
-			lockVersion:   row.LockVersion,
+			PK:               row.PK,
+			ID:               row.DBID,
+			RepoPK:           repo.PK,
+			RepoID:           repo.ID,
+			Number:           row.Number,
+			Title:            row.Title,
+			Body:             row.Body,
+			State:            row.State,
+			StateReason:      row.StateReason,
+			Locked:           row.Locked,
+			ActiveLockReason: row.ActiveLockReason,
+			IsPull:           row.IsPull,
+			User:             author,
+			UserPK:           row.UserPK,
+			Assignees:        assignees,
+			Labels:           labelsFromRows(labelMap[row.PK]),
+			Milestone:        milestone,
+			ClosedBy:         closedBy,
+			Reactions:        rollup(roll),
+			CommentsCount:    row.CommentsCount,
+			ClosedAt:         row.ClosedAt,
+			CreatedAt:        row.CreatedAt,
+			UpdatedAt:        row.UpdatedAt,
+			lockVersion:      row.LockVersion,
 		})
 	}
 	return out, nil
@@ -1100,6 +1103,41 @@ func rollup(r store.ReactionRollup) ReactionRollup {
 		counts = map[string]int{}
 	}
 	return ReactionRollup{TotalCount: r.TotalCount, Counts: counts}
+}
+
+// SetLocked locks or unlocks an issue's conversation. The lock reason is kept
+// only while locked; unlocking always clears it. Both transitions append the
+// matching locked/unlocked timeline event, the way GitHub's timeline shows
+// them. The write goes through the optimistic-lock update like any other edit.
+func (s *IssueService) SetLocked(ctx context.Context, actorPK int64, owner, name string, number int64, locked bool, reason *string) error {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrIssueNotFound
+	}
+	if err != nil {
+		return err
+	}
+	return s.store.WithTx(ctx, func(tx *store.Tx) error {
+		row.Locked = locked
+		row.ActiveLockReason = nil
+		if locked {
+			row.ActiveLockReason = reason
+		}
+		if err := tx.UpdateIssue(ctx, row); err != nil {
+			return err
+		}
+		event := "locked"
+		if !locked {
+			event = "unlocked"
+		}
+		return tx.InsertIssueEvent(ctx, &store.IssueEventRow{
+			RepoPK: repo.PK, IssuePK: row.PK, ActorPK: &actorPK, Event: event,
+		})
+	})
 }
 
 // AddLabels attaches the given label names to an issue, ignoring any that are

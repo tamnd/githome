@@ -521,6 +521,8 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Delete("/repos/{owner}/{repo}/issues/{number}/assignees", handleIssueAssigneesRemove(d))
 		r.Get("/repos/{owner}/{repo}/issues/{number}/events", handleIssueEventsList(d))
 		r.Get("/repos/{owner}/{repo}/issues/{number}/timeline", handleIssueTimeline(d))
+		r.Put("/repos/{owner}/{repo}/issues/{number}/lock", handleIssueLock(d))
+		r.Delete("/repos/{owner}/{repo}/issues/{number}/lock", handleIssueUnlock(d))
 	}
 	if d.Reviews != nil {
 		r.Get("/repos/{owner}/{repo}/pulls/comments", handleAllReviewCommentsList(d))

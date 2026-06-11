@@ -40,6 +40,7 @@ func (b *URLBuilder) PullRequest(owner, repo string, pr *domain.PullRequest, for
 		Number:             pr.Number,
 		State:              pr.State,
 		Locked:             pr.Locked,
+		ActiveLockReason:   pr.ActiveLockReason,
 		Title:              pr.Title,
 		User:               b.SimpleUser(pr.User, format),
 		Body:               pr.Body,

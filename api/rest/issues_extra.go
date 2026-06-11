@@ -94,6 +94,81 @@ func handleIssueLabelsAdd(d Deps) mizu.Handler {
 	}
 }
 
+// validLockReason reports whether a lock reason is one of GitHub's fixed set.
+func validLockReason(r string) bool {
+	switch r {
+	case "off-topic", "too heated", "resolved", "spam":
+		return true
+	default:
+		return false
+	}
+}
+
+// handleIssueLock serves PUT /repos/{owner}/{repo}/issues/{number}/lock. The
+// body is optional; when present, lock_reason must be one of GitHub's four
+// values. A successful lock is a bare 204.
+func handleIssueLock(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body struct {
+			LockReason *string `json:"lock_reason"`
+		}
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		if body.LockReason != nil && !validLockReason(*body.LockReason) {
+			writeError(c.Writer(), errValidation(FieldError{Resource: "Issue", Field: "lock_reason", Code: "invalid"}))
+			return nil
+		}
+		err := d.Issues.SetLocked(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, true, body.LockReason)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
+// handleIssueUnlock serves DELETE /repos/{owner}/{repo}/issues/{number}/lock,
+// clearing the lock and its reason. A successful unlock is a bare 204.
+func handleIssueUnlock(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		err := d.Issues.SetLocked(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, false, nil)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
 // handleIssueLabelsReplace serves PUT /repos/{owner}/{repo}/issues/{number}/labels.
 func handleIssueLabelsReplace(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
