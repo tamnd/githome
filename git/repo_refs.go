@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"strconv"
 	"strings"
 )
 
@@ -76,6 +77,32 @@ func (r *Repo) refRecords(patterns ...string) (recs []refRecord, ok bool) {
 		})
 	}
 	return recs, true
+}
+
+// logBatch is Log as one git log subprocess. The pretty-format walk rides the
+// commit-graph and pathspec machinery instead of decoding every commit in
+// process through a PathFilter callback, and --skip discards a page offset
+// inside git rather than materializing the skipped window. ok is false when
+// the Repo has no store or the run failed (a bad revision and an unborn HEAD
+// among the causes), in which case the caller falls back to go-git, whose
+// error mapping the API contract is written against.
+func (r *Repo) logBatch(opts LogOpts, limit int) ([]Commit, bool) {
+	if r.store == nil {
+		return nil, false
+	}
+	args := []string{"log", "--pretty=format:" + logRecordFormat, "-n", strconv.Itoa(limit)}
+	if opts.Skip > 0 {
+		args = append(args, "--skip="+strconv.Itoa(opts.Skip))
+	}
+	args = append(args, "--end-of-options", string(opts.From))
+	if opts.Path != "" {
+		args = append(args, "--", opts.Path)
+	}
+	res, err := r.store.run(context.Background(), r.pk, nil, args...)
+	if err != nil || res.code != 0 {
+		return nil, false
+	}
+	return parseLogRecords(string(res.stdout)), true
 }
 
 // branchesBatch is Branches over one for-each-ref pass.

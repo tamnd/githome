@@ -287,6 +287,13 @@ func (r *Repo) PathAt(rev, path string) (PathResult, error) {
 
 // Log walks commit history from opts.From, optionally filtered to a path.
 func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
+	limit := opts.Max
+	if limit <= 0 {
+		limit = 30
+	}
+	if out, ok := r.logBatch(opts, limit); ok {
+		return out, nil
+	}
 	h, err := r.repo.ResolveRevision(plumbing.Revision(opts.From))
 	if err != nil {
 		return nil, ErrObjectNotFound
@@ -301,12 +308,13 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 		return nil, err
 	}
 	defer iter.Close()
-	limit := opts.Max
-	if limit <= 0 {
-		limit = 30
-	}
+	skip := opts.Skip
 	var out []Commit
 	err = iter.ForEach(func(c *object.Commit) error {
+		if skip > 0 {
+			skip--
+			return nil
+		}
 		if len(out) >= limit {
 			return storer.ErrStop
 		}

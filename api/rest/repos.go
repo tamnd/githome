@@ -128,10 +128,10 @@ func handleCommits(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
-		// Walk one commit past the requested window: the window itself is the
-		// page, and the extra commit is the existence proof for rel="next"
-		// without counting the whole history.
-		opts := git.LogOpts{From: c.Query("sha"), Path: c.Query("path"), Max: page.Offset() + page.PerPage + 1}
+		// Skip straight to the requested window and walk one commit past it:
+		// the window itself is the page, and the extra commit is the existence
+		// proof for rel="next" without counting the whole history.
+		opts := git.LogOpts{From: c.Query("sha"), Path: c.Query("path"), Skip: page.Offset(), Max: page.PerPage + 1}
 		commits, err := d.Repos.ListCommits(repo, opts)
 		if errors.Is(err, domain.ErrEmptyRepo) {
 			writeError(c.Writer(), errConflict("Git Repository is empty."))
@@ -144,8 +144,11 @@ func handleCommits(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		hasNext := len(commits) > page.Offset()+page.PerPage
-		window := paginateSlice(&page, commits)
+		hasNext := len(commits) > page.PerPage
+		window := commits
+		if hasNext {
+			window = commits[:page.PerPage]
+		}
 		out := make([]restmodel.RepoCommit, 0, len(window))
 		for _, cm := range window {
 			out = append(out, d.URLs.RepoCommit(repo.Owner.Login, repo.Name, repo.ID, cm))

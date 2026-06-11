@@ -123,5 +123,6 @@ type PathResult struct {
 type LogOpts struct {
 	From SHA    // starting commit (required)
 	Path string // when set, only commits touching this path
+	Skip int    // commits to skip before collecting, for page offsets
 	Max  int    // cap on returned commits; zero means a sensible default
 }

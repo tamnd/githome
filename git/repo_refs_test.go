@@ -1,6 +1,7 @@
 package git_test
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,6 +43,60 @@ func refsRepo(t *testing.T, store *git.Store, pk int64) (first, second string) {
 	}
 	runGit(t, "", "clone", "-q", "--bare", src, bare)
 	return first, second
+}
+
+func TestBatchedLog(t *testing.T) {
+	store := git.NewStore(t.TempDir())
+	first, second := refsRepo(t, store, 31)
+	repo, err := store.Open(31)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer repo.Release()
+
+	newest, err := repo.Log(git.LogOpts{From: "master", Max: 1})
+	if err != nil {
+		t.Fatalf("Log: %v", err)
+	}
+	if len(newest) != 1 || newest[0].SHA != second {
+		t.Fatalf("Log max 1 = %+v, want just %s", newest, second)
+	}
+	if newest[0].Message != "second" || newest[0].Author.Name != "Octo Cat" {
+		t.Errorf("commit fields = %+v", newest[0])
+	}
+	if len(newest[0].Parents) != 1 || newest[0].Parents[0] != first {
+		t.Errorf("parents = %v, want [%s]", newest[0].Parents, first)
+	}
+
+	// Skip discards the page offset inside git.
+	skipped, err := repo.Log(git.LogOpts{From: "master", Skip: 1, Max: 1})
+	if err != nil {
+		t.Fatalf("Log skip 1: %v", err)
+	}
+	if len(skipped) != 1 || skipped[0].SHA != first {
+		t.Fatalf("Log skip 1 = %+v, want just %s", skipped, first)
+	}
+
+	// A skip past the end is an empty page, not an error.
+	past, err := repo.Log(git.LogOpts{From: "master", Skip: 5, Max: 1})
+	if err != nil || len(past) != 0 {
+		t.Fatalf("Log skip past end = %+v, %v; want empty", past, err)
+	}
+
+	// The path filter rides git's pathspec machinery.
+	path, err := repo.Log(git.LogOpts{From: "master", Path: "a.txt", Max: 10})
+	if err != nil {
+		t.Fatalf("Log path: %v", err)
+	}
+	if len(path) != 2 || path[0].SHA != second || path[1].SHA != first {
+		t.Fatalf("Log path = %+v, want both commits newest first", path)
+	}
+
+	// A bad revision still maps to the not-found error the API contract
+	// expects, via the go-git fallback.
+	if _, err := repo.Log(git.LogOpts{From: "no-such-rev", Max: 1}); !errors.Is(err, git.ErrObjectNotFound) {
+		t.Fatalf("Log bad rev error = %v, want ErrObjectNotFound", err)
+	}
 }
 
 func TestBatchedRefListings(t *testing.T) {
