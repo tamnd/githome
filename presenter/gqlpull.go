@@ -17,7 +17,7 @@ import (
 // resolvers; the presenter fills only the repository coordinates they read.
 func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, format nodeid.Format) *gqlmodel.PullRequest {
 	num := strconv.FormatInt(pr.Number, 10)
-	fullID := strconv.FormatInt(pr.ID, 10)
+	fullID := gqlmodel.BigInt(strconv.FormatInt(pr.ID, 10))
 	out := &gqlmodel.PullRequest{
 		ID:                  nodeid.Encode(nodeid.KindPullRequest, pr.ID, format),
 		Number:              int32(pr.Number),

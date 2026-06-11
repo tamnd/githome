@@ -92,7 +92,7 @@ type PullRequest struct {
 	MaintainerCanModify bool                     // whether maintainers can push the head branch
 	HeadRepository      *Repository              // the head repository; null when the fork is gone
 	HeadRepositoryOwner RepositoryOwner          // the head repository's owner
-	FullDatabaseID      *string                  // the BigInt twin of the REST id
+	FullDatabaseID      *BigInt                  // the BigInt twin of the REST id
 	MergedBy            Actor                    // who merged the pull request; null while unmerged
 	Additions           int32                    // lines added across the diff
 	Deletions           int32                    // lines removed across the diff

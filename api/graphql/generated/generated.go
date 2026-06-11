@@ -5188,6 +5188,17 @@ scalar GitObjectID
 # BigInt carries an integer too wide for Int as a string, the way GitHub types
 # fullDatabaseId.
 scalar BigInt
+# HTML is a string of rendered HTML, the type of bodyHTML fields.
+scalar HTML
+# GitTimestamp is an ISO 8601 instant that keeps the offset a git object
+# recorded instead of converting to UTC.
+scalar GitTimestamp
+# Date is an ISO 8601 calendar date with no time part.
+scalar Date
+# GitSSHRemote is a git SSH clone address, the type of Repository.sshUrl.
+scalar GitSSHRemote
+# Base64String is a base64-encoded string, the type blob text rides in.
+scalar Base64String
 
 # Node is the interface every object with a node ID implements. Clients use
 # node(id:) and nodes(ids:) to look up objects by their opaque IDs.
@@ -14226,8 +14237,8 @@ func (ec *executionContext) _PullRequest_fullDatabaseId(ctx context.Context, fie
 			return obj.FullDatabaseID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOBigInt2ᚖstring(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.BigInt) graphql.Marshaler {
+			return ec.marshalOBigInt2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐBigInt(ctx, selections, v)
 		},
 		true,
 		false,
@@ -31031,22 +31042,20 @@ func (ec *executionContext) marshalOAutoMergeRequest2ᚖgithubᚗcomᚋtamndᚋg
 	return ec._AutoMergeRequest(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOBigInt2ᚖstring(ctx context.Context, v any) (*string, error) {
+func (ec *executionContext) unmarshalOBigInt2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐBigInt(ctx context.Context, v any) (*gqlmodel.BigInt, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := graphql.UnmarshalString(v)
-	return &res, graphql.ErrorOnPath(ctx, err)
+	var res = new(gqlmodel.BigInt)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOBigInt2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+func (ec *executionContext) marshalOBigInt2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐBigInt(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.BigInt) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	_ = sel
-	_ = ctx
-	res := graphql.MarshalString(*v)
-	return res
+	return v
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {

@@ -149,6 +149,18 @@ models:
     model: github.com/tamnd/githome/presenter/gqlmodel.URI
   GitObjectID:
     model: github.com/tamnd/githome/presenter/gqlmodel.GitObjectID
+  BigInt:
+    model: github.com/tamnd/githome/presenter/gqlmodel.BigInt
+  HTML:
+    model: github.com/tamnd/githome/presenter/gqlmodel.HTML
+  GitTimestamp:
+    model: github.com/tamnd/githome/presenter/gqlmodel.GitTimestamp
+  Date:
+    model: github.com/tamnd/githome/presenter/gqlmodel.Date
+  GitSSHRemote:
+    model: github.com/tamnd/githome/presenter/gqlmodel.GitSSHRemote
+  Base64String:
+    model: github.com/tamnd/githome/presenter/gqlmodel.Base64String
   IssueState:
     model: github.com/tamnd/githome/presenter/gqlmodel.IssueState
   IssueStateReason:
