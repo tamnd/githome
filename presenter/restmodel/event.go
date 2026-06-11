@@ -191,6 +191,36 @@ type WebhookPullRequest struct {
 	Sender      SimpleUser  `json:"sender"`
 }
 
+// WebhookIssueComment is the body of an issue_comment delivery: the comment
+// alongside the issue it landed on.
+type WebhookIssueComment struct {
+	Action     string       `json:"action"`
+	Issue      Issue        `json:"issue"`
+	Comment    IssueComment `json:"comment"`
+	Repository Repository   `json:"repository"`
+	Sender     SimpleUser   `json:"sender"`
+}
+
+// WebhookPullRequestReview is the body of a pull_request_review delivery: the
+// review alongside the pull request it was left on.
+type WebhookPullRequestReview struct {
+	Action      string      `json:"action"`
+	Review      Review      `json:"review"`
+	PullRequest PullRequest `json:"pull_request"`
+	Repository  Repository  `json:"repository"`
+	Sender      SimpleUser  `json:"sender"`
+}
+
+// WebhookPullRequestReviewComment is the body of a pull_request_review_comment
+// delivery: the inline comment alongside its pull request.
+type WebhookPullRequestReviewComment struct {
+	Action      string        `json:"action"`
+	Comment     ReviewComment `json:"comment"`
+	PullRequest PullRequest   `json:"pull_request"`
+	Repository  Repository    `json:"repository"`
+	Sender      SimpleUser    `json:"sender"`
+}
+
 // PushEventPayload is the Events-API payload object for a PushEvent. It mirrors
 // the push delivery's moved tips in the feed's compact form.
 type PushEventPayload struct {
@@ -222,6 +252,30 @@ type PushEventCommitIdent struct {
 type IssuesEventPayload struct {
 	Action string `json:"action"`
 	Issue  Issue  `json:"issue"`
+}
+
+// IssueCommentEventPayload is the Events-API payload object for an
+// IssueCommentEvent.
+type IssueCommentEventPayload struct {
+	Action  string       `json:"action"`
+	Issue   Issue        `json:"issue"`
+	Comment IssueComment `json:"comment"`
+}
+
+// PullRequestReviewEventPayload is the Events-API payload object for a
+// PullRequestReviewEvent.
+type PullRequestReviewEventPayload struct {
+	Action      string      `json:"action"`
+	Review      Review      `json:"review"`
+	PullRequest PullRequest `json:"pull_request"`
+}
+
+// PullRequestReviewCommentEventPayload is the Events-API payload object for a
+// PullRequestReviewCommentEvent.
+type PullRequestReviewCommentEventPayload struct {
+	Action      string        `json:"action"`
+	Comment     ReviewComment `json:"comment"`
+	PullRequest PullRequest   `json:"pull_request"`
 }
 
 // PullRequestEventPayload is the Events-API payload object for a

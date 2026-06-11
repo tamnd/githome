@@ -22,12 +22,21 @@ type (
 	}
 	issueLoader interface {
 		IssueForEvent(ctx context.Context, repo *domain.Repo, issuePK int64) (*domain.Issue, error)
+		CommentForEvent(ctx context.Context, commentPK int64) (*domain.Comment, error)
 	}
 	pullLoader interface {
 		PullForEvent(ctx context.Context, repo *domain.Repo, issuePK int64) (*domain.PullRequest, error)
 	}
 	userLoader interface {
 		Viewer(ctx context.Context, userPK int64) (*domain.User, error)
+	}
+	// reviewLoader is the slice of the review service the review and inline
+	// comment bodies render through. It is optional, bound via BindReviews;
+	// without it a review event fails to render, which only happens in a wiring
+	// that records review events but never binds the loader.
+	reviewLoader interface {
+		ReviewForEvent(ctx context.Context, reviewPK int64) (*domain.Review, error)
+		ReviewCommentForEvent(ctx context.Context, commentPK int64) (*domain.ReviewComment, error)
 	}
 	// gitLoader is the slice of the git layer a push body renders through. It
 	// is optional, bound via BindGit, so a renderer without a git store still
@@ -46,13 +55,14 @@ type (
 // stores on the event row. It lives here, not in domain, because it imports the
 // presenter to reach the exact wire shapes, and domain may not.
 type Renderer struct {
-	repos  repoLoader
-	issues issueLoader
-	pulls  pullLoader
-	users  userLoader
-	urls   *presenter.URLBuilder
-	format nodeid.Format
-	git    gitLoader
+	repos   repoLoader
+	issues  issueLoader
+	pulls   pullLoader
+	users   userLoader
+	urls    *presenter.URLBuilder
+	format  nodeid.Format
+	git     gitLoader
+	reviews reviewLoader
 }
 
 // NewRenderer wires a Renderer over the domain loaders and the presenter.
@@ -63,6 +73,10 @@ func NewRenderer(repos repoLoader, issues issueLoader, pulls pullLoader, users u
 // BindGit attaches the git layer the push renderer walks the pushed range
 // through. Without it a push body has empty commits and a null head_commit.
 func (r *Renderer) BindGit(g gitLoader) { r.git = g }
+
+// BindReviews attaches the review loader the pull_request_review and
+// pull_request_review_comment bodies render their review and comment through.
+func (r *Renderer) BindReviews(rl reviewLoader) { r.reviews = rl }
 
 // Rendered is the result of rendering one event: the delivery body, the compact
 // feed payload to store, and the header coordinates a delivery carries.
@@ -94,10 +108,16 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 	switch ev.Event {
 	case domain.EventPush:
 		res, err = r.renderPush(ctx, ev, repo, sender, push)
-	case domain.EventIssues, domain.EventIssueComment:
+	case domain.EventIssues:
 		res, err = r.renderIssue(ctx, ev, repo, sender, detail)
-	case domain.EventPullRequest, domain.EventPullRequestReview:
+	case domain.EventIssueComment:
+		res, err = r.renderIssueComment(ctx, ev, repo, sender, detail)
+	case domain.EventPullRequest:
 		res, err = r.renderPull(ctx, ev, repo, sender, detail)
+	case domain.EventPullRequestReview:
+		res, err = r.renderPullReview(ctx, ev, repo, sender, detail)
+	case domain.EventPullRequestReviewComment:
+		res, err = r.renderReviewComment(ctx, ev, repo, sender, detail)
 	case domain.EventCreate:
 		res, err = r.renderCreate(ev, repo, sender, cd)
 	case domain.EventDelete:
@@ -341,6 +361,99 @@ func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *dom
 		body.Before, body.After = detail.Before, detail.After
 	}
 	feed := restmodel.PullRequestEventPayload{Action: ev.Action, Number: pr.Number, PullRequest: rendered}
+	return marshalRendered(ev, body, feed)
+}
+
+// renderIssueComment builds an issue_comment body: the comment object the
+// detail names alongside the issue it landed on.
+func (r *Renderer) renderIssueComment(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
+	if ev.IssuePK == nil {
+		return nil, fmt.Errorf("webhook: %s event has no issue", ev.Event)
+	}
+	if detail == nil || detail.CommentPK == 0 {
+		return nil, fmt.Errorf("webhook: %s event has no comment", ev.Event)
+	}
+	owner := repo.Owner.Login
+	iss, err := r.issues.IssueForEvent(ctx, repo, *ev.IssuePK)
+	if err != nil {
+		return nil, err
+	}
+	cm, err := r.issues.CommentForEvent(ctx, detail.CommentPK)
+	if err != nil {
+		return nil, err
+	}
+	renderedIssue := r.urls.Issue(owner, repo.Name, iss, r.format)
+	renderedComment := r.urls.IssueComment(owner, repo.Name, cm, r.format)
+	body := restmodel.WebhookIssueComment{
+		Action:     ev.Action,
+		Issue:      renderedIssue,
+		Comment:    renderedComment,
+		Repository: r.urls.Repository(repo, r.format, nil),
+		Sender:     r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.IssueCommentEventPayload{Action: ev.Action, Issue: renderedIssue, Comment: renderedComment}
+	return marshalRendered(ev, body, feed)
+}
+
+// renderPullReview builds a pull_request_review body: the review the detail
+// names alongside its pull request.
+func (r *Renderer) renderPullReview(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
+	if ev.IssuePK == nil {
+		return nil, fmt.Errorf("webhook: %s event has no pull request", ev.Event)
+	}
+	if r.reviews == nil || detail == nil || detail.ReviewPK == 0 {
+		return nil, fmt.Errorf("webhook: %s event has no review", ev.Event)
+	}
+	owner := repo.Owner.Login
+	pr, err := r.pulls.PullForEvent(ctx, repo, *ev.IssuePK)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := r.reviews.ReviewForEvent(ctx, detail.ReviewPK)
+	if err != nil {
+		return nil, err
+	}
+	renderedPull := r.urls.PullRequest(owner, repo.Name, pr, r.format, true)
+	renderedReview := r.urls.Review(owner, repo.Name, rev, r.format)
+	body := restmodel.WebhookPullRequestReview{
+		Action:      ev.Action,
+		Review:      renderedReview,
+		PullRequest: renderedPull,
+		Repository:  r.urls.Repository(repo, r.format, nil),
+		Sender:      r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.PullRequestReviewEventPayload{Action: ev.Action, Review: renderedReview, PullRequest: renderedPull}
+	return marshalRendered(ev, body, feed)
+}
+
+// renderReviewComment builds a pull_request_review_comment body: the inline
+// comment the detail names alongside its pull request.
+func (r *Renderer) renderReviewComment(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
+	if ev.IssuePK == nil {
+		return nil, fmt.Errorf("webhook: %s event has no pull request", ev.Event)
+	}
+	if r.reviews == nil || detail == nil || detail.ReviewCommentPK == 0 {
+		return nil, fmt.Errorf("webhook: %s event has no review comment", ev.Event)
+	}
+	owner := repo.Owner.Login
+	pr, err := r.pulls.PullForEvent(ctx, repo, *ev.IssuePK)
+	if err != nil {
+		return nil, err
+	}
+	cm, err := r.reviews.ReviewCommentForEvent(ctx, detail.ReviewCommentPK)
+	if err != nil {
+		return nil, err
+	}
+	renderedPull := r.urls.PullRequest(owner, repo.Name, pr, r.format, true)
+	renderedComment := r.urls.ReviewComment(owner, repo.Name, cm, r.format)
+	body := restmodel.WebhookPullRequestReviewComment{
+		Action:      ev.Action,
+		Comment:     renderedComment,
+		PullRequest: renderedPull,
+		Repository:  r.urls.Repository(repo, r.format, nil),
+		Sender:      r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.PullRequestReviewCommentEventPayload{Action: ev.Action, Comment: renderedComment, PullRequest: renderedPull}
 	return marshalRendered(ev, body, feed)
 }
 

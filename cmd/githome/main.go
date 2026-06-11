@@ -129,6 +129,7 @@ func run() error {
 	// hooks, and deliver_webhook performs one signed POST and records the result.
 	webhookRenderer := webhook.NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
 	webhookRenderer.BindGit(gitStore)
+	webhookRenderer.BindReviews(reviewSvc)
 	deliverer := webhook.NewDeliverer(st, webhookRenderer, nil, enqueuer, config.Version)
 
 	// The job runtime drains the queue the domain fills. M5 registers the

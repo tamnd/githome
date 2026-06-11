@@ -59,6 +59,19 @@ func (r *receiver) last() (capturedDelivery, bool) {
 	return r.deliveries[len(r.deliveries)-1], true
 }
 
+// lastByEvent returns the newest delivery that went out under the given
+// X-GitHub-Event header, skipping deliveries of other events.
+func (r *receiver) lastByEvent(event string) (capturedDelivery, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := len(r.deliveries) - 1; i >= 0; i-- {
+		if r.deliveries[i].headers.Get("X-GitHub-Event") == event {
+			return r.deliveries[i], true
+		}
+	}
+	return capturedDelivery{}, false
+}
+
 // count returns how many deliveries arrived with the given X-GitHub-Event,
 // letting tests that expect silence ignore the ping a hook gets on creation.
 func (r *receiver) count(event string) int {
@@ -82,6 +95,7 @@ type deliverFixture struct {
 	st       *store.Store
 	issues   *domain.IssueService
 	pulls    *domain.PRService
+	reviews  *domain.ReviewService
 	hooks    *domain.HookService
 	enq      *worker.StoreEnqueuer
 	runtime  *worker.Runtime
@@ -118,6 +132,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
+	reviewSvc := domain.NewReviewService(st, repoSvc, pullSvc, issueSvc, gitStore)
 	userSvc := domain.NewUserService(st)
 	enq := worker.NewStoreEnqueuer(st)
 	hookSvc := domain.NewHookService(st, repoSvc, enq)
@@ -129,6 +144,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	urls := presenter.NewURLBuilder(testURLs(t))
 	renderer := NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
 	renderer.BindGit(gitStore)
+	renderer.BindReviews(reviewSvc)
 	// The receiver runs on loopback, which the guard blocks by default; the test
 	// client opts loopback in the way an operator would for an internal endpoint.
 	client := NewClient(ClientOptions{Allow: []netip.Prefix{
@@ -142,7 +158,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	rt.Register(domain.JobDeliverWebhook, deliverer.DeliverWebhookHandler())
 
 	return &deliverFixture{
-		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, hooks: hookSvc, enq: enq,
+		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, reviews: reviewSvc, hooks: hookSvc, enq: enq,
 		runtime: rt, rcv: rcv, srv: srv, renderer: renderer, gs: gitStore,
 		ownerPK: owner.PK, repoPK: repo.PK, repoName: "hello",
 	}

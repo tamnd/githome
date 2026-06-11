@@ -483,6 +483,158 @@ func TestIssueLabeledDelivery(t *testing.T) {
 	}
 }
 
+// TestIssueCommentDelivery checks the issue_comment body carries the comment
+// object alongside the issue it landed on, not just the issue.
+func TestIssueCommentDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"issue_comment"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	iss, err := f.issues.CreateIssue(f.ctx, f.ownerPK, "octocat", f.repoName, domain.IssueInput{Title: "talk here"})
+	if err != nil {
+		t.Fatalf("CreateIssue: %v", err)
+	}
+	cm, err := f.issues.CreateComment(f.ctx, f.ownerPK, "octocat", f.repoName, iss.Number, "first comment")
+	if err != nil {
+		t.Fatalf("CreateComment: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.lastByEvent("issue_comment")
+	if !ok {
+		t.Fatal("receiver got no issue_comment delivery")
+	}
+	var body struct {
+		Action string `json:"action"`
+		Issue  struct {
+			Number int64 `json:"number"`
+		} `json:"issue"`
+		Comment struct {
+			ID   int64  `json:"id"`
+			Body string `json:"body"`
+			User struct {
+				Login string `json:"login"`
+			} `json:"user"`
+		} `json:"comment"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.Action != "created" {
+		t.Errorf("action = %q, want created", body.Action)
+	}
+	if body.Issue.Number != iss.Number {
+		t.Errorf("issue.number = %d, want %d", body.Issue.Number, iss.Number)
+	}
+	if body.Comment.ID != cm.ID || body.Comment.Body != "first comment" {
+		t.Errorf("comment = %+v, want id %d body %q", body.Comment, cm.ID, "first comment")
+	}
+	if body.Comment.User.Login != "octocat" {
+		t.Errorf("comment.user.login = %q, want octocat", body.Comment.User.Login)
+	}
+}
+
+// TestPullRequestReviewDeliveries submits a comment review with one inline
+// comment and checks both bodies: pull_request_review carries the review
+// object, pull_request_review_comment carries the inline comment.
+func TestPullRequestReviewDeliveries(t *testing.T) {
+	f := newDeliverFixture(t)
+	seedPushRepo(t, f)
+
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"pull_request_review", "pull_request_review_comment"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	pr, err := f.pulls.CreatePR(f.ctx, f.ownerPK, "octocat", f.repoName, domain.PRInput{
+		Title: "feature work", Base: "main", Head: "feature",
+	})
+	if err != nil {
+		t.Fatalf("CreatePR: %v", err)
+	}
+	line := int64(1)
+	rev, err := f.reviews.CreateReview(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, domain.ReviewInput{
+		Event: "COMMENT", Body: "looks fine",
+		Comments: []domain.ReviewCommentInput{{Path: "d.txt", Body: "inline note", Side: "RIGHT", Line: &line}},
+	})
+	if err != nil {
+		t.Fatalf("CreateReview: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.lastByEvent("pull_request_review")
+	if !ok {
+		t.Fatal("receiver got no pull_request_review delivery")
+	}
+	var reviewBody struct {
+		Action string `json:"action"`
+		Review struct {
+			ID    int64  `json:"id"`
+			State string `json:"state"`
+			Body  string `json:"body"`
+			User  struct {
+				Login string `json:"login"`
+			} `json:"user"`
+		} `json:"review"`
+		PullRequest struct {
+			Number int64 `json:"number"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal(got.body, &reviewBody); err != nil {
+		t.Fatalf("decode review body: %v", err)
+	}
+	if reviewBody.Action != "submitted" {
+		t.Errorf("action = %q, want submitted", reviewBody.Action)
+	}
+	if reviewBody.Review.ID != rev.ID || reviewBody.Review.State != "COMMENTED" || reviewBody.Review.Body != "looks fine" {
+		t.Errorf("review = %+v, want id %d state COMMENTED body %q", reviewBody.Review, rev.ID, "looks fine")
+	}
+	if reviewBody.Review.User.Login != "octocat" {
+		t.Errorf("review.user.login = %q, want octocat", reviewBody.Review.User.Login)
+	}
+	if reviewBody.PullRequest.Number != pr.Number {
+		t.Errorf("pull_request.number = %d, want %d", reviewBody.PullRequest.Number, pr.Number)
+	}
+
+	got, ok = f.rcv.lastByEvent("pull_request_review_comment")
+	if !ok {
+		t.Fatal("receiver got no pull_request_review_comment delivery")
+	}
+	var commentBody struct {
+		Action  string `json:"action"`
+		Comment struct {
+			Body                string `json:"body"`
+			Path                string `json:"path"`
+			Side                string `json:"side"`
+			Line                *int64 `json:"line"`
+			PullRequestReviewID int64  `json:"pull_request_review_id"`
+		} `json:"comment"`
+		PullRequest struct {
+			Number int64 `json:"number"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal(got.body, &commentBody); err != nil {
+		t.Fatalf("decode comment body: %v", err)
+	}
+	if commentBody.Action != "created" {
+		t.Errorf("action = %q, want created", commentBody.Action)
+	}
+	c := commentBody.Comment
+	if c.Body != "inline note" || c.Path != "d.txt" || c.Side != "RIGHT" || c.Line == nil || *c.Line != 1 {
+		t.Errorf("comment = %+v, want inline note on d.txt RIGHT line 1", c)
+	}
+	if c.PullRequestReviewID != rev.ID {
+		t.Errorf("comment.pull_request_review_id = %d, want %d", c.PullRequestReviewID, rev.ID)
+	}
+	if commentBody.PullRequest.Number != pr.Number {
+		t.Errorf("pull_request.number = %d, want %d", commentBody.PullRequest.Number, pr.Number)
+	}
+}
+
 func whWriteFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {

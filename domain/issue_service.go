@@ -86,6 +86,7 @@ type IssueStore interface {
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
+	GetCommentByPK(ctx context.Context, pk int64) (*store.CommentRow, error)
 	UpdateComment(ctx context.Context, c *store.CommentRow) error
 	DeleteComment(ctx context.Context, pk int64) error
 
@@ -247,6 +248,17 @@ func (s *IssueService) IssueForEvent(ctx context.Context, repo *Repo, issuePK in
 		return nil, err
 	}
 	return s.assembleIssue(ctx, repo, row)
+}
+
+// CommentForEvent loads one issue comment by its internal pk for the delivery
+// renderer, off the visibility gate like every ForEvent loader: the event was
+// authorized when it was recorded.
+func (s *IssueService) CommentForEvent(ctx context.Context, commentPK int64) (*Comment, error) {
+	row, err := s.store.GetCommentByPK(ctx, commentPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleComment(ctx, row)
 }
 
 // IssueRef resolves an issue's public database id to the owner login,

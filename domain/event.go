@@ -12,13 +12,15 @@ import (
 // Webhook and Events API event names. These are the GitHub event identifiers the
 // X-GitHub-Event delivery header and the Events API "type" both derive from.
 const (
-	EventPush              = "push"
-	EventIssues            = "issues"
-	EventIssueComment      = "issue_comment"
-	EventPullRequest       = "pull_request"
-	EventPullRequestReview = "pull_request_review"
-	EventCreate            = "create" // branch or tag created via REST or push
-	EventDelete            = "delete" // branch or tag deleted via REST or push
+	EventPush                     = "push"
+	EventIssues                   = "issues"
+	EventIssueComment             = "issue_comment"
+	EventPullRequest              = "pull_request"
+	EventPullRequestReview        = "pull_request_review"
+	EventPullRequestReviewComment = "pull_request_review_comment"
+	EventRelease                  = "release"
+	EventCreate                   = "create" // branch or tag created via REST or push
+	EventDelete                   = "delete" // branch or tag deleted via REST or push
 )
 
 // The fan-out job kinds the webhook milestone introduces. deliver_event loads
@@ -176,6 +178,10 @@ func eventType(name string) string {
 		return "PullRequestEvent"
 	case EventPullRequestReview:
 		return "PullRequestReviewEvent"
+	case EventPullRequestReviewComment:
+		return "PullRequestReviewCommentEvent"
+	case EventRelease:
+		return "ReleaseEvent"
 	case EventCreate:
 		return "CreateEvent"
 	case EventDelete:
