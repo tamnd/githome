@@ -71,6 +71,40 @@ func (s *IssueService) ListComments(ctx context.Context, viewerPK int64, owner, 
 	return s.assembleComments(ctx, row, rows)
 }
 
+// ListCommentsAfter returns the comments following the one afterID names,
+// oldest first, via a keyset seek instead of the OFFSET walk ListComments
+// pages with. The GraphQL connections call it when their after: cursor carries
+// the previous page's last comment id. An afterID that no longer resolves, or
+// that belongs to another issue, degrades to the first page, the same shape a
+// stale offset cursor lands on.
+func (s *IssueService) ListCommentsAfter(ctx context.Context, viewerPK int64, owner, name string, number, afterID int64, limit int) ([]*Comment, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	after, err := s.store.GetComment(ctx, afterID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	var rows []store.CommentRow
+	if err == nil && after.IssuePK == row.PK {
+		rows, err = s.store.ListIssueCommentsAfter(ctx, row.PK, after.CreatedAt, after.PK, limit)
+	} else {
+		rows, err = s.store.ListIssueComments(ctx, row.PK, limit, 0)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleComments(ctx, row, rows)
+}
+
 // GetComment resolves a single comment by its public id, gating on the
 // repository the comment's issue belongs to being visible to the viewer.
 func (s *IssueService) GetComment(ctx context.Context, viewerPK int64, owner, name string, commentID int64) (*Comment, error) {

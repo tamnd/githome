@@ -1,1 +1,1 @@
-{"data":{"repository":{"pullRequests":{"totalCount":1,"nodes":[{"number":1,"title":"Add a feature","state":"OPEN"}],"edges":[{"cursor":"Z2hvOjE=","node":{"number":1}}],"pageInfo":{"hasNextPage":false,"hasPreviousPage":false,"startCursor":"Z2hvOjE=","endCursor":"Z2hvOjE="}}}}}
+{"data":{"repository":{"pullRequests":{"totalCount":1,"nodes":[{"number":1,"title":"Add a feature","state":"OPEN"}],"edges":[{"cursor":"Z2hvOjE6MQ==","node":{"number":1}}],"pageInfo":{"hasNextPage":false,"hasPreviousPage":false,"startCursor":"Z2hvOjE6MQ==","endCursor":"Z2hvOjE6MQ=="}}}}}

@@ -47,6 +47,36 @@ func (s *Store) ListIssueComments(ctx context.Context, issuePK int64, limit, off
 	return out, rows.Err()
 }
 
+// ListIssueCommentsAfter returns the comments after the (createdAt, pk) seek
+// key in the same chronological (created_at, pk) order ListIssueComments pages
+// over, so a cursor walk costs a single index range scan per page regardless
+// of how deep into the thread it is. The caller recovers the seek pair from
+// the comment the cursor names.
+func (s *Store) ListIssueCommentsAfter(ctx context.Context, issuePK int64, createdAt time.Time, afterPK int64, limit int) ([]CommentRow, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	// The row-value comparison is what both planners turn into an index range
+	// bound, the same shape the issue keyset list uses.
+	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments
+		WHERE issue_pk = ? AND deleted_at IS NULL AND (created_at, pk) > (?, ?)
+		ORDER BY created_at, pk LIMIT ?`)
+	rows, err := s.rdb.QueryContext(ctx, q, issuePK, s.timeArg(createdAt), afterPK, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []CommentRow
+	for rows.Next() {
+		c, err := scanCommentRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *c)
+	}
+	return out, rows.Err()
+}
+
 // GetComment resolves a single comment by its public database id.
 func (s *Store) GetComment(ctx context.Context, dbID int64) (*CommentRow, error) {
 	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments

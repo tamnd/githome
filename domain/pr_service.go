@@ -115,6 +115,10 @@ type PRQuery struct {
 	Page    int
 	PerPage int
 	Cursor  string
+	// AfterNumber is the number of the last pull request on the previous page,
+	// the seek key the GraphQL connection cursors carry. The list orders by
+	// number descending, so it seeds the keyset seek directly.
+	AfterNumber int64
 }
 
 // MergeInput is the merge payload: the strategy, the optional commit title and
@@ -362,6 +366,9 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 			cursor = &cur
 		}
 	}
+	if cursor == nil && q.AfterNumber > 0 {
+		cursor = &store.PullCursor{Number: q.AfterNumber}
+	}
 	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, q.State, cursor, q.PerPage)
 	if err != nil {
 		return nil, false, err
@@ -371,6 +378,17 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 		return nil, false, err
 	}
 	return out, hasMore, nil
+}
+
+// CountPRs returns the total matching the state filter without fetching a
+// page. The GraphQL connection pairs it with ListPRsPage the same way the
+// issue connection pairs CountIssues with ListIssuesPage.
+func (s *PRService) CountPRs(ctx context.Context, viewerPK int64, owner, name, state string) (int, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, err
+	}
+	return s.store.CountPulls(ctx, repo.PK, state)
 }
 
 // Files returns the per-file diff of a pull request over the three-dot range

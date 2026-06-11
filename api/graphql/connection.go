@@ -25,6 +25,10 @@ type issuePage struct {
 	offset   int
 	backward bool
 	before   int // exclusive end offset from a before: cursor, -1 when absent
+	// seek is the stable id (issue/pull number, comment id) of the item the
+	// after: cursor points at, when the cursor carried one. A forward window
+	// with a seek can resume with a keyset query instead of an OFFSET scan.
+	seek int64
 }
 
 // page is the one-based page number for the domain's page/per-page listing. The
@@ -86,11 +90,12 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		}
 	}
 	if after != nil {
-		off, err := decodeCursor(*after)
+		off, seek, err := decodeCursorSeek(*after)
 		if err != nil {
 			return p, err
 		}
 		p.offset = off
+		p.seek = seek
 	}
 	if before != nil {
 		off, err := decodeCursor(*before)
@@ -114,16 +119,16 @@ func emptyIssueConnection() *gqlmodel.IssueConnection {
 }
 
 // buildPullRequestConnection renders a page of domain pull requests into the
-// GraphQL connection, cursoring each edge at its absolute offset so a follow-up
-// after: cursor resumes past it, the same forward window the issues connection
-// pages over.
+// GraphQL connection. Each edge's cursor carries its absolute offset plus the
+// pull request's number, so a follow-up after: cursor resumes past it with a
+// keyset seek, the same forward window the issues connection pages over.
 func (r *Resolver) buildPullRequestConnection(owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
 	nodes := make([]*gqlmodel.PullRequest, 0, len(prs))
 	edges := make([]*gqlmodel.PullRequestEdge, 0, len(prs))
 	for i, pr := range prs {
 		node := r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat)
 		nodes = append(nodes, node)
-		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursor(offset + i + 1), Node: node})
+		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursorSeek(offset+i+1, pr.Number), Node: node})
 	}
 	info := &gqlmodel.PageInfo{HasNextPage: offset+len(prs) < total}
 	if len(edges) > 0 {
@@ -160,6 +165,23 @@ func pageInfoFor(start, count, total int) *gqlmodel.PageInfo {
 	}
 	if count > 0 {
 		s, e := encodeCursor(start+1), encodeCursor(start+count)
+		info.StartCursor = &s
+		info.EndCursor = &e
+	}
+	return info
+}
+
+// pageInfoSeek is pageInfoFor with the window's first and last item ids riding
+// on the cursors, so an after: built from endCursor resumes with a keyset
+// query. The comment connections use it; their nodes carry no edges, so the
+// page-info cursors are the only ones a client can hand back.
+func pageInfoSeek(start, count, total int, firstID, lastID int64) *gqlmodel.PageInfo {
+	info := &gqlmodel.PageInfo{
+		HasNextPage:     start+count < total,
+		HasPreviousPage: start > 0,
+	}
+	if count > 0 {
+		s, e := encodeCursorSeek(start+1, firstID), encodeCursorSeek(start+count, lastID)
 		info.StartCursor = &s
 		info.EndCursor = &e
 	}

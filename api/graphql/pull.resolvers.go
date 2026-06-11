@@ -388,11 +388,16 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	total := obj.CommentsCount
 	var comments []*domain.Comment
 	start := page.offset
-	if page.backward {
+	switch {
+	case page.backward:
 		var end int
 		start, end = page.window(int(total))
 		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
-	} else {
+	case page.seek > 0:
+		// The cursor carries the previous page's last comment id; resume past
+		// it with a keyset seek instead of replaying the OFFSET scan.
+		comments, err = r.Issues.ListCommentsAfter(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), page.seek, page.limit)
+	default:
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
 	}
 	if err != nil {
@@ -405,9 +410,13 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}
+	var firstID, lastID int64
+	if len(comments) > 0 {
+		firstID, lastID = comments[0].ID, comments[len(comments)-1].ID
+	}
 	return &gqlmodel.IssueCommentConnection{
 		Nodes:      nodes,
-		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		PageInfo:   pageInfoSeek(start, len(nodes), int(total), firstID, lastID),
 		TotalCount: total,
 	}, nil
 }
@@ -447,10 +456,30 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 	owner, name := splitNWO(obj.NameWithOwner)
 
 	// The unfiltered listing in its native newest-first order pages straight
-	// through the store.
+	// through the store. A cursor carrying the previous page's last pull number
+	// resumes with a keyset seek; only the totalCount stays a count query.
 	if headRefName == nil && baseRefName == nil && len(labels) == 0 && defaultPROrder(orderBy) {
+		state := pullStateFilter(states)
+		if page.seek > 0 {
+			prs, _, err := r.Pulls.ListPRsPage(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+				State:       state,
+				PerPage:     page.limit,
+				AfterNumber: page.seek,
+			})
+			if errors.Is(err, domain.ErrRepoNotFound) {
+				return emptyPullRequestConnection(), nil
+			}
+			if err != nil {
+				return nil, mapErr(err)
+			}
+			total, err := r.Pulls.CountPRs(ctx, viewerID(ctx), owner, name, state)
+			if err != nil {
+				return nil, mapErr(err)
+			}
+			return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+		}
 		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
-			State:   pullStateFilter(states),
+			State:   state,
 			Page:    page.page(),
 			PerPage: page.limit,
 		})

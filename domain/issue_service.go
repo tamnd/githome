@@ -85,6 +85,7 @@ type IssueStore interface {
 	MilestoneIssueCountsByPKs(ctx context.Context, pks []int64) (map[int64]store.MilestoneCount, error)
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
+	ListIssueCommentsAfter(ctx context.Context, issuePK int64, createdAt time.Time, afterPK int64, limit int) ([]store.CommentRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
 	GetCommentByPK(ctx context.Context, pk int64) (*store.CommentRow, error)
 	UpdateComment(ctx context.Context, c *store.CommentRow) error
@@ -157,6 +158,11 @@ type IssueQuery struct {
 	// and the sort is "created" DESC (the default), the store uses a keyset
 	// seek instead of OFFSET so deep pages are O(1) in depth.
 	Cursor string
+	// AfterNumber is the per-repo number of the last issue on the previous
+	// page, the seek key the GraphQL connection cursors carry. When set (and
+	// Cursor is not), the filter resolves it to the issue's created_at with one
+	// point read and pages with the same keyset seek a Cursor drives.
+	AfterNumber int64
 }
 
 // CreateIssue opens an issue in the repository after authorizing write access.
@@ -338,6 +344,22 @@ func (s *IssueService) ListIssuesPage(ctx context.Context, viewerPK int64, owner
 		return nil, false, err
 	}
 	return out, hasMore, nil
+}
+
+// CountIssues returns the total matching the filter without fetching a page.
+// The GraphQL connections pair it with ListIssuesPage: the page itself is a
+// keyset seek and the count stays its own query, resolved once per request for
+// the connection's totalCount.
+func (s *IssueService) CountIssues(ctx context.Context, viewerPK int64, owner, name string, q IssueQuery) (int, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, err
+	}
+	f, err := s.buildFilter(ctx, repo, q)
+	if err != nil {
+		return 0, err
+	}
+	return s.store.CountIssues(ctx, repo.PK, f)
 }
 
 // EditIssue applies a patch to an issue under the optimistic lock, retrying once
@@ -546,6 +568,18 @@ func (s *IssueService) buildFilter(ctx context.Context, repo *Repo, q IssueQuery
 	if q.Cursor != "" {
 		if cur, err := store.DecodeCursor(q.Cursor); err == nil {
 			f.Cursor = &cur
+		}
+	}
+	// The GraphQL connections seek by the issue number their cursors carry; one
+	// point read recovers the created_at half of the keyset pair. A number that
+	// no longer resolves degrades to the first page, the same fallback a
+	// malformed Cursor takes.
+	if f.Cursor == nil && q.AfterNumber > 0 {
+		row, err := s.store.GetIssueByNumber(ctx, repo.PK, q.AfterNumber)
+		if err == nil {
+			f.Cursor = &store.IssueCursor{CreatedAt: row.CreatedAt, Number: row.Number}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return f, err
 		}
 	}
 	return f, nil
