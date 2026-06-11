@@ -300,12 +300,13 @@ func (r *mutationResolver) ReopenIssue(ctx context.Context, input generated.Reop
 }
 
 // Issue is the resolver for the issue field. A missing issue, or one in a
-// repository the actor cannot see, resolves to null rather than an error.
+// repository the actor cannot see, resolves to null plus a NOT_FOUND error,
+// the answer GitHub gives.
 func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error) {
 	owner, name := splitNWO(obj.NameWithOwner)
 	iss, err := r.Resolver.Issues.GetIssue(ctx, viewerID(ctx), owner, name, int64(number))
 	if errors.Is(err, domain.ErrIssueNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to an Issue with the number of %d.", number)
 	}
 	if err != nil {
 		return nil, mapErr(err)

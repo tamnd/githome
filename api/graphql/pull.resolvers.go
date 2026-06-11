@@ -459,13 +459,13 @@ func (r *pullRequestResolver) ProjectCards(ctx context.Context, obj *gqlmodel.Pu
 }
 
 // PullRequest is the resolver for the pullRequest field. A missing pull request,
-// or one in a repository the actor cannot see, resolves to null rather than an
-// error.
+// or one in a repository the actor cannot see, resolves to null plus a
+// NOT_FOUND error, the answer GitHub gives.
 func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error) {
 	owner, name := splitNWO(obj.NameWithOwner)
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, int64(number))
 	if errors.Is(err, domain.ErrPullNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to a PullRequest with the number of %d.", number)
 	}
 	if err != nil {
 		return nil, mapErr(err)

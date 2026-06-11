@@ -22,12 +22,13 @@ import (
 // Repository is the resolver for the repository field. It resolves the
 // repository for the request actor and renders it with its default-branch ref.
 // A repository that does not exist or that the actor cannot see resolves to
-// null, never an error, so a private repo's existence does not leak.
+// null plus a NOT_FOUND error, the same answer in both cases so a private
+// repo's existence does not leak.
 func (r *queryResolver) Repository(ctx context.Context, owner string, name string) (*gqlmodel.Repository, error) {
 	actor := auth.ActorFrom(ctx)
 	repo, err := r.Repos.GetRepo(ctx, actor.UserID, owner, name)
 	if errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to a Repository with the name '%s/%s'.", owner, name)
 	}
 	if err != nil {
 		return nil, err

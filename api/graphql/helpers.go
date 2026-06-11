@@ -8,7 +8,6 @@ package graphql
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -247,9 +246,10 @@ type gqlError struct{ msg string }
 func (e gqlError) Error() string { return e.msg }
 
 // unresolvable is the error GitHub returns for a node ID that does not name a
-// visible object of the expected type.
+// visible object of the expected type. It carries the NOT_FOUND type gh's
+// GraphQLError.Match reads.
 func unresolvable(kind, id string) error {
-	return gqlError{fmt.Sprintf("Could not resolve to a %s with the global id of '%s'.", kind, id)}
+	return notFoundf("Could not resolve to a %s with the global id of '%s'.", kind, id)
 }
 
 // mapErr translates a domain error into the message a GraphQL client sees. A
@@ -258,7 +258,7 @@ func unresolvable(kind, id string) error {
 func mapErr(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
-		return gqlError{"You do not have permission to perform this action."}
+		return typedError{msg: "You do not have permission to perform this action.", errType: "FORBIDDEN"}
 	case errors.Is(err, domain.ErrValidation):
 		return gqlError{"The change you requested was rejected: a required field is missing or invalid."}
 	default:

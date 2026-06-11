@@ -67,10 +67,11 @@ func NewHandler(d Deps) http.Handler {
 	srv.AddTransport(transport.POST{})
 	srv.AddTransport(transport.GET{})
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](256))
+	srv.SetErrorPresenter(presentError)
 	srv.Use(extension.Introspection{})
 	srv.Use(extension.FixedComplexityLimit(maxQueryComplexity))
 	srv.Use(depthLimitExtension(maxQueryDepth))
-	var h http.Handler = srv
+	var h http.Handler = liftErrorTypes(srv)
 	if d.Batch != nil {
 		h = loadersMiddleware(d.Batch, d.URLs, d.NodeFormat, h)
 	}
