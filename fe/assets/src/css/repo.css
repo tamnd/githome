@@ -137,6 +137,13 @@
   font-size: var(--text-small-size);
 }
 
+.repo-about-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-8);
+}
+
 /* Ref picker disclosure. */
 .ref-picker,
 .clone {

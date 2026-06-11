@@ -52,13 +52,14 @@ func repoRef(r *domain.Repo) view.RepoRef {
 func (h *Handlers) header(r *domain.Repo) view.RepoHeaderVM {
 	owner := ownerLogin(r)
 	hdr := view.RepoHeaderVM{
-		Owner:     owner,
-		Name:      r.Name,
-		OwnerURL:  "/" + owner,
-		URL:       route.Repo(owner, r.Name),
-		Private:   r.Private,
-		Fork:      r.Fork,
-		ActiveTab: "pulls",
+		Owner:      owner,
+		Name:       r.Name,
+		OwnerURL:   "/" + owner,
+		URL:        route.Repo(owner, r.Name),
+		Private:    r.Private,
+		Fork:       r.Fork,
+		OpenIssues: r.OpenIssuesCount,
+		ActiveTab:  "pulls",
 	}
 	if r.Description != nil {
 		hdr.Description = *r.Description
