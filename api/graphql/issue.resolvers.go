@@ -86,6 +86,15 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 		// The cursor carries the previous page's last comment id; resume past
 		// it with a keyset seek instead of replaying the OFFSET scan.
 		comments, err = r.Issues.ListCommentsAfter(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), page.seek, page.limit)
+	case page.offset == 0 && loadersFrom(ctx) != nil:
+		// A first-page preview, the shape every node of an issue connection
+		// selects. The loader batches all of them into one query; the parent
+		// resolution already gated repository visibility, the same trust the
+		// label and assignee loaders lean on.
+		comments, err = loadersFrom(ctx).CommentsByIssue.Load(ctx, commentsPreviewKey{IssuePK: obj.PK, Limit: page.limit})
+		for _, cm := range comments {
+			cm.IssueNumber = int64(obj.Number)
+		}
 	default:
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
 	}

@@ -77,6 +77,42 @@ func (s *Store) ListIssueCommentsAfter(ctx context.Context, issuePK int64, creat
 	return out, rows.Err()
 }
 
+// CommentsByIssuePKs returns the first perIssue comments of every listed
+// issue in one query, chronological within each issue. It backs the GraphQL
+// comment-preview dataloader: a 50-issue connection selecting a comment
+// preview costs one window-function query instead of fifty list queries.
+func (s *Store) CommentsByIssuePKs(ctx context.Context, issuePKs []int64, perIssue int) (map[int64][]CommentRow, error) {
+	out := make(map[int64][]CommentRow, len(issuePKs))
+	if len(issuePKs) == 0 {
+		return out, nil
+	}
+	if perIssue <= 0 {
+		perIssue = 30
+	}
+	frag, args := inClause("issue_pk", issuePKs)
+	q := s.rebind(`SELECT ` + commentColumns + ` FROM (
+			SELECT ` + commentColumns + `,
+				ROW_NUMBER() OVER (PARTITION BY issue_pk ORDER BY created_at, pk) AS rn
+			FROM issue_comments
+			WHERE deleted_at IS NULL` + frag + `
+		) ranked WHERE rn <= ?
+		ORDER BY issue_pk, created_at, pk`)
+	args = append(args, perIssue)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		c, err := scanCommentRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[c.IssuePK] = append(out[c.IssuePK], *c)
+	}
+	return out, rows.Err()
+}
+
 // GetComment resolves a single comment by its public database id.
 func (s *Store) GetComment(ctx context.Context, dbID int64) (*CommentRow, error) {
 	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments

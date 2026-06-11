@@ -131,6 +131,32 @@ func totalCountSelected(ctx context.Context) bool {
 	return false
 }
 
+// countOnlySelection reports whether the executing connection field selects
+// nothing beyond totalCount and pageInfo, the badge-count shape
+// pullRequests { nodes { files { totalCount } } } sends. Those connections
+// answer from the cached count columns without listing, and in the commits
+// and files cases without forking git per node. It returns false when the
+// selection cannot be inspected, so the caller falls back to the full path.
+func countOnlySelection(ctx context.Context) bool {
+	if !graphql.HasOperationContext(ctx) {
+		return false
+	}
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return false
+	}
+	fields := graphql.CollectFields(graphql.GetOperationContext(ctx), fc.Field.Selections, nil)
+	if len(fields) == 0 {
+		return false
+	}
+	for _, f := range fields {
+		if f.Name != "totalCount" && f.Name != "pageInfo" && f.Name != "__typename" {
+			return false
+		}
+	}
+	return true
+}
+
 // lazyTotal synthesizes the total buildIssueConnection and friends derive
 // hasNextPage from, when the real count was skipped: one past the window when
 // a further page exists, exactly the window's end otherwise. The totalCount

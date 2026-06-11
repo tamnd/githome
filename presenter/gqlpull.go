@@ -49,6 +49,7 @@ func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, 
 		RepoOwner:           owner,
 		RepoName:            repo,
 		CommentsCount:       int32(pr.CommentsCount),
+		CommitsCount:        int32(pr.CommitsCount),
 	}
 	out.Labels = b.gqlLabelConnection(owner, repo, pr.Labels, format)
 	out.Assignees = b.GQLUserConnection(pr.Assignees, format)

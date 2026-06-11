@@ -296,6 +296,19 @@ func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullReq
 	if err != nil {
 		return nil, err
 	}
+	// A count-only selection answers from the commits_count column the
+	// mergeability recompute maintains, the same source the additions and
+	// changedFiles fields read, so a 30-node connection selecting
+	// commits { totalCount } forks no git processes.
+	if countOnlySelection(ctx) {
+		total := int(obj.CommitsCount)
+		start, end := page.window(total)
+		return &gqlmodel.PullRequestCommitConnection{
+			Nodes:      []*gqlmodel.PullRequestCommit{},
+			PageInfo:   pageInfoFor(start, end-start, total),
+			TotalCount: int32(total),
+		}, nil
+	}
 	commits, err := r.Pulls.Commits(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
@@ -319,6 +332,17 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 	page, err := issuePageArgs(first, after, nil, nil)
 	if err != nil {
 		return nil, err
+	}
+	// Count-only selections read the changed_files column, exactly what the
+	// changedFiles schema field reports, instead of re-diffing the range.
+	if countOnlySelection(ctx) {
+		total := int(obj.ChangedFiles)
+		start, end := page.window(total)
+		return &gqlmodel.PullRequestChangedFileConnection{
+			Nodes:      []*gqlmodel.PullRequestChangedFile{},
+			PageInfo:   pageInfoFor(start, end-start, total),
+			TotalCount: int32(total),
+		}, nil
 	}
 	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
@@ -397,6 +421,13 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 		// The cursor carries the previous page's last comment id; resume past
 		// it with a keyset seek instead of replaying the OFFSET scan.
 		comments, err = r.Issues.ListCommentsAfter(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), page.seek, page.limit)
+	case page.offset == 0 && loadersFrom(ctx) != nil:
+		// First-page preview: batch every node's selection into one query via
+		// the loader, the same shape the issue connection takes.
+		comments, err = loadersFrom(ctx).CommentsByIssue.Load(ctx, commentsPreviewKey{IssuePK: obj.IssuePK, Limit: page.limit})
+		for _, cm := range comments {
+			cm.IssueNumber = int64(obj.Number)
+		}
 	default:
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
 	}

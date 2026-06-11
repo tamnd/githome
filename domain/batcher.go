@@ -14,6 +14,7 @@ type batcherStore interface {
 	AssigneesByIssuePKs(ctx context.Context, pks []int64) (map[int64][]int64, error)
 	MilestonesByPKs(ctx context.Context, pks []int64) (map[int64]*store.MilestoneRow, error)
 	ReactionRollupsBySubjectPKs(ctx context.Context, subjectType string, pks []int64) (map[int64]store.ReactionRollup, error)
+	CommentsByIssuePKs(ctx context.Context, issuePKs []int64, perIssue int) (map[int64][]store.CommentRow, error)
 }
 
 // Batcher provides cross-domain batch loading for the GraphQL dataloaders. It
@@ -54,6 +55,62 @@ func (b *Batcher) LabelsByIssues(ctx context.Context, issuePKs []int64) (map[int
 			labels = append(labels, labelFromRow(&labRows[i]))
 		}
 		out[pk] = labels
+	}
+	return out, nil
+}
+
+// CommentsPreviewByIssues loads the first limit comments of every listed
+// issue, chronological within each, with authors and reaction rollups
+// batch-loaded alongside. It backs the GraphQL comment-preview dataloader, so
+// a 50-issue connection selecting comments(first: 5) per node costs three
+// queries instead of fifty list calls each with its own author lookups. The
+// returned comments carry a zero IssueNumber: the caller asked per issue and
+// fills it in before rendering.
+func (b *Batcher) CommentsPreviewByIssues(ctx context.Context, issuePKs []int64, limit int) (map[int64][]*Comment, error) {
+	rowMap, err := b.store.CommentsByIssuePKs(ctx, issuePKs, limit)
+	if err != nil {
+		return nil, err
+	}
+	userPKSet := map[int64]struct{}{}
+	var commentPKs []int64
+	for _, rows := range rowMap {
+		for i := range rows {
+			userPKSet[rows[i].UserPK] = struct{}{}
+			commentPKs = append(commentPKs, rows[i].PK)
+		}
+	}
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	userRows, err := b.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	rollups, err := b.store.ReactionRollupsBySubjectPKs(ctx, "comment", commentPKs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64][]*Comment, len(rowMap))
+	for issuePK, rows := range rowMap {
+		comments := make([]*Comment, 0, len(rows))
+		for i := range rows {
+			row := &rows[i]
+			var author *User
+			if u, ok := userRows[row.UserPK]; ok {
+				author = userFromRow(u)
+			}
+			comments = append(comments, &Comment{
+				ID:        row.DBID,
+				IssuePK:   row.IssuePK,
+				User:      author,
+				Body:      row.Body,
+				Reactions: rollup(rollups[row.PK]),
+				CreatedAt: row.CreatedAt,
+				UpdatedAt: row.UpdatedAt,
+			})
+		}
+		out[issuePK] = comments
 	}
 	return out, nil
 }
