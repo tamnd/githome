@@ -32,6 +32,10 @@ type PullRequest struct {
 	Labels           []*Label
 	Milestone        *Milestone
 	CommentsCount    int
+	// RequestedReviewers are the users whose review is currently requested,
+	// in request order. A submitted review clears its author's request on
+	// GitHub; here the set changes only through the request endpoints.
+	RequestedReviewers []*User
 
 	Base GitEndpoint
 	Head GitEndpoint

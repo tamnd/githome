@@ -173,11 +173,8 @@ func handleRequestedReviewersAdd(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
-		// Use UpdatePR to set requested reviewers via the Labels field workaround is
-		// not correct; GitHub uses a separate requested_reviewers concept. For now
-		// return the PR unchanged with a 201 so clients don't fail.
 		owner, repo := c.Param("owner"), c.Param("repo")
-		pr, err := d.Pulls.GetPR(ctx, actor.UserID, owner, repo, number)
+		pr, err := d.Pulls.RequestReviewers(ctx, actor.UserID, owner, repo, number, body.Reviewers)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -206,11 +203,15 @@ func handleRequestedReviewersRemove(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
-		// Consume body (clients send it for DELETE).
-		var body struct{}
-		_ = decodeJSON(c, &body)
+		var body struct {
+			Reviewers     []string `json:"reviewers"`
+			TeamReviewers []string `json:"team_reviewers"`
+		}
+		if !decodeJSON(c, &body) {
+			return nil
+		}
 		owner, repo := c.Param("owner"), c.Param("repo")
-		pr, err := d.Pulls.GetPR(ctx, actor.UserID, owner, repo, number)
+		pr, err := d.Pulls.RemoveRequestedReviewers(ctx, actor.UserID, owner, repo, number, body.Reviewers)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -225,8 +226,27 @@ func handleRequestedReviewersRemove(d Deps) mizu.Handler {
 // handleRequestedReviewersList serves GET /repos/{owner}/{repo}/pulls/{number}/requested_reviewers.
 func handleRequestedReviewersList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		owner, repo := c.Param("owner"), c.Param("repo")
+		pr, err := d.Pulls.GetPR(ctx, actor.UserID, owner, repo, number)
+		if pullError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		users := make([]any, 0, len(pr.RequestedReviewers))
+		for _, u := range pr.RequestedReviewers {
+			users = append(users, d.URLs.SimpleUser(u, d.NodeFormat))
+		}
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"users": []any{},
+			"users": users,
 			"teams": []any{},
 		})
 		return nil
@@ -288,10 +308,15 @@ func handlePullDeleteDispatch(d Deps) mizu.Handler {
 				writeError(c.Writer(), errRequiresAuth())
 				return nil
 			}
-			var body struct{}
-			_ = decodeJSON(c, &body)
+			var body struct {
+				Reviewers     []string `json:"reviewers"`
+				TeamReviewers []string `json:"team_reviewers"`
+			}
+			if !decodeJSON(c, &body) {
+				return nil
+			}
 			owner, repo := c.Param("owner"), c.Param("repo")
-			pr, err := d.Pulls.GetPR(ctx, actor.UserID, owner, repo, number)
+			pr, err := d.Pulls.RemoveRequestedReviewers(ctx, actor.UserID, owner, repo, number, body.Reviewers)
 			if pullError(c.Writer(), err) {
 				return nil
 			}

@@ -349,6 +349,10 @@ func pullError(w http.ResponseWriter, err error) bool {
 		writeError(w, errConflict("Head branch was modified. Review and try the merge again."))
 	case errors.Is(err, domain.ErrInvalidMergeMethod):
 		writeError(w, errValidation(FieldError{Resource: "PullRequest", Field: "merge_method", Code: "invalid"}))
+	case errors.Is(err, domain.ErrReviewerNotFound):
+		writeError(w, errUnprocessable("Reviews may only be requested from collaborators. One or more of the users or teams you specified is not a collaborator of the repository."))
+	case errors.Is(err, domain.ErrReviewerIsAuthor):
+		writeError(w, errUnprocessable("Review cannot be requested from pull request author."))
 	case errors.Is(err, domain.ErrValidation):
 		writeError(w, errValidation())
 	default:

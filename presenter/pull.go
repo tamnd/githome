@@ -52,7 +52,7 @@ func (b *URLBuilder) PullRequest(owner, repo string, pr *domain.PullRequest, for
 		MergedAt:           timePtr(pr.MergedAt),
 		MergeCommitSHA:     pr.MergeCommitSHA,
 		Assignees:          b.assignees(pr.Assignees, format),
-		RequestedReviewers: []restmodel.SimpleUser{},
+		RequestedReviewers: b.assignees(pr.RequestedReviewers, format),
 		RequestedTeams:     []any{},
 		Head:               b.pullRef(pr.Head, format),
 		Base:               b.pullRef(pr.Base, format),
