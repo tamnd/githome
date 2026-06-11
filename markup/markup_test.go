@@ -78,6 +78,10 @@ func TestHeadingAnchor(t *testing.T) {
 	if !strings.Contains(got, `class="anchor"`) || !strings.Contains(got, `href="#user-content-hello-world"`) {
 		t.Errorf("clickable anchor missing:\n%s", got)
 	}
+	// The anchor's visible body is the link octicon, not a CSS pseudo-element.
+	if !strings.Contains(got, `<svg class="octicon octicon-link"`) || !strings.Contains(got, linkIconPath) {
+		t.Errorf("anchor is missing the link octicon:\n%s", got)
+	}
 }
 
 func TestDuplicateHeadingSlugs(t *testing.T) {

@@ -88,10 +88,16 @@ func (pp *postProcessor) walk(n *html.Node) {
 	}
 }
 
+// linkIconPath is the 16-grid octicon-link path data the heading anchors carry,
+// copied from the same @primer/octicons v19.28.1 data (MIT, (c) GitHub Inc.) as
+// the alert icons above.
+const linkIconPath = "m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"
+
 // headingAnchor gives a heading a stable id and prepends the clickable anchor
-// GitHub renders. The id is prefixed user-content- so a heading slug can never
-// collide with an application-owned element id on the page (implementation/10
-// section 7.1). Duplicate slugs in one document get a -1, -2 suffix.
+// GitHub renders, with the octicon-link glyph as its visible body. The id is
+// prefixed user-content- so a heading slug can never collide with an
+// application-owned element id on the page (implementation/10 section 7.1).
+// Duplicate slugs in one document get a -1, -2 suffix.
 func (pp *postProcessor) headingAnchor(h *html.Node) {
 	slug := pp.uniqueSlug(slugify(textContent(h)))
 	id := "user-content-" + slug
@@ -107,6 +113,25 @@ func (pp *postProcessor) headingAnchor(h *html.Node) {
 			{Key: "aria-hidden", Val: "true"},
 		},
 	}
+	svg := &html.Node{
+		Type:     html.ElementNode,
+		Data:     "svg",
+		DataAtom: atom.Svg,
+		Attr: []html.Attribute{
+			{Key: "class", Val: "octicon octicon-link"},
+			{Key: "viewBox", Val: "0 0 16 16"},
+			{Key: "width", Val: "16"},
+			{Key: "height", Val: "16"},
+			{Key: "fill", Val: "currentColor"},
+			{Key: "aria-hidden", Val: "true"},
+		},
+	}
+	svg.AppendChild(&html.Node{
+		Type: html.ElementNode,
+		Data: "path",
+		Attr: []html.Attribute{{Key: "d", Val: linkIconPath}},
+	})
+	anchor.AppendChild(svg)
 	// This anchor is emitted after sanitize, so its aria-hidden survives: post-process
 	// is the last stage and decorates trusted nodes, it does not run the allowlist again.
 	if first := h.FirstChild; first != nil {
