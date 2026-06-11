@@ -22,6 +22,7 @@ import (
 	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
 	webcompare "github.com/tamnd/githome/fe/web/compare"
+	webhome "github.com/tamnd/githome/fe/web/home"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
@@ -101,11 +102,26 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 		d.CSRF.Middleware(),
 		d.Flash.Middleware(),
 	)
+	// The landing surface: / switches between the dashboard and the anonymous
+	// landing on the resolved viewer, and /dashboard is the dashboard's stable
+	// URL (an anonymous request there bounces to the sign-in form with
+	// return_to). Both render the same page through the same handlers, so the
+	// two URLs never drift. The HomeHandler override replaces only the root;
+	// browse mode uses it to redirect to the repository, and /dashboard keeps
+	// answering for a signed-in viewer.
+	hh := webhome.New(webhome.Deps{
+		Repos:  d.Repos,
+		Events: d.Events,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
 	if d.HomeHandler != nil {
 		page.Get("/{$}", d.HomeHandler)
 	} else {
-		page.Get("/{$}", handleHome(d))
+		page.Get("/{$}", hh.Index)
 	}
+	page.Get("/dashboard", hh.Dashboard)
 
 	mountAuth(page, d)
 	mountRepo(page, d)
@@ -573,15 +589,6 @@ func mountNotifications(page *mizu.Router, d Deps) {
 		}
 		return d.Render.Page(c, "notifications/index", d.View.Notifications(c))
 	})
-}
-
-// handleHome renders the landing page. A signed-in viewer sees the dashboard
-// shell, an anonymous viewer the sign-in blankslate; the difference is driven by
-// the viewer the session middleware resolved, so the same handler serves both.
-func handleHome(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		return d.Render.Page(c, "home/index", d.View.Home(c))
-	}
 }
 
 // handleNotFound serves the unmounted URL space. A trailing-slash URL 301s to

@@ -52,7 +52,7 @@ func (h *Handlers) overview(ctx context.Context, viewer int64, u *domain.User) (
 		if err != nil {
 			return view.ProfileOverviewVM{}, err
 		}
-		vm.Activity = h.feedItems(events)
+		vm.Activity = FeedItems(events)
 	}
 	vm.ActivityEmpty = len(vm.Activity) == 0
 	vm.Empty = len(vm.PopularRepos) == 0 && vm.ActivityEmpty
