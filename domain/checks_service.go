@@ -270,9 +270,25 @@ func (s *ChecksService) ListCheckSuites(ctx context.Context, viewerPK int64, own
 	if err != nil {
 		return nil, "", err
 	}
-	rows, err := s.store.ListCheckSuites(ctx, repo.PK, sha)
+	out, err := s.suitesForSHA(ctx, repo.PK, sha)
 	if err != nil {
 		return nil, "", err
+	}
+	return out, sha, nil
+}
+
+// SuitesForPull lists the check suites at a pull request's recorded head, each
+// carrying its check runs, the path the PR Checks tab takes without re-resolving
+// a ref. The caller already read-gated the repository, the same contract
+// RollupForPull holds.
+func (s *ChecksService) SuitesForPull(ctx context.Context, repo *Repo, headSHA string) ([]*CheckSuite, error) {
+	return s.suitesForSHA(ctx, repo.PK, headSHA)
+}
+
+func (s *ChecksService) suitesForSHA(ctx context.Context, repoPK int64, sha string) ([]*CheckSuite, error) {
+	rows, err := s.store.ListCheckSuites(ctx, repoPK, sha)
+	if err != nil {
+		return nil, err
 	}
 	// Batch-load all check runs for the page of suites in one query.
 	suitePKs := make([]int64, len(rows))
@@ -281,7 +297,7 @@ func (s *ChecksService) ListCheckSuites(ctx context.Context, viewerPK int64, own
 	}
 	runsBySuite, err := s.store.ListCheckRunsForSuites(ctx, suitePKs)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	out := make([]*CheckSuite, 0, len(rows))
 	for i := range rows {
@@ -296,7 +312,7 @@ func (s *ChecksService) ListCheckSuites(ctx context.Context, viewerPK int64, own
 			Runs: runs, CreatedAt: rows[i].CreatedAt, UpdatedAt: rows[i].UpdatedAt,
 		})
 	}
-	return out, sha, nil
+	return out, nil
 }
 
 // Rollup folds a ref's statuses and check runs into the status check rollup for

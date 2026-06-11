@@ -177,14 +177,22 @@ type PRShellVM struct {
 	IsClosed bool
 	MergedAt string
 
-	ActiveTab string // conversation | commits | files
+	ActiveTab string // conversation | commits | checks | files
 
 	CanEdit bool
 	EditURL string
 
+	// The Checks tab shows only when the checks service is wired, the same gate
+	// the standalone checks page mounts behind. CheckCount is the head sha's
+	// rollup total (check runs plus commit statuses), so the tab badge, the
+	// merge box, and the tab page all count the same signals.
+	ShowChecksTab bool
+	CheckCount    int
+
 	// The tab URLs, precomputed so the shell partial never builds a link.
 	ConversationURL string
 	CommitsURL      string
+	ChecksURL       string
 	FilesURL        string
 }
 

@@ -373,6 +373,11 @@ func mountPulls(page *mizu.Router, d Deps) {
 	pg.Get("/{owner}/{repo}/pull/{number}", ph.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", ph.Commits)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", ph.Files)
+	// The Checks tab mounts only when the checks service is wired, the same gate
+	// the standalone checks page sits behind; the shell hides the tab then too.
+	if d.Checks != nil {
+		pg.Get("/{owner}/{repo}/pull/{number}/checks", ph.Checks)
+	}
 	pg.Get("/{owner}/{repo}/pull/{number}/partials/merge-box", ph.MergeBox)
 
 	pg.Post("/{owner}/{repo}/pull/{number}/comments", ph.CreateComment)

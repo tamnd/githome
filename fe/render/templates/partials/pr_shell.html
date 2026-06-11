@@ -41,6 +41,11 @@
     <a class="pr-tab{{if eq .ActiveTab "commits"}} is-current{{end}}" href="{{.CommitsURL}}"
        {{if eq .ActiveTab "commits"}}aria-current="page"{{end}}>
       {{octicon "git-commit" 16}} Commits <span class="pr-tab-count">{{.CommitCount}}</span></a>
+    {{if .ShowChecksTab -}}
+    <a class="pr-tab{{if eq .ActiveTab "checks"}} is-current{{end}}" href="{{.ChecksURL}}"
+       {{if eq .ActiveTab "checks"}}aria-current="page"{{end}}>
+      {{octicon "check-circle" 16}} Checks <span class="pr-tab-count">{{.CheckCount}}</span></a>
+    {{- end}}
     <a class="pr-tab{{if eq .ActiveTab "files"}} is-current{{end}}" href="{{.FilesURL}}"
        {{if eq .ActiveTab "files"}}aria-current="page"{{end}}>
       {{octicon "diff-modified" 16}} Files changed <span class="pr-tab-count">{{.ChangedFiles}}</span></a>

@@ -51,6 +51,12 @@ func PullFiles(owner, name string, number int64) string {
 	return Pull(owner, name, number) + "/files"
 }
 
+// PullChecks is the Checks tab, /{owner}/{repo}/pull/{number}/checks, the
+// check-run list at the pull request's head sha.
+func PullChecks(owner, name string, number int64) string {
+	return Pull(owner, name, number) + "/checks"
+}
+
 // PullComment is the permalink to a comment on a PR's Conversation timeline,
 // /{owner}/{repo}/pull/{number}#issuecomment-{id}. A PR shares the issue number
 // space, so its conversation comments carry the same issuecomment anchor the

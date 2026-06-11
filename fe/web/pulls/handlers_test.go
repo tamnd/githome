@@ -38,11 +38,13 @@ import (
 type fixture struct {
 	srv     *httptest.Server
 	pulls   *domain.PRService
+	checks  *domain.ChecksService
 	ownerPK int64
 	owner   string
 	repo    string
 	private string
 	prNum   int64
+	headSHA string
 }
 
 func newFixture(t *testing.T) fixture {
@@ -82,6 +84,7 @@ func newFixture(t *testing.T) fixture {
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	prSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
+	checksSvc := domain.NewChecksService(st, repoSvc, issueSvc, gitStore)
 
 	// Seed one open pull request from feature into main, with an opening body, so
 	// the index row, the conversation timeline, the commits tab and the files diff
@@ -112,6 +115,7 @@ func newFixture(t *testing.T) fixture {
 	h := New(Deps{
 		Pulls:  prSvc,
 		Issues: issueSvc,
+		Checks: checksSvc,
 		Repos:  repoSvc,
 		URLs:   presenter.NewURLBuilder(testURLs(t)),
 		Render: renderSet,
@@ -127,15 +131,16 @@ func newFixture(t *testing.T) fixture {
 	pg.Get("/{owner}/{repo}/pull/{number}", h.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", h.Commits)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", h.Files)
+	pg.Get("/{owner}/{repo}/pull/{number}/checks", h.Checks)
 	pg.Get("/{owner}/{repo}/pull/{number}/partials/merge-box", h.MergeBox)
 
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
 
 	return fixture{
-		srv: srv, pulls: prSvc, ownerPK: owner.PK,
+		srv: srv, pulls: prSvc, checks: checksSvc, ownerPK: owner.PK,
 		owner: "octocat", repo: "hello", private: "secret",
-		prNum: pr.Number,
+		prNum: pr.Number, headSHA: pr.Head.SHA,
 	}
 }
 
