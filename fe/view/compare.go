@@ -48,6 +48,7 @@ type CompareRangeVM struct {
 	Head         CompareBranchVM
 	MergeBase    string // short SHA of the merge base commit
 	Commits      []CompareCommitVM
+	TotalCommits int // the real range size; > len(Commits) when the list is capped
 	Files        []DiffFileVM
 	Additions    int
 	Deletions    int

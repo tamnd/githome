@@ -70,6 +70,7 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		Head:         branchVM(repo, cmp.Head),
 		MergeBase:    shortSHA(cmp.MergeBase),
 		Commits:      commits,
+		TotalCommits: cmp.TotalCommits,
 		Files:        files,
 		Additions:    cmp.Additions,
 		Deletions:    cmp.Deletions,

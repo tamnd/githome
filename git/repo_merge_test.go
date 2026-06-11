@@ -200,3 +200,30 @@ func messagesOf(commits []git.Commit) []string {
 	}
 	return out
 }
+
+// CommitsBetweenN keeps the newest commits of the range when the cap bites,
+// still oldest first, and is unbounded at zero.
+func TestCommitsBetweenN(t *testing.T) {
+	ctx := context.Background()
+	store := git.NewStore(t.TempDir())
+	base, feature, _ := mergeRepo(t, store, 14)
+
+	all, err := store.CommitsBetweenN(ctx, 14, base, feature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("unbounded: got %d commits, want 2", len(all))
+	}
+
+	one, err := store.CommitsBetweenN(ctx, 14, base, feature, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(one) != 1 {
+		t.Fatalf("capped: got %d commits, want 1", len(one))
+	}
+	if one[0].SHA != all[1].SHA {
+		t.Fatalf("capped list should keep the newest commit: got %s want %s", one[0].SHA, all[1].SHA)
+	}
+}

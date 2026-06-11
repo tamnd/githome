@@ -93,6 +93,13 @@ func (s *Store) AheadBehind(ctx context.Context, pk int64, base, head SHA) (ahea
 // the list the pull request commits endpoint pages over. It is empty when head
 // is an ancestor of base.
 func (s *Store) CommitsBetween(ctx context.Context, pk int64, base, head SHA) ([]Commit, error) {
+	return s.CommitsBetweenN(ctx, pk, base, head, 0)
+}
+
+// CommitsBetweenN is CommitsBetween bounded to at most max commits (the newest
+// max of the range, still returned oldest first), so a compare across thousands
+// of commits never loads the whole range into memory. max <= 0 is unbounded.
+func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, max int) ([]Commit, error) {
 	const recSep = "\x1e"
 	const fieldSep = "\x00"
 	// Use git's %x00 / %x1e placeholders so the separators land in the output
@@ -100,7 +107,11 @@ func (s *Store) CommitsBetween(ctx context.Context, pk int64, base, head SHA) ([
 	format := strings.Join([]string{
 		"%H", "%T", "%P", "%an", "%ae", "%aI", "%cn", "%ce", "%cI", "%B",
 	}, "%x00") + "%x1e"
-	args := []string{"log", "--reverse", "--pretty=format:" + format, base + ".." + head}
+	args := []string{"log", "--reverse", "--pretty=format:" + format}
+	if max > 0 {
+		args = append(args, "-n", strconv.Itoa(max))
+	}
+	args = append(args, base+".."+head)
 	r, err := s.run(ctx, pk, nil, args...)
 	if err != nil {
 		return nil, err
