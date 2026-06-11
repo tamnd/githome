@@ -128,6 +128,7 @@ func run() error {
 	// handlers join the runtime below: deliver_event fans an event out to its
 	// hooks, and deliver_webhook performs one signed POST and records the result.
 	webhookRenderer := webhook.NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
+	webhookRenderer.BindGit(gitStore)
 	deliverer := webhook.NewDeliverer(st, webhookRenderer, nil, enqueuer, config.Version)
 
 	// The job runtime drains the queue the domain fills. M5 registers the

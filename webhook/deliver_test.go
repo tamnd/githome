@@ -73,6 +73,8 @@ type deliverFixture struct {
 	runtime  *worker.Runtime
 	rcv      *receiver
 	srv      *httptest.Server
+	renderer *Renderer
+	gs       *git.Store
 	ownerPK  int64
 	repoPK   int64
 	repoName string
@@ -112,6 +114,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 
 	urls := presenter.NewURLBuilder(testURLs(t))
 	renderer := NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
+	renderer.BindGit(gitStore)
 	// The receiver runs on loopback, which the guard blocks by default; the test
 	// client opts loopback in the way an operator would for an internal endpoint.
 	client := NewClient(ClientOptions{Allow: []netip.Prefix{
@@ -126,7 +129,8 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 
 	return &deliverFixture{
 		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, hooks: hookSvc, enq: enq,
-		runtime: rt, rcv: rcv, srv: srv, ownerPK: owner.PK, repoPK: repo.PK, repoName: "hello",
+		runtime: rt, rcv: rcv, srv: srv, renderer: renderer, gs: gitStore,
+		ownerPK: owner.PK, repoPK: repo.PK, repoName: "hello",
 	}
 }
 

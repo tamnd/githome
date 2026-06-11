@@ -115,6 +115,27 @@ func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, m
 	return parseLogRecords(string(r.stdout)), nil
 }
 
+// PushCommits lists the commits a pushed range introduced, for the push webhook
+// body: the newest commits up to limit, returned oldest first the way GitHub
+// orders them (--reverse flips the output after -n limiting, so a capped walk
+// keeps the newest commits). An empty before walks from after alone, the
+// new-ref case where no old tip bounds the range.
+func (s *Store) PushCommits(ctx context.Context, pk int64, before, after SHA, limit int) ([]Commit, error) {
+	rng := after
+	if before != "" {
+		rng = before + ".." + after
+	}
+	args := []string{"log", "--reverse", "--pretty=format:" + logRecordFormat, "-n", strconv.Itoa(limit), rng}
+	r, err := s.run(ctx, pk, nil, args...)
+	if err != nil {
+		return nil, err
+	}
+	if r.code != 0 {
+		return nil, fail(args, r)
+	}
+	return parseLogRecords(string(r.stdout)), nil
+}
+
 // logRecordFormat is the machine-readable git log pretty format the subprocess
 // log readers share: NUL-separated fields, \x1e-terminated records, via git's
 // %x00 / %x1e placeholders so the separators land in the output without putting
@@ -177,6 +198,46 @@ func (s *Store) LastCommitForPath(ctx context.Context, pk int64, rev, path strin
 		return Commit{}, false, nil
 	}
 	return commits[0], true, nil
+}
+
+// CommitFiles returns the paths a commit added, removed, and modified relative
+// to its first parent (or the empty tree for a root commit), the per-commit
+// file lists a push webhook body carries.
+func (s *Store) CommitFiles(ctx context.Context, pk int64, sha SHA) (added, removed, modified []string, err error) {
+	args := []string{"diff-tree", "--no-commit-id", "--name-status", "-r", "--root", "-m", "--first-parent", sha}
+	r, err := s.run(ctx, pk, nil, args...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if r.code != 0 {
+		return nil, nil, nil, fail(args, r)
+	}
+	added, removed, modified = []string{}, []string{}, []string{}
+	for line := range strings.SplitSeq(strings.TrimRight(string(r.stdout), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		f := strings.SplitN(line, "\t", 2)
+		if len(f) < 2 || f[0] == "" {
+			continue
+		}
+		path := f[1]
+		// Rename detection is off here, so renames arrive as an add plus a
+		// delete, which is also how GitHub lists them. Stay safe anyway and
+		// take the destination path if a two-path line ever shows up.
+		if i := strings.LastIndexByte(path, '\t'); i >= 0 {
+			path = path[i+1:]
+		}
+		switch f[0][0] {
+		case 'A':
+			added = append(added, path)
+		case 'D':
+			removed = append(removed, path)
+		default:
+			modified = append(modified, path)
+		}
+	}
+	return added, removed, modified, nil
 }
 
 // DiffStat totals the additions, deletions, and changed file count between base

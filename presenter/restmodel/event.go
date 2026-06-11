@@ -106,23 +106,48 @@ type EventRepo struct {
 	URL  string `json:"url"`
 }
 
-// WebhookPush is the body of a push delivery. Githome does not walk the pushed
-// range, so commits is empty and head_commit is null; before and after carry the
-// moved tips, the fields a receiver keys synchronization off.
+// WebhookPush is the body of a push delivery. commits carries the pushed range
+// walked from the git layer, capped at twenty like GitHub, and head_commit is
+// the new tip; before and after carry the moved shas a receiver keys
+// synchronization off.
 type WebhookPush struct {
-	Ref        string        `json:"ref"`
-	Before     string        `json:"before"`
-	After      string        `json:"after"`
-	Created    bool          `json:"created"`
-	Deleted    bool          `json:"deleted"`
-	Forced     bool          `json:"forced"`
-	BaseRef    *string       `json:"base_ref"`
-	Compare    string        `json:"compare"`
-	Commits    []any         `json:"commits"`
-	HeadCommit *any          `json:"head_commit"`
-	Repository Repository    `json:"repository"`
-	Pusher     WebhookPusher `json:"pusher"`
-	Sender     SimpleUser    `json:"sender"`
+	Ref        string          `json:"ref"`
+	Before     string          `json:"before"`
+	After      string          `json:"after"`
+	Created    bool            `json:"created"`
+	Deleted    bool            `json:"deleted"`
+	Forced     bool            `json:"forced"`
+	BaseRef    *string         `json:"base_ref"`
+	Compare    string          `json:"compare"`
+	Commits    []WebhookCommit `json:"commits"`
+	HeadCommit *WebhookCommit  `json:"head_commit"`
+	Repository Repository      `json:"repository"`
+	Pusher     WebhookPusher   `json:"pusher"`
+	Sender     SimpleUser      `json:"sender"`
+}
+
+// WebhookCommit is one commit in a push delivery's commits list and its
+// head_commit field: the commit coordinates plus the per-file change lists.
+type WebhookCommit struct {
+	ID        string            `json:"id"`
+	TreeID    string            `json:"tree_id"`
+	Distinct  bool              `json:"distinct"`
+	Message   string            `json:"message"`
+	Timestamp Time              `json:"timestamp"`
+	URL       string            `json:"url"`
+	Author    WebhookCommitUser `json:"author"`
+	Committer WebhookCommitUser `json:"committer"`
+	Added     []string          `json:"added"`
+	Removed   []string          `json:"removed"`
+	Modified  []string          `json:"modified"`
+}
+
+// WebhookCommitUser is the git identity on a webhook commit. username is the
+// matched account login and is omitted when the identity matches no account.
+type WebhookCommitUser struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username,omitempty"`
 }
 
 // WebhookPusher is the name/email pair a push delivery names the pusher by, the
@@ -152,13 +177,28 @@ type WebhookPullRequest struct {
 // PushEventPayload is the Events-API payload object for a PushEvent. It mirrors
 // the push delivery's moved tips in the feed's compact form.
 type PushEventPayload struct {
-	PushID       int64  `json:"push_id"`
-	Size         int    `json:"size"`
-	DistinctSize int    `json:"distinct_size"`
-	Ref          string `json:"ref"`
-	Head         string `json:"head"`
-	Before       string `json:"before"`
-	Commits      []any  `json:"commits"`
+	PushID       int64             `json:"push_id"`
+	Size         int               `json:"size"`
+	DistinctSize int               `json:"distinct_size"`
+	Ref          string            `json:"ref"`
+	Head         string            `json:"head"`
+	Before       string            `json:"before"`
+	Commits      []PushEventCommit `json:"commits"`
+}
+
+// PushEventCommit is the compact commit object a PushEvent feed entry carries.
+type PushEventCommit struct {
+	SHA      string               `json:"sha"`
+	Author   PushEventCommitIdent `json:"author"`
+	Message  string               `json:"message"`
+	Distinct bool                 `json:"distinct"`
+	URL      string               `json:"url"`
+}
+
+// PushEventCommitIdent is the email/name pair on a feed commit.
+type PushEventCommitIdent struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
 }
 
 // IssuesEventPayload is the Events-API payload object for an IssuesEvent.
