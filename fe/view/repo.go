@@ -277,12 +277,15 @@ type TagsVM struct {
 	Items  []TagRowVM
 }
 
-// TagRowVM is one tag row: the name, the commit it points at, and the tree URL.
+// TagRowVM is one tag row: the name, the commit it points at, the tree URL,
+// and the source-archive download links.
 type TagRowVM struct {
 	Name     string
 	ShortSHA string
 	Message  string
 	TreeURL  string
+	ZipURL   string
+	TarGzURL string
 }
 
 // FileFinderVM is the fuzzy file index at a ref: the flattened file list as plain

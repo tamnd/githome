@@ -272,6 +272,7 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
+	rg.Get("/{owner}/{repo}/archive/{rest...}", rh.Archive)
 }
 
 // mountCompare registers the branch-comparison routes under /{owner}/{repo}/compare.

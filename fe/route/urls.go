@@ -99,6 +99,18 @@ func Find(owner, name, ref string) string {
 	return Repo(owner, name) + "/find/" + refSegments(ref)
 }
 
+// ArchiveZip is the zipball download, /{owner}/{repo}/archive/{ref}.zip. The
+// ref may carry slashes; its segments are escaped like every other ref URL so
+// the archive handler's suffix split sees the same boundaries.
+func ArchiveZip(owner, name, ref string) string {
+	return Repo(owner, name) + "/archive/" + refSegments(ref) + ".zip"
+}
+
+// ArchiveTarGz is the tarball download, /{owner}/{repo}/archive/{ref}.tar.gz.
+func ArchiveTarGz(owner, name, ref string) string {
+	return Repo(owner, name) + "/archive/" + refSegments(ref) + ".tar.gz"
+}
+
 // refPathURL joins the repo, the view verb, the ref, and the path. The ref may
 // contain slashes (a branch named feature/x), so each of its segments is escaped
 // individually and rejoined with literal slashes; the path is escaped the same

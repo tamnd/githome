@@ -642,6 +642,25 @@
   color: var(--fgColor-muted);
 }
 
+/* Source-archive download links on a tag row. */
+.ref-list-downloads {
+  display: inline-flex;
+  gap: var(--base-size-12);
+  margin-left: auto;
+}
+
+.ref-list-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.ref-list-download:hover {
+  color: var(--fgColor-accent);
+}
+
 /* File finder. */
 .file-finder-head {
   display: flex;

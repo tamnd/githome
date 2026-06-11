@@ -14,9 +14,9 @@ import (
 
 // Tags renders the tag overview: GET /{owner}/{repo}/tags. Tags sort version-aware
 // descending, so v2.0.0 precedes v1.9.0 and a non-version tag falls back to
-// reverse lexical order. Each row links the tree at the tag and shows the
-// annotated message when present. The archive links land with the archive
-// endpoint. See implementation/07 section 10.2.
+// reverse lexical order. Each row links the tree at the tag, shows the annotated
+// message when present, and carries the zip and tar.gz download links the
+// archive endpoint serves. See implementation/07 section 10.2.
 func (h *Handlers) Tags(c *mizu.Ctx) error {
 	repo, ok := repoFromContext(c.Context())
 	if !ok {
@@ -35,6 +35,10 @@ func (h *Handlers) Tags(c *mizu.Ctx) error {
 			Name:     t.Name,
 			ShortSHA: shortSHA(t.Commit),
 			TreeURL:  route.Tree(owner, repo.Name, t.Name, ""),
+			// The qualified refs/tags/ form keeps the download on the tag even
+			// when a branch shares its name.
+			ZipURL:   route.ArchiveZip(owner, repo.Name, "refs/tags/"+t.Name),
+			TarGzURL: route.ArchiveTarGz(owner, repo.Name, "refs/tags/"+t.Name),
 		}
 		if t.Annotated != nil {
 			row.Message = commitTitle(t.Annotated.Message)
