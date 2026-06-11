@@ -26,11 +26,59 @@ func handleRepoGet(d Deps) mizu.Handler {
 			return err
 		}
 		actor := auth.ActorFrom(c.Request().Context())
-		body := d.URLs.Repository(repo, d.NodeFormat, repoPermissions(actor, repo))
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.RepositoryFull(repo, d.NodeFormat, repoPermissions(actor, repo), det)
 		tag := etag.Version("repo", repo.ID, repo.UpdatedAt.UnixNano())
 		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, body, tag)
 		return nil
 	}
+}
+
+// repoDetail assembles the extras only the single-repository responses carry:
+// the fork network count, the organization block for org-owned repositories,
+// and the resolved parent/source chain for forks. subscribers_count stays
+// zero until watching lands. A fork whose parent the actor cannot see simply
+// omits parent/source, the same non-leak rule as everywhere else.
+func repoDetail(d Deps, c *mizu.Ctx, repo *domain.Repo) (presenter.RepoDetail, error) {
+	ctx := c.Request().Context()
+	actor := auth.ActorFrom(ctx)
+	det := presenter.RepoDetail{}
+
+	n, err := d.Repos.ForksCount(ctx, repo.PK)
+	if err != nil {
+		return det, err
+	}
+	det.NetworkCount = n
+
+	if repo.Owner != nil && repo.Owner.Type == "Organization" {
+		det.Organization = repo.Owner
+	}
+
+	if repo.ForkOfPK != nil {
+		parent, err := d.Repos.GetRepoByPK(ctx, actor.UserID, *repo.ForkOfPK)
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			return det, nil
+		}
+		if err != nil {
+			return det, err
+		}
+		p := d.URLs.Repository(parent, d.NodeFormat, nil)
+		det.Parent = &p
+		src := parent
+		for src.ForkOfPK != nil {
+			next, err := d.Repos.GetRepoByPK(ctx, actor.UserID, *src.ForkOfPK)
+			if err != nil {
+				break
+			}
+			src = next
+		}
+		sr := d.URLs.Repository(src, d.NodeFormat, nil)
+		det.Source = &sr
+	}
+	return det, nil
 }
 
 // handleBranches serves GET /repos/{owner}/{repo}/branches. An empty repository
@@ -396,7 +444,11 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Repository(repo, d.NodeFormat, presenter.OwnerPermissions()))
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.RepositoryFull(repo, d.NodeFormat, presenter.OwnerPermissions(), det))
 		return nil
 	}
 }

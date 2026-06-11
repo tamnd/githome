@@ -57,6 +57,8 @@ type RepoStore interface {
 	InsertRepo(ctx context.Context, r *store.RepoRow) error
 	UpdateRepo(ctx context.Context, pk int64, p store.RepoPatch) (*store.RepoRow, error)
 	SoftDeleteRepo(ctx context.Context, pk int64) error
+	CountForks(ctx context.Context, pk int64) (int64, error)
+	ForksOf(ctx context.Context, pk int64) ([]*store.RepoRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 	InsertEvent(ctx context.Context, e *store.EventRow) error
@@ -458,6 +460,16 @@ func (s *RepoService) RepoRedirect(ctx context.Context, viewerPK int64, owner, n
 		return nil, err
 	}
 	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// ForksCount reports how many live repositories were forked from repoPK. It
+// backs network_count (and the fork counters) on the single-repository shape.
+func (s *RepoService) ForksCount(ctx context.Context, repoPK int64) (int, error) {
+	n, err := s.store.CountForks(ctx, repoPK)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }
 
 // DeleteRepo soft-deletes the repository identified by owner/name. Only the

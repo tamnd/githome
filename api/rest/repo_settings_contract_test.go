@@ -1,11 +1,14 @@
 package rest
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/tamnd/githome/store"
 )
 
 // decodeObject unmarshals a JSON object response for field-level assertions.
@@ -189,5 +192,165 @@ func TestRepoPatchVisibility(t *testing.T) {
 	fe := firstFieldError(t, body)
 	if fe["field"] != "visibility" || fe["code"] != "invalid" {
 		t.Errorf("errors[0] = %v, want field=visibility code=invalid", fe)
+	}
+}
+
+// TestRepoFullShapeFields pins the single-repository extras: temp_clone_token
+// is an explicit null, the counts are present, and the merge settings show
+// only for an admin caller. List items must carry none of these keys.
+func TestRepoFullShapeFields(t *testing.T) {
+	fx := repoServer(t)
+
+	resp, body := authedGet(t, fx.srv, "/repos/octocat/hello", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	m := decodeObject(t, body)
+	if v, ok := m["temp_clone_token"]; !ok || v != nil {
+		t.Errorf("temp_clone_token = %v (present %v), want explicit null", v, ok)
+	}
+	for _, key := range []string{"network_count", "subscribers_count", "allow_squash_merge", "allow_merge_commit", "allow_rebase_merge", "allow_auto_merge", "delete_branch_on_merge", "allow_update_branch"} {
+		if _, ok := m[key]; !ok {
+			t.Errorf("full shape missing %s", key)
+		}
+	}
+
+	// Anonymous callers get the counts but not the admin-only merge settings.
+	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello", "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("anon status %d", resp.StatusCode)
+	}
+	m = decodeObject(t, body)
+	if _, ok := m["network_count"]; !ok {
+		t.Errorf("anon full shape missing network_count")
+	}
+	if _, ok := m["allow_squash_merge"]; ok {
+		t.Errorf("anon full shape must not carry allow_squash_merge")
+	}
+
+	// List items stay on the narrow shape.
+	resp, body = authedGet(t, fx.srv, "/users/octocat/repos", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("list status %d", resp.StatusCode)
+	}
+	var list []map[string]any
+	if err := json.Unmarshal(body, &list); err != nil || len(list) == 0 {
+		t.Fatalf("list: %v, %s", err, body)
+	}
+	for _, key := range []string{"temp_clone_token", "network_count", "subscribers_count", "allow_squash_merge"} {
+		if _, ok := list[0][key]; ok {
+			t.Errorf("list item must not carry %s", key)
+		}
+	}
+}
+
+// TestRepoMergeSettingsRoundTrip proves a PATCHed merge flag persists and
+// renders back on the full shape.
+func TestRepoMergeSettingsRoundTrip(t *testing.T) {
+	fx := repoServer(t)
+	resp, body := authedSend(t, fx.srv, http.MethodPatch, "/repos/octocat/hello", fx.token,
+		`{"allow_squash_merge":false,"delete_branch_on_merge":true}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("patch status %d, body %s", resp.StatusCode, body)
+	}
+	m := decodeObject(t, body)
+	if m["allow_squash_merge"] != false {
+		t.Errorf("patch response allow_squash_merge = %v, want false", m["allow_squash_merge"])
+	}
+	if m["delete_branch_on_merge"] != true {
+		t.Errorf("patch response delete_branch_on_merge = %v, want true", m["delete_branch_on_merge"])
+	}
+
+	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("get status %d", resp.StatusCode)
+	}
+	m = decodeObject(t, body)
+	if m["allow_squash_merge"] != false || m["delete_branch_on_merge"] != true {
+		t.Errorf("get after patch: allow_squash_merge=%v delete_branch_on_merge=%v", m["allow_squash_merge"], m["delete_branch_on_merge"])
+	}
+}
+
+// TestRepoOrganizationBlock seeds an org-owned repository and checks the full
+// shape mirrors the owner into organization.
+func TestRepoOrganizationBlock(t *testing.T) {
+	fx := repoServer(t)
+	ctx := context.Background()
+	org := &store.UserRow{Login: "octoorg", Type: "Organization"}
+	if err := fx.st.InsertUser(ctx, org); err != nil {
+		t.Fatalf("insert org: %v", err)
+	}
+	repo := &store.RepoRow{OwnerPK: org.PK, Name: "tools", DefaultBranch: "main"}
+	if err := fx.st.InsertRepo(ctx, repo); err != nil {
+		t.Fatalf("insert repo: %v", err)
+	}
+	if _, err := fx.gitStore.Init(repo.PK); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+
+	resp, body := authedGet(t, fx.srv, "/repos/octoorg/tools", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, body %s", resp.StatusCode, body)
+	}
+	m := decodeObject(t, body)
+	orgBlock, ok := m["organization"].(map[string]any)
+	if !ok {
+		t.Fatalf("organization block missing: %s", body)
+	}
+	if orgBlock["login"] != "octoorg" || orgBlock["type"] != "Organization" {
+		t.Errorf("organization = %v, want login=octoorg type=Organization", orgBlock)
+	}
+}
+
+// TestRepoForkParentSource seeds a fork row and checks parent/source resolve
+// on the fork and the counts tick up on the parent.
+func TestRepoForkParentSource(t *testing.T) {
+	fx := repoServer(t)
+	ctx := context.Background()
+	fork := &store.RepoRow{
+		OwnerPK: fx.ownerPK, Name: "hello-fork", Fork: true,
+		DefaultBranch: "master", ForkOfPK: &fx.repoPK,
+	}
+	if err := fx.st.InsertRepo(ctx, fork); err != nil {
+		t.Fatalf("insert fork: %v", err)
+	}
+	if _, err := fx.gitStore.Init(fork.PK); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+
+	resp, body := authedGet(t, fx.srv, "/repos/octocat/hello-fork", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("fork status %d, body %s", resp.StatusCode, body)
+	}
+	m := decodeObject(t, body)
+	if m["fork"] != true {
+		t.Errorf("fork = %v, want true", m["fork"])
+	}
+	parent, ok := m["parent"].(map[string]any)
+	if !ok {
+		t.Fatalf("parent missing: %s", body)
+	}
+	if parent["full_name"] != "octocat/hello" {
+		t.Errorf("parent.full_name = %v, want octocat/hello", parent["full_name"])
+	}
+	if _, ok := parent["parent"]; ok {
+		t.Errorf("parent must not nest another parent")
+	}
+	source, ok := m["source"].(map[string]any)
+	if !ok {
+		t.Fatalf("source missing: %s", body)
+	}
+	if source["full_name"] != "octocat/hello" {
+		t.Errorf("source.full_name = %v, want octocat/hello", source["full_name"])
+	}
+
+	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello", "token "+fx.token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("parent get status %d", resp.StatusCode)
+	}
+	m = decodeObject(t, body)
+	if m["network_count"] != float64(1) || m["forks_count"] != float64(1) || m["forks"] != float64(1) {
+		t.Errorf("parent counts = network %v forks_count %v forks %v, want 1/1/1",
+			m["network_count"], m["forks_count"], m["forks"])
 	}
 }

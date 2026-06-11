@@ -230,7 +230,11 @@ func handleUserRepoCreate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Repository(repo, d.NodeFormat, presenter.OwnerPermissions()))
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, d.URLs.RepositoryFull(repo, d.NodeFormat, presenter.OwnerPermissions(), det))
 		return nil
 	}
 }
@@ -318,7 +322,11 @@ func handleOrgRepoCreate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Repository(repo, d.NodeFormat, presenter.OwnerPermissions()))
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, d.URLs.RepositoryFull(repo, d.NodeFormat, presenter.OwnerPermissions(), det))
 		return nil
 	}
 }

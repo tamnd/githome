@@ -163,10 +163,51 @@ func (f *fakeRepoStore) UpdateRepo(_ context.Context, pk int64, p store.RepoPatc
 			if p.IsTemplate != nil {
 				r.IsTemplate = *p.IsTemplate
 			}
+			if p.AllowSquashMerge != nil {
+				r.AllowSquashMerge = *p.AllowSquashMerge
+			}
+			if p.AllowMergeCommit != nil {
+				r.AllowMergeCommit = *p.AllowMergeCommit
+			}
+			if p.AllowRebaseMerge != nil {
+				r.AllowRebaseMerge = *p.AllowRebaseMerge
+			}
+			if p.AllowAutoMerge != nil {
+				r.AllowAutoMerge = *p.AllowAutoMerge
+			}
+			if p.DeleteBranchOnMerge != nil {
+				r.DeleteBranchOnMerge = *p.DeleteBranchOnMerge
+			}
+			if p.AllowUpdateBranch != nil {
+				r.AllowUpdateBranch = *p.AllowUpdateBranch
+			}
+			if p.WebCommitSignoffRequired != nil {
+				r.WebCommitSignoffRequired = *p.WebCommitSignoffRequired
+			}
 			return r, nil
 		}
 	}
 	return nil, store.ErrNotFound
+}
+
+func (f *fakeRepoStore) CountForks(_ context.Context, pk int64) (int64, error) {
+	var n int64
+	for _, r := range f.repos {
+		if r.ForkOfPK != nil && *r.ForkOfPK == pk {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (f *fakeRepoStore) ForksOf(_ context.Context, pk int64) ([]*store.RepoRow, error) {
+	var out []*store.RepoRow
+	for _, r := range f.repos {
+		if r.ForkOfPK != nil && *r.ForkOfPK == pk {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeRepoStore) SoftDeleteRepo(_ context.Context, pk int64) error {
