@@ -49,7 +49,7 @@
         <div class="issue-row-main">
           <a class="issue-row-title" href="{{.URL}}">{{.Title}}</a>
           {{range .Labels -}}
-          <a class="issue-label" href="{{.URL}}" style="background-color:#{{.Color}};color:#{{.TextColor}}"
+          <a class="issue-label" href="{{.URL}}" style="--label-r:{{.R}};--label-g:{{.G}};--label-b:{{.B}}"
              {{if .Description}}title="{{.Description}}"{{end}}>{{.Name}}</a>
           {{- end}}
           <p class="issue-row-meta">

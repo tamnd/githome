@@ -177,8 +177,20 @@
   color: var(--fgColor-muted);
 }
 
-/* A label chip carries the label color inline; only the shape is from tokens. */
+/* A label chip carries its color as the --label-r/g/b channels set inline; the
+   theme's label recipe tokens mix the final colors from them, so light themes
+   paint the color solid with switched black or white text and dark themes tint
+   the canvas instead of glowing at full saturation. The channel defaults are
+   the neutral gray chip, and the lightness switch is the github.com formula:
+   it saturates to 0 (white text) or 1 (black text) at the 0.453 threshold. */
 .issue-label {
+  --label-r: 175;
+  --label-g: 184;
+  --label-b: 193;
+  --label-perceived-lightness: calc(
+    ((var(--label-r) * 0.2126) + (var(--label-g) * 0.7152) + (var(--label-b) * 0.0722)) / 255
+  );
+  --label-lightness-switch: max(0, min(calc((1 / (0.453 - var(--label-perceived-lightness)))), 1));
   display: inline-flex;
   align-items: center;
   padding: 0 var(--base-size-8);
@@ -186,7 +198,9 @@
   font-size: var(--text-small-size);
   font-weight: 500;
   line-height: 20px;
-  border: var(--borderWidth-thin) solid transparent;
+  color: var(--label-fgColor);
+  background-color: var(--label-bgColor);
+  border: var(--borderWidth-thin) solid var(--label-borderColor);
   border-radius: var(--borderRadius-full);
   white-space: nowrap;
 }

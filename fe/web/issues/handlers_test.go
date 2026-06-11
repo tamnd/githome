@@ -193,6 +193,15 @@ func TestIndexListsOpenIssues(t *testing.T) {
 	if !strings.Contains(body, ">bug<") {
 		t.Errorf("index is missing the label chip:\n%s", body)
 	}
+	// The chip carries its color as the --label-r/g/b channels (d73a4a is
+	// 215,58,74) for the theme recipe to mix, never a baked hex pair that
+	// would ignore the dark themes.
+	if !strings.Contains(body, "--label-r:215;--label-g:58;--label-b:74") {
+		t.Errorf("label chip is missing the color channel properties:\n%s", body)
+	}
+	if strings.Contains(body, "background-color:#") {
+		t.Errorf("label chip still bakes an inline hex background:\n%s", body)
+	}
 	// The Issues tab is current in the shared repo header.
 	if !strings.Contains(body, `aria-current="page"`) {
 		t.Errorf("index header is missing the current-tab marker")

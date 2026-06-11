@@ -110,18 +110,21 @@ func (h *Handlers) userChips(us []*domain.User) []view.UserChipVM {
 	return out
 }
 
-// labelChip maps a domain label into its chip, computing the contrasting text
-// color from the background and the index URL that filters to the label.
+// labelChip maps a domain label into its chip, splitting the stored color into
+// the RGB channels the template emits as --label-r/g/b custom properties. The
+// theme recipe mixes the final chip colors from the channels, so the same row
+// reads solid in light themes and tinted in dark ones.
 func labelChip(owner, name string, l *domain.Label) view.LabelVM {
 	desc := ""
 	if l.Description != nil {
 		desc = *l.Description
 	}
-	color := strings.TrimPrefix(l.Color, "#")
+	r, g, b := labelRGB(strings.TrimPrefix(l.Color, "#"))
 	return view.LabelVM{
 		Name:        l.Name,
-		Color:       color,
-		TextColor:   contrastText(color),
+		R:           r,
+		G:           g,
+		B:           b,
 		Description: desc,
 		URL:         route.IssuesQuery(owner, name, "is:issue is:open label:"+quoteLabel(l.Name)),
 	}
@@ -157,25 +160,20 @@ func milestoneChip(owner, name string, m *domain.Milestone) *view.MilestoneVM {
 	}
 }
 
-// contrastText picks black or white text for a label background by its luminance,
-// the same rule github.com uses so a light label reads in dark text and a dark
-// one in white. A malformed color falls back to white on the neutral default.
-func contrastText(hex string) string {
+// labelRGB splits a 6-hex label color into its channels. A malformed color
+// falls back to the neutral gray of an unstyled chip rather than erroring,
+// because a bad stored color must not take the page down.
+func labelRGB(hex string) (int, int, int) {
 	if len(hex) != 6 {
-		return "ffffff"
+		return 175, 184, 193
 	}
 	r, err1 := strconv.ParseInt(hex[0:2], 16, 0)
 	g, err2 := strconv.ParseInt(hex[2:4], 16, 0)
 	b, err3 := strconv.ParseInt(hex[4:6], 16, 0)
 	if err1 != nil || err2 != nil || err3 != nil {
-		return "ffffff"
+		return 175, 184, 193
 	}
-	// Perceived luminance, the standard 0.299/0.587/0.114 weighting.
-	lum := (299*r + 587*g + 114*b) / 1000
-	if lum > 140 {
-		return "000000"
-	}
-	return "ffffff"
+	return int(r), int(g), int(b)
 }
 
 // reactionContent is one of the eight reaction kinds in canonical order, paired
