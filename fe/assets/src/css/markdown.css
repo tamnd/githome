@@ -279,3 +279,43 @@
 .markdown-body .highlight pre {
   margin-bottom: 0;
 }
+
+/*
+ * Footnotes. The renderer collects them into a .footnotes block at the end of
+ * the document: small muted text under a top rule, with the goldmark separator
+ * hr hidden because the border already draws it. Following a reference link
+ * targets the list item, which gets the accent ring so the eye lands on it.
+ */
+.markdown-body .footnotes {
+  font-size: var(--text-body-size-small);
+  color: var(--fgColor-muted);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.markdown-body .footnotes hr {
+  display: none;
+}
+
+.markdown-body .footnotes ol {
+  padding-left: var(--base-size-16);
+}
+
+.markdown-body .footnotes li {
+  position: relative;
+}
+
+.markdown-body .footnotes li:target {
+  color: var(--fgColor-default);
+}
+
+.markdown-body .footnotes li:target::before {
+  position: absolute;
+  top: calc(-1 * var(--base-size-8));
+  right: calc(-1 * var(--base-size-8));
+  bottom: calc(-1 * var(--base-size-8));
+  left: calc(-1 * var(--base-size-24));
+  pointer-events: none;
+  content: "";
+  border: var(--borderWidth-thick) solid var(--borderColor-accent-emphasis);
+  border-radius: var(--borderRadius-medium);
+}
