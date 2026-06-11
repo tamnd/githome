@@ -292,7 +292,7 @@ func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmode
 // Commits is the resolver for the commits field. It reads the pull request's own
 // commits through the git layer on demand, the way gh pr view selects them.
 func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.PullRequestCommitConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +329,7 @@ func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullReq
 // Files is the resolver for the files field. It reads the per-file diff of the
 // pull request range through the git layer on demand.
 func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 // Reviews is the resolver for the reviews field. It reads the pull request's
 // submitted reviews through the review service on demand.
 func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullReq
 // submitted reviews down to the most recent one per reviewer, the summary set
 // gh pr view selects with latestReviews(first: 100).
 func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +405,7 @@ func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.
 // pull request's issue-level comments through the issue service; not inline review
 // comments, which are under reviewThreads.
 func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repo
 // cannot see resolves to an empty connection, never an error, so its existence
 // does not leak.
 func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *generated.IssueOrder) (*gqlmodel.PullRequestConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}

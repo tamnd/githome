@@ -238,7 +238,7 @@ func (r *pullRequestResolver) ReviewDecision(ctx context.Context, obj *gqlmodel.
 // ReviewThreads is the resolver for the reviewThreads field. It reads the pull
 // request's review conversations through the review service on demand.
 func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestReviewThreadConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+	if _, err := issuePageArgs(ctx, first, after, nil, nil); err != nil {
 		return nil, err
 	}
 	threads, err := r.Resolver.Reviews.ReviewThreads(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
@@ -256,7 +256,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 // the thread's comments into the connection on the parent thread, so the resolver
 // validates the page arguments and returns it.
 func (r *pullRequestReviewThreadResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequestReviewThread, first *int32, after *string) (*gqlmodel.PullRequestReviewCommentConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+	if _, err := issuePageArgs(ctx, first, after, nil, nil); err != nil {
 		return nil, err
 	}
 	if obj.Comments != nil {

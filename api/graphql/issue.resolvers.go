@@ -67,7 +67,7 @@ func (r *issueResolver) Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gq
 // Comments is the resolver for the comments field. It pages the issue's comments
 // through the domain on demand, the way gh issue view selects them.
 func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +319,7 @@ func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository
 // here; label sets are small enough that this stays cheap. A repository the
 // actor cannot see resolves to an empty connection, never an error.
 func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, orderBy *generated.LabelOrder, query *string) (*gqlmodel.LabelConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repositor
 // Issues is the resolver for the issues field. A repository the actor cannot see
 // resolves to an empty connection, never an error, so its existence does not leak.
 func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string) (*gqlmodel.IssueConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}

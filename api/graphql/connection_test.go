@@ -1,6 +1,9 @@
 package graphql
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 // TestIssuePageWindow exercises the forward and backward window math the
 // connections page with. gh leans on the backward form: its issueCommentLast
@@ -16,7 +19,6 @@ func TestIssuePageWindow(t *testing.T) {
 		total              int
 		wantStart, wantEnd int
 	}{
-		{name: "default forward", total: 10, wantStart: 0, wantEnd: 10},
 		{name: "first 3", first: i32(3), total: 10, wantStart: 0, wantEnd: 3},
 		{name: "first beyond total", first: i32(30), total: 4, wantStart: 0, wantEnd: 4},
 		{name: "last 1", last: i32(1), total: 5, wantStart: 4, wantEnd: 5},
@@ -26,7 +28,7 @@ func TestIssuePageWindow(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := issuePageArgs(tc.first, tc.after, tc.last, tc.before)
+			p, err := issuePageArgs(context.Background(), tc.first, tc.after, tc.last, tc.before)
 			if err != nil {
 				t.Fatalf("issuePageArgs: %v", err)
 			}
@@ -41,11 +43,36 @@ func TestIssuePageWindow(t *testing.T) {
 // TestIssuePageArgsLimits confirms the over-limit and negative cases reject
 // with GitHub's wording for last as they already did for first.
 func TestIssuePageArgsLimits(t *testing.T) {
+	ctx := context.Background()
 	i32 := func(n int32) *int32 { return &n }
-	if _, err := issuePageArgs(nil, nil, i32(101), nil); err == nil {
+	if _, err := issuePageArgs(ctx, nil, nil, i32(101), nil); err == nil {
 		t.Error("last over the cap did not error")
 	}
-	if _, err := issuePageArgs(nil, nil, i32(-1), nil); err == nil {
+	if _, err := issuePageArgs(ctx, nil, nil, i32(-1), nil); err == nil {
 		t.Error("negative last did not error")
+	}
+}
+
+// TestIssuePageArgsRequired confirms the first-or-last contract: a connection
+// paged with neither errors, and one paged with both errors, each with the
+// wording GitHub uses.
+func TestIssuePageArgsRequired(t *testing.T) {
+	ctx := context.Background()
+	i32 := func(n int32) *int32 { return &n }
+
+	_, err := issuePageArgs(ctx, nil, nil, nil, nil)
+	if err == nil {
+		t.Fatal("neither first nor last did not error")
+	}
+	if want := "You must provide a `first` or `last` value to properly paginate the `nodes` connection."; err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
+	}
+
+	_, err = issuePageArgs(ctx, i32(1), nil, i32(1), nil)
+	if err == nil {
+		t.Fatal("both first and last did not error")
+	}
+	if want := "You must provide either `first` or `last` for the `nodes` connection, not both."; err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
 	}
 }
