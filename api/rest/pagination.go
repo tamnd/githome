@@ -38,20 +38,22 @@ func (p Page) HasNextPage() bool {
 // parsePage reads the page and per_page query parameters with GitHub's bounds: a
 // missing value defaults (page 1, per_page 30), a per_page above 100 is clamped
 // rather than rejected, and anything non-integer or below 1 is a 422 before any
-// work happens.
-func parsePage(c *mizu.Ctx) (Page, *apiError) {
+// work happens. resource names the endpoint family the 422 reports, the way
+// GitHub's validation errors carry the resource being listed rather than a
+// fixed one.
+func parsePageFor(c *mizu.Ctx, resource string) (Page, *apiError) {
 	page, perPage := 1, 30
 	if v := c.Query("page"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			return Page{}, errValidation(FieldError{Resource: "Search", Field: "page", Code: "invalid"})
+			return Page{}, errValidation(FieldError{Resource: resource, Field: "page", Code: "invalid"})
 		}
 		page = n
 	}
 	if v := c.Query("per_page"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			return Page{}, errValidation(FieldError{Resource: "Search", Field: "per_page", Code: "invalid"})
+			return Page{}, errValidation(FieldError{Resource: resource, Field: "per_page", Code: "invalid"})
 		}
 		if n > 100 {
 			n = 100

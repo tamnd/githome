@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -24,12 +26,65 @@ func handleRepoGet(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		actor := auth.ActorFrom(c.Request().Context())
-		body := d.URLs.Repository(repo, d.NodeFormat, repoPermissions(actor, repo))
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		perm, err := repoPermissions(ctx, d, actor, repo)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.RepositoryFull(repo, d.NodeFormat, perm, det)
 		tag := etag.Version("repo", repo.ID, repo.UpdatedAt.UnixNano())
 		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, body, tag)
 		return nil
 	}
+}
+
+// repoDetail assembles the extras only the single-repository responses carry:
+// the fork network count, the organization block for org-owned repositories,
+// and the resolved parent/source chain for forks. subscribers_count stays
+// zero until watching lands. A fork whose parent the actor cannot see simply
+// omits parent/source, the same non-leak rule as everywhere else.
+func repoDetail(d Deps, c *mizu.Ctx, repo *domain.Repo) (presenter.RepoDetail, error) {
+	ctx := c.Request().Context()
+	actor := auth.ActorFrom(ctx)
+	det := presenter.RepoDetail{}
+
+	n, err := d.Repos.ForksCount(ctx, repo.PK)
+	if err != nil {
+		return det, err
+	}
+	det.NetworkCount = n
+
+	if repo.Owner != nil && repo.Owner.Type == "Organization" {
+		det.Organization = repo.Owner
+	}
+
+	if repo.ForkOfPK != nil {
+		parent, err := d.Repos.GetRepoByPK(ctx, actor.UserID, *repo.ForkOfPK)
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			return det, nil
+		}
+		if err != nil {
+			return det, err
+		}
+		p := d.URLs.Repository(parent, d.NodeFormat, nil)
+		det.Parent = &p
+		src := parent
+		for src.ForkOfPK != nil {
+			next, err := d.Repos.GetRepoByPK(ctx, actor.UserID, *src.ForkOfPK)
+			if err != nil {
+				break
+			}
+			src = next
+		}
+		sr := d.URLs.Repository(src, d.NodeFormat, nil)
+		det.Source = &sr
+	}
+	return det, nil
 }
 
 // handleBranches serves GET /repos/{owner}/{repo}/branches. An empty repository
@@ -40,7 +95,7 @@ func handleBranches(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -94,7 +149,7 @@ func handleTags(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -123,7 +178,7 @@ func handleCommits(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -303,6 +358,10 @@ func handleRef(d Deps) mizu.Handler {
 }
 
 // repoPatchBody is the JSON body for PATCH /repos/{owner}/{repo}.
+// SecurityAndAnalysis is accepted so clients that always send the block (the
+// Terraform provider does) are not rejected, but githome has no security
+// products to toggle, so nothing from it is stored and the repository object
+// does not render it back.
 type repoPatchBody struct {
 	Name          *string `json:"name"`
 	Description   *string `json:"description"`
@@ -314,6 +373,17 @@ type repoPatchBody struct {
 	HasWiki       *bool   `json:"has_wiki"`
 	Archived      *bool   `json:"archived"`
 	IsTemplate    *bool   `json:"is_template"`
+
+	AllowSquashMerge         *bool   `json:"allow_squash_merge"`
+	AllowMergeCommit         *bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge         *bool   `json:"allow_rebase_merge"`
+	AllowAutoMerge           *bool   `json:"allow_auto_merge"`
+	DeleteBranchOnMerge      *bool   `json:"delete_branch_on_merge"`
+	AllowUpdateBranch        *bool   `json:"allow_update_branch"`
+	WebCommitSignoffRequired *bool   `json:"web_commit_signoff_required"`
+	Visibility               *string `json:"visibility"`
+
+	SecurityAndAnalysis json.RawMessage `json:"security_and_analysis"`
 }
 
 // handleRepoUpdate serves PATCH /repos/{owner}/{repo}. Only the repository
@@ -330,6 +400,24 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
+		// visibility is the modern spelling of the private flag; when both are
+		// sent, visibility wins. Githome has no internal visibility, so only
+		// the two real values are accepted.
+		if body.Visibility != nil {
+			switch *body.Visibility {
+			case "public":
+				f := false
+				body.Private = &f
+			case "private":
+				t := true
+				body.Private = &t
+			default:
+				writeError(c.Writer(), errValidation(FieldError{
+					Resource: "Repository", Field: "visibility", Code: "invalid",
+				}))
+				return nil
+			}
+		}
 		owner, name := c.Param("owner"), c.Param("repo")
 		repo, err := d.Repos.UpdateRepo(ctx, actor.UserID, owner, name, domain.RepoPatch{
 			Name:          body.Name,
@@ -342,6 +430,14 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 			HasWiki:       body.HasWiki,
 			Archived:      body.Archived,
 			IsTemplate:    body.IsTemplate,
+
+			AllowSquashMerge:         body.AllowSquashMerge,
+			AllowMergeCommit:         body.AllowMergeCommit,
+			AllowRebaseMerge:         body.AllowRebaseMerge,
+			AllowAutoMerge:           body.AllowAutoMerge,
+			DeleteBranchOnMerge:      body.DeleteBranchOnMerge,
+			AllowUpdateBranch:        body.AllowUpdateBranch,
+			WebCommitSignoffRequired: body.WebCommitSignoffRequired,
 		})
 		if errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())
@@ -354,7 +450,11 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Repository(repo, d.NodeFormat, presenter.OwnerPermissions()))
+		det, err := repoDetail(d, c, repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.RepositoryFull(repo, d.NodeFormat, presenter.OwnerPermissions(), det))
 		return nil
 	}
 }
@@ -405,17 +505,45 @@ func loadRepo(d Deps, c *mizu.Ctx) (*domain.Repo, error) {
 	return repo, nil
 }
 
-// repoPermissions returns the actor's effective permission block: all-true for
-// the owner, pull-only for any other authenticated user, and nil (omitted) for
-// an anonymous caller.
-func repoPermissions(actor *auth.Actor, repo *domain.Repo) *restmodel.RepoPermissions {
+// repoPermissions resolves the actor's effective permission block through the
+// owner and collaborator grants: all-true for the owner, the granted role
+// expanded for a collaborator, pull-only for any other authenticated viewer,
+// and nil (omitted) for an anonymous caller.
+func repoPermissions(ctx context.Context, d Deps, actor *auth.Actor, repo *domain.Repo) (*restmodel.RepoPermissions, error) {
 	if actor == nil || !actor.IsUser() {
+		return nil, nil
+	}
+	role, err := d.Repos.RepoPermission(ctx, actor.UserID, repo)
+	if err != nil {
+		return nil, err
+	}
+	return permissionBlock(role), nil
+}
+
+// permissionBlock expands a role name into GitHub's permission booleans; each
+// role implies everything below it (admin > maintain > push > triage > pull).
+// An empty or unknown role yields nil, omitting the block.
+func permissionBlock(role string) *restmodel.RepoPermissions {
+	p := &restmodel.RepoPermissions{}
+	switch role {
+	case "admin":
+		p.Admin = true
+		fallthrough
+	case "maintain":
+		p.Maintain = true
+		fallthrough
+	case "push":
+		p.Push = true
+		fallthrough
+	case "triage":
+		p.Triage = true
+		fallthrough
+	case "pull":
+		p.Pull = true
+	default:
 		return nil
 	}
-	if actor.UserID == repo.OwnerPK {
-		return presenter.OwnerPermissions()
-	}
-	return presenter.ReadPermissions()
+	return p
 }
 
 // gitNotFound reports whether err is a git lookup that should surface as a 404:

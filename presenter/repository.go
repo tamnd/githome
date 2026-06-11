@@ -1,6 +1,8 @@
 package presenter
 
 import (
+	"encoding/json"
+
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/restmodel"
@@ -94,7 +96,7 @@ func (b *URLBuilder) Repository(r *domain.Repo, format nodeid.Format, perm *rest
 
 		AllowForking:             true,
 		IsTemplate:               r.IsTemplate,
-		WebCommitSignoffRequired: false,
+		WebCommitSignoffRequired: r.WebCommitSignoffRequired,
 		Topics:                   []string{},
 		Visibility:               visibility(r.Private),
 
@@ -108,6 +110,53 @@ func (b *URLBuilder) Repository(r *domain.Repo, format nodeid.Format, perm *rest
 	if r.PushedAt != nil {
 		t := restmodel.NewTime(*r.PushedAt)
 		out.PushedAt = &t
+	}
+	return out
+}
+
+// RepoDetail carries the extras only the single-repository responses render:
+// the fork counts, the organization block, and the resolved fork parent and
+// source. The handler assembles it; the presenter stays pure.
+type RepoDetail struct {
+	NetworkCount     int
+	SubscribersCount int
+	Organization     *domain.User
+	Parent           *restmodel.Repository
+	Source           *restmodel.Repository
+}
+
+// RepositoryFull renders the single-repository shape: the list shape plus the
+// always-null temp_clone_token, the network and subscriber counts, the
+// organization for org-owned repos, the fork parent/source, and, when the
+// caller administers the repository, the merge-policy settings. GitHub scopes
+// the merge settings to admins, so they key off perm.Admin.
+func (b *URLBuilder) RepositoryFull(r *domain.Repo, format nodeid.Format, perm *restmodel.RepoPermissions, det RepoDetail) restmodel.Repository {
+	out := b.Repository(r, format, perm)
+	out.TempCloneToken = json.RawMessage("null")
+
+	network, subs := det.NetworkCount, det.SubscribersCount
+	out.NetworkCount = &network
+	out.SubscribersCount = &subs
+	out.ForksCount = network
+	out.Forks = network
+
+	if det.Organization != nil {
+		org := b.SimpleUser(det.Organization, format)
+		out.Organization = &org
+	}
+	out.Parent = det.Parent
+	out.Source = det.Source
+
+	if perm != nil && perm.Admin {
+		squash, mergeCommit := r.AllowSquashMerge, r.AllowMergeCommit
+		rebase, autoMerge := r.AllowRebaseMerge, r.AllowAutoMerge
+		deleteBranch, updateBranch := r.DeleteBranchOnMerge, r.AllowUpdateBranch
+		out.AllowSquashMerge = &squash
+		out.AllowMergeCommit = &mergeCommit
+		out.AllowRebaseMerge = &rebase
+		out.AllowAutoMerge = &autoMerge
+		out.DeleteBranchOnMerge = &deleteBranch
+		out.AllowUpdateBranch = &updateBranch
 	}
 	return out
 }

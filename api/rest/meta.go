@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/presenter/restmodel"
 )
@@ -53,12 +54,27 @@ func handleVersions(c *mizu.Ctx) error {
 }
 
 // handleRateLimit serves GET /rate_limit. Querying it never consumes the core
-// budget. With auth landing in M1, M0 reports the anonymous-equivalent full
-// budget for every bucket.
-func handleRateLimit(cfg config.Config) mizu.Handler {
+// budget. The core and search buckets read the same limiter that stamps the
+// X-RateLimit-* headers, so the body and the headers always agree; the buckets
+// Githome does not meter report their full configured budget.
+func handleRateLimit(cfg config.Config, limiter *rateLimiter) mizu.Handler {
 	return func(c *mizu.Ctx) error {
+		r := c.Request()
+		actor := auth.ActorFrom(r.Context())
+		key := rateKeyFor(actor, r)
+		authed := actor.IsAuthenticated()
+		live := func(resource string) restmodel.RateLimitBucket {
+			st := limiter.peek(key, resource, authed)
+			return restmodel.RateLimitBucket{
+				Limit:     st.limit,
+				Remaining: st.remaining,
+				Reset:     st.reset.Unix(),
+				Used:      st.used,
+				Resource:  resource,
+			}
+		}
 		reset := time.Now().Add(cfg.RateLimit.Window).Unix()
-		bucket := func(limit int, resource string) restmodel.RateLimitBucket {
+		full := func(limit int, resource string) restmodel.RateLimitBucket {
 			return restmodel.RateLimitBucket{
 				Limit:     limit,
 				Remaining: limit,
@@ -67,15 +83,15 @@ func handleRateLimit(cfg config.Config) mizu.Handler {
 				Resource:  resource,
 			}
 		}
-		core := bucket(cfg.RateLimit.AuthedPerHour, "core")
+		core := live("core")
 		rl := restmodel.RateLimit{
 			Resources: restmodel.RateLimitResources{
 				Core:                core,
-				Search:              bucket(cfg.RateLimit.SearchPerMin, "search"),
-				GraphQL:             bucket(cfg.RateLimit.GraphQLPoints, "graphql"),
-				IntegrationManifest: bucket(cfg.RateLimit.AuthedPerHour, "integration_manifest"),
-				CodeScanningUpload:  bucket(500, "code_scanning_upload"),
-				CodeSearch:          bucket(cfg.RateLimit.SearchPerMin, "code_search"),
+				Search:              live("search"),
+				GraphQL:             full(cfg.RateLimit.GraphQLPoints, "graphql"),
+				IntegrationManifest: full(limiter.cfg.AuthedPerHour, "integration_manifest"),
+				CodeScanningUpload:  full(500, "code_scanning_upload"),
+				CodeSearch:          full(limiter.cfg.SearchPerMin, "code_search"),
 			},
 			Rate: core,
 		}

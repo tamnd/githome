@@ -24,7 +24,7 @@ func mountEvents(r *mizu.Router, d Deps) {
 // activity.
 func handlePublicEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Event")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -45,7 +45,7 @@ func handleRepoEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
 		owner, repo := c.Param("owner"), c.Param("repo")
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Event")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -67,7 +67,7 @@ func handleRepoEvents(d Deps) mizu.Handler {
 func handleUserEvents(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Event")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil

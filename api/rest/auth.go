@@ -10,14 +10,19 @@ import (
 // in the request context, and sets the scope response headers. It never aborts
 // on a missing credential: anonymous flows through and individual handlers
 // decide whether to demand authentication. It does abort with 401 when a
-// credential is present but invalid, expired, or revoked, matching GitHub.
-func authMiddleware(svc *auth.Service) mizu.Middleware {
+// credential is present but invalid, expired, or revoked, matching GitHub. That
+// 401 short-circuits before the rate-limit middleware runs, so it charges the
+// client IP's anonymous bucket itself and stamps the headers, the way GitHub
+// counts failed credentials against the caller's address.
+func authMiddleware(svc *auth.Service, limiter *rateLimiter) mizu.Middleware {
 	return func(next mizu.Handler) mizu.Handler {
 		return func(c *mizu.Ctx) error {
 			r := c.Request()
 			actor, err := svc.Authenticate(r.Context(), r.Header.Get("Authorization"))
 			if err != nil {
 				setScopeHeaders(c, nil)
+				st, _ := limiter.take("ip:"+clientIP(r), rateResource(r.URL.Path), false)
+				stampRateHeaders(c.Header(), st)
 				writeError(c.Writer(), errBadCredentials())
 				return nil
 			}

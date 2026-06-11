@@ -1,5 +1,7 @@
 package restmodel
 
+import "encoding/json"
+
 // Repository is the wire shape GitHub serves for a repository. The field set,
 // order of presence, types, and nullability match github.com's repository
 // object as returned by GET /repos/{owner}/{repo} and embedded in listings. The
@@ -7,10 +9,11 @@ package restmodel
 // suffixes) exactly as GitHub emits them, so clients that expand the templates
 // build the same paths.
 //
-// Settings Githome does not track yet (merge options, subscriber and network
-// counts) are not part of this shape; they arrive with the repository-settings
-// milestone. Language is always null until language detection lands; license is
-// always null until license detection lands.
+// The merge options, network and subscriber counts, organization, and fork
+// parent/source live at the end of the struct and render only on the
+// single-repository shape, the way GitHub scopes them. Language is always
+// null until language detection lands; license is always null until license
+// detection lands.
 type Repository struct {
 	ID       int64      `json:"id"`
 	NodeID   string     `json:"node_id"`
@@ -101,6 +104,36 @@ type Repository struct {
 	DefaultBranch string `json:"default_branch"`
 
 	Permissions *RepoPermissions `json:"permissions,omitempty"`
+
+	// The fields below appear only on single-repository responses (get,
+	// create, update, fork), never on list items, matching GitHub. They are
+	// pointers (or raw JSON for the always-null token) so the list shape
+	// omits them entirely.
+
+	// TempCloneToken is always null: githome has no temporary clone tokens.
+	// It is json.RawMessage so the full shape can render an explicit null
+	// while list items omit the key.
+	TempCloneToken json.RawMessage `json:"temp_clone_token,omitempty"`
+
+	// The merge-policy settings. GitHub returns them only when the caller
+	// administers the repository.
+	AllowSquashMerge    *bool `json:"allow_squash_merge,omitempty"`
+	AllowMergeCommit    *bool `json:"allow_merge_commit,omitempty"`
+	AllowRebaseMerge    *bool `json:"allow_rebase_merge,omitempty"`
+	AllowAutoMerge      *bool `json:"allow_auto_merge,omitempty"`
+	DeleteBranchOnMerge *bool `json:"delete_branch_on_merge,omitempty"`
+	AllowUpdateBranch   *bool `json:"allow_update_branch,omitempty"`
+
+	// Organization mirrors the owner when the owner is an organization.
+	Organization *SimpleUser `json:"organization,omitempty"`
+
+	// Parent is the repository this one was forked from; Source is the root
+	// of the fork network. Both are list-shaped repository objects.
+	Parent *Repository `json:"parent,omitempty"`
+	Source *Repository `json:"source,omitempty"`
+
+	NetworkCount     *int `json:"network_count,omitempty"`
+	SubscribersCount *int `json:"subscribers_count,omitempty"`
 }
 
 // RepoPermissions is the actor's effective access on a repository. GitHub

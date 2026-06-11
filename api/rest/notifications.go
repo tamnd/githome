@@ -97,7 +97,7 @@ func handleRepoNotificationsList(d Deps) mizu.Handler {
 // notificationsList is the shared body of the two thread list endpoints.
 func notificationsList(c *mizu.Ctx, d Deps, userPK, repoPK int64) error {
 	ctx := c.Request().Context()
-	page, perr := parsePage(c)
+	page, perr := parsePageFor(c, "Notification")
 	if perr != nil {
 		writeError(c.Writer(), perr)
 		return nil

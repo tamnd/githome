@@ -84,11 +84,16 @@ func Mount(root *mizu.Router, d Deps) {
 	// token endpoints without hardcoding paths.
 	root.Get("/.well-known/oauth-authorization-server", handleOAuthDiscovery(d))
 
-	api := root.With(apiVersion, mediaType, enterpriseVersion, rateLimitHeaders(d.Config), maxBody(d.Config.Server.MaxBodyBytes))
+	// The limiter sits after the auth middleware so each charge lands on the
+	// resolved actor's bucket; one instance backs both API mounts and the
+	// /rate_limit handler, so headers and body always report the same numbers.
+	limiter := newRateLimiter(d.Config.RateLimit)
+	api := root.With(apiVersion, mediaType, enterpriseVersion, maxBody(d.Config.Server.MaxBodyBytes))
 	if d.Auth != nil {
-		api = api.With(authMiddleware(d.Auth))
+		api = api.With(authMiddleware(d.Auth, limiter))
 	}
-	mountAPI(api.Prefix("/api/v3"), d)
+	api = api.With(rateLimit(limiter))
+	mountAPI(api.Prefix("/api/v3"), d, limiter)
 	if d.URLs != nil {
 		// The prefixed root document also answers without the trailing slash, the
 		// form Octokit and gh build from a configured .../api/v3 base URL.
@@ -107,20 +112,21 @@ func Mount(root *mizu.Router, d Deps) {
 		// when the web front is not sharing this router. With the front present
 		// these wildcards would collide with /{owner}/{repo}, and the front owns
 		// the root 404.
-		mountAPI(api, d)
+		mountAPI(api, d, limiter)
 		root.Compat.Handle("/", http.HandlerFunc(notFoundHandler))
 	}
 }
 
 // mountAPI registers the versioned API endpoints on r, which already carries the
-// API middleware chain.
-func mountAPI(r *mizu.Router, d Deps) {
+// API middleware chain. limiter is the live rate limiter behind that chain's
+// headers, which GET /rate_limit reads so body and headers agree.
+func mountAPI(r *mizu.Router, d Deps, limiter *rateLimiter) {
 	if d.URLs != nil {
 		r.Get("/{$}", handleAPIRoot(d))
 	}
 	r.Get("/meta", handleMeta(d.Config))
 	r.Get("/versions", handleVersions)
-	r.Get("/rate_limit", handleRateLimit(d.Config))
+	r.Get("/rate_limit", handleRateLimit(d.Config, limiter))
 	if d.Users != nil {
 		r.Get("/user", handleUserGet(d))
 		mountUsers(r, d)

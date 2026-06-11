@@ -31,7 +31,7 @@ type pullCreateBody struct {
 func handlePullsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "PullRequest")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -179,6 +179,7 @@ func handlePullGet(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
+			negotiatedMediaType(c.Writer(), "diff")
 			writePullText(c.Writer(), "application/vnd.github.diff; charset=utf-8", raw)
 			return nil
 		case mediaPatch:
@@ -189,6 +190,7 @@ func handlePullGet(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
+			negotiatedMediaType(c.Writer(), "patch")
 			writePullText(c.Writer(), "application/vnd.github.patch; charset=utf-8", raw)
 			return nil
 		default:
@@ -225,7 +227,7 @@ func pullFiles(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
-	page, perr := parsePage(c)
+	page, perr := parsePageFor(c, "PullRequest")
 	if perr != nil {
 		writeError(c.Writer(), perr)
 		return nil
@@ -260,7 +262,7 @@ func pullCommits(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
-	page, perr := parsePage(c)
+	page, perr := parsePageFor(c, "PullRequest")
 	if perr != nil {
 		writeError(c.Writer(), perr)
 		return nil

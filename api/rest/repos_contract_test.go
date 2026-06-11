@@ -27,7 +27,9 @@ import (
 )
 
 // repoFixture is the deterministic repository the repo contract tests run
-// against, plus the object ids they need to build sha-addressed URLs.
+// against, plus the object ids they need to build sha-addressed URLs. The
+// store and git store handles let a test seed extra rows (an org, a fork)
+// beyond the octocat/hello baseline.
 type repoFixture struct {
 	srv      *httptest.Server
 	token    string
@@ -36,6 +38,11 @@ type repoFixture struct {
 	treeSHA  string
 	blobSHA  string // README.md blob at HEAD
 	firstSHA string
+
+	st       *store.Store
+	gitStore *git.Store
+	ownerPK  int64
+	repoPK   int64
 }
 
 // fixedWhen pins every commit and tag time so the git object ids are stable
@@ -127,6 +134,10 @@ func repoServerCap(t *testing.T, blobCap int64) repoFixture {
 
 	fx.srv = srv
 	fx.token = g.Plaintext
+	fx.st = st
+	fx.gitStore = gitStore
+	fx.ownerPK = u.PK
+	fx.repoPK = repo.PK
 	return fx
 }
 

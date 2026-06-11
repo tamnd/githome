@@ -62,7 +62,7 @@ func handleUserGists(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
 		username := c.Param("username")
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Gist")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -88,7 +88,7 @@ func handleGistList(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Gist")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -143,7 +143,7 @@ func handleGistCreate(d Deps) mizu.Handler {
 
 func handleGistListPublic(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Gist")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -165,7 +165,7 @@ func handleGistListStarred(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Gist")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
