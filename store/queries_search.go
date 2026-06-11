@@ -10,9 +10,21 @@ import (
 // prefix or boolean operator. Terms are space-separated, which FTS5 interprets
 // as implicit AND so all terms must appear in the document.
 func buildFTSMatch(terms []string) string {
+	return buildFTSColumnMatch("", terms)
+}
+
+// buildFTSColumnMatch is buildFTSMatch restricted to one indexed column, the
+// FTS5 form of an in:title or in:body qualifier. The filter goes on every term
+// so the implicit AND between terms keeps the restriction; an empty col means
+// no restriction.
+func buildFTSColumnMatch(col string, terms []string) string {
 	quoted := make([]string, len(terms))
 	for i, t := range terms {
-		quoted[i] = `"` + strings.ReplaceAll(t, `"`, `""`) + `"`
+		q := `"` + strings.ReplaceAll(t, `"`, `""`) + `"`
+		if col != "" {
+			q = col + " : " + q
+		}
+		quoted[i] = q
 	}
 	return strings.Join(quoted, " ")
 }
@@ -116,27 +128,32 @@ func (q IssueSearch) orderBy() string {
 }
 
 // issueTermClause returns the SQL fragment and args that filter issues by the
-// query's Terms field. For title+body searches (the common case) it uses the
-// dialect's FTS index; for title-only or body-only it falls back to LIKE so
-// the more specific in-field constraint is preserved.
+// query's Terms field. SQLite serves every case from the FTS index: an
+// in:title or in:body qualifier becomes an FTS5 column filter rather than a
+// LIKE scan. Postgres has one combined tsvector, so its column-restricted
+// searches keep the LIKE form.
 func (s *Store) issueTermClause(q IssueSearch) (string, []any) {
 	if len(q.Terms) == 0 {
 		return "", nil
 	}
 	titleOnly := q.MatchTitle && !q.MatchBody
 	bodyOnly := q.MatchBody && !q.MatchTitle
-	if !titleOnly && !bodyOnly {
-		// Both fields (or neither, treated as both): use FTS.
-		switch s.dialect {
-		case DialectSQLite:
-			return ` AND i.pk IN (SELECT rowid FROM issues_fts WHERE issues_fts MATCH ?)`,
-				[]any{buildFTSMatch(q.Terms)}
-		case DialectPostgres:
-			return ` AND i.search_vector @@ plainto_tsquery('simple', ?)`,
-				[]any{strings.Join(q.Terms, " ")}
+	if s.dialect == DialectSQLite {
+		col := ""
+		switch {
+		case titleOnly:
+			col = "title"
+		case bodyOnly:
+			col = "body"
 		}
+		return ` AND i.pk IN (SELECT rowid FROM issues_fts WHERE issues_fts MATCH ?)`,
+			[]any{buildFTSColumnMatch(col, q.Terms)}
 	}
-	// Title-only, body-only, or unknown dialect: LIKE.
+	if !titleOnly && !bodyOnly && s.dialect == DialectPostgres {
+		return ` AND i.search_vector @@ plainto_tsquery('simple', ?)`,
+			[]any{strings.Join(q.Terms, " ")}
+	}
+	// Column-restricted Postgres or unknown dialect: LIKE.
 	var b strings.Builder
 	var args []any
 	for _, t := range q.Terms {

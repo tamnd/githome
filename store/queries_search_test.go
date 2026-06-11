@@ -235,3 +235,44 @@ func TestVisibleRepoPKs(t *testing.T) {
 		}
 	})
 }
+
+// TestSearchIssuesColumnRestricted confirms an in:title or in:body restriction
+// matches only the selected field. On SQLite both run as FTS5 column filters;
+// on Postgres they take the LIKE form. Either way the contract is the same.
+func TestSearchIssuesColumnRestricted(t *testing.T) {
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		repo := seedRepo(t, st, "octocat", &store.RepoRow{Name: "fielded"})
+
+		inTitle := seedIssue(t, st, repo.PK, repo.OwnerPK, "needle in the title")
+		inBody := seedIssue(t, st, repo.PK, repo.OwnerPK, "plain heading")
+		body := "the needle hides in the body"
+		inBody.Body = &body
+		if err := st.WithTx(ctx, func(tx *store.Tx) error { return tx.UpdateIssue(ctx, inBody) }); err != nil {
+			t.Fatalf("UpdateIssue: %v", err)
+		}
+
+		titleHits, err := st.SearchIssues(ctx, store.IssueSearch{Terms: []string{"needle"}, MatchTitle: true})
+		if err != nil {
+			t.Fatalf("SearchIssues in:title: %v", err)
+		}
+		if len(titleHits) != 1 || titleHits[0].PK != inTitle.PK {
+			t.Errorf("in:title hits = %+v, want only issue %d", titleHits, inTitle.PK)
+		}
+
+		bodyHits, err := st.SearchIssues(ctx, store.IssueSearch{Terms: []string{"needle"}, MatchBody: true})
+		if err != nil {
+			t.Fatalf("SearchIssues in:body: %v", err)
+		}
+		if len(bodyHits) != 1 || bodyHits[0].PK != inBody.PK {
+			t.Errorf("in:body hits = %+v, want only issue %d", bodyHits, inBody.PK)
+		}
+
+		if n, _ := st.CountSearchIssues(ctx, store.IssueSearch{Terms: []string{"needle"}, MatchTitle: true}); n != 1 {
+			t.Errorf("in:title count = %d, want 1", n)
+		}
+	})
+}
