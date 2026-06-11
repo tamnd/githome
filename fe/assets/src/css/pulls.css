@@ -235,11 +235,12 @@
 .pr-tab:hover {
   color: var(--fgColor-default);
   text-decoration: none;
+  border-bottom-color: var(--underlineNav-borderColor-hover);
 }
 
 .pr-tab.is-current {
   color: var(--fgColor-default);
-  border-bottom-color: var(--bgColor-attention-emphasis, #fb8500);
+  border-bottom-color: var(--underlineNav-borderColor-active);
 }
 
 .pr-tab-count {

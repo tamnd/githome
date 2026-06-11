@@ -66,6 +66,27 @@ func TestPrimerVocabularyPresent(t *testing.T) {
 	}
 }
 
+// TestUnderlineNavReadsItsTokens guards review 02 task R02-12: the selected
+// repo tab was underlined with an accent-muted fill (invisible on the muted
+// border) and the PR tabs with an undefined attention token. Both bars must
+// read the shared underlineNav tokens.
+func TestUnderlineNavReadsItsTokens(t *testing.T) {
+	repoSrc, err := os.ReadFile("src/css/repo.css")
+	if err != nil {
+		t.Fatalf("read repo.css: %v", err)
+	}
+	if body := ruleBody(t, string(repoSrc), ".reponav-item.is-current"); !strings.Contains(body, "var(--underlineNav-borderColor-active)") {
+		t.Errorf(".reponav-item.is-current must read the underlineNav active token:\n%s", body)
+	}
+	pullsSrc, err := os.ReadFile("src/css/pulls.css")
+	if err != nil {
+		t.Fatalf("read pulls.css: %v", err)
+	}
+	if body := ruleBody(t, string(pullsSrc), ".pr-tab.is-current"); !strings.Contains(body, "var(--underlineNav-borderColor-active)") {
+		t.Errorf(".pr-tab.is-current must read the underlineNav active token:\n%s", body)
+	}
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string
