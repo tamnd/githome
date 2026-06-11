@@ -37,12 +37,14 @@ func (s *Store) GetPullByDBID(ctx context.Context, dbID int64) (*PullRow, error)
 // ListPulls returns a repository's pull requests, newest number first, paged.
 // state is "open", "closed", or "all"; the empty string lists open ones. It
 // joins the issues table so the state filter and the number ordering read from
-// the row that owns them.
+// the row that owns them. The repository filter goes on i.repo_pk (identical
+// to pr.repo_pk by construction): that way the issues (repo_pk, number)
+// unique index serves both the filter and the ORDER BY, with no sort step.
 func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]PullRow, error) {
 	if limit <= 0 {
 		limit = 30
 	}
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
@@ -72,8 +74,9 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 
 // ListPullsPage serves a keyset-paginated pull-request page and reports whether
 // a further page exists, without a COUNT. The list orders by number descending,
-// so a cursor seeks number < cursor.Number, served by the (repo_pk, number)
-// unique index in one step regardless of page depth. It fetches one row beyond
+// so a cursor seeks number < cursor.Number, served by the issues
+// (repo_pk, number) unique index in one step regardless of page depth; the
+// repository filter sits on i.repo_pk so the planner can use that index. It fetches one row beyond
 // the page and uses its presence as the has-next signal, so a list request on a
 // repo with hundreds of thousands of pulls costs the page, not a full count plus
 // a deep OFFSET scan. A nil cursor starts from the highest number.
@@ -81,7 +84,7 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 	if limit <= 0 {
 		limit = 30
 	}
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
@@ -124,7 +127,7 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 
 // CountPulls counts a repository's pull requests matching the state filter.
 func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int, error) {
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
