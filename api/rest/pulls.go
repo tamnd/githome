@@ -300,19 +300,27 @@ const (
 	mediaPatch
 )
 
-// pullMedia reads an Accept header and reports which pull request media a client
-// asked for. The diff and patch suffixes match GitHub's vendor media types in
-// either the versioned (v3) or unversioned form.
+// pullMedia reads an Accept header and reports which pull request media a
+// client asked for. The header is parsed as a media-type list: each entry is
+// split off its q-parameters and matched exactly against GitHub's vendor diff
+// and patch types, in the versioned (v3) or unversioned form. The first raw
+// match wins; anything else, including a type that merely mentions "diff"
+// somewhere (a multipart boundary, an unrelated vendor type), keeps the
+// default JSON body.
 func pullMedia(accept string) int {
-	a := strings.ToLower(accept)
-	switch {
-	case strings.Contains(a, "diff"):
-		return mediaDiff
-	case strings.Contains(a, "patch"):
-		return mediaPatch
-	default:
-		return mediaJSON
+	for _, part := range strings.Split(accept, ",") {
+		mt := part
+		if i := strings.IndexByte(mt, ';'); i >= 0 {
+			mt = mt[:i]
+		}
+		switch strings.ToLower(strings.TrimSpace(mt)) {
+		case "application/vnd.github.diff", "application/vnd.github.v3.diff":
+			return mediaDiff
+		case "application/vnd.github.patch", "application/vnd.github.v3.patch":
+			return mediaPatch
+		}
 	}
+	return mediaJSON
 }
 
 // writePullText writes a raw diff or patch body with its media type.
