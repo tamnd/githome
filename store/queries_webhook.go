@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 // The webhook store. A webhook is a repository's registration of a delivery URL
@@ -248,4 +249,17 @@ func scanDeliveryRows(row interface{ Scan(...any) error }) (*WebhookDeliveryRow,
 	d.Success = succ.Bool
 	d.CreatedAt = created.Time
 	return &d, nil
+}
+
+// PruneDeliveries deletes delivery records created before the cutoff and
+// returns how many went. Every record carries the full request and response
+// bodies, so the table grows without bound unless something sweeps it; the
+// worker's retention loop calls this on a timer.
+func (s *Store) PruneDeliveries(ctx context.Context, before time.Time) (int64, error) {
+	q := s.rebind(`DELETE FROM webhook_deliveries WHERE created_at < ?`)
+	res, err := s.db.ExecContext(ctx, q, s.timeArg(before))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

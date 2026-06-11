@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/tamnd/githome/config"
 )
@@ -20,16 +21,24 @@ type URLBuilder struct {
 	graphql *url.URL
 	sshHost string
 	sshPort int
+
+	// apiPrefix and htmlPrefix are the rendered bases without a trailing
+	// slash, so the hot join path is one append instead of a url.URL round
+	// trip per embedded link.
+	apiPrefix  string
+	htmlPrefix string
 }
 
 // NewURLBuilder builds a URLBuilder from the resolved config URLs.
 func NewURLBuilder(u config.URLs) *URLBuilder {
 	return &URLBuilder{
-		api:     u.API,
-		html:    u.HTML,
-		graphql: u.GraphQL,
-		sshHost: u.SSHHost,
-		sshPort: u.SSHPort,
+		api:        u.API,
+		html:       u.HTML,
+		graphql:    u.GraphQL,
+		sshHost:    u.SSHHost,
+		sshPort:    u.SSHPort,
+		apiPrefix:  strings.TrimRight(u.API.String(), "/"),
+		htmlPrefix: strings.TrimRight(u.HTML.String(), "/"),
 	}
 }
 
@@ -44,12 +53,83 @@ func (b *URLBuilder) GraphQLEndpoint() string { return b.graphql.String() }
 
 // API joins path segments onto the API base.
 func (b *URLBuilder) API(segments ...string) string {
+	if s, ok := fastJoin(b.apiPrefix, segments); ok {
+		return s
+	}
 	return b.api.JoinPath(segments...).String()
 }
 
 // HTML joins path segments onto the site base.
 func (b *URLBuilder) HTML(segments ...string) string {
+	if s, ok := fastJoin(b.htmlPrefix, segments); ok {
+		return s
+	}
 	return b.html.JoinPath(segments...).String()
+}
+
+// fastJoin appends segments to a pre-rendered prefix in one allocation. It
+// handles only segments whose bytes survive both URL escaping and path
+// cleaning unchanged, which covers every login, repository name, and fixed
+// route word; anything else (an empty segment, a dot segment, a character
+// JoinPath would escape or collapse) reports false so the caller takes the
+// url.URL route that defines the behavior.
+func fastJoin(prefix string, segments []string) (string, bool) {
+	n := len(prefix)
+	for _, seg := range segments {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", false
+		}
+		for i := 0; i < len(seg); i++ {
+			if !urlPlainByte(seg[i]) {
+				return "", false
+			}
+		}
+		n += 1 + len(seg)
+	}
+	buf := make([]byte, 0, n)
+	buf = append(buf, prefix...)
+	for _, seg := range segments {
+		buf = append(buf, '/')
+		buf = append(buf, seg...)
+	}
+	return string(buf), true
+}
+
+// suffixLinks renders base+suffix for every suffix into one shared backing
+// string and fills out with the slices, so a family of related links costs a
+// single allocation instead of one concat each. out must be at least as long
+// as suffixes; callers pass a stack array sliced to size.
+func suffixLinks(base string, suffixes, out []string) {
+	n := 0
+	for _, suf := range suffixes {
+		n += len(base) + len(suf)
+	}
+	var sb strings.Builder
+	sb.Grow(n)
+	for _, suf := range suffixes {
+		sb.WriteString(base)
+		sb.WriteString(suf)
+	}
+	s := sb.String()
+	at := 0
+	for i, suf := range suffixes {
+		end := at + len(base) + len(suf)
+		out[i] = s[at:end]
+		at = end
+	}
+}
+
+// urlPlainByte reports whether c renders identically through url.PathEscape
+// and path.Clean: the RFC 3986 unreserved set minus the dot-segment and
+// separator machinery handled by fastJoin's segment checks.
+func urlPlainByte(c byte) bool {
+	switch {
+	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
+		return true
+	case c == '-' || c == '.' || c == '_' || c == '~':
+		return true
+	}
+	return false
 }
 
 // PageLink returns the absolute URL a Link header rel points at: the given

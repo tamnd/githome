@@ -139,6 +139,7 @@ func run() error {
 	// head moves; M7 adds the webhook fan-out and delivery handlers. It runs for
 	// the process lifetime and stops when the root context is canceled.
 	runtime := worker.NewRuntime(st, logger, 0)
+	runtime.SetWorkers(4)
 	runtime.Register(domain.JobReindexSearch, worker.ReindexSearchHandler(searchSvc))
 	runtime.Register(domain.JobRecomputeMergeability, worker.RecomputeMergeabilityHandler(pullSvc))
 	runtime.Register(domain.JobRecomputeReviewDecision, worker.RecomputeReviewDecisionHandler(reviewSvc))
@@ -149,6 +150,10 @@ func run() error {
 			logger.Error("worker runtime stopped", "err", err)
 		}
 	}()
+
+	// Delivery records carry full request and response bodies; the retention
+	// loop keeps the table bounded by pruning records past the 30-day window.
+	go worker.RunDeliveryRetention(ctx, st, logger)
 
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{

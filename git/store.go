@@ -1,6 +1,7 @@
 package git
 
 import (
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -25,9 +26,14 @@ type Store struct {
 	pool  *catFilePool
 	cache *objCache
 
-// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
+	// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
 	// is content-addressed (two full object ids), so an entry never goes stale.
 	diffs *diffCache
+
+	// blames and patches cache Blame and CommitPatch results by (pk, sha, path)
+	// and (pk, sha); both keys are content-addressed, so entries never go stale.
+	blames  *costLRU[[]BlameLine]
+	patches *costLRU[string]
 
 	// repos keeps warm go-git handles between requests so a point read does not
 	// pay a cold pack-index parse. Handles are checked out exclusively (go-git
@@ -52,6 +58,8 @@ func NewStore(dir string) *Store {
 	s.pool = newCatFilePool("git", 64)
 	s.cache = newObjCache(objCacheMaxEntries)
 	s.diffs = newDiffCache(diffCacheMaxBytes)
+	s.blames = newCostLRU(blameCacheMaxBytes, blameCacheMaxEntryBytes, blameCost)
+	s.patches = newCostLRU(patchCacheMaxBytes, patchCacheMaxEntryBytes, func(p string) int64 { return int64(len(p)) })
 	s.repos = newRepoCache(repoCacheMaxRepos, repoCacheHandlesPerRepo)
 	return s
 }
@@ -94,6 +102,19 @@ func (s *Store) Dir(pk int64) string {
 	}
 	shard := strconv.FormatInt(pk%256, 10)
 	return filepath.Join(s.root, shard, strconv.FormatInt(pk, 10)+".git")
+}
+
+// runDir is the git directory subprocesses target for pk. A managed repository
+// is bare, so Dir is the git dir itself; a browse-mode override (or a test
+// fixture) may point at a worktree checkout, whose git dir lives under .git.
+// Without this, every --git-dir subprocess against such a repository fails and
+// the read falls back to the slow in-process path.
+func (s *Store) runDir(pk int64) string {
+	dir := s.Dir(pk)
+	if fi, err := os.Stat(filepath.Join(dir, ".git")); err == nil && fi.IsDir() {
+		return filepath.Join(dir, ".git")
+	}
+	return dir
 }
 
 // Open opens the bare repository for pk for reading. It returns ErrRepoNotFound
@@ -158,7 +179,7 @@ func (s *Store) blobSizes(pk int64, shas []string) (map[string]int64, error) {
 	if len(miss) == 0 {
 		return out, nil
 	}
-	infos, err := s.pool.lookupBatch(s.Dir(pk), pk, miss)
+	infos, err := s.pool.lookupBatch(s.runDir(pk), pk, miss)
 	if err != nil {
 		return nil, err
 	}

@@ -15,18 +15,21 @@ import (
 // The URLs all hang off the repository's API base so the two API surfaces agree
 // about an issue's links.
 func (b *URLBuilder) Issue(owner, repo string, iss *domain.Issue, format nodeid.Format) restmodel.Issue {
+	num := strconv.FormatInt(iss.Number, 10)
 	base := b.RepoAPI(owner, repo)
-	self := base + "/issues/" + strconv.FormatInt(iss.Number, 10)
-	html := b.RepoHTML(owner, repo) + "/issues/" + strconv.FormatInt(iss.Number, 10)
+	self := base + "/issues/" + num
+	html := b.RepoHTML(owner, repo) + "/issues/" + num
+	var links [5]string
+	suffixLinks(self, issueLinkSuffixes[:], links[:])
 
 	out := restmodel.Issue{
 		ID:                iss.ID,
 		NodeID:            nodeid.Encode(nodeid.KindIssue, iss.ID, format),
 		URL:               self,
 		RepositoryURL:     base,
-		LabelsURL:         self + "/labels{/name}",
-		CommentsURL:       self + "/comments",
-		EventsURL:         self + "/events",
+		LabelsURL:         links[0],
+		CommentsURL:       links[1],
+		EventsURL:         links[2],
 		HTMLURL:           html,
 		Number:            iss.Number,
 		State:             iss.State,
@@ -43,8 +46,8 @@ func (b *URLBuilder) Issue(owner, repo string, iss *domain.Issue, format nodeid.
 		CreatedAt:         restmodel.NewTime(iss.CreatedAt),
 		UpdatedAt:         restmodel.NewTime(iss.UpdatedAt),
 		AuthorAssociation: authorAssociation(iss.User.Login, owner),
-		Reactions:         reactionRollup(self+"/reactions", iss.Reactions),
-		TimelineURL:       self + "/timeline",
+		Reactions:         reactionRollup(links[3], iss.Reactions),
+		TimelineURL:       links[4],
 	}
 	// GitHub exposes the first assignee on the legacy single-value assignee field.
 	if len(out.Assignees) > 0 {
@@ -56,6 +59,16 @@ func (b *URLBuilder) Issue(owner, repo string, iss *domain.Issue, format nodeid.
 		out.ClosedBy = &closer
 	}
 	return out
+}
+
+// issueLinkSuffixes are the links an issue hangs off its own API URL, in the
+// order Issue reads them back from suffixLinks.
+var issueLinkSuffixes = [5]string{
+	"/labels{/name}",
+	"/comments",
+	"/events",
+	"/reactions",
+	"/timeline",
 }
 
 // Label renders a repository label for owner/repo. The label URL escapes the

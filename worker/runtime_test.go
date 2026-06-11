@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/tamnd/githome/store"
 	"github.com/tamnd/githome/worker"
@@ -99,4 +100,59 @@ func TestRuntimeNoHandlerParksJob(t *testing.T) {
 	if len(jobs) != 1 || jobs[0].State != "dead" {
 		t.Fatalf("unhandled job = %+v, want one dead job", jobs)
 	}
+}
+
+func TestRuntimeWorkersBypassSlowJob(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	st := openStore(t)
+	rt := worker.NewRuntime(st, nil, time.Millisecond)
+	rt.SetWorkers(2)
+
+	// The slow job parks until the fast one has run. With one claim loop this
+	// deadlocks (the loop is stuck inside the slow handler and never claims
+	// the fast job); a second loop slips past it.
+	fastRan := make(chan struct{})
+	rt.Register("slow", func(ctx context.Context, _ store.JobRow) error {
+		select {
+		case <-fastRan:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	rt.Register("fast", func(_ context.Context, _ store.JobRow) error {
+		close(fastRan)
+		return nil
+	})
+
+	if _, err := st.EnqueueJob(ctx, &store.JobRow{Kind: "slow"}); err != nil {
+		t.Fatalf("enqueue slow: %v", err)
+	}
+	if _, err := st.EnqueueJob(ctx, &store.JobRow{Kind: "fast"}); err != nil {
+		t.Fatalf("enqueue fast: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		_ = rt.Run(ctx)
+		close(done)
+	}()
+
+	// Both jobs complete only if the fast one ran around the slow one.
+	for {
+		jobs, err := st.ListJobs(ctx)
+		if err != nil {
+			t.Fatalf("ListJobs: %v", err)
+		}
+		if len(jobs) == 0 {
+			break
+		}
+		if ctx.Err() != nil {
+			t.Fatalf("queue never drained: %+v", jobs)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	cancel()
+	<-done
 }

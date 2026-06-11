@@ -69,6 +69,9 @@ func (r *Repo) HEAD() (Branch, error) {
 // Branches lists the repository's branches in name order. An empty repository
 // yields an empty slice, not an error.
 func (r *Repo) Branches() ([]Branch, error) {
+	if out, ok := r.branchesBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.Branches()
 	if err != nil {
 		return nil, err
@@ -88,6 +91,9 @@ func (r *Repo) Branches() ([]Branch, error) {
 // Tags lists the repository's tags in name order, peeling annotated tags to the
 // commit they point at and carrying the tag object metadata alongside.
 func (r *Repo) Tags() ([]Tag, error) {
+	if out, ok := r.tagsBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.Tags()
 	if err != nil {
 		return nil, err
@@ -124,6 +130,9 @@ func (r *Repo) Tags() ([]Tag, error) {
 // target is the object the ref names directly: a commit for branches and
 // lightweight tags, the tag object for annotated tags.
 func (r *Repo) Refs() ([]Ref, error) {
+	if out, ok := r.refsBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.References()
 	if err != nil {
 		return nil, err
@@ -278,6 +287,13 @@ func (r *Repo) PathAt(rev, path string) (PathResult, error) {
 
 // Log walks commit history from opts.From, optionally filtered to a path.
 func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
+	limit := opts.Max
+	if limit <= 0 {
+		limit = 30
+	}
+	if out, ok := r.logBatch(opts, limit); ok {
+		return out, nil
+	}
 	h, err := r.repo.ResolveRevision(plumbing.Revision(opts.From))
 	if err != nil {
 		return nil, ErrObjectNotFound
@@ -292,12 +308,13 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 		return nil, err
 	}
 	defer iter.Close()
-	limit := opts.Max
-	if limit <= 0 {
-		limit = 30
-	}
+	skip := opts.Skip
 	var out []Commit
 	err = iter.ForEach(func(c *object.Commit) error {
+		if skip > 0 {
+			skip--
+			return nil
+		}
 		if len(out) >= limit {
 			return storer.ErrStop
 		}
@@ -569,6 +586,9 @@ type BlameLine struct {
 // it. It returns ErrObjectNotFound when the path does not exist in the tree at
 // ref, and ErrRepoNotFound for other resolution failures.
 func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
+	if lines, err, handled := r.blameBatch(ref, path); handled {
+		return lines, err
+	}
 	c, err := r.commitFromRev(ref)
 	if err != nil {
 		return nil, err
@@ -599,6 +619,9 @@ func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
 // in standard unified-diff format; the handler renders it through the markup
 // pipeline.
 func (r *Repo) CommitPatch(sha string) (string, error) {
+	if patch, handled := r.commitPatchBatch(sha); handled {
+		return patch, nil
+	}
 	c, err := r.commitFromRev(sha)
 	if err != nil {
 		return "", err

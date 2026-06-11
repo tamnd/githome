@@ -1,20 +1,16 @@
 package rest
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
-	"github.com/tamnd/githome/git"
 )
 
 // handleREADME serves GET /repos/{owner}/{repo}/readme.
@@ -53,7 +49,10 @@ func handleREADME(d Deps) mizu.Handler {
 	}
 }
 
-// handleZipball serves GET /repos/{owner}/{repo}/zipball/{ref}.
+// handleZipball serves GET /repos/{owner}/{repo}/zipball/{ref}. The archive
+// streams straight out of one git archive subprocess; nothing is buffered in
+// memory, and the ref resolves before the first byte so a bad one is still a
+// clean 404.
 func handleZipball(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
@@ -64,37 +63,18 @@ func handleZipball(d Deps) mizu.Handler {
 		if ref == "" {
 			ref = repo.DefaultBranch
 		}
-		tree, err := d.Repos.GetTree(repo, ref, true)
-		if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		if err != nil {
-			return err
-		}
 		prefix := repo.Owner.Login + "-" + repo.Name + "-" + archiveRef(ref)
 		w := c.Writer()
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.zip"`, prefix))
-		zw := zip.NewWriter(w)
-		defer zw.Close()
-		for _, e := range tree.Entries {
-			if e.Type != git.ObjectBlob || e.Size > 10<<20 {
-				continue
-			}
-			blob, err := d.Repos.GetBlob(repo, e.SHA)
-			if err != nil {
-				continue
-			}
-			fh, err := zw.Create(path.Join(prefix, e.Path))
-			if err != nil {
-				return err
-			}
-			if _, err := fh.Write(blob.Content); err != nil {
-				return err
-			}
+		err = d.Repos.Archive(c.Context(), repo, ref, "zip", prefix, w)
+		if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
+			w.Header().Del("Content-Type")
+			w.Header().Del("Content-Disposition")
+			writeError(w, errNotFound())
+			return nil
 		}
-		return nil
+		return err
 	}
 }
 
@@ -109,44 +89,24 @@ func handleTarball(d Deps) mizu.Handler {
 		if ref == "" {
 			ref = repo.DefaultBranch
 		}
-		tree, err := d.Repos.GetTree(repo, ref, true)
+		prefix := repo.Owner.Login + "-" + repo.Name + "-" + archiveRef(ref)
+		w := c.Writer()
+		w.Header().Set("Content-Type", "application/x-gzip")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.tar.gz"`, prefix))
+		// git archive emits the tar; the gzip layer stays here so the exec
+		// seam never depends on a gzip binary.
+		gzw := gzip.NewWriter(w)
+		err = d.Repos.Archive(c.Context(), repo, ref, "tar", prefix, gzw)
 		if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
-			writeError(c.Writer(), errNotFound())
+			w.Header().Del("Content-Type")
+			w.Header().Del("Content-Disposition")
+			writeError(w, errNotFound())
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		prefix := repo.Owner.Login + "-" + repo.Name + "-" + archiveRef(ref)
-		w := c.Writer()
-		w.Header().Set("Content-Type", "application/x-gzip")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.tar.gz"`, prefix))
-		gzw := gzip.NewWriter(w)
-		defer gzw.Close()
-		tw := tar.NewWriter(gzw)
-		defer tw.Close()
-		for _, e := range tree.Entries {
-			if e.Type != git.ObjectBlob || e.Size > 10<<20 {
-				continue
-			}
-			blob, err := d.Repos.GetBlob(repo, e.SHA)
-			if err != nil {
-				continue
-			}
-			hdr := &tar.Header{
-				Name:    path.Join(prefix, e.Path),
-				Mode:    0644,
-				Size:    int64(len(blob.Content)),
-				ModTime: repo.UpdatedAt,
-			}
-			if err := tw.WriteHeader(hdr); err != nil {
-				return err
-			}
-			if _, err := tw.Write(blob.Content); err != nil {
-				return err
-			}
-		}
-		return nil
+		return gzw.Close()
 	}
 }
 

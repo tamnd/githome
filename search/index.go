@@ -4,19 +4,21 @@ import "strings"
 
 // Search strategy
 //
-// Githome runs search directly against the authoritative tables with portable
-// LIKE predicates rather than a dedicated index: an issue or repository search
-// is a filtered scan, and a code search walks the matching repositories' git
-// trees. This keeps the metadata store as the single source of truth and avoids
-// a second store to migrate and keep consistent.
+// Githome runs issue and repository text search against full-text indexes
+// derived from the authoritative tables: SQLite FTS5 virtual tables kept in
+// sync by triggers (Postgres uses a tsvector), with in:title and in:body
+// narrowing expressed as FTS5 column filters. LIKE survives only as the
+// fallback for column-restricted searches on Postgres, whose single combined
+// vector cannot express them. Code search walks the matching repositories'
+// git trees. The metadata store stays the single source of truth: the index
+// is rebuildable from the tables and never holds data the tables do not.
 //
 // The query language and result envelope are the contract; the execution behind
-// them is not. A future backend (SQLite FTS5, Postgres tsvector, a bleve or
-// Zoekt index) can replace the scan without changing this package's parse
-// output or the REST/GraphQL shapes, because such an index is rebuildable from
-// the tables and never holds data the tables do not. The normalization helpers
-// below give every backend the same notion of which fields a term matches, how
-// results sort, and how a relevance score is derived.
+// them is not. A future backend (a bleve or Zoekt index, say) can replace the
+// current one without changing this package's parse output or the
+// REST/GraphQL shapes. The normalization helpers below give every backend the
+// same notion of which fields a term matches, how results sort, and how a
+// relevance score is derived.
 
 // Field is a target a free-text term matches against. The in: qualifier selects
 // it; with no in: qualifier a term matches the default fields for the search
