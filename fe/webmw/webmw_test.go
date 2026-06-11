@@ -92,6 +92,79 @@ func TestSessionMiddlewareResolvesViewer(t *testing.T) {
 	}
 }
 
+func TestSessionMiddlewareCachesLookup(t *testing.T) {
+	lookups := 0
+	s := NewSessions(testKey, time.Hour, func(_ context.Context, _ int64) (*view.Viewer, error) {
+		lookups++
+		return &view.Viewer{Login: "octocat"}, nil
+	})
+	value := s.sign(7, time.Now().Add(time.Hour))
+	visit := func(inner func(*mizu.Ctx) error) *view.Viewer {
+		t.Helper()
+		c, _ := ctxFor(http.MethodGet, "/", func(r *http.Request) {
+			r.AddCookie(&http.Cookie{Name: DefaultSessionCookie, Value: value})
+		})
+		var got *view.Viewer
+		h := s.Middleware()(func(c *mizu.Ctx) error {
+			got = view.ViewerFrom(c.Context())
+			if inner != nil {
+				return inner(c)
+			}
+			return nil
+		})
+		if err := h(c); err != nil {
+			t.Fatalf("middleware: %v", err)
+		}
+		return got
+	}
+
+	// The second request inside the TTL answers from the cache: one lookup.
+	for i := 0; i < 3; i++ {
+		if v := visit(nil); v == nil || v.Login != "octocat" {
+			t.Fatalf("visit %d: viewer = %+v, want octocat", i, v)
+		}
+	}
+	if lookups != 1 {
+		t.Fatalf("lookups = %d, want 1 (cache must absorb repeat requests)", lookups)
+	}
+
+	// Logout drops the cached viewer, so the next request re-reads the store.
+	visit(func(c *mizu.Ctx) error { s.Clear(c); return nil })
+	visit(nil)
+	if lookups != 2 {
+		t.Fatalf("lookups = %d, want 2 (Clear must invalidate the cache)", lookups)
+	}
+
+	// A fresh login drops it too.
+	s.cache.put(7, &view.Viewer{Login: "stale"}, time.Now())
+	visit(func(c *mizu.Ctx) error { s.Issue(c, 7, time.Now()); return nil })
+	if v := visit(nil); v == nil || v.Login != "octocat" {
+		t.Fatalf("after Issue: viewer = %+v, want a fresh octocat", v)
+	}
+}
+
+func TestViewerCacheTTL(t *testing.T) {
+	c := viewerCache{items: map[int64]viewerEntry{}}
+	now := time.Unix(1_700_000_000, 0)
+	c.put(7, &view.Viewer{Login: "octocat"}, now)
+
+	if v, ok := c.get(7, now.Add(viewerCacheTTL-time.Second)); !ok || v.Login != "octocat" {
+		t.Fatal("entry inside the TTL must answer from the cache")
+	}
+	if _, ok := c.get(7, now.Add(viewerCacheTTL+time.Second)); ok {
+		t.Fatal("entry past the TTL must miss")
+	}
+	if _, ok := c.get(7, now); ok {
+		t.Fatal("an expired entry is gone, not resurrected by an earlier clock")
+	}
+
+	c.put(7, &view.Viewer{Login: "octocat"}, now)
+	c.drop(7)
+	if _, ok := c.get(7, now); ok {
+		t.Fatal("drop must remove the entry")
+	}
+}
+
 func TestSessionMiddlewareAnonymousWithoutCookie(t *testing.T) {
 	s := NewSessions(testKey, time.Hour, func(_ context.Context, _ int64) (*view.Viewer, error) {
 		t.Fatal("lookup must not run without a valid cookie")
