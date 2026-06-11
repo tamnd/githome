@@ -95,9 +95,11 @@ func Mount(root *mizu.Router, d Deps) {
 }
 
 // authenticate resolves the Authorization header into an actor and stores it on
-// the request context, the same contract as the REST auth middleware: a missing
-// credential flows through as anonymous, while a credential that is present but
-// invalid is a 401.
+// the request context. Unlike the REST surface, where a missing credential flows
+// through as anonymous, the GraphQL endpoint requires authentication outright:
+// GitHub 401s unauthenticated GraphQL requests at the transport, before any
+// execution, and viewer: User! could not answer for an anonymous actor anyway.
+// A credential that is present but invalid is the usual bad-credentials 401.
 func authenticate(svc *auth.Service, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if svc != nil {
@@ -106,6 +108,12 @@ func authenticate(svc *auth.Service, next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = w.Write([]byte(`{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}`))
+				return
+			}
+			if actor.UserID == 0 {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"message":"This endpoint requires you to be authenticated.","documentation_url":"https://docs.github.com/graphql/guides/forming-calls-with-graphql#authenticating-with-graphql","status":"401"}`))
 				return
 			}
 			r = r.WithContext(auth.WithActor(r.Context(), actor))

@@ -45,8 +45,9 @@ func (r *queryResolver) Repository(ctx context.Context, owner string, name strin
 	return &out, nil
 }
 
-// Viewer returns the currently authenticated user. An anonymous request returns
-// null, matching GitHub's behavior for unauthenticated viewer queries.
+// Viewer returns the currently authenticated user. The transport rejects
+// anonymous requests with a 401 before execution, so the zero-actor guard here
+// is only a backstop for handlers built without an auth service.
 func (r *queryResolver) Viewer(ctx context.Context) (*gqlmodel.User, error) {
 	actor := auth.ActorFrom(ctx)
 	if actor.UserID == 0 {
