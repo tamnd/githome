@@ -127,6 +127,7 @@ func newFixture(t *testing.T) fixture {
 	rg.Get("/{owner}/{repo}/raw/{rest...}", h.Raw)
 	rg.Get("/{owner}/{repo}/commits", h.Commits)
 	rg.Get("/{owner}/{repo}/commits/{rest...}", h.Commits)
+	rg.Get("/{owner}/{repo}/commit/{sha}", h.Commit)
 	rg.Get("/{owner}/{repo}/branches", h.Branches)
 	rg.Get("/{owner}/{repo}/tags", h.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", h.FileFinder)
@@ -460,5 +461,36 @@ func TestBlobOverDisplayCutoffShowsTooLarge(t *testing.T) {
 	}
 	if strings.Contains(body, "0123456789abcde") {
 		t.Errorf("big blob content leaked into the page")
+	}
+}
+
+// TestCommitPagePatchBounded renders the commit whose patch carries the big.txt
+// blob, far past the inline cap: the page must show the head of the patch plus
+// the truncation note, while a small commit still renders its patch whole.
+func TestCommitPagePatchBounded(t *testing.T) {
+	fx := newFixture(t)
+
+	resp, body := get(t, fx.srv, "/octocat/hello/commit/master")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "too large to show in full") {
+		t.Fatal("oversized patch rendered without the truncation note")
+	}
+	if !strings.Contains(body, "diff --git") {
+		t.Fatal("truncated commit page lost the head of its patch")
+	}
+	if len(body) > maxCommitPatchBytes*2 {
+		t.Fatalf("page is %d bytes, the patch cap did not bite", len(body))
+	}
+
+	// The first commit (both tags point at it) has no parent, so the page shows
+	// the no-diff blankslate; either way no truncation note belongs here.
+	resp, body = get(t, fx.srv, "/octocat/hello/commit/v0.1.0")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if strings.Contains(body, "too large to show in full") {
+		t.Fatal("small page carried the truncation note")
 	}
 }

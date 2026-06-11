@@ -11,6 +11,13 @@ import (
 	"github.com/tamnd/githome/fe/view"
 )
 
+// maxCommitPatchBytes caps the raw patch the commit page inlines. The patch is
+// the whole commit against its first parent; a vendored-dependency or generated
+// commit produces tens of megabytes, every byte of which would be escaped into
+// one <pre>. Past the cap the page shows the head of the patch and a note that
+// points at the browse view for the rest.
+const maxCommitPatchBytes = 256 << 10
+
 // Commit renders the single-commit view: the commit message, author, and the
 // unified diff against the first parent. GET /{owner}/{repo}/commit/{sha}. See
 // implementation/07 section 8.
@@ -41,6 +48,11 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 
 	owner := ownerLogin(repo)
 
+	// FilesCount comes from the full patch before the display cap, so the count
+	// stays honest when the inline patch is cut short.
+	filesCount := countDiffFiles(patch)
+	patch, patchTruncated := truncatePatch(patch)
+
 	// Build parent short-SHA + URL pairs.
 	var parentSHAs, parentURLs []string
 	for _, p := range commit.Parents {
@@ -49,25 +61,39 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 	}
 
 	vm := view.CommitVM{
-		Chrome:      h.chrome(c, shortSHA(commit.SHA)+" · "+commitTitle(commit.Message)),
-		Header:      h.header(repo, ""),
-		Nav:         h.nav(repo, commit.SHA),
-		Repo:        repoRef(repo),
-		SHA:         commit.SHA,
-		ShortSHA:    shortSHA(commit.SHA),
-		Title:       commitTitle(commit.Message),
-		Body:        commitBody(commit.Message),
-		AuthorName:  commit.Author.Name,
-		AuthorEmail: commit.Author.Email,
-		When:        commit.Author.When.UTC().Format("Jan 2, 2006"),
-		ParentSHAs:  parentSHAs,
-		ParentURLs:  parentURLs,
-		RawPatch:    patch,
-		FilesCount:  countDiffFiles(patch),
-		CommitsURL:  route.Commits(owner, repo.Name, commit.SHA, ""),
-		TreeURL:     route.Tree(owner, repo.Name, commit.SHA, ""),
+		Chrome:         h.chrome(c, shortSHA(commit.SHA)+" · "+commitTitle(commit.Message)),
+		Header:         h.header(repo, ""),
+		Nav:            h.nav(repo, commit.SHA),
+		Repo:           repoRef(repo),
+		SHA:            commit.SHA,
+		ShortSHA:       shortSHA(commit.SHA),
+		Title:          commitTitle(commit.Message),
+		Body:           commitBody(commit.Message),
+		AuthorName:     commit.Author.Name,
+		AuthorEmail:    commit.Author.Email,
+		When:           commit.Author.When.UTC().Format("Jan 2, 2006"),
+		ParentSHAs:     parentSHAs,
+		ParentURLs:     parentURLs,
+		RawPatch:       patch,
+		PatchTruncated: patchTruncated,
+		FilesCount:     filesCount,
+		CommitsURL:     route.Commits(owner, repo.Name, commit.SHA, ""),
+		TreeURL:        route.Tree(owner, repo.Name, commit.SHA, ""),
 	}
 	return h.render.Page(c, "repo/commit", vm)
+}
+
+// truncatePatch bounds a patch for inline display, cutting on a line boundary
+// so the inline view ends on a whole diff line.
+func truncatePatch(patch string) (string, bool) {
+	if len(patch) <= maxCommitPatchBytes {
+		return patch, false
+	}
+	cut := patch[:maxCommitPatchBytes]
+	if i := strings.LastIndexByte(cut, '\n'); i > 0 {
+		cut = cut[:i+1]
+	}
+	return cut, true
 }
 
 // countDiffFiles counts the number of "diff --git" headers in a unified patch.

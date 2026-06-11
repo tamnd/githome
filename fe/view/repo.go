@@ -341,7 +341,10 @@ type CommitVM struct {
 	ParentURLs  []string // tree browse URL for each parent
 	Diff        string   // rendered HTML from the markup pipeline; empty = initial commit
 	RawPatch    string   // raw unified-diff text, rendered only if Diff is empty
-	FilesCount  int      // number of files changed
-	CommitsURL  string   // back link to the history page
-	TreeURL     string   // tree at this commit
+	// PatchTruncated marks RawPatch as the bounded head of a larger patch; the
+	// template shows a note pointing at the browse view for the full change.
+	PatchTruncated bool
+	FilesCount     int    // number of files changed
+	CommitsURL     string // back link to the history page
+	TreeURL        string // tree at this commit
 }

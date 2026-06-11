@@ -41,6 +41,9 @@
   {{if .RawPatch -}}
   <div class="commit-diff">
     <pre class="commit-patch highlight"><code>{{.RawPatch}}</code></pre>
+    {{if .PatchTruncated -}}
+    <p class="diff-file-note">This patch is too large to show in full. <a href="{{.TreeURL}}">Browse the files</a> at this commit to see the rest.</p>
+    {{- end}}
   </div>
   {{- else -}}
   <div class="blankslate">
