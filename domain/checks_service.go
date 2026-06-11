@@ -246,6 +246,25 @@ func (s *ChecksService) GetCheckRun(ctx context.Context, viewerPK int64, owner, 
 	return s.assembleRun(row), nil
 }
 
+// CheckRunRef resolves a check run by its public database ID and returns the
+// owner login and repository name GetCheckRun takes. The GraphQL node()
+// resolver uses it to turn a check-run node id back into an addressable run;
+// GetCheckRun then enforces visibility.
+func (s *ChecksService) CheckRunRef(ctx context.Context, runDBID int64) (owner, repoName string, err error) {
+	row, err := s.store.GetCheckRun(ctx, runDBID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", ErrCheckNotFound
+	}
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := s.repos.GetRepoByPK(ctx, 0, row.RepoPK)
+	if err != nil {
+		return "", "", err
+	}
+	return repo.Owner.Login, repo.Name, nil
+}
+
 // ListCheckRuns returns every check run reported against a ref for the viewer.
 func (s *ChecksService) ListCheckRuns(ctx context.Context, viewerPK int64, owner, name, ref string) ([]*CheckRun, string, error) {
 	repo, sha, err := s.resolveForRead(ctx, viewerPK, owner, name, ref)

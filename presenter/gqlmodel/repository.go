@@ -70,10 +70,10 @@ type RepositoryConnection struct {
 // Ref is a git reference. The id field carries the opaque node ID clients pass
 // to deleteRef. Prefix is the full prefix (refs/heads/ or refs/tags/).
 type Ref struct {
-	ID     string     // the Ref node ID
-	Name   string     // the short ref name, such as main
-	Prefix string     // the full prefix, e.g. "refs/heads/"
-	Target *GitObject // the object the ref names
+	ID     string    // the Ref node ID
+	Name   string    // the short ref name, such as main
+	Prefix string    // the full prefix, e.g. "refs/heads/"
+	Target GitObject // the object the ref names
 }
 
 // IsNode marks Ref as implementing the Node interface.
@@ -82,10 +82,73 @@ func (Ref) IsNode() {}
 // GetID satisfies the Node interface getter gqlgen requires.
 func (r Ref) GetID() string { return r.ID }
 
-// GitObject is a git object addressed by its SHA. The M2 schema models it as a
-// concrete type carrying only oid, which is all gh repo view selects; the full
-// GitObject interface with Commit, Tree, Blob, and Tag arrives with the GraphQL
-// parity milestone.
-type GitObject struct {
+// GitObject is the interface a git object addressed by its SHA implements:
+// Commit, Tree, Blob, and Tag. Ref.target carries it, so `... on Commit`
+// inline fragments narrow it the way GitHub's schema allows.
+type GitObject interface {
+	IsGitObject()
+}
+
+// abbreviateOid is the short seven-hex form GitHub's abbreviatedOid renders.
+func abbreviateOid(oid GitObjectID) string {
+	if len(oid) < 7 {
+		return string(oid)
+	}
+	return string(oid[:7])
+}
+
+// Tree is a git tree object.
+type Tree struct {
+	ID  string // the Tree node ID
 	Oid GitObjectID
 }
+
+// IsGitObject marks Tree as implementing the GitObject interface.
+func (Tree) IsGitObject() {}
+
+// IsNode marks Tree as implementing the Node interface.
+func (Tree) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (t Tree) GetID() string { return t.ID }
+
+// AbbreviatedOid is the short form of the tree's SHA.
+func (t Tree) AbbreviatedOid() string { return abbreviateOid(t.Oid) }
+
+// Blob is a git blob object.
+type Blob struct {
+	ID  string // the Blob node ID
+	Oid GitObjectID
+}
+
+// IsGitObject marks Blob as implementing the GitObject interface.
+func (Blob) IsGitObject() {}
+
+// IsNode marks Blob as implementing the Node interface.
+func (Blob) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (b Blob) GetID() string { return b.ID }
+
+// AbbreviatedOid is the short form of the blob's SHA.
+func (b Blob) AbbreviatedOid() string { return abbreviateOid(b.Oid) }
+
+// Tag is an annotated git tag object.
+type Tag struct {
+	ID     string // the Tag node ID
+	Oid    GitObjectID
+	Name   string    // the tag name
+	Target GitObject // the object the tag points at
+}
+
+// IsGitObject marks Tag as implementing the GitObject interface.
+func (Tag) IsGitObject() {}
+
+// IsNode marks Tag as implementing the Node interface.
+func (Tag) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (t Tag) GetID() string { return t.ID }
+
+// AbbreviatedOid is the short form of the tag object's SHA.
+func (t Tag) AbbreviatedOid() string { return abbreviateOid(t.Oid) }

@@ -17,7 +17,7 @@ import (
 // resolvers; the presenter fills only the repository coordinates they read.
 func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, format nodeid.Format) *gqlmodel.PullRequest {
 	num := strconv.FormatInt(pr.Number, 10)
-	fullID := strconv.FormatInt(pr.ID, 10)
+	fullID := gqlmodel.BigInt(strconv.FormatInt(pr.ID, 10))
 	out := &gqlmodel.PullRequest{
 		ID:                  nodeid.Encode(nodeid.KindPullRequest, pr.ID, format),
 		Number:              int32(pr.Number),
@@ -63,11 +63,21 @@ func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, 
 		headPK = pr.Head.Repo.PK
 	}
 	out.IsCrossRepository = headPK != basePK
+	baseID, headID := int64(0), int64(0)
+	if pr.Repo != nil {
+		baseID, headID = pr.Repo.ID, pr.Repo.ID
+	}
+	if pr.Base.Repo != nil {
+		baseID = pr.Base.Repo.ID
+	}
+	if pr.Head.Repo != nil {
+		headID = pr.Head.Repo.ID
+	}
 	if pr.Base.Ref != "" {
-		out.BaseRef = GQLRef(basePK, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
+		out.BaseRef = GQLRef(baseID, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
 	}
 	if pr.Head.Ref != "" {
-		out.HeadRef = GQLRef(headPK, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
+		out.HeadRef = GQLRef(headID, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
 	}
 	headRepo := pr.Head.Repo
 	if headRepo == nil && headPK == pr.RepoPK {
@@ -183,6 +193,20 @@ func patchStatus(status string) gqlmodel.PatchStatus {
 		return gqlmodel.PatchStatusChanged
 	default:
 		return gqlmodel.PatchStatusModified
+	}
+}
+
+// GQLCommit renders a git commit into the GraphQL Commit shape. repoDBID is
+// the repository's public database id the node id encodes; owner and name are
+// the coordinates the statusCheckRollup resolver reads back.
+func GQLCommit(repoDBID int64, owner, name string, c git.Commit) *gqlmodel.Commit {
+	return &gqlmodel.Commit{
+		ID:              nodeid.EncodeGitObject("commit", repoDBID, string(c.SHA)),
+		Oid:             gqlmodel.GitObjectID(c.SHA),
+		Message:         c.Message,
+		MessageHeadline: messageHeadline(c.Message),
+		RepoOwner:       owner,
+		RepoName:        name,
 	}
 }
 

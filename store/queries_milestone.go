@@ -66,6 +66,13 @@ func (s *Store) GetMilestoneByPK(ctx context.Context, pk int64) (*MilestoneRow, 
 	return scanMilestone(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
+// GetMilestoneByDBID resolves a milestone by its public database id, the id a
+// milestone node id encodes.
+func (s *Store) GetMilestoneByDBID(ctx context.Context, dbID int64) (*MilestoneRow, error) {
+	q := s.rebind(`SELECT ` + milestoneColumns + ` FROM milestones WHERE db_id = ?`)
+	return scanMilestone(s.rdb.QueryRowContext(ctx, q, dbID))
+}
+
 // MilestoneIssueCounts returns the open and closed issue counts for a milestone,
 // computed from the issues that point at it.
 func (s *Store) MilestoneIssueCounts(ctx context.Context, milestonePK int64) (open, closed int, err error) {

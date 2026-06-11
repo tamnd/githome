@@ -67,13 +67,17 @@ func NewHandler(d Deps) http.Handler {
 	srv.AddTransport(transport.POST{})
 	srv.AddTransport(transport.GET{})
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](256))
+	srv.SetErrorPresenter(presentError)
 	srv.Use(extension.Introspection{})
 	srv.Use(extension.FixedComplexityLimit(maxQueryComplexity))
 	srv.Use(depthLimitExtension(maxQueryDepth))
-	var h http.Handler = srv
+	var h http.Handler = liftErrorTypes(srv)
 	if d.Batch != nil {
 		h = loadersMiddleware(d.Batch, d.URLs, d.NodeFormat, h)
 	}
+	// The format middleware sits outside the loaders middleware so the
+	// per-request dataloaders render node ids in the header-selected format.
+	h = idFormatMiddleware(d.NodeFormat, h)
 	return authenticate(d.Auth, h)
 }
 
@@ -95,9 +99,11 @@ func Mount(root *mizu.Router, d Deps) {
 }
 
 // authenticate resolves the Authorization header into an actor and stores it on
-// the request context, the same contract as the REST auth middleware: a missing
-// credential flows through as anonymous, while a credential that is present but
-// invalid is a 401.
+// the request context. Unlike the REST surface, where a missing credential flows
+// through as anonymous, the GraphQL endpoint requires authentication outright:
+// GitHub 401s unauthenticated GraphQL requests at the transport, before any
+// execution, and viewer: User! could not answer for an anonymous actor anyway.
+// A credential that is present but invalid is the usual bad-credentials 401.
 func authenticate(svc *auth.Service, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if svc != nil {
@@ -106,6 +112,12 @@ func authenticate(svc *auth.Service, next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = w.Write([]byte(`{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest"}`))
+				return
+			}
+			if actor.UserID == 0 {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"message":"This endpoint requires you to be authenticated.","documentation_url":"https://docs.github.com/graphql/guides/forming-calls-with-graphql#authenticating-with-graphql","status":"401"}`))
 				return
 			}
 			r = r.WithContext(auth.WithActor(r.Context(), actor))

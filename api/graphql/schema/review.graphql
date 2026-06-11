@@ -38,7 +38,7 @@ enum StatusState {
 }
 
 # PullRequestReviewThread is a review conversation: a root comment and its replies.
-type PullRequestReviewThread {
+type PullRequestReviewThread implements Node {
   id: ID!
   isResolved: Boolean!
   isOutdated: Boolean!
@@ -217,7 +217,7 @@ type UnresolveReviewThreadPayload {
 
 # PullRequestReview is a submitted review on a pull request. It is the return
 # type for addPullRequestReview and submitPullRequestReview.
-type PullRequestReview {
+type PullRequestReview implements Node {
   id: ID!
   state: PullRequestReviewState!
   body: String!

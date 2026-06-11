@@ -8,6 +8,17 @@ scalar GitObjectID
 # BigInt carries an integer too wide for Int as a string, the way GitHub types
 # fullDatabaseId.
 scalar BigInt
+# HTML is a string of rendered HTML, the type of bodyHTML fields.
+scalar HTML
+# GitTimestamp is an ISO 8601 instant that keeps the offset a git object
+# recorded instead of converting to UTC.
+scalar GitTimestamp
+# Date is an ISO 8601 calendar date with no time part.
+scalar Date
+# GitSSHRemote is a git SSH clone address, the type of Repository.sshUrl.
+scalar GitSSHRemote
+# Base64String is a base64-encoded string, the type blob text rides in.
+scalar Base64String
 
 # Node is the interface every object with a node ID implements. Clients use
 # node(id:) and nodes(ids:) to look up objects by their opaque IDs.
@@ -201,9 +212,35 @@ type Ref implements Node {
   prefix: String!
 }
 
-# GitObject is a git object addressed by its SHA.
-type GitObject {
+# GitObject is a git object addressed by its SHA: the interface Commit, Tree,
+# Blob, and Tag implement, so Ref.target narrows with inline fragments.
+interface GitObject {
+  id: ID!
   oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tree is a git tree object.
+type Tree implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Blob is a git blob object.
+type Blob implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tag is an annotated git tag object.
+type Tag implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+  name: String!
+  target: GitObject
 }
 
 # RateLimit is the current rate-limit state for the viewer.

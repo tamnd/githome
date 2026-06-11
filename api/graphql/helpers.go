@@ -8,7 +8,6 @@ package graphql
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,6 +23,10 @@ import (
 
 // errBadID is returned when a node ID cannot be decoded.
 var errBadID = errors.New("invalid node ID")
+
+// maxNodeIDs is the most ids one nodes(ids:) call may carry, matching GitHub's
+// per-request cap.
+const maxNodeIDs = 100
 
 // branchProtectionRuleID is a placeholder node ID for branch protection rules.
 // Githome does not yet store rules, so we use a fixed sentinel rather than a
@@ -47,17 +50,17 @@ func (r *mutationResolver) setThreadResolved(ctx context.Context, threadID strin
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLReviewThread(owner, name, thread, r.NodeFormat), nil
+	return r.URLs.GQLReviewThread(owner, name, thread, r.format(ctx)), nil
 }
 
 // buildIssueConnection renders a page of domain issues into the GraphQL
 // connection. Each edge's cursor carries its absolute offset plus the issue's
 // number, so a follow-up after: cursor resumes past it with a keyset seek.
-func (r *Resolver) buildIssueConnection(owner, name string, issues []*domain.Issue, total, offset int) *gqlmodel.IssueConnection {
+func (r *Resolver) buildIssueConnection(ctx context.Context, owner, name string, issues []*domain.Issue, total, offset int) *gqlmodel.IssueConnection {
 	nodes := make([]*gqlmodel.Issue, 0, len(issues))
 	edges := make([]*gqlmodel.IssueEdge, 0, len(issues))
 	for i, iss := range issues {
-		node := r.URLs.GQLIssue(owner, name, iss, r.NodeFormat)
+		node := r.URLs.GQLIssue(owner, name, iss, r.format(ctx))
 		nodes = append(nodes, node)
 		edges = append(edges, &gqlmodel.IssueEdge{Cursor: encodeCursorSeek(offset+i+1, iss.Number), Node: node})
 	}
@@ -247,9 +250,10 @@ type gqlError struct{ msg string }
 func (e gqlError) Error() string { return e.msg }
 
 // unresolvable is the error GitHub returns for a node ID that does not name a
-// visible object of the expected type.
+// visible object of the expected type. It carries the NOT_FOUND type gh's
+// GraphQLError.Match reads.
 func unresolvable(kind, id string) error {
-	return gqlError{fmt.Sprintf("Could not resolve to a %s with the global id of '%s'.", kind, id)}
+	return notFoundf("Could not resolve to a %s with the global id of '%s'.", kind, id)
 }
 
 // mapErr translates a domain error into the message a GraphQL client sees. A
@@ -258,7 +262,7 @@ func unresolvable(kind, id string) error {
 func mapErr(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrForbidden):
-		return gqlError{"You do not have permission to perform this action."}
+		return typedError{msg: "You do not have permission to perform this action.", errType: "FORBIDDEN"}
 	case errors.Is(err, domain.ErrValidation):
 		return gqlError{"The change you requested was rejected: a required field is missing or invalid."}
 	default:
@@ -322,31 +326,45 @@ func (r *Resolver) userLoginsFromIDs(ctx context.Context, ids []string) ([]strin
 // the PullRequest shape (with base/head refs etc.) is returned.
 func (r *Resolver) labelableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.LabelableNode, error) {
 	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	}
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // assignableFromIssue converts the updated domain issue into the GraphQL
 // AssignableNode shape. Mirrors labelableFromIssue.
 func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.AssignableNode, error) {
 	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	}
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // resolveNode decodes a node ID and fetches the matching domain object,
-// returning a generated.Node or nil when the ID does not resolve.
+// returning a generated.Node or nil when the ID does not resolve. Git refs
+// carry a repo-scoped git-object encoding rather than a (kind, dbid) pair, so
+// they decode through the git-object codec first.
 func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, error) {
+	if tag, repoID, name, gErr := nodeid.DecodeGitObject(id); gErr == nil {
+		switch tag {
+		case "ref":
+			return r.resolveRefNode(ctx, repoID, name)
+		case "commit":
+			return r.resolveCommitNode(ctx, repoID, name)
+		default:
+			// Blob and tree ids decode but nothing serves their objects over
+			// GraphQL yet, so they resolve to null.
+			return nil, nil
+		}
+	}
 	kind, dbID, err := nodeid.Decode(id)
 	if err != nil {
 		return nil, nil
@@ -365,7 +383,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 			branch = &b
 		}
-		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 		return out, nil
 	case nodeid.KindIssue:
 		owner, name, number, err := r.Issues.IssueRef(ctx, dbID)
@@ -382,7 +400,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	case nodeid.KindPullRequest:
 		pr, err := r.Pulls.GetPRByID(ctx, viewer, dbID)
 		if errors.Is(err, domain.ErrPullNotFound) {
@@ -391,16 +409,188 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLPullRequest(pr.Repo.Owner.Login, pr.Repo.Name, pr, r.NodeFormat), nil
+		return r.URLs.GQLPullRequest(pr.Repo.Owner.Login, pr.Repo.Name, pr, r.format(ctx)), nil
 	case nodeid.KindUser:
 		u, err := r.Users.Viewer(ctx, dbID)
 		if err != nil {
 			return nil, nil
 		}
-		return r.URLs.GQLUser(u, r.NodeFormat), nil
+		return r.URLs.GQLUser(u, r.format(ctx)), nil
+	case nodeid.KindLabel:
+		labelName, owner, name, err := r.Issues.LabelRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrLabelNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		l, err := r.Issues.GetLabel(ctx, viewer, owner, name, labelName)
+		if errors.Is(err, domain.ErrLabelNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLLabel(l, r.format(ctx)), nil
+	case nodeid.KindMilestone:
+		number, owner, name, err := r.Issues.MilestoneRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrMilestoneNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		m, err := r.Issues.GetMilestone(ctx, viewer, owner, name, number)
+		if errors.Is(err, domain.ErrMilestoneNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLMilestone(owner, name, m, r.format(ctx)), nil
+	case nodeid.KindIssueComment:
+		owner, name, err := r.Issues.CommentRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		cm, err := r.Issues.GetComment(ctx, viewer, owner, name, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx)), nil
+	case nodeid.KindPullRequestReview:
+		owner, name, number, err := r.Reviews.ReviewRef(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrReviewNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		rv, err := r.Reviews.GetReview(ctx, viewer, owner, name, number, dbID)
+		if errors.Is(err, domain.ErrReviewNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return gqlReview(rv, r.URLs, owner, name, r.format(ctx)), nil
+	case nodeid.KindPullRequestReviewThread:
+		owner, name, number, err := r.Reviews.ThreadRef(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		threads, err := r.Reviews.ReviewThreads(ctx, viewer, owner, name, number)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range threads {
+			if t.ID == dbID {
+				return r.URLs.GQLReviewThread(owner, name, t, r.format(ctx)), nil
+			}
+		}
+		return nil, nil
+	case nodeid.KindCheckRun:
+		owner, name, err := r.Checks.CheckRunRef(ctx, dbID)
+		if errors.Is(err, domain.ErrCheckNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		cr, err := r.Checks.GetCheckRun(ctx, viewer, owner, name, dbID)
+		if errors.Is(err, domain.ErrCheckNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		out := presenter.GQLCheckRun(cr, r.format(ctx))
+		return out, nil
 	default:
 		return nil, nil
 	}
+}
+
+// resolveRefNode resolves a ref node id's (repo, qualified name) pair to the
+// Ref shape, or nil when the repository or the ref does not resolve for the
+// viewer.
+func (r *Resolver) resolveRefNode(ctx context.Context, repoID int64, qualifiedName string) (generated.Node, error) {
+	repo, err := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ref, err := r.Repos.GetRef(repo, qualifiedName)
+	if err != nil {
+		return nil, nil
+	}
+	shortName := qualifiedName
+	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
+		shortName = qualifiedName[i+1:]
+	}
+	return presenter.GQLRef(repo.ID, qualifiedName, shortName, ref.Target), nil
+}
+
+// loadCommit reads the underlying git commit for a partially filled Commit:
+// by the repository coordinates when the presenter recorded them, by the
+// repo-scoped node id otherwise. ok is false when the commit does not resolve
+// for the viewer, which renders the field as its zero value rather than an
+// error, since the surrounding object already proved visible.
+func (r *Resolver) loadCommit(ctx context.Context, obj *gqlmodel.Commit) (git.Commit, bool, error) {
+	var repo *domain.Repo
+	var err error
+	switch {
+	case obj.RepoOwner != "":
+		repo, err = r.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	case obj.ID != "":
+		_, repoID, _, dErr := nodeid.DecodeGitObject(obj.ID)
+		if dErr != nil {
+			return git.Commit{}, false, nil
+		}
+		repo, err = r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	default:
+		return git.Commit{}, false, nil
+	}
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return git.Commit{}, false, nil
+	}
+	if err != nil {
+		return git.Commit{}, false, err
+	}
+	c, err := r.Repos.GetCommit(repo, string(obj.Oid))
+	if err != nil {
+		return git.Commit{}, false, nil
+	}
+	return c, true, nil
+}
+
+// resolveCommitNode resolves a commit node id's (repo, sha) pair to the Commit
+// shape, or nil when the repository or the commit does not resolve for the
+// viewer.
+func (r *Resolver) resolveCommitNode(ctx context.Context, repoID int64, sha string) (generated.Node, error) {
+	repo, err := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	c, err := r.Repos.GetCommit(repo, sha)
+	if err != nil {
+		return nil, nil
+	}
+	return presenter.GQLCommit(repo.ID, repo.Owner.Login, repo.Name, c), nil
 }
 
 // listReposForLogin resolves a list of repositories for a user identified by
@@ -430,7 +620,7 @@ func (r *Resolver) listReposForLogin(ctx context.Context, login string, first *i
 		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 			branch = &b
 		}
-		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 		nodes = append(nodes, &out)
 	}
 	return &gqlmodel.RepositoryConnection{
@@ -472,12 +662,12 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 
 // buildReviewConnection windows a review listing and renders it into the
 // GraphQL connection with Relay page info.
-func (r *Resolver) buildReviewConnection(revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
+func (r *Resolver) buildReviewConnection(ctx context.Context, revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
 	total := len(revs)
 	start, end := page.window(total)
 	nodes := make([]*generated.PullRequestReview, 0, end-start)
 	for _, rv := range revs[start:end] {
-		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.NodeFormat))
+		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.format(ctx)))
 	}
 	return &generated.PullRequestReviewConnection{
 		Nodes:      nodes,

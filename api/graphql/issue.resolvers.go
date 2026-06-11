@@ -67,7 +67,7 @@ func (r *issueResolver) Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gq
 // Comments is the resolver for the comments field. It pages the issue's comments
 // through the domain on demand, the way gh issue view selects them.
 func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	}
 	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
 	for _, cm := range comments {
-		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.format(ctx)))
 	}
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
@@ -176,7 +176,7 @@ func (r *mutationResolver) CreateIssue(ctx context.Context, input generated.Crea
 		return nil, mapErr(err)
 	}
 	return &generated.CreateIssuePayload{
-		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
+		Issue:            r.URLs.GQLIssue(owner, name, iss, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -234,7 +234,7 @@ func (r *mutationResolver) UpdateIssue(ctx context.Context, input generated.Upda
 		return nil, mapErr(err)
 	}
 	return &generated.UpdateIssuePayload{
-		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
+		Issue:            r.URLs.GQLIssue(owner, name, iss, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -254,7 +254,7 @@ func (r *mutationResolver) AddComment(ctx context.Context, input generated.AddCo
 	return &generated.AddCommentPayload{
 		CommentEdge: &generated.IssueCommentEdge{
 			Cursor: encodeCursor(0),
-			Node:   r.URLs.GQLIssueComment(owner, name, cm, r.NodeFormat),
+			Node:   r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx)),
 		},
 		ClientMutationID: input.ClientMutationID,
 	}, nil
@@ -277,7 +277,7 @@ func (r *mutationResolver) CloseIssue(ctx context.Context, input generated.Close
 		return nil, mapErr(err)
 	}
 	return &generated.CloseIssuePayload{
-		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
+		Issue:            r.URLs.GQLIssue(owner, name, iss, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -294,23 +294,24 @@ func (r *mutationResolver) ReopenIssue(ctx context.Context, input generated.Reop
 		return nil, mapErr(err)
 	}
 	return &generated.ReopenIssuePayload{
-		Issue:            r.URLs.GQLIssue(owner, name, iss, r.NodeFormat),
+		Issue:            r.URLs.GQLIssue(owner, name, iss, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
 
 // Issue is the resolver for the issue field. A missing issue, or one in a
-// repository the actor cannot see, resolves to null rather than an error.
+// repository the actor cannot see, resolves to null plus a NOT_FOUND error,
+// the answer GitHub gives.
 func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.Issue, error) {
 	owner, name := splitNWO(obj.NameWithOwner)
 	iss, err := r.Resolver.Issues.GetIssue(ctx, viewerID(ctx), owner, name, int64(number))
 	if errors.Is(err, domain.ErrIssueNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to an Issue with the number of %d.", number)
 	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+	return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 }
 
 // Labels is the resolver for the labels field. The store hands back the whole
@@ -318,7 +319,7 @@ func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository
 // here; label sets are small enough that this stays cheap. A repository the
 // actor cannot see resolves to an empty connection, never an error.
 func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, orderBy *generated.LabelOrder, query *string) (*gqlmodel.LabelConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +346,7 @@ func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repositor
 	start, end := page.window(total)
 	nodes := make([]*gqlmodel.Label, 0, end-start)
 	for _, l := range labels[start:end] {
-		nodes = append(nodes, r.URLs.GQLLabel(l, r.NodeFormat))
+		nodes = append(nodes, r.URLs.GQLLabel(l, r.format(ctx)))
 	}
 	return &gqlmodel.LabelConnection{
 		Nodes:      nodes,
@@ -357,7 +358,7 @@ func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repositor
 // Issues is the resolver for the issues field. A repository the actor cannot see
 // resolves to an empty connection, never an error, so its existence does not leak.
 func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string) (*gqlmodel.IssueConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +387,7 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 				return nil, mapErr(err)
 			}
 		}
-		return r.buildIssueConnection(owner, name, issues, total, page.offset), nil
+		return r.buildIssueConnection(ctx, owner, name, issues, total, page.offset), nil
 	}
 
 	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, q)
@@ -396,7 +397,7 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildIssueConnection(owner, name, issues, total, page.offset), nil
+	return r.buildIssueConnection(ctx, owner, name, issues, total, page.offset), nil
 }
 
 // Issue returns generated.IssueResolver implementation.

@@ -22,12 +22,13 @@ import (
 // Repository is the resolver for the repository field. It resolves the
 // repository for the request actor and renders it with its default-branch ref.
 // A repository that does not exist or that the actor cannot see resolves to
-// null, never an error, so a private repo's existence does not leak.
+// null plus a NOT_FOUND error, the same answer in both cases so a private
+// repo's existence does not leak.
 func (r *queryResolver) Repository(ctx context.Context, owner string, name string) (*gqlmodel.Repository, error) {
 	actor := auth.ActorFrom(ctx)
 	repo, err := r.Repos.GetRepo(ctx, actor.UserID, owner, name)
 	if errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to a Repository with the name '%s/%s'.", owner, name)
 	}
 	if err != nil {
 		return nil, err
@@ -41,12 +42,13 @@ func (r *queryResolver) Repository(ctx context.Context, owner string, name strin
 		return nil, err
 	}
 
-	out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+	out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 	return &out, nil
 }
 
-// Viewer returns the currently authenticated user. An anonymous request returns
-// null, matching GitHub's behavior for unauthenticated viewer queries.
+// Viewer returns the currently authenticated user. The transport rejects
+// anonymous requests with a 401 before execution, so the zero-actor guard here
+// is only a backstop for handlers built without an auth service.
 func (r *queryResolver) Viewer(ctx context.Context) (*gqlmodel.User, error) {
 	actor := auth.ActorFrom(ctx)
 	if actor.UserID == 0 {
@@ -56,7 +58,7 @@ func (r *queryResolver) Viewer(ctx context.Context) (*gqlmodel.User, error) {
 	if err != nil {
 		return nil, nil
 	}
-	return r.URLs.GQLUser(u, r.NodeFormat), nil
+	return r.URLs.GQLUser(u, r.format(ctx)), nil
 }
 
 // User resolves a public user profile by login. A missing user resolves to null,
@@ -69,7 +71,7 @@ func (r *queryResolver) User(ctx context.Context, login string) (*gqlmodel.User,
 	if err != nil {
 		return nil, err
 	}
-	return r.URLs.GQLUser(u, r.NodeFormat), nil
+	return r.URLs.GQLUser(u, r.format(ctx)), nil
 }
 
 // RepositoryOwner is the resolver for the repositoryOwner field. It looks up
@@ -83,23 +85,32 @@ func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (gqlm
 	if err != nil {
 		return nil, err
 	}
-	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
+	return r.URLs.GQLRepositoryOwner(u, r.format(ctx)), nil
 }
 
 // Node is the resolver for the node(id) field. It decodes the opaque node ID,
-// dispatches to the matching domain service, and returns the node or null when
-// the id does not resolve to a live object.
+// dispatches to the matching domain service, and returns the node, or null
+// plus a NOT_FOUND error when the id is malformed or does not resolve to a
+// live object, GitHub's answer in both cases.
 func (r *queryResolver) Node(ctx context.Context, id string) (generated.Node, error) {
 	node, err := r.resolveNode(ctx, id)
-	if err != nil || node == nil {
+	if err != nil {
 		return nil, err
+	}
+	if node == nil {
+		return nil, notFoundf("Could not resolve to a node with the global id of '%s'.", id)
 	}
 	return node, nil
 }
 
 // Nodes is the resolver for the nodes(ids) field. It resolves each id
-// independently and returns null in each slot that does not resolve.
+// independently and leaves null in each slot that does not resolve; only a
+// real failure (not a missing object) fails the list. GitHub caps the ids
+// argument at 100 per request, and so does Githome.
 func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.Node, error) {
+	if len(ids) > maxNodeIDs {
+		return nil, gqlError{"You may not provide more than 100 node ids."}
+	}
 	out := make([]generated.Node, len(ids))
 	for i, id := range ids {
 		node, err := r.resolveNode(ctx, id)
@@ -150,7 +161,7 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 			if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 				branch = &b
 			}
-			out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+			out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 			nodes = append(nodes, out)
 		}
 		conn.Nodes = nodes
@@ -171,10 +182,10 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 				if pErr != nil {
 					continue
 				}
-				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat))
+				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)))
 				continue
 			}
-			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.NodeFormat))
+			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.format(ctx)))
 		}
 		conn.Nodes = nodes
 		conn.IssueCount = int32(total)
@@ -210,7 +221,7 @@ func (r *repositoryResolver) Ref(ctx context.Context, obj *gqlmodel.Repository, 
 	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
 		shortName = qualifiedName[i+1:]
 	}
-	return presenter.GQLRef(repo.PK, qualifiedName, shortName, ref.Target), nil
+	return presenter.GQLRef(repo.ID, qualifiedName, shortName, ref.Target), nil
 }
 
 // PrimaryLanguage returns the repository's primary programming language. Githome
@@ -232,7 +243,7 @@ func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository
 	if err != nil {
 		return &gqlmodel.User{Login: obj.RepoOwner}, nil
 	}
-	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
+	return r.URLs.GQLRepositoryOwner(u, r.format(ctx)), nil
 }
 
 // Repositories is the resolver for the repositories field on User.

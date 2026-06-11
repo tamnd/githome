@@ -65,16 +65,25 @@ func (p issuePage) window(total int) (start, end int) {
 }
 
 // issuePageArgs validates the Relay page arguments and resolves the window. It
-// mirrors GitHub's wording for the over-limit cases.
-func issuePageArgs(first *int32, after *string, last *int32, before *string) (issuePage, error) {
+// mirrors GitHub's wording: a connection must be paginated with exactly one of
+// first or last, the messages name the connection field, and the over-limit
+// cases name the offending argument.
+func issuePageArgs(ctx context.Context, first *int32, after *string, last *int32, before *string) (issuePage, error) {
 	p := issuePage{limit: defaultPageSize, before: -1}
+	name := connectionName(ctx)
+	if first == nil && last == nil {
+		return p, gqlError{fmt.Sprintf("You must provide a `first` or `last` value to properly paginate the `%s` connection.", name)}
+	}
+	if first != nil && last != nil {
+		return p, gqlError{fmt.Sprintf("You must provide either `first` or `last` for the `%s` connection, not both.", name)}
+	}
 	if first != nil {
 		n := int(*first)
 		if n < 0 {
 			return p, gqlError{"`first` must be a non-negative integer."}
 		}
 		if n > maxPageSize {
-			return p, gqlError{fmt.Sprintf("Requesting %d records on this connection exceeds the `first` limit of %d records.", n, maxPageSize)}
+			return p, gqlError{fmt.Sprintf("Requesting %d records on the `%s` connection exceeds the `first` limit of %d records.", n, name, maxPageSize)}
 		}
 		p.limit = n
 	}
@@ -84,12 +93,10 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 			return p, gqlError{"`last` must be a non-negative integer."}
 		}
 		if n > maxPageSize {
-			return p, gqlError{fmt.Sprintf("Requesting %d records on this connection exceeds the `last` limit of %d records.", n, maxPageSize)}
+			return p, gqlError{fmt.Sprintf("Requesting %d records on the `%s` connection exceeds the `last` limit of %d records.", n, name, maxPageSize)}
 		}
 		p.backward = true
-		if first == nil {
-			p.limit = n
-		}
+		p.limit = n
 	}
 	if after != nil {
 		off, seek, err := decodeCursorSeek(*after)
@@ -108,6 +115,18 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		p.backward = true
 	}
 	return p, nil
+}
+
+// connectionName is the field name of the executing connection, the name
+// GitHub's pagination errors quote. Outside an operation (a helper called
+// directly in a test) it falls back to a generic placeholder.
+func connectionName(ctx context.Context) string {
+	if graphql.HasOperationContext(ctx) {
+		if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Name != "" {
+			return fc.Field.Name
+		}
+	}
+	return "nodes"
 }
 
 // totalCountSelected reports whether the executing connection field's
@@ -182,11 +201,11 @@ func emptyIssueConnection() *gqlmodel.IssueConnection {
 // GraphQL connection. Each edge's cursor carries its absolute offset plus the
 // pull request's number, so a follow-up after: cursor resumes past it with a
 // keyset seek, the same forward window the issues connection pages over.
-func (r *Resolver) buildPullRequestConnection(owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
+func (r *Resolver) buildPullRequestConnection(ctx context.Context, owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
 	nodes := make([]*gqlmodel.PullRequest, 0, len(prs))
 	edges := make([]*gqlmodel.PullRequestEdge, 0, len(prs))
 	for i, pr := range prs {
-		node := r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat)
+		node := r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx))
 		nodes = append(nodes, node)
 		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursorSeek(offset+i+1, pr.Number), Node: node})
 	}

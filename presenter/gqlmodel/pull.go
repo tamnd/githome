@@ -92,7 +92,7 @@ type PullRequest struct {
 	MaintainerCanModify bool                     // whether maintainers can push the head branch
 	HeadRepository      *Repository              // the head repository; null when the fork is gone
 	HeadRepositoryOwner RepositoryOwner          // the head repository's owner
-	FullDatabaseID      *string                  // the BigInt twin of the REST id
+	FullDatabaseID      *BigInt                  // the BigInt twin of the REST id
 	MergedBy            Actor                    // who merged the pull request; null while unmerged
 	Additions           int32                    // lines added across the diff
 	Deletions           int32                    // lines removed across the diff
@@ -228,8 +228,11 @@ type PullRequestCommit struct {
 }
 
 // Commit is the reduced GraphQL Commit: the object id and the message gh pr view
-// reads. It grows toward GitHub's full Commit with the review milestone.
+// reads. It implements GitObject and Node; the id is the repo-scoped commit
+// node id, filled by the presenter when it knows the repository's database id
+// and computed by the id field resolver otherwise.
 type Commit struct {
+	ID              string // the Commit node ID, may be empty until resolved
 	Oid             GitObjectID
 	Message         string
 	MessageHeadline string
@@ -241,6 +244,20 @@ type Commit struct {
 	RepoOwner string
 	RepoName  string
 }
+
+// IsGitObject marks Commit as implementing the GitObject interface.
+func (Commit) IsGitObject() {}
+
+// IsNode marks Commit as implementing the Node interface.
+func (Commit) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires. It is empty when
+// the presenter could not compute the node id; the id field resolver answers
+// the wire query in that case.
+func (c Commit) GetID() string { return c.ID }
+
+// AbbreviatedOid is the short form of the commit's SHA.
+func (c Commit) AbbreviatedOid() string { return abbreviateOid(c.Oid) }
 
 // PullRequestCommitConnection is the connection over a pull request's commits.
 type PullRequestCommitConnection struct {

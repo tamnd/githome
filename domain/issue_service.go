@@ -79,6 +79,7 @@ type IssueStore interface {
 	ListMilestones(ctx context.Context, repoPK int64, state string) ([]store.MilestoneRow, error)
 	GetMilestoneByNumber(ctx context.Context, repoPK, number int64) (*store.MilestoneRow, error)
 	GetMilestoneByPK(ctx context.Context, pk int64) (*store.MilestoneRow, error)
+	GetMilestoneByDBID(ctx context.Context, dbID int64) (*store.MilestoneRow, error)
 	InsertMilestone(ctx context.Context, m *store.MilestoneRow) error
 	UpdateMilestone(ctx context.Context, m *store.MilestoneRow) error
 	DeleteMilestone(ctx context.Context, pk int64) error
@@ -1257,6 +1258,51 @@ func (s *IssueService) LabelRepoRef(ctx context.Context, dbID int64) (name, owne
 		return "", "", "", err
 	}
 	return row.Name, repoRow.Owner.Login, repoRow.Name, nil
+}
+
+// MilestoneRepoRef resolves a milestone by its public database ID and returns
+// its per-repo number together with the owner login and repository name, the
+// coordinates GetMilestone takes. The GraphQL node() resolver uses it to turn
+// a milestone node id back into an addressable milestone.
+func (s *IssueService) MilestoneRepoRef(ctx context.Context, dbID int64) (number int64, owner, repoName string, err error) {
+	row, err := s.store.GetMilestoneByDBID(ctx, dbID)
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, "", "", ErrMilestoneNotFound
+	}
+	if err != nil {
+		return 0, "", "", err
+	}
+	repoRow, err := s.repos.GetRepoByPK(ctx, 0, row.RepoPK)
+	if err != nil {
+		return 0, "", "", err
+	}
+	return row.Number, repoRow.Owner.Login, repoRow.Name, nil
+}
+
+// CommentRepoRef resolves an issue comment by its public database ID and
+// returns the owner login and repository name GetComment takes. The GraphQL
+// node() resolver uses it to turn a comment node id back into an addressable
+// comment; GetComment then enforces visibility.
+func (s *IssueService) CommentRepoRef(ctx context.Context, dbID int64) (owner, repoName string, err error) {
+	row, err := s.store.GetComment(ctx, dbID)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", ErrCommentNotFound
+	}
+	if err != nil {
+		return "", "", err
+	}
+	issueRow, err := s.store.GetIssueByPK(ctx, row.IssuePK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", "", ErrCommentNotFound
+	}
+	if err != nil {
+		return "", "", err
+	}
+	repoRow, err := s.repos.GetRepoByPK(ctx, 0, issueRow.RepoPK)
+	if err != nil {
+		return "", "", err
+	}
+	return repoRow.Owner.Login, repoRow.Name, nil
 }
 
 // UserLoginByPK resolves a user's login by their internal primary key.

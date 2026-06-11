@@ -8,12 +8,59 @@ package graphql
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
+
+// ID is the resolver for the Commit id field. The node id is the repo-scoped
+// commit encoding, which needs the repository's database id; the presenter
+// fills it where it has one, and this resolver looks the repository up by the
+// coordinates the commit carries otherwise.
+func (r *commitResolver) ID(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.ID != "" {
+		return obj.ID, nil
+	}
+	repo, err := r.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return nodeid.EncodeGitObject("commit", repo.ID, string(obj.Oid)), nil
+}
+
+// Message is the resolver for the Commit message field. The presenter fills
+// the message where it already read the commit; a Ref.target commit starts
+// out as just a SHA, so the resolver reads the commit from git on demand.
+func (r *commitResolver) Message(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.Message != "" {
+		return obj.Message, nil
+	}
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return "", err
+	}
+	return c.Message, nil
+}
+
+// MessageHeadline is the resolver for the Commit messageHeadline field,
+// loading the commit on demand the way message does.
+func (r *commitResolver) MessageHeadline(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.MessageHeadline != "" {
+		return obj.MessageHeadline, nil
+	}
+	msg, err := r.Message(ctx, obj)
+	if err != nil {
+		return "", err
+	}
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return msg[:i], nil
+	}
+	return msg, nil
+}
 
 // CreatePullRequest is the resolver for the createPullRequest field. gh pr create
 // sends this mutation with the repository node ID, base/head branch names, title,
@@ -44,7 +91,7 @@ func (r *mutationResolver) CreatePullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.CreatePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -82,7 +129,7 @@ func (r *mutationResolver) MergePullRequest(ctx context.Context, input generated
 		return nil, mapErr(err)
 	}
 	return &generated.MergePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -100,7 +147,7 @@ func (r *mutationResolver) EnablePullRequestAutoMerge(ctx context.Context, input
 		return nil, mapErr(err)
 	}
 	return &generated.EnablePullRequestAutoMergePayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -143,7 +190,7 @@ func (r *mutationResolver) UpdatePullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.UpdatePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -161,7 +208,7 @@ func (r *mutationResolver) ClosePullRequest(ctx context.Context, input generated
 		return nil, mapErr(err)
 	}
 	return &generated.ClosePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -179,7 +226,7 @@ func (r *mutationResolver) ReopenPullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.ReopenPullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -197,7 +244,7 @@ func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.R
 		return nil, mapErr(err)
 	}
 	return &generated.RequestReviewsPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -213,7 +260,7 @@ func (r *mutationResolver) ConvertPullRequestToDraft(ctx context.Context, input 
 		return nil, mapErr(err)
 	}
 	return &generated.ConvertPullRequestToDraftPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -229,7 +276,7 @@ func (r *mutationResolver) MarkPullRequestReadyForReview(ctx context.Context, in
 		return nil, mapErr(err)
 	}
 	return &generated.MarkPullRequestReadyForReviewPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -247,7 +294,7 @@ func (r *mutationResolver) DisablePullRequestAutoMerge(ctx context.Context, inpu
 		return nil, mapErr(err)
 	}
 	return &generated.DisablePullRequestAutoMergePayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -292,7 +339,7 @@ func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmode
 // Commits is the resolver for the commits field. It reads the pull request's own
 // commits through the git layer on demand, the way gh pr view selects them.
 func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.PullRequestCommitConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +376,7 @@ func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullReq
 // Files is the resolver for the files field. It reads the per-file diff of the
 // pull request range through the git layer on demand.
 func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +411,7 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 // Reviews is the resolver for the reviews field. It reads the pull request's
 // submitted reviews through the review service on demand.
 func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -372,14 +419,14 @@ func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullReq
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildReviewConnection(revs, page, obj.RepoOwner, obj.RepoName), nil
+	return r.buildReviewConnection(ctx, revs, page, obj.RepoOwner, obj.RepoName), nil
 }
 
 // LatestReviews is the resolver for the latestReviews field. It folds the
 // submitted reviews down to the most recent one per reviewer, the summary set
 // gh pr view selects with latestReviews(first: 100).
 func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+	page, err := issuePageArgs(ctx, first, after, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +434,7 @@ func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.P
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildReviewConnection(latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
+	return r.buildReviewConnection(ctx, latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
 }
 
 // ReviewRequests is the resolver for the reviewRequests field. Githome does not
@@ -405,7 +452,7 @@ func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.
 // pull request's issue-level comments through the issue service; not inline review
 // comments, which are under reviewThreads.
 func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +483,7 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	}
 	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
 	for _, cm := range comments {
-		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.format(ctx)))
 	}
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
@@ -459,25 +506,25 @@ func (r *pullRequestResolver) ProjectCards(ctx context.Context, obj *gqlmodel.Pu
 }
 
 // PullRequest is the resolver for the pullRequest field. A missing pull request,
-// or one in a repository the actor cannot see, resolves to null rather than an
-// error.
+// or one in a repository the actor cannot see, resolves to null plus a
+// NOT_FOUND error, the answer GitHub gives.
 func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repository, number int32) (*gqlmodel.PullRequest, error) {
 	owner, name := splitNWO(obj.NameWithOwner)
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, int64(number))
 	if errors.Is(err, domain.ErrPullNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
-		return nil, nil
+		return nil, notFoundf("Could not resolve to a PullRequest with the number of %d.", number)
 	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // PullRequests is the resolver for the pullRequests field. A repository the actor
 // cannot see resolves to an empty connection, never an error, so its existence
 // does not leak.
 func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *generated.IssueOrder) (*gqlmodel.PullRequestConnection, error) {
-	page, err := issuePageArgs(first, after, last, before)
+	page, err := issuePageArgs(ctx, first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +557,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 					return nil, mapErr(err)
 				}
 			}
-			return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+			return r.buildPullRequestConnection(ctx, owner, name, prs, total, page.offset), nil
 		}
 		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
 			State:   state,
@@ -523,7 +570,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 		if err != nil {
 			return nil, mapErr(err)
 		}
-		return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+		return r.buildPullRequestConnection(ctx, owner, name, prs, total, page.offset), nil
 	}
 
 	// A filter or a non-native order scans the newest pull requests (capped),
@@ -538,7 +585,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 	}
 	sortPullRequests(matched, orderBy)
 	start, end := page.window(len(matched))
-	return r.buildPullRequestConnection(owner, name, matched[start:end], len(matched), start), nil
+	return r.buildPullRequestConnection(ctx, owner, name, matched[start:end], len(matched), start), nil
 }
 
 // Commit returns generated.CommitResolver implementation.

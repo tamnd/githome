@@ -199,8 +199,8 @@ func TestRepositoryQuery(t *testing.T) {
 }
 
 // TestMissingRepositoryIsNull confirms a repository the actor cannot see comes
-// back as a null data.repository, with no GraphQL error that would leak its
-// existence.
+// back as a null data.repository plus the NOT_FOUND error GitHub returns, with
+// the type at the top level of the error object where gh's matcher reads it.
 func TestMissingRepositoryIsNull(t *testing.T) {
 	srv, token := graphqlServer(t)
 	got := post(t, srv, token, repoViewQuery, map[string]any{"owner": "octocat", "name": "nope"})
@@ -208,15 +208,29 @@ func TestMissingRepositoryIsNull(t *testing.T) {
 		Data struct {
 			Repository *json.RawMessage `json:"repository"`
 		} `json:"data"`
-		Errors []any `json:"errors"`
+		Errors []struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+			Path    []any  `json:"path"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(got, &env); err != nil {
 		t.Fatalf("unmarshal: %v, body %s", err, got)
 	}
-	if len(env.Errors) != 0 {
-		t.Fatalf("unexpected errors: %v", env.Errors)
-	}
 	if env.Data.Repository != nil {
 		t.Fatalf("repository = %s, want null", *env.Data.Repository)
+	}
+	if len(env.Errors) != 1 {
+		t.Fatalf("errors = %v, want exactly one, body %s", env.Errors, got)
+	}
+	e := env.Errors[0]
+	if e.Type != "NOT_FOUND" {
+		t.Errorf("error type = %q, want NOT_FOUND at the top level, body %s", e.Type, got)
+	}
+	if want := "Could not resolve to a Repository with the name 'octocat/nope'."; e.Message != want {
+		t.Errorf("error message = %q, want %q", e.Message, want)
+	}
+	if len(e.Path) != 1 || e.Path[0] != "repository" {
+		t.Errorf("error path = %v, want [repository]", e.Path)
 	}
 }
