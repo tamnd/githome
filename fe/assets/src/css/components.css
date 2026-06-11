@@ -221,6 +221,42 @@
   border-color: var(--borderColor-danger-muted);
 }
 
+/* An invisible button reads as a link until hovered. */
+.btn-invisible {
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-transparent);
+  border-color: transparent;
+}
+
+.btn-invisible:hover {
+  background-color: var(--control-transparent-bgColor-hover);
+  text-decoration: none;
+}
+
+/* A button group collapses the inner borders of its buttons. */
+.BtnGroup {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.BtnGroup .btn {
+  border-radius: 0;
+}
+
+.BtnGroup .btn:not(:first-child) {
+  margin-left: calc(-1 * var(--borderWidth-thin));
+}
+
+.BtnGroup .btn:first-child {
+  border-top-left-radius: var(--borderRadius-medium);
+  border-bottom-left-radius: var(--borderRadius-medium);
+}
+
+.BtnGroup .btn:last-child {
+  border-top-right-radius: var(--borderRadius-medium);
+  border-bottom-right-radius: var(--borderRadius-medium);
+}
+
 .input {
   width: 100%;
   padding: 5px var(--base-size-12);
@@ -230,6 +266,210 @@
   background-color: var(--bgColor-default);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
+}
+
+/* Box: the bordered container list pages build rows inside. */
+.Box {
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.Box-header {
+  padding: var(--base-size-16);
+  margin: calc(-1 * var(--borderWidth-thin)) calc(-1 * var(--borderWidth-thin)) 0;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-top-left-radius: var(--borderRadius-medium);
+  border-top-right-radius: var(--borderRadius-medium);
+}
+
+.Box-title {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+
+.Box-body {
+  padding: var(--base-size-16);
+}
+
+.Box-row {
+  padding: var(--base-size-16);
+  margin-top: calc(-1 * var(--borderWidth-thin));
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.Box-row:first-of-type {
+  border-top-color: transparent;
+}
+
+.Box-row:hover {
+  background-color: var(--bgColor-muted);
+}
+
+.Box-footer {
+  padding: var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+/* Subhead: the section heading with a hairline used by settings-style pages. */
+.Subhead {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+  padding-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.Subhead-heading {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-title-size-medium);
+  font-weight: 400;
+}
+
+.Subhead-heading--danger {
+  color: var(--fgColor-danger);
+  font-weight: 600;
+}
+
+.Subhead-description {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-body-size);
+  color: var(--fgColor-muted);
+}
+
+.Subhead-actions {
+  flex: 0 0 auto;
+}
+
+/* Counter: the rounded count chip a nav tab or heading carries. */
+.Counter {
+  display: inline-block;
+  min-width: var(--base-size-20);
+  padding: 0 var(--base-size-6);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-neutral-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+.Counter--primary {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-emphasis);
+}
+
+/* Label: the bordered chip (topics, metadata). Role variants tint the text
+   and border; the fill stays the canvas. */
+.Label {
+  display: inline-block;
+  padding: 0 7px;
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--fgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.Label--accent {
+  color: var(--fgColor-accent);
+  border-color: var(--borderColor-accent-emphasis);
+}
+
+.Label--success {
+  color: var(--fgColor-success);
+  border-color: var(--borderColor-success-emphasis);
+}
+
+.Label--attention {
+  color: var(--fgColor-attention);
+  border-color: var(--borderColor-attention-emphasis);
+}
+
+.Label--severe {
+  color: var(--fgColor-severe);
+  border-color: var(--borderColor-severe-emphasis);
+}
+
+.Label--danger {
+  color: var(--fgColor-danger);
+  border-color: var(--borderColor-danger-emphasis);
+}
+
+.Label--done {
+  color: var(--fgColor-done);
+  border-color: var(--borderColor-done-emphasis);
+}
+
+.Label--sponsors {
+  color: var(--fgColor-sponsors);
+  border-color: var(--borderColor-sponsors-emphasis);
+}
+
+/* The filled topic chip on repo home and search cards. */
+.topic-tag {
+  display: inline-block;
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 22px;
+  white-space: nowrap;
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-accent-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+.topic-tag:hover {
+  text-decoration: none;
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-accent-emphasis);
+}
+
+/* State: the issue/PR state pill. The open/closed role tokens keep the pill
+   legible in the color vision themes, which move these hues. */
+.State {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: 5px var(--base-size-12);
+  font-size: var(--text-body-size);
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-neutral-emphasis);
+  border-radius: var(--borderRadius-full);
+}
+
+.State--open {
+  background-color: var(--bgColor-open-emphasis);
+}
+
+.State--closed {
+  background-color: var(--bgColor-closed-emphasis);
+}
+
+.State--merged {
+  background-color: var(--bgColor-done-emphasis);
+}
+
+.State--draft {
+  background-color: var(--bgColor-neutral-emphasis);
+}
+
+.State--small {
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  line-height: 22px;
 }
 
 /* Search box in the header. The header is canvas-colored, so the input reads
@@ -354,6 +594,14 @@
 .blankslate-text {
   margin: var(--base-size-8) 0 0;
   color: var(--fgColor-muted);
+}
+
+.blankslate-action {
+  margin-top: var(--base-size-16);
+}
+
+.blankslate-spacious {
+  padding: 80px var(--base-size-40);
 }
 
 /* Error pages. */

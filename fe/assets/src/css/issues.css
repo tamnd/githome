@@ -127,7 +127,7 @@
 
 /* Icon-only state colors: use text color tokens, no pill background. */
 .issue-row-icon.issue-state-open {
-  color: var(--fgColor-success);
+  color: var(--fgColor-open);
   background: none;
 }
 
@@ -252,7 +252,7 @@
 }
 
 .issue-state-open {
-  background-color: var(--bgColor-success-emphasis);
+  background-color: var(--bgColor-open-emphasis);
 }
 
 .issue-state-closed {
@@ -260,7 +260,7 @@
 }
 
 .issue-state-not-planned {
-  background-color: var(--bgColor-emphasis);
+  background-color: var(--bgColor-neutral-emphasis);
 }
 
 .issue-subhead {

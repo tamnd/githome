@@ -182,12 +182,12 @@
 
 .pr-state-badge.pr-state-open {
   color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-success-emphasis);
+  background-color: var(--bgColor-open-emphasis);
 }
 
 .pr-state-badge.pr-state-closed {
   color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-danger-emphasis, #cf222e);
+  background-color: var(--bgColor-closed-emphasis);
 }
 
 .pr-state-badge.pr-state-merged {
@@ -197,7 +197,7 @@
 
 .pr-state-badge.pr-state-draft {
   color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-emphasis);
+  background-color: var(--bgColor-neutral-emphasis);
 }
 
 .pr-subhead-meta {

@@ -42,6 +42,30 @@ func TestAppHeaderUsesFunctionalTokens(t *testing.T) {
 	}
 }
 
+// TestPrimerVocabularyPresent guards review 02 task R02-11: the component
+// sheet must carry the Primer vocabulary pages compose from, and the pieces
+// that encode state must read the role tokens so the color vision themes
+// recolor them.
+func TestPrimerVocabularyPresent(t *testing.T) {
+	src, err := os.ReadFile("src/css/components.css")
+	if err != nil {
+		t.Fatalf("read components.css: %v", err)
+	}
+	for _, sel := range []string{
+		".Counter", ".Label", ".State", ".State--open", ".State--closed", ".State--merged",
+		".Box", ".Box-header", ".Box-row", ".Subhead", ".Subhead-heading", ".BtnGroup",
+		".btn-invisible", ".topic-tag",
+	} {
+		ruleBody(t, string(src), sel)
+	}
+	if body := ruleBody(t, string(src), ".State--open"); !strings.Contains(body, "var(--bgColor-open-emphasis)") {
+		t.Errorf(".State--open must read the open role token:\n%s", body)
+	}
+	if body := ruleBody(t, string(src), ".State--closed"); !strings.Contains(body, "var(--bgColor-closed-emphasis)") {
+		t.Errorf(".State--closed must read the closed role token:\n%s", body)
+	}
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string
