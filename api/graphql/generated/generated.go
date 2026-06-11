@@ -4023,7 +4023,7 @@ type ReactingUserConnection {
 
 # Milestone is a repository milestone. gh issue view and pr view select
 # number, title, description, and dueOn.
-type Milestone {
+type Milestone implements Node {
   id: ID!
   number: Int!
   title: String!
@@ -4115,7 +4115,7 @@ enum CommentAuthorAssociation {
 
 # IssueComment is a comment on an issue or pull request. The fields are the
 # ones gh's issueComments fragment selects.
-type IssueComment {
+type IssueComment implements Node {
   id: ID!
   body: String!
   url: URI!
@@ -4892,7 +4892,7 @@ enum StatusState {
 }
 
 # PullRequestReviewThread is a review conversation: a root comment and its replies.
-type PullRequestReviewThread {
+type PullRequestReviewThread implements Node {
   id: ID!
   isResolved: Boolean!
   isOutdated: Boolean!
@@ -5071,7 +5071,7 @@ type UnresolveReviewThreadPayload {
 
 # PullRequestReview is a submitted review on a pull request. It is the return
 # type for addPullRequestReview and submitPullRequestReview.
-type PullRequestReview {
+type PullRequestReview implements Node {
   id: ID!
   state: PullRequestReviewState!
   body: String!
@@ -23374,6 +23374,20 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._Ref(ctx, sel, obj)
+	case gqlmodel.PullRequestReviewThread:
+		return ec._PullRequestReviewThread(ctx, sel, &obj)
+	case *gqlmodel.PullRequestReviewThread:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PullRequestReviewThread(ctx, sel, obj)
+	case PullRequestReview:
+		return ec._PullRequestReview(ctx, sel, &obj)
+	case *PullRequestReview:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PullRequestReview(ctx, sel, obj)
 	case gqlmodel.PullRequest:
 		return ec._PullRequest(ctx, sel, &obj)
 	case *gqlmodel.PullRequest:
@@ -23381,6 +23395,13 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._PullRequest(ctx, sel, obj)
+	case gqlmodel.Milestone:
+		return ec._Milestone(ctx, sel, &obj)
+	case *gqlmodel.Milestone:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Milestone(ctx, sel, obj)
 	case gqlmodel.Label:
 		return ec._Label(ctx, sel, &obj)
 	case *gqlmodel.Label:
@@ -23388,6 +23409,13 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._Label(ctx, sel, obj)
+	case gqlmodel.IssueComment:
+		return ec._IssueComment(ctx, sel, &obj)
+	case *gqlmodel.IssueComment:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._IssueComment(ctx, sel, obj)
 	case gqlmodel.Issue:
 		return ec._Issue(ctx, sel, &obj)
 	case *gqlmodel.Issue:
@@ -25016,7 +25044,7 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
-var issueCommentImplementors = []string{"IssueComment"}
+var issueCommentImplementors = []string{"IssueComment", "Node"}
 
 func (ec *executionContext) _IssueComment(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.IssueComment) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, issueCommentImplementors)
@@ -25571,7 +25599,7 @@ func (ec *executionContext) _MergePullRequestPayload(ctx context.Context, sel as
 	return out
 }
 
-var milestoneImplementors = []string{"Milestone"}
+var milestoneImplementors = []string{"Milestone", "Node"}
 
 func (ec *executionContext) _Milestone(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Milestone) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, milestoneImplementors)
@@ -27043,7 +27071,7 @@ func (ec *executionContext) _PullRequestEdge(ctx context.Context, sel ast.Select
 	return out
 }
 
-var pullRequestReviewImplementors = []string{"PullRequestReview"}
+var pullRequestReviewImplementors = []string{"PullRequestReview", "Node"}
 
 func (ec *executionContext) _PullRequestReview(ctx context.Context, sel ast.SelectionSet, obj *PullRequestReview) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestReviewImplementors)
@@ -27348,7 +27376,7 @@ func (ec *executionContext) _PullRequestReviewEdge(ctx context.Context, sel ast.
 	return out
 }
 
-var pullRequestReviewThreadImplementors = []string{"PullRequestReviewThread"}
+var pullRequestReviewThreadImplementors = []string{"PullRequestReviewThread", "Node"}
 
 func (ec *executionContext) _PullRequestReviewThread(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.PullRequestReviewThread) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestReviewThreadImplementors)

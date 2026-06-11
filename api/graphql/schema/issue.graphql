@@ -145,7 +145,7 @@ type ReactingUserConnection {
 
 # Milestone is a repository milestone. gh issue view and pr view select
 # number, title, description, and dueOn.
-type Milestone {
+type Milestone implements Node {
   id: ID!
   number: Int!
   title: String!
@@ -237,7 +237,7 @@ enum CommentAuthorAssociation {
 
 # IssueComment is a comment on an issue or pull request. The fields are the
 # ones gh's issueComments fragment selects.
-type IssueComment {
+type IssueComment implements Node {
   id: ID!
   body: String!
   url: URI!

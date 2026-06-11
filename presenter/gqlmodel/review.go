@@ -107,6 +107,12 @@ type CheckRun struct {
 	DetailsURL  *URI
 }
 
+// IsNode marks PullRequestReviewThread as implementing the Node interface.
+func (PullRequestReviewThread) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (t PullRequestReviewThread) GetID() string { return t.ID }
+
 // IsNode marks CheckRun as implementing the Node interface.
 func (CheckRun) IsNode() {}
 

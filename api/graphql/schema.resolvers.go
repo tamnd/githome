@@ -89,18 +89,23 @@ func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (gqlm
 }
 
 // Node is the resolver for the node(id) field. It decodes the opaque node ID,
-// dispatches to the matching domain service, and returns the node or null when
-// the id does not resolve to a live object.
+// dispatches to the matching domain service, and returns the node, or null
+// plus a NOT_FOUND error when the id is malformed or does not resolve to a
+// live object, GitHub's answer in both cases.
 func (r *queryResolver) Node(ctx context.Context, id string) (generated.Node, error) {
 	node, err := r.resolveNode(ctx, id)
-	if err != nil || node == nil {
+	if err != nil {
 		return nil, err
+	}
+	if node == nil {
+		return nil, notFoundf("Could not resolve to a node with the global id of '%s'.", id)
 	}
 	return node, nil
 }
 
 // Nodes is the resolver for the nodes(ids) field. It resolves each id
-// independently and returns null in each slot that does not resolve.
+// independently and leaves null in each slot that does not resolve; only a
+// real failure (not a missing object) fails the list.
 func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.Node, error) {
 	out := make([]generated.Node, len(ids))
 	for i, id := range ids {

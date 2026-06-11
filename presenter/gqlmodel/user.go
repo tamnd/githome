@@ -52,6 +52,12 @@ type Milestone struct {
 	URL         URI       // the milestone's HTML URL
 }
 
+// IsNode marks Milestone as implementing the Node interface.
+func (Milestone) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (m Milestone) GetID() string { return m.ID }
+
 // RepositoryOwner is the GraphQL RepositoryOwner interface: the owner of a
 // repository, and the return type of the repositoryOwner(login) root query.
 // User is the only implementer today.

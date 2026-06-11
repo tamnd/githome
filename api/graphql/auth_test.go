@@ -1,6 +1,7 @@
 package graphql_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -50,5 +51,36 @@ func TestBadCredentialIs401(t *testing.T) {
 	got := string(buf[:n])
 	if !strings.Contains(got, "Bad credentials") {
 		t.Fatalf("body = %s, want Bad credentials", got)
+	}
+}
+
+// TestNodeUnresolvableIsNotFound confirms node() answers a malformed global id
+// with null plus GitHub's NOT_FOUND error, not a validation error.
+func TestNodeUnresolvableIsNotFound(t *testing.T) {
+	srv, token := graphqlServer(t)
+	got := post(t, srv, token, `query($id: ID!) { node(id: $id) { id } }`, map[string]any{"id": "garbage"})
+	var env struct {
+		Data struct {
+			Node *json.RawMessage `json:"node"`
+		} `json:"data"`
+		Errors []struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(got, &env); err != nil {
+		t.Fatalf("unmarshal: %v, body %s", err, got)
+	}
+	if env.Data.Node != nil {
+		t.Fatalf("node = %s, want null", *env.Data.Node)
+	}
+	if len(env.Errors) != 1 {
+		t.Fatalf("errors = %v, want one", env.Errors)
+	}
+	if env.Errors[0].Type != "NOT_FOUND" {
+		t.Errorf("type = %q, want NOT_FOUND", env.Errors[0].Type)
+	}
+	if want := "Could not resolve to a node with the global id of 'garbage'."; env.Errors[0].Message != want {
+		t.Errorf("message = %q, want %q", env.Errors[0].Message, want)
 	}
 }

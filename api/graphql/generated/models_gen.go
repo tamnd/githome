@@ -414,6 +414,9 @@ type PullRequestReview struct {
 	URL               gqlmodel.URI                      `json:"url"`
 }
 
+func (PullRequestReview) IsNode()            {}
+func (this PullRequestReview) GetID() string { return this.ID }
+
 type PullRequestReviewCommentEdge struct {
 	Cursor string                             `json:"cursor"`
 	Node   *gqlmodel.PullRequestReviewComment `json:"node,omitempty"`

@@ -345,8 +345,16 @@ func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, 
 }
 
 // resolveNode decodes a node ID and fetches the matching domain object,
-// returning a generated.Node or nil when the ID does not resolve.
+// returning a generated.Node or nil when the ID does not resolve. Git refs
+// carry a repo-scoped git-object encoding rather than a (kind, dbid) pair, so
+// they decode through the git-object codec first.
 func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, error) {
+	if tag, repoID, name, gErr := nodeid.DecodeGitObject(id); gErr == nil {
+		if tag != "ref" {
+			return nil, nil
+		}
+		return r.resolveRefNode(ctx, repoID, name)
+	}
 	kind, dbID, err := nodeid.Decode(id)
 	if err != nil {
 		return nil, nil
@@ -398,9 +406,130 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 			return nil, nil
 		}
 		return r.URLs.GQLUser(u, r.NodeFormat), nil
+	case nodeid.KindLabel:
+		labelName, owner, name, err := r.Issues.LabelRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrLabelNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		l, err := r.Issues.GetLabel(ctx, viewer, owner, name, labelName)
+		if errors.Is(err, domain.ErrLabelNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLLabel(l, r.NodeFormat), nil
+	case nodeid.KindMilestone:
+		number, owner, name, err := r.Issues.MilestoneRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrMilestoneNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		m, err := r.Issues.GetMilestone(ctx, viewer, owner, name, number)
+		if errors.Is(err, domain.ErrMilestoneNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLMilestone(owner, name, m, r.NodeFormat), nil
+	case nodeid.KindIssueComment:
+		owner, name, err := r.Issues.CommentRepoRef(ctx, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		cm, err := r.Issues.GetComment(ctx, viewer, owner, name, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLIssueComment(owner, name, cm, r.NodeFormat), nil
+	case nodeid.KindPullRequestReview:
+		owner, name, number, err := r.Reviews.ReviewRef(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrReviewNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		rv, err := r.Reviews.GetReview(ctx, viewer, owner, name, number, dbID)
+		if errors.Is(err, domain.ErrReviewNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return gqlReview(rv, r.URLs, owner, name, r.NodeFormat), nil
+	case nodeid.KindPullRequestReviewThread:
+		owner, name, number, err := r.Reviews.ThreadRef(ctx, viewer, dbID)
+		if errors.Is(err, domain.ErrCommentNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		threads, err := r.Reviews.ReviewThreads(ctx, viewer, owner, name, number)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range threads {
+			if t.ID == dbID {
+				return r.URLs.GQLReviewThread(owner, name, t, r.NodeFormat), nil
+			}
+		}
+		return nil, nil
+	case nodeid.KindCheckRun:
+		owner, name, err := r.Checks.CheckRunRef(ctx, dbID)
+		if errors.Is(err, domain.ErrCheckNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		cr, err := r.Checks.GetCheckRun(ctx, viewer, owner, name, dbID)
+		if errors.Is(err, domain.ErrCheckNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		out := presenter.GQLCheckRun(cr, r.NodeFormat)
+		return out, nil
 	default:
 		return nil, nil
 	}
+}
+
+// resolveRefNode resolves a ref node id's (repo, qualified name) pair to the
+// Ref shape, or nil when the repository or the ref does not resolve for the
+// viewer.
+func (r *Resolver) resolveRefNode(ctx context.Context, repoID int64, qualifiedName string) (generated.Node, error) {
+	repo, err := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ref, err := r.Repos.GetRef(repo, qualifiedName)
+	if err != nil {
+		return nil, nil
+	}
+	shortName := qualifiedName
+	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
+		shortName = qualifiedName[i+1:]
+	}
+	return presenter.GQLRef(repo.ID, qualifiedName, shortName, ref.Target), nil
 }
 
 // listReposForLogin resolves a list of repositories for a user identified by

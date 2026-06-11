@@ -181,6 +181,12 @@ type IssueCommentConnection struct {
 	TotalCount int32
 }
 
+// IsNode marks IssueComment as implementing the Node interface.
+func (IssueComment) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (c IssueComment) GetID() string { return c.ID }
+
 // IsNode marks Issue as implementing the Node interface.
 func (Issue) IsNode() {}
 
