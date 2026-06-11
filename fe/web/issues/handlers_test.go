@@ -40,6 +40,7 @@ type fixture struct {
 	private  string
 	openNum  int64
 	closeNum int64
+	prNum    int64
 }
 
 func newFixture(t *testing.T) fixture {
@@ -106,6 +107,22 @@ func newFixture(t *testing.T) fixture {
 	if _, err := issueSvc.EditIssue(ctx, owner.PK, "octocat", "hello", closed.Number, domain.IssuePatch{State: &closedState}); err != nil {
 		t.Fatalf("close issue: %v", err)
 	}
+	// A pull-request row shares the issue number sequence; the crossover test
+	// addresses it through /issues/{n}. The row is inserted directly because
+	// the PR service needs real branches this fixture does not build.
+	var prNum int64
+	if err := st.WithTx(ctx, func(tx *store.Tx) error {
+		n, err := tx.AllocIssueNumber(ctx, hello.PK)
+		if err != nil {
+			return err
+		}
+		prNum = n
+		return tx.InsertIssue(ctx, &store.IssueRow{
+			RepoPK: hello.PK, Number: n, IsPull: true, Title: "a pull request", UserPK: owner.PK,
+		})
+	}); err != nil {
+		t.Fatalf("insert pull row: %v", err)
+	}
 
 	renderSet, err := render.New(assets.FS(), false)
 	if err != nil {
@@ -136,7 +153,7 @@ func newFixture(t *testing.T) fixture {
 	return fixture{
 		srv: srv, issues: issueSvc, ownerPK: owner.PK,
 		owner: "octocat", repo: "hello", private: "secret",
-		openNum: open.Number, closeNum: closed.Number,
+		openNum: open.Number, closeNum: closed.Number, prNum: prNum,
 	}
 }
 
@@ -321,6 +338,25 @@ func TestMissingIssueIsNotFound(t *testing.T) {
 	resp, _ := get(t, fx.srv, "/octocat/hello/issues/9999")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("missing issue status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// Issues and pull requests share one number sequence, so a PR's number
+// addressed through /issues/{n} redirects to the pull page, like github.com.
+// A plain issue keeps rendering in place.
+func TestIssueNumberOfPullRedirects(t *testing.T) {
+	fx := newFixture(t)
+	resp, _ := get(t, fx.srv, "/octocat/hello/issues/"+itoa(fx.prNum))
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status %d, want 302", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); loc != "/octocat/hello/pull/"+itoa(fx.prNum) {
+		t.Errorf("Location = %q, want the pull page", loc)
+	}
+
+	resp, _ = get(t, fx.srv, "/octocat/hello/issues/"+itoa(fx.openNum))
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("plain issue status = %d, want 200", resp.StatusCode)
 	}
 }
 

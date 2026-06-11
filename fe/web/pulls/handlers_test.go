@@ -36,15 +36,16 @@ import (
 // repo's pulls are readable and the private repo is a hard 404. The seeding needs
 // the git binary, so the whole suite skips when git is unavailable.
 type fixture struct {
-	srv     *httptest.Server
-	pulls   *domain.PRService
-	checks  *domain.ChecksService
-	ownerPK int64
-	owner   string
-	repo    string
-	private string
-	prNum   int64
-	headSHA string
+	srv      *httptest.Server
+	pulls    *domain.PRService
+	checks   *domain.ChecksService
+	ownerPK  int64
+	owner    string
+	repo     string
+	private  string
+	prNum    int64
+	issueNum int64
+	headSHA  string
 }
 
 func newFixture(t *testing.T) fixture {
@@ -105,6 +106,12 @@ func newFixture(t *testing.T) fixture {
 	if err := prSvc.RecomputeMergeability(ctx, iss.PK); err != nil {
 		t.Fatalf("recompute mergeability: %v", err)
 	}
+	// Seed one plain issue after the PR; it takes the next number in the shared
+	// sequence, so the crossover test can address it through /pull/{n}.
+	plain, err := issueSvc.CreateIssue(ctx, owner.PK, "octocat", "hello", domain.IssueInput{Title: "just an issue"})
+	if err != nil {
+		t.Fatalf("create issue: %v", err)
+	}
 
 	renderSet, err := render.New(assets.FS(), false)
 	if err != nil {
@@ -140,7 +147,7 @@ func newFixture(t *testing.T) fixture {
 	return fixture{
 		srv: srv, pulls: prSvc, checks: checksSvc, ownerPK: owner.PK,
 		owner: "octocat", repo: "hello", private: "secret",
-		prNum: pr.Number, headSHA: pr.Head.SHA,
+		prNum: pr.Number, issueNum: plain.Number, headSHA: pr.Head.SHA,
 	}
 }
 
@@ -342,6 +349,31 @@ func TestMissingPullIsNotFound(t *testing.T) {
 	resp, _ := get(t, fx.srv, "/octocat/hello/pull/9999")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("missing pull status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// Issues and pull requests share one number sequence, so a plain issue's number
+// addressed through /pull/{n} redirects to the issue page, like github.com.
+// The tab paths under the number redirect the same way, and a real PR number
+// keeps rendering in place.
+func TestPullNumberOfIssueRedirects(t *testing.T) {
+	fx := newFixture(t)
+	for _, path := range []string{
+		"/octocat/hello/pull/" + itoa(fx.issueNum),
+		"/octocat/hello/pull/" + itoa(fx.issueNum) + "/files",
+	} {
+		resp, _ := get(t, fx.srv, path)
+		if resp.StatusCode != http.StatusFound {
+			t.Fatalf("GET %s status %d, want 302", path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != "/octocat/hello/issues/"+itoa(fx.issueNum) {
+			t.Errorf("GET %s Location = %q, want the issue page", path, loc)
+		}
+	}
+
+	resp, _ := get(t, fx.srv, "/octocat/hello/pull/"+itoa(fx.prNum))
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("real pull status = %d, want 200", resp.StatusCode)
 	}
 }
 

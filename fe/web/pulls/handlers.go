@@ -139,6 +139,14 @@ func (h *Handlers) loadPR(c *mizu.Ctx, repo *domain.Repo) (*domain.PullRequest, 
 	}
 	pr, err := h.pulls.GetPR(c.Context(), webmw.ViewerID(c.Context()), ownerLogin(repo), repo.Name, number)
 	if isNotFound(err) {
+		// Issues and pull requests share one number sequence; a plain issue
+		// addressed through /pull/{n} redirects to its own page, matching
+		// github.com. Only a number that names a real non-PR issue redirects;
+		// everything else stays the soft 404.
+		if iss, ierr := h.issues.GetIssue(c.Context(), webmw.ViewerID(c.Context()), ownerLogin(repo), repo.Name, number); ierr == nil && !iss.IsPull {
+			_ = c.Redirect(http.StatusFound, route.Issue(ownerLogin(repo), repo.Name, number))
+			return nil, false
+		}
 		_ = h.notFound(c)
 		return nil, false
 	}
