@@ -170,6 +170,12 @@ func (h *Handlers) JoinSubmit(c *mizu.Ctx) error {
 	if !validLogin(login) {
 		vm.LoginError = "Username may only contain alphanumeric characters or single hyphens, and cannot begin or end with a hyphen."
 		ok = false
+	} else if route.IsReservedTop(login) {
+		// A reserved top-level name can never be a login: the dispatcher would
+		// route /{login} to the front's own page and the profile would be
+		// unreachable (spec 02 §2.3-2.4).
+		vm.LoginError = "This name is reserved."
+		ok = false
 	}
 	if email == "" || !strings.Contains(email, "@") {
 		vm.EmailError = "Enter a valid email address."

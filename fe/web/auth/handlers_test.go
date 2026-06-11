@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,6 +142,37 @@ func postForm(t *testing.T, srv *httptest.Server, path string, form url.Values) 
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return resp, string(b)
+}
+
+func TestJoinSubmitReservedLogin(t *testing.T) {
+	srv := authServer(t)
+	// Reserved names are rejected case-insensitively, before any uniqueness
+	// probe, so the profile URL can never be shadowed by a route the front owns.
+	for _, login := range []string{"settings", "Settings", "marketplace", "api"} {
+		resp, body := postForm(t, srv, "/join", url.Values{
+			"login":    {login},
+			"email":    {"new@example.com"},
+			"password": {"long enough password"},
+		})
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("join %q: status %d, want a re-rendered form", login, resp.StatusCode)
+		}
+		if !strings.Contains(body, "This name is reserved.") {
+			t.Errorf("join %q: form is missing the reserved-name error:\n%s", login, body)
+		}
+	}
+}
+
+func TestJoinSubmitAcceptsOrdinaryLogin(t *testing.T) {
+	srv := authServer(t)
+	resp, _ := postForm(t, srv, "/join", url.Values{
+		"login":    {"hubber"},
+		"email":    {"hubber@example.com"},
+		"password": {"long enough password"},
+	})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("join hubber: status %d, want 303", resp.StatusCode)
+	}
 }
 
 func TestLoginSubmitReturnTo(t *testing.T) {
