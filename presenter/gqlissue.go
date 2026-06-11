@@ -58,7 +58,7 @@ func (b *URLBuilder) GQLIssueComment(owner, repo string, cm *domain.Comment, for
 		Body:                cm.Body,
 		URL:                 gqlmodel.URI(b.RepoHTML(owner, repo) + "/issues/" + num + "#issuecomment-" + id),
 		Author:              b.gqlActor(cm.User, format),
-		AuthorAssociation:   gqlAuthorAssociation(owner, cm.User),
+		AuthorAssociation:   GQLAuthorAssociation(owner, cm.User),
 		IncludesCreatedEdit: cm.UpdatedAt.After(cm.CreatedAt),
 		ReactionGroups:      gqlReactionGroups(cm.Reactions),
 		CreatedAt:           gqlmodel.NewDateTime(cm.CreatedAt),
@@ -70,10 +70,10 @@ func (b *URLBuilder) GQLIssueComment(owner, repo string, cm *domain.Comment, for
 	return out
 }
 
-// gqlAuthorAssociation is the GraphQL spelling of the REST authorAssociation
+// GQLAuthorAssociation is the GraphQL spelling of the REST authorAssociation
 // heuristic: the repository owner is OWNER; anyone else is NONE until
 // collaborator and member roles are modeled. A ghost author is NONE.
-func gqlAuthorAssociation(owner string, u *domain.User) gqlmodel.CommentAuthorAssociation {
+func GQLAuthorAssociation(owner string, u *domain.User) gqlmodel.CommentAuthorAssociation {
 	if u == nil {
 		return gqlmodel.CommentAuthorAssociationNone
 	}

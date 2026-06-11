@@ -107,6 +107,12 @@ func (r *issueResolver) ReactionGroups(ctx context.Context, obj *gqlmodel.Issue)
 	return []*gqlmodel.ReactionGroup{}, nil
 }
 
+// ProjectCards is the resolver for the projectCards field. Githome does not
+// implement classic projects; the connection is always empty.
+func (r *issueResolver) ProjectCards(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*generated.ProjectCardConnection, error) {
+	return emptyProjectCardConnection(), nil
+}
+
 // ViewerDidAuthor is the resolver for the viewerDidAuthor field. It compares
 // the comment author's database key, which the presenter carries off-schema,
 // with the request's viewer. An anonymous viewer authored nothing.

@@ -60,6 +60,43 @@ const statusRollupQuery = `query Rollup($owner: String!, $name: String!, $number
   }
 }`
 
+// The field pack gh pr view layers onto the pull request: the head coordinates,
+// the review summary connections, and the always-empty project cards. The
+// fragments mirror gh v2.63.0's PullRequest fields (api/queries_pr.go).
+const pullFieldPackQuery = `query FieldPack($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      fullDatabaseId
+      isCrossRepository
+      maintainerCanModify
+      authorAssociation
+      reactionGroups { content users { totalCount } }
+      mergedBy { login }
+      headRepositoryOwner { id login ... on User { name } }
+      headRepository { id name }
+      autoMergeRequest { authorEmail commitBody commitHeadline mergeMethod enabledAt enabledBy { login } }
+      reviewRequests(first: 100) {
+        nodes { requestedReviewer { __typename ... on User { login } ... on Team { organization { login } name slug } } }
+        pageInfo { hasNextPage endCursor }
+        totalCount
+      }
+      latestReviews(first: 100) {
+        nodes { author { login } authorAssociation submittedAt body state commit { oid } }
+        pageInfo { hasNextPage endCursor }
+        totalCount
+      }
+      reviews(first: 100) {
+        nodes { author { login } authorAssociation state reactionGroups { content } }
+        pageInfo { hasNextPage endCursor }
+        totalCount
+      }
+      projectCards(first: 100) { nodes { project { name } column { name } } totalCount }
+      commits(first: 10) { pageInfo { hasNextPage endCursor } totalCount }
+      files(first: 10) { pageInfo { hasNextPage endCursor } totalCount }
+    }
+  }
+}`
+
 const resolveThreadMutation = `mutation Resolve($threadId: ID!) {
   resolveReviewThread(input: {threadId: $threadId}) {
     thread { isResolved path }
@@ -206,6 +243,15 @@ func TestStatusCheckRollup(t *testing.T) {
 	fx := reviewGraphQLServer(t)
 	got := post(t, fx.srv, fx.ownerToken, statusRollupQuery, map[string]any{"owner": "octocat", "name": "hello", "number": 1})
 	assertGolden(t, "status_rollup.golden.json", got)
+}
+
+// TestPullFieldPack confirms the rest of gh pr view's PullRequest field set
+// resolves with no errors: head coordinates, the review summary connections,
+// the always-empty project cards, and page info on the nested connections.
+func TestPullFieldPack(t *testing.T) {
+	fx := reviewGraphQLServer(t)
+	got := post(t, fx.srv, fx.ownerToken, pullFieldPackQuery, map[string]any{"owner": "octocat", "name": "hello", "number": 1})
+	assertGolden(t, "pull_field_pack.golden.json", got)
 }
 
 // TestResolveAndUnresolveThread confirms the resolve and unresolve mutations flip

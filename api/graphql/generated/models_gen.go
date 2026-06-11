@@ -24,6 +24,10 @@ type Node interface {
 	GetID() string
 }
 
+type RequestedReviewer interface {
+	IsRequestedReviewer()
+}
+
 type SearchResultItem interface {
 	IsSearchResultItem()
 }
@@ -356,13 +360,41 @@ type MergePullRequestPayload struct {
 type Mutation struct {
 }
 
+type Organization struct {
+	ID    string  `json:"id"`
+	Login string  `json:"login"`
+	Name  *string `json:"name,omitempty"`
+}
+
+type Project struct {
+	Name string `json:"name"`
+}
+
+type ProjectCard struct {
+	Project *Project       `json:"project"`
+	Column  *ProjectColumn `json:"column,omitempty"`
+}
+
+type ProjectCardConnection struct {
+	Nodes      []*ProjectCard     `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
+}
+
+type ProjectColumn struct {
+	Name string `json:"name"`
+}
+
 type PullRequestReview struct {
-	ID          string                 `json:"id"`
-	State       PullRequestReviewState `json:"state"`
-	Body        string                 `json:"body"`
-	Author      gqlmodel.Actor         `json:"author,omitempty"`
-	SubmittedAt *gqlmodel.DateTime     `json:"submittedAt,omitempty"`
-	URL         gqlmodel.URI           `json:"url"`
+	ID                string                            `json:"id"`
+	State             PullRequestReviewState            `json:"state"`
+	Body              string                            `json:"body"`
+	Author            gqlmodel.Actor                    `json:"author,omitempty"`
+	AuthorAssociation gqlmodel.CommentAuthorAssociation `json:"authorAssociation"`
+	Commit            *gqlmodel.Commit                  `json:"commit,omitempty"`
+	ReactionGroups    []*gqlmodel.ReactionGroup         `json:"reactionGroups"`
+	SubmittedAt       *gqlmodel.DateTime                `json:"submittedAt,omitempty"`
+	URL               gqlmodel.URI                      `json:"url"`
 }
 
 type PullRequestReviewCommentEdge struct {
@@ -372,6 +404,7 @@ type PullRequestReviewCommentEdge struct {
 
 type PullRequestReviewConnection struct {
 	Nodes      []*PullRequestReview `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo   `json:"pageInfo"`
 	TotalCount int32                `json:"totalCount"`
 }
 
@@ -444,12 +477,13 @@ type ResolveReviewThreadPayload struct {
 }
 
 type ReviewRequest struct {
-	RequestedReviewer *gqlmodel.User `json:"requestedReviewer,omitempty"`
+	RequestedReviewer RequestedReviewer `json:"requestedReviewer,omitempty"`
 }
 
 type ReviewRequestConnection struct {
-	Nodes      []*ReviewRequest `json:"nodes,omitempty"`
-	TotalCount int32            `json:"totalCount"`
+	Nodes      []*ReviewRequest   `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
 }
 
 type SearchResultItemConnection struct {
@@ -477,6 +511,15 @@ type SubmitPullRequestReviewPayload struct {
 	PullRequestReview *PullRequestReview `json:"pullRequestReview,omitempty"`
 	ClientMutationID  *string            `json:"clientMutationId,omitempty"`
 }
+
+type Team struct {
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Slug         string        `json:"slug"`
+	Organization *Organization `json:"organization"`
+}
+
+func (Team) IsRequestedReviewer() {}
 
 type UnresolveReviewThreadInput struct {
 	ThreadID         string  `json:"threadId"`

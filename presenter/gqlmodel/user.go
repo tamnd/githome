@@ -31,6 +31,9 @@ func (User) IsActor() {}
 // IsRepositoryOwner marks User as implementing the RepositoryOwner interface.
 func (User) IsRepositoryOwner() {}
 
+// IsRequestedReviewer marks User as a member of the RequestedReviewer union.
+func (User) IsRequestedReviewer() {}
+
 // UserConnection is the Relay connection over a set of users (assignees, etc.).
 type UserConnection struct {
 	Nodes      []*User

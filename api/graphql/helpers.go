@@ -446,19 +446,78 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 	reviewID := strconv.FormatInt(rv.ID, 10)
 	htmlURL := urls.RepoHTML(owner, repo) + "/pull/" + pullNum + "#pullrequestreview-" + reviewID
 	r := &generated.PullRequestReview{
-		ID:    nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
-		State: generated.PullRequestReviewState(rv.State),
-		Body:  rv.Body,
-		URL:   gqlmodel.URI(htmlURL),
+		ID:                nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
+		State:             generated.PullRequestReviewState(rv.State),
+		Body:              rv.Body,
+		URL:               gqlmodel.URI(htmlURL),
+		AuthorAssociation: presenter.GQLAuthorAssociation(owner, rv.User),
+		ReactionGroups:    []*gqlmodel.ReactionGroup{}, // Githome does not store reactions
 	}
 	if rv.User != nil {
 		r.Author = urls.GQLUser(rv.User, format)
+	}
+	if rv.CommitID != "" {
+		r.Commit = &gqlmodel.Commit{
+			Oid:       gqlmodel.GitObjectID(rv.CommitID),
+			RepoOwner: owner,
+			RepoName:  repo,
+		}
 	}
 	if rv.SubmittedAt != nil {
 		dt := gqlmodel.NewDateTime(*rv.SubmittedAt)
 		r.SubmittedAt = &dt
 	}
 	return r
+}
+
+// buildReviewConnection windows a review listing and renders it into the
+// GraphQL connection with Relay page info.
+func (r *Resolver) buildReviewConnection(revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
+	total := len(revs)
+	start, end := page.window(total)
+	nodes := make([]*generated.PullRequestReview, 0, end-start)
+	for _, rv := range revs[start:end] {
+		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.NodeFormat))
+	}
+	return &generated.PullRequestReviewConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}
+}
+
+// emptyProjectCardConnection is the always-empty classic-projects connection
+// the issue and pull request projectCards fields resolve to.
+func emptyProjectCardConnection() *generated.ProjectCardConnection {
+	return &generated.ProjectCardConnection{
+		Nodes:      []*generated.ProjectCard{},
+		PageInfo:   &gqlmodel.PageInfo{},
+		TotalCount: 0,
+	}
+}
+
+// latestReviewsOf keeps the most recent submitted review per reviewer, in the
+// order the underlying listing returned them (oldest first). Pending drafts are
+// not part of the latest set, matching GitHub's latestReviews.
+func latestReviewsOf(revs []*domain.Review) []*domain.Review {
+	out := make([]*domain.Review, 0, len(revs))
+	seen := map[string]int{}
+	for _, rv := range revs {
+		if rv.State == domain.ReviewPending {
+			continue
+		}
+		login := ""
+		if rv.User != nil {
+			login = rv.User.Login
+		}
+		if i, ok := seen[login]; ok {
+			out[i] = rv
+			continue
+		}
+		seen[login] = len(out)
+		out = append(out, rv)
+	}
+	return out
 }
 
 // commentsWindow reads the absolute comment window [start, end) for an issue

@@ -5,6 +5,9 @@
 scalar DateTime
 scalar URI
 scalar GitObjectID
+# BigInt carries an integer too wide for Int as a string, the way GitHub types
+# fullDatabaseId.
+scalar BigInt
 
 # Node is the interface every object with a node ID implements. Clients use
 # node(id:) and nodes(ids:) to look up objects by their opaque IDs.

@@ -270,48 +270,75 @@ func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullReq
 	for _, cm := range commits[start:end] {
 		nodes = append(nodes, r.URLs.GQLPullRequestCommit(obj.RepoOwner, obj.RepoName, cm))
 	}
-	return &gqlmodel.PullRequestCommitConnection{Nodes: nodes, TotalCount: int32(total)}, nil
+	return &gqlmodel.PullRequestCommitConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}, nil
 }
 
 // Files is the resolver for the files field. It reads the per-file diff of the
 // pull request range through the git layer on demand.
 func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.PullRequestChangedFileConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
 		return nil, err
 	}
 	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	nodes := make([]*gqlmodel.PullRequestChangedFile, 0, len(files))
-	for _, f := range files {
+	total := len(files)
+	start, end := page.window(total)
+	nodes := make([]*gqlmodel.PullRequestChangedFile, 0, end-start)
+	for _, f := range files[start:end] {
 		nodes = append(nodes, r.URLs.GQLPullRequestChangedFile(f))
 	}
-	return &gqlmodel.PullRequestChangedFileConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+	return &gqlmodel.PullRequestChangedFileConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}, nil
 }
 
 // Reviews is the resolver for the reviews field. It reads the pull request's
 // submitted reviews through the review service on demand.
 func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
 		return nil, err
 	}
 	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	nodes := make([]*generated.PullRequestReview, 0, len(revs))
-	for _, rv := range revs {
-		nodes = append(nodes, gqlReview(rv, r.URLs, obj.RepoOwner, obj.RepoName, r.NodeFormat))
+	return r.buildReviewConnection(revs, page, obj.RepoOwner, obj.RepoName), nil
+}
+
+// LatestReviews is the resolver for the latestReviews field. It folds the
+// submitted reviews down to the most recent one per reviewer, the summary set
+// gh pr view selects with latestReviews(first: 100).
+func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
+	page, err := issuePageArgs(first, after, nil, nil)
+	if err != nil {
+		return nil, err
 	}
-	return &generated.PullRequestReviewConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return r.buildReviewConnection(latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
 }
 
 // ReviewRequests is the resolver for the reviewRequests field. Githome does not
 // persist review requests in a separate table; this returns an empty connection
 // so VS Code and other clients that select the field do not error.
 func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
-	return &generated.ReviewRequestConnection{Nodes: []*generated.ReviewRequest{}, TotalCount: 0}, nil
+	return &generated.ReviewRequestConnection{
+		Nodes:      []*generated.ReviewRequest{},
+		PageInfo:   &gqlmodel.PageInfo{},
+		TotalCount: 0,
+	}, nil
 }
 
 // Comments is the resolver for the comments field on PullRequest. It reads the
@@ -347,6 +374,12 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
 		TotalCount: total,
 	}, nil
+}
+
+// ProjectCards is the resolver for the projectCards field. Githome does not
+// implement classic projects; the connection is always empty.
+func (r *pullRequestResolver) ProjectCards(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ProjectCardConnection, error) {
+	return emptyProjectCardConnection(), nil
 }
 
 // PullRequest is the resolver for the pullRequest field. A missing pull request,

@@ -17,32 +17,38 @@ import (
 // resolvers; the presenter fills only the repository coordinates they read.
 func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, format nodeid.Format) *gqlmodel.PullRequest {
 	num := strconv.FormatInt(pr.Number, 10)
+	fullID := strconv.FormatInt(pr.ID, 10)
 	out := &gqlmodel.PullRequest{
-		ID:               nodeid.Encode(nodeid.KindPullRequest, pr.ID, format),
-		Number:           int32(pr.Number),
-		Title:            pr.Title,
-		Body:             deref(pr.Body),
-		State:            pullState(pr),
-		URL:              gqlmodel.URI(b.RepoHTML(owner, repo) + "/pull/" + num),
-		Locked:           pr.Locked,
-		Closed:           pr.State == "closed",
-		IsDraft:          pr.Draft,
-		Merged:           pr.Merged,
-		Mergeable:        mergeableState(pr.Mergeable),
-		MergeStateStatus: mergeStateStatus(pr.MergeableState),
-		Author:           b.gqlActor(pr.User, format),
-		BaseRefName:      pr.Base.Ref,
-		HeadRefName:      pr.Head.Ref,
-		BaseRefOid:       gqlmodel.GitObjectID(pr.Base.SHA),
-		HeadRefOid:       gqlmodel.GitObjectID(pr.Head.SHA),
-		Additions:        int32(pr.Additions),
-		Deletions:        int32(pr.Deletions),
-		ChangedFiles:     int32(pr.ChangedFiles),
-		CreatedAt:        gqlmodel.NewDateTime(pr.CreatedAt),
-		UpdatedAt:        gqlmodel.NewDateTime(pr.UpdatedAt),
-		RepoOwner:        owner,
-		RepoName:         repo,
-		CommentsCount:    int32(pr.CommentsCount),
+		ID:                  nodeid.Encode(nodeid.KindPullRequest, pr.ID, format),
+		Number:              int32(pr.Number),
+		Title:               pr.Title,
+		Body:                deref(pr.Body),
+		State:               pullState(pr),
+		URL:                 gqlmodel.URI(b.RepoHTML(owner, repo) + "/pull/" + num),
+		Locked:              pr.Locked,
+		Closed:              pr.State == "closed",
+		IsDraft:             pr.Draft,
+		Merged:              pr.Merged,
+		Mergeable:           mergeableState(pr.Mergeable),
+		MergeStateStatus:    mergeStateStatus(pr.MergeableState),
+		Author:              b.gqlActor(pr.User, format),
+		AuthorAssociation:   GQLAuthorAssociation(owner, pr.User),
+		BaseRefName:         pr.Base.Ref,
+		HeadRefName:         pr.Head.Ref,
+		BaseRefOid:          gqlmodel.GitObjectID(pr.Base.SHA),
+		HeadRefOid:          gqlmodel.GitObjectID(pr.Head.SHA),
+		MaintainerCanModify: pr.MaintainerCanModify,
+		FullDatabaseID:      &fullID,
+		MergedBy:            b.gqlActor(pr.MergedBy, format),
+		Additions:           int32(pr.Additions),
+		Deletions:           int32(pr.Deletions),
+		ChangedFiles:        int32(pr.ChangedFiles),
+		CreatedAt:           gqlmodel.NewDateTime(pr.CreatedAt),
+		UpdatedAt:           gqlmodel.NewDateTime(pr.UpdatedAt),
+		ReactionGroups:      []gqlmodel.ReactionGroup{}, // Githome does not store reactions
+		RepoOwner:           owner,
+		RepoName:            repo,
+		CommentsCount:       int32(pr.CommentsCount),
 	}
 	out.Labels = b.gqlLabelConnection(owner, repo, pr.Labels, format)
 	out.Assignees = b.GQLUserConnection(pr.Assignees, format)
@@ -55,11 +61,24 @@ func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, 
 	if pr.Head.Repo != nil {
 		headPK = pr.Head.Repo.PK
 	}
+	out.IsCrossRepository = headPK != basePK
 	if pr.Base.Ref != "" {
 		out.BaseRef = GQLRef(basePK, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
 	}
 	if pr.Head.Ref != "" {
 		out.HeadRef = GQLRef(headPK, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
+	}
+	headRepo := pr.Head.Repo
+	if headRepo == nil && headPK == pr.RepoPK {
+		headRepo = pr.Repo
+	}
+	if headRepo != nil && headRepo.Owner != nil {
+		hr := b.GQLRepository(headRepo, nil, format)
+		out.HeadRepository = &hr
+		out.HeadRepositoryOwner = b.GQLRepositoryOwner(headRepo.Owner, format)
+	}
+	if out.HeadRepositoryOwner == nil && pr.Head.User != nil {
+		out.HeadRepositoryOwner = b.GQLRepositoryOwner(pr.Head.User, format)
 	}
 	if pr.MergedAt != nil {
 		merged := gqlmodel.NewDateTime(*pr.MergedAt)

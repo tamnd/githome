@@ -186,6 +186,11 @@ type PullRequestReview {
   state: PullRequestReviewState!
   body: String!
   author: Actor
+  # authorAssociation is the reviewer's association with the repository.
+  authorAssociation: CommentAuthorAssociation!
+  # commit is the commit the review was left against, null when unrecorded.
+  commit: Commit
+  reactionGroups: [ReactionGroup!]!
   submittedAt: DateTime
   url: URI!
 }
@@ -232,6 +237,7 @@ type PullRequestReviewEdge {
 # PullRequestReviewConnection is the connection over a pull request's reviews.
 type PullRequestReviewConnection {
   nodes: [PullRequestReview]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 

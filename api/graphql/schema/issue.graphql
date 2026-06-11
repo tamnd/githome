@@ -91,6 +91,33 @@ type Issue implements Node {
   # reactionGroups summarises the emoji reactions on this issue, grouped by
   # content. An empty slice means no reactions have been posted.
   reactionGroups: [ReactionGroup!]!
+  # projectCards is the connection over classic project cards. Githome does not
+  # implement classic projects, so it is always empty; the field exists because
+  # gh issue view selects it unconditionally.
+  projectCards(first: Int, after: String): ProjectCardConnection!
+}
+
+# ProjectCard is a card on a classic project board. Githome does not implement
+# classic projects; the card types exist so gh's default field sets validate.
+type ProjectCard {
+  project: Project!
+  column: ProjectColumn
+}
+
+# Project is a classic project board.
+type Project {
+  name: String!
+}
+
+# ProjectColumn is one column on a classic project board.
+type ProjectColumn {
+  name: String!
+}
+
+type ProjectCardConnection {
+  nodes: [ProjectCard]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 # ReactionContent is an emoji reaction type.
