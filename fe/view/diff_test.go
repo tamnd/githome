@@ -1,6 +1,10 @@
 package view
 
-import "testing"
+import (
+	"strconv"
+	"strings"
+	"testing"
+)
 
 // The patches below are real unified-diff hunk text as the producer emits it:
 // they begin at the first @@ with no file header, exactly what FileChange.Patch
@@ -213,5 +217,39 @@ func TestEscaping_AngleBracketsAreEscaped(t *testing.T) {
 				t.Errorf("addition cell = %q, want escaped", got)
 			}
 		}
+	}
+}
+
+func TestOversizedPatch_NoRowsTooLarge(t *testing.T) {
+	// A generated-file patch past the line cap: a header plus one addition per
+	// line, the lockfile shape. It must render as too-large, not as rows.
+	var sb strings.Builder
+	sb.WriteString("@@ -0,0 +1," + strconv.Itoa(maxDiffFileLines+1) + " @@\n")
+	for range maxDiffFileLines + 1 {
+		sb.WriteString("+line\n")
+	}
+	f := BuildDiffFile("package-lock.json", "", StatusModified, maxDiffFileLines+1, 0, sb.String(), DiffUnified)
+	if len(f.Rows) != 0 {
+		t.Errorf("oversized patch produced %d rows, want 0", len(f.Rows))
+	}
+	if !f.TooLarge {
+		t.Error("oversized patch not flagged TooLarge")
+	}
+	if f.IsBinary {
+		t.Error("oversized patch flagged IsBinary")
+	}
+
+	// The byte cap bites on its own: few lines, each enormous.
+	long := strings.Repeat("x", maxDiffFileBytes/4)
+	patch := "@@ -0,0 +1,4 @@\n+" + long + "\n+" + long + "\n+" + long + "\n+" + long + "\n"
+	f = BuildDiffFile("bundle.min.js", "", StatusModified, 4, 0, patch, DiffUnified)
+	if !f.TooLarge || len(f.Rows) != 0 {
+		t.Errorf("byte-capped patch: TooLarge=%v rows=%d, want true and 0", f.TooLarge, len(f.Rows))
+	}
+
+	// An ordinary patch stays under both caps and still builds rows.
+	f = BuildDiffFile("f.txt", "", StatusModified, 1, 0, "@@ -1,1 +1,2 @@\n one\n+two", DiffUnified)
+	if f.TooLarge || len(f.Rows) == 0 {
+		t.Errorf("small patch: TooLarge=%v rows=%d, want false and rows", f.TooLarge, len(f.Rows))
 	}
 }
