@@ -14,11 +14,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
@@ -83,10 +85,22 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		ctx := c.Context()
 		repo, err := h.repos.GetRepo(ctx, webmw.ViewerID(ctx), c.Param("owner"), c.Param("repo"))
 		if errors.Is(err, domain.ErrRepoNotFound) {
+			// The name may be a rename's old address: the redirect store keeps
+			// old owner/name pairs pointing at the repository they now name.
+			if moved, merr := h.repos.RepoRedirect(ctx, webmw.ViewerID(ctx), c.Param("owner"), c.Param("repo")); merr == nil {
+				if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), ownerLogin(moved), moved.Name); ok {
+					return c.Redirect(http.StatusMovedPermanently, target)
+				}
+			}
 			return h.render.RepoNotFound(c, h.chrome(c, ""))
 		}
 		if err != nil {
 			return err
+		}
+		// The lookup is case-insensitive; the URL is not. A wrong-cased owner or
+		// name 301s to the canonical spelling instead of serving every variant.
+		if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), ownerLogin(repo), repo.Name); ok {
+			return c.Redirect(http.StatusMovedPermanently, target)
 		}
 		r := c.Request()
 		*r = *r.WithContext(context.WithValue(ctx, keyRepo, repo))

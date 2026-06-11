@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -41,6 +42,11 @@ func (h *Handlers) Show(c *mizu.Ctx) error {
 	}
 	if err != nil {
 		return err
+	}
+	// Issues and pull requests share one number sequence; a PR addressed
+	// through /issues/{n} redirects to its own page, matching github.com.
+	if iss.IsPull {
+		return c.Redirect(http.StatusFound, route.Pull(owner, repo.Name, number))
 	}
 
 	comments, err := h.issues.ListComments(ctx, vc.pk, owner, repo.Name, number, 1, showPerPage)

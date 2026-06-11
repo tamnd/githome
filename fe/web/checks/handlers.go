@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
 )
@@ -83,10 +85,22 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		viewerPK := webmw.ViewerID(ctx)
 		repo, err := h.repos.GetRepo(ctx, viewerPK, c.Param("owner"), c.Param("repo"))
 		if errors.Is(err, domain.ErrRepoNotFound) {
+			// The name may be a rename's old address: the redirect store keeps
+			// old owner/name pairs pointing at the repository they now name.
+			if moved, merr := h.repos.RepoRedirect(ctx, viewerPK, c.Param("owner"), c.Param("repo")); merr == nil {
+				if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), repoOwnerLogin(moved), moved.Name); ok {
+					return c.Redirect(http.StatusMovedPermanently, target)
+				}
+			}
 			return h.notFound(c)
 		}
 		if err != nil {
 			return err
+		}
+		// The lookup is case-insensitive; the URL is not. A wrong-cased owner or
+		// name 301s to the canonical spelling instead of serving every variant.
+		if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), repoOwnerLogin(repo), repo.Name); ok {
+			return c.Redirect(http.StatusMovedPermanently, target)
 		}
 		r := c.Request()
 		*r = *r.WithContext(context.WithValue(ctx, keyRepo, repo))
@@ -98,6 +112,15 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 func repoFromContext(ctx context.Context) (*domain.Repo, bool) {
 	repo, ok := ctx.Value(keyRepo).(*domain.Repo)
 	return repo, ok
+}
+
+// repoOwnerLogin returns the repo owner's canonical login, tolerating a repo
+// assembled without its owner (which the resolver never does).
+func repoOwnerLogin(r *domain.Repo) string {
+	if r.Owner == nil {
+		return ""
+	}
+	return r.Owner.Login
 }
 
 // notFound renders the repository 404 in the page shell, the page a missing or

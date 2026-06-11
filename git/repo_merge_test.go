@@ -114,6 +114,23 @@ func TestMergeSurfaceClean(t *testing.T) {
 		t.Fatalf("three-dot diff must not include master-only m.txt: %v", got)
 	}
 
+	// The direct two-dot diff sees the trees themselves: feature's additions
+	// plus master-only m.txt, reversed into a removal.
+	direct, err := store.ChangedFilesDirect(ctx, 10, base, feature)
+	if err != nil {
+		t.Fatalf("ChangedFilesDirect: %v", err)
+	}
+	gotDirect := map[string]string{}
+	for _, f := range direct {
+		gotDirect[f.Path] = f.Status
+	}
+	if gotDirect["b.txt"] != "added" || gotDirect["c.txt"] != "added" {
+		t.Fatalf("direct changed files = %v, want b.txt and c.txt added", gotDirect)
+	}
+	if gotDirect["m.txt"] != "removed" {
+		t.Fatalf("direct diff must show master-only m.txt as removed: %v", gotDirect)
+	}
+
 	add, del, changed, err := store.DiffStat(ctx, 10, base, feature)
 	if err != nil {
 		t.Fatalf("DiffStat: %v", err)

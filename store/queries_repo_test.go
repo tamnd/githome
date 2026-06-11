@@ -125,6 +125,61 @@ func TestRepoByPKAndDBID(t *testing.T) {
 	})
 }
 
+func TestRepoRedirects(t *testing.T) {
+	eachDialect(t, func(t *testing.T, st *store.Store) {
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		r := seedRepo(t, st, "octocat", &store.RepoRow{Name: "New-Name"})
+
+		// No redirect yet: a stale name misses.
+		if _, err := st.RepoByRedirect(ctx, "octocat", "old-name"); !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("before upsert: err = %v, want ErrNotFound", err)
+		}
+
+		if err := st.UpsertRepoRedirect(ctx, "Octocat", "Old-Name", r.PK); err != nil {
+			t.Fatalf("UpsertRepoRedirect: %v", err)
+		}
+
+		// The lookup is case-insensitive on both sides: the keys were stored
+		// lowercased and the query lowercases its inputs.
+		got, err := st.RepoByRedirect(ctx, "OCTOCAT", "old-name")
+		if err != nil {
+			t.Fatalf("RepoByRedirect: %v", err)
+		}
+		if got.PK != r.PK || got.Name != "New-Name" {
+			t.Fatalf("redirect resolved to pk=%d name=%q, want pk=%d New-Name", got.PK, got.Name, r.PK)
+		}
+
+		// Rebinding the same old name repoints it: the chain collapses to the
+		// latest target instead of erroring on the unique key.
+		other := &store.RepoRow{OwnerPK: r.OwnerPK, Name: "Other"}
+		if err := st.InsertRepo(ctx, other); err != nil {
+			t.Fatalf("InsertRepo other: %v", err)
+		}
+		if err := st.UpsertRepoRedirect(ctx, "octocat", "old-name", other.PK); err != nil {
+			t.Fatalf("UpsertRepoRedirect repoint: %v", err)
+		}
+		got, err = st.RepoByRedirect(ctx, "octocat", "old-name")
+		if err != nil {
+			t.Fatalf("RepoByRedirect after repoint: %v", err)
+		}
+		if got.PK != other.PK {
+			t.Fatalf("repointed redirect resolved to pk=%d, want %d", got.PK, other.PK)
+		}
+
+		// A deleted target makes the redirect miss rather than resolve to a
+		// soft-deleted row.
+		if err := st.SoftDeleteRepo(ctx, other.PK); err != nil {
+			t.Fatalf("SoftDeleteRepo: %v", err)
+		}
+		if _, err := st.RepoByRedirect(ctx, "octocat", "old-name"); !errors.Is(err, store.ErrNotFound) {
+			t.Errorf("deleted target: err = %v, want ErrNotFound", err)
+		}
+	})
+}
+
 func TestUpdateRepoReturnsUpdatedRow(t *testing.T) {
 	// Regression: the RETURNING clause used the r-aliased column list on an
 	// unaliased UPDATE, which SQLite rejected with "no such column: r.pk".

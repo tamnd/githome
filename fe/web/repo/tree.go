@@ -22,12 +22,12 @@ func (h *Handlers) Tree(c *mizu.Ctx) error {
 		return h.notFound(c)
 	}
 	refs := h.loadRefs(repo)
-	ref, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
+	ref, rev, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}
 
-	res, err := h.repos.Contents(repo, path, ref)
+	res, err := h.repos.Contents(repo, path, rev)
 	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
 		return h.notFound(c)
 	}
@@ -40,7 +40,7 @@ func (h *Handlers) Tree(c *mizu.Ctx) error {
 	}
 
 	r := view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch}
-	vm := h.buildTreeFromDir(ctx, repo, refs, r, path, res.Dir, false)
+	vm := h.buildTreeFromDir(ctx, repo, refs, r, rev, path, res.Dir, false)
 	vm.Chrome = h.chrome(c, treeTitle(repo, path))
 	return h.render.Page(c, "repo/tree", vm)
 }

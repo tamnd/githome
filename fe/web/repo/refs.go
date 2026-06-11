@@ -4,18 +4,21 @@ import (
 	"strings"
 
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/git"
 )
 
 // refSet is a repository's branch and tag lists, read once per request and
 // shared by every consumer in that request: the ref-path splitter and the ref
 // picker used to enumerate the refs independently, costing two full ref reads
-// each per tree/blob page. names answers membership for the splitter; the
-// ordered lists feed the picker.
+// each per tree/blob page. The name maps answer membership for the splitter,
+// branches apart from tags so the split can keep the branch-beats-tag
+// precedence; the ordered lists feed the picker.
 type refSet struct {
-	branches []git.Branch
-	tags     []git.Tag
-	names    map[string]bool
+	branches    []git.Branch
+	tags        []git.Tag
+	branchNames map[string]bool
+	tagNames    map[string]bool
 }
 
 // loadRefs reads the repository's branches and tags once. An empty repository
@@ -23,45 +26,61 @@ type refSet struct {
 // makes every ref-path tail a soft 404, the correct answer for a repo with no
 // commits.
 func (h *Handlers) loadRefs(repo *domain.Repo) *refSet {
-	rs := &refSet{names: map[string]bool{}}
+	rs := &refSet{branchNames: map[string]bool{}, tagNames: map[string]bool{}}
 	if branches, err := h.repos.ListBranches(repo); err == nil {
 		rs.branches = branches
 		for _, b := range branches {
-			rs.names[b.Name] = true
+			rs.branchNames[b.Name] = true
 		}
 	}
 	if tags, err := h.repos.ListTags(repo); err == nil {
 		rs.tags = tags
 		for _, t := range tags {
-			rs.names[t.Name] = true
+			rs.tagNames[t.Name] = true
 		}
 	}
 	return rs
 }
 
-// refExists returns the predicate SplitRefPath consumes to peel a "<ref>/<path>"
-// tail. It answers each candidate from the request's shared ref set, falling
-// back to a commit lookup only for a candidate that looks like an object id.
-// SplitRefPath calls the predicate once per leading-segment length, longest
-// first, so answering from the prebuilt set keeps the split free of per-candidate
-// git reads. See implementation/07 section 2.
-func (h *Handlers) refExists(repo *domain.Repo, refs *refSet) func(string) bool {
-	return func(candidate string) bool {
-		if candidate == "" {
-			return false
-		}
-		if refs.names[candidate] {
-			return true
-		}
-		// A single-segment, hex-looking candidate may be a full or abbreviated
-		// commit sha. Only then is the extra commit lookup worth it: a ref with a
-		// slash is never a bare sha, and a non-hex token never resolves.
-		if !strings.Contains(candidate, "/") && looksLikeSHA(candidate) {
-			if _, err := h.repos.GetCommit(repo, candidate); err == nil {
-				return true
-			}
-		}
+// refLookup adapts the request's shared ref set to the route.RefLookup the
+// ref-path splitter consumes. Branch and tag membership answer from the
+// prebuilt maps so the split stays free of per-candidate git reads; only a
+// candidate that can be a commit-ish (the symbolic HEAD or a hex object id,
+// never anything with a slash) pays the commit lookup. See implementation/07
+// section 2.
+type refLookup struct {
+	h    *Handlers
+	repo *domain.Repo
+	refs *refSet
+}
+
+func (l refLookup) Branch(name string) bool { return l.refs.branchNames[name] }
+func (l refLookup) Tag(name string) bool    { return l.refs.tagNames[name] }
+
+func (l refLookup) Commitish(rev string) bool {
+	if strings.Contains(rev, "/") {
 		return false
+	}
+	if rev != "HEAD" && !looksLikeSHA(rev) {
+		return false
+	}
+	_, err := l.h.repos.GetCommit(l.repo, rev)
+	return err == nil
+}
+
+// gitRev returns the revision the git layer reads for a matched ref. The web
+// route promises the branch when a name is both a branch and a tag, but git's
+// own rev-parse order prefers the tag, so a bare name handed down would flip
+// the choice. Qualifying the matched name pins it; a commit-ish passes
+// through as written.
+func gitRev(ref string, kind route.RefMatch) string {
+	switch kind {
+	case route.RefBranch:
+		return "refs/heads/" + ref
+	case route.RefTag:
+		return "refs/tags/" + ref
+	default:
+		return ref
 	}
 }
 

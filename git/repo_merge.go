@@ -279,15 +279,38 @@ func (s *Store) DiffStat(ctx context.Context, pk int64, base, head SHA) (additio
 // so the second ask for a range (the review-thread indexer right after the
 // Files page, or a compare reload) skips the git subprocess entirely.
 func (s *Store) ChangedFiles(ctx context.Context, pk int64, base, head SHA) ([]FileChange, error) {
+	return s.changedFiles(ctx, pk, base, head, false)
+}
+
+// ChangedFilesDirect is ChangedFiles over the two-dot form: the diff between
+// the two trees themselves rather than between head and the merge base, so
+// changes on the base side show up reversed. It backs the compare page's
+// "base..head" URLs.
+func (s *Store) ChangedFilesDirect(ctx context.Context, pk int64, base, head SHA) ([]FileChange, error) {
+	return s.changedFiles(ctx, pk, base, head, true)
+}
+
+// changedFiles runs the diff for both range forms. A direct diff caches under
+// a prefixed key: the two forms answer differently for the same end pair, and
+// a key collision would serve one as the other.
+func (s *Store) changedFiles(ctx context.Context, pk int64, base, head SHA, direct bool) ([]FileChange, error) {
 	cacheable := s.diffs != nil && isFullSHA(base) && isFullSHA(head)
 	key := ""
 	if cacheable {
 		key = diffKey(pk, base, head)
+		if direct {
+			key = "direct:" + key
+		}
 		if files := s.diffs.get(key); files != nil {
 			return files, nil
 		}
 	}
-	args := []string{"diff", "--no-color", "--full-index", "--find-renames", base + "..." + head}
+	args := []string{"diff", "--no-color", "--full-index", "--find-renames"}
+	if direct {
+		args = append(args, base, head)
+	} else {
+		args = append(args, base+"..."+head)
+	}
 	r, err := s.run(ctx, pk, nil, args...)
 	if err != nil {
 		return nil, err

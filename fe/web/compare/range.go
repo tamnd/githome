@@ -2,6 +2,7 @@ package compare
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/go-mizu/mizu"
@@ -18,9 +19,11 @@ const maxCompareFiles = 300
 
 // Range renders the comparison between two branches, GET
 // /{owner}/{repo}/compare/{basehead...}. The basehead tail is parsed as
-// "base...head". With ?expand=1 the PR creation form is shown below the diff.
-// A missing branch, or a basehead that does not parse, renders the soft 404.
-// See implementation/09 section 8.
+// "base...head" (the merge-base diff) or "base..head" (the direct diff), with
+// each side optionally qualified as owner:ref or owner:repo:ref. With
+// ?expand=1 the PR creation form is shown below the diff. A missing branch, a
+// basehead that does not parse, or a qualified side naming another repository
+// renders the soft 404. See implementation/09 section 8.
 func (h *Handlers) Range(c *mizu.Ctx) error {
 	ctx := c.Context()
 	repo, ok := repoFromContext(ctx)
@@ -29,10 +32,18 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 	}
 	owner := ownerLogin(repo)
 
-	base, head, ok := route.ParseBaseHead(c.Param("basehead"))
+	spec, ok := route.ParseBaseHead(c.Param("basehead"))
 	if !ok {
 		return h.notFound(c)
 	}
+	// Githome has no cross-owner forks yet, so a qualified side only resolves
+	// when it names this same repository; anything else is a clear 404 rather
+	// than a silently wrong diff.
+	if !sideInRepo(repo, spec.Base) || !sideInRepo(repo, spec.Head) {
+		return h.notFound(c)
+	}
+	base, head := spec.Base.Ref, spec.Head.Ref
+
 	// When no base was specified (single-branch form), fall back to the default.
 	if base == "" {
 		db, err := h.repos.DefaultBranchRef(repo)
@@ -45,7 +56,13 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		base = db.Name
 	}
 
-	cmp, err := h.repos.Compare(ctx, repo, base, head)
+	var cmp *domain.CompareResult
+	var err error
+	if spec.TwoDot {
+		cmp, err = h.repos.CompareDirect(ctx, repo, base, head)
+	} else {
+		cmp, err = h.repos.Compare(ctx, repo, base, head)
+	}
 	if errors.Is(err, domain.ErrGitNotFound) {
 		return h.notFound(c)
 	}
@@ -61,7 +78,11 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 	commits := buildCommits(owner, repo.Name, cmp.Commits)
 
 	expanded := c.Query("expand") == "1"
-	title := "Comparing " + base + "..." + head + " · " + owner + "/" + repo.Name
+	sep := "..."
+	if spec.TwoDot {
+		sep = ".."
+	}
+	title := "Comparing " + base + sep + head + " · " + owner + "/" + repo.Name
 	vm := view.CompareRangeVM{
 		Chrome:       h.chrome(c, title),
 		Header:       h.header(repo, "pulls"),
@@ -82,6 +103,20 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		ExpandURL:    route.CompareExpanded(owner, repo.Name, base, head),
 	}
 	return h.render.Page(c, "compare/range", vm)
+}
+
+// sideInRepo reports whether a compare side resolves inside this repository.
+// The unqualified side always does; an owner- or repo-qualified side must name
+// this repository's own owner and name (case-insensitively, like the URL).
+// Once forks exist this is where a qualified side resolves to its fork.
+func sideInRepo(repo *domain.Repo, s route.CompareSide) bool {
+	if s.Owner != "" && !strings.EqualFold(s.Owner, ownerLogin(repo)) {
+		return false
+	}
+	if s.Repo != "" && !strings.EqualFold(s.Repo, repo.Name) {
+		return false
+	}
+	return true
 }
 
 func buildFiles(changes []git.FileChange) []view.DiffFileVM {

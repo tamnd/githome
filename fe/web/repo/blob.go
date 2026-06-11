@@ -31,12 +31,12 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 		return h.notFound(c)
 	}
 	refs := h.loadRefs(repo)
-	ref, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
+	ref, rev, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}
 
-	res, err := h.repos.Contents(repo, path, ref)
+	res, err := h.repos.Contents(repo, path, rev)
 	switch {
 	case errors.Is(err, domain.ErrBlobTooLarge):
 		return h.renderTooLarge(c, repo, refs, ref, path)

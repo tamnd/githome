@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 
 	"github.com/go-mizu/mizu"
 
@@ -83,10 +84,22 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		ctx := c.Context()
 		repo, err := h.repos.GetRepo(ctx, webmw.ViewerID(ctx), c.Param("owner"), c.Param("repo"))
 		if errors.Is(err, domain.ErrRepoNotFound) {
+			// The name may be a rename's old address: the redirect store keeps
+			// old owner/name pairs pointing at the repository they now name.
+			if moved, merr := h.repos.RepoRedirect(ctx, webmw.ViewerID(ctx), c.Param("owner"), c.Param("repo")); merr == nil {
+				if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), ownerLogin(moved), moved.Name); ok {
+					return c.Redirect(http.StatusMovedPermanently, target)
+				}
+			}
 			return h.render.RepoNotFound(c, h.chrome(c, ""))
 		}
 		if err != nil {
 			return err
+		}
+		// The lookup is case-insensitive; the URL is not. A wrong-cased owner or
+		// name 301s to the canonical spelling instead of serving every variant.
+		if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), ownerLogin(repo), repo.Name); ok {
+			return c.Redirect(http.StatusMovedPermanently, target)
 		}
 		r := c.Request()
 		*r = *r.WithContext(context.WithValue(ctx, keyRepo, repo))
@@ -117,10 +130,17 @@ func (h *Handlers) chrome(c *mizu.Ctx, title string) view.Chrome {
 
 // resolveRef reads the greedy {rest} tail of a tree/blob/raw URL and splits it
 // into a ref and a path, preferring the longest leading segment sequence that
-// names a real ref (a branch named feature/x beats the branch feature). The split
-// is backed by the request's shared ref set through refExists. A tail that names
-// no ref returns ok false, which the caller renders as the soft 404. See
-// implementation/07 section 2.
-func (h *Handlers) resolveRef(repo *domain.Repo, refs *refSet, rest string) (ref, path string, ok bool) {
-	return route.SplitRefPath(rest, h.refExists(repo, refs))
+// names a real ref (a branch named feature/x beats the branch feature), with
+// the branch winning a name that is both a branch and a tag. The split is
+// backed by the request's shared ref set through refLookup, and it accepts
+// the qualified forms (refs/heads/..., refs/tags/...) and HEAD. ref is the
+// short name for display and links; rev is the unambiguous revision the git
+// reads take. A tail that names no ref returns ok false, which the caller
+// renders as the soft 404. See implementation/07 section 2.
+func (h *Handlers) resolveRef(repo *domain.Repo, refs *refSet, rest string) (ref, rev, path string, ok bool) {
+	ref, kind, path, ok := route.SplitRefPath(rest, refLookup{h: h, repo: repo, refs: refs})
+	if !ok {
+		return "", "", "", false
+	}
+	return ref, gitRev(ref, kind), path, true
 }

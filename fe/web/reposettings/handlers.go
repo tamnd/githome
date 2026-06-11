@@ -21,6 +21,7 @@ package reposettings
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"strconv"
 
 	"github.com/go-mizu/mizu"
@@ -90,6 +91,13 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		viewerPK := webmw.ViewerID(ctx)
 		repo, err := h.repos.GetRepo(ctx, viewerPK, c.Param("owner"), c.Param("repo"))
 		if errors.Is(err, domain.ErrRepoNotFound) {
+			// The name may be a rename's old address: the redirect store keeps
+			// old owner/name pairs pointing at the repository they now name.
+			if moved, merr := h.repos.RepoRedirect(ctx, viewerPK, c.Param("owner"), c.Param("repo")); merr == nil {
+				if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), repoOwnerLogin(moved), moved.Name); ok {
+					return c.Redirect(http.StatusMovedPermanently, target)
+				}
+			}
 			return h.notFound(c)
 		}
 		if err != nil {
@@ -97,6 +105,13 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		}
 		if !canAdminister(repo, viewerPK) {
 			return h.notFound(c)
+		}
+		// The lookup is case-insensitive; the URL is not. A wrong-cased owner or
+		// name 301s to the canonical spelling instead of serving every variant.
+		// The redirect sits behind the administer gate, so it reveals nothing the
+		// settings surface would not.
+		if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), repoOwnerLogin(repo), repo.Name); ok {
+			return c.Redirect(http.StatusMovedPermanently, target)
 		}
 		return next(c)
 	}
@@ -109,6 +124,15 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 // viewer (PK 0) never administers anything.
 func canAdminister(repo *domain.Repo, viewerPK int64) bool {
 	return viewerPK != 0 && viewerPK == repo.OwnerPK
+}
+
+// repoOwnerLogin returns the repo owner's canonical login, tolerating a repo
+// assembled without its owner (which the resolver never does).
+func repoOwnerLogin(r *domain.Repo) string {
+	if r.Owner == nil {
+		return ""
+	}
+	return r.Owner.Login
 }
 
 // notFound renders the repository 404 in the page shell, the page a missing or

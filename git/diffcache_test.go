@@ -73,4 +73,11 @@ func TestChangedFilesServedFromCache(t *testing.T) {
 	if _, err := s.ChangedFiles(context.Background(), 99, "main", head); err == nil {
 		t.Fatal("branch-name range must bypass the cache")
 	}
+
+	// The direct (two-dot) form answers differently for the same end pair, so
+	// it must never serve the three-dot entry: its key carries a prefix, and
+	// here the miss falls through to the missing repo and fails.
+	if _, err := s.ChangedFilesDirect(context.Background(), 99, base, head); err == nil {
+		t.Fatal("direct diff must not serve the three-dot cache entry")
+	}
 }

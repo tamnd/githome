@@ -16,6 +16,7 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/go-git/go-billy/v5/util"
@@ -43,6 +44,8 @@ var fixedWhen = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 // the seed produced so the assertions can address them.
 type fixture struct {
 	srv     *httptest.Server
+	repos   *domain.RepoService
+	ownerPK int64
 	owner   string
 	repo    string
 	private string
@@ -114,8 +117,9 @@ func newFixture(t *testing.T) fixture {
 		t.Fatalf("render.New: %v", err)
 	}
 
+	repoSvc := domain.NewRepoService(st, gitStore)
 	h := New(Deps{
-		Repos:  domain.NewRepoService(st, gitStore),
+		Repos:  repoSvc,
 		URLs:   presenter.NewURLBuilder(testURLs(t)),
 		Render: renderSet,
 		View:   view.NewBuilder("Githome"),
@@ -144,7 +148,8 @@ func newFixture(t *testing.T) fixture {
 	t.Cleanup(srv.Close)
 
 	return fixture{
-		srv: srv, owner: "octocat", repo: "hello", private: "secret", blank: "blank",
+		srv: srv, repos: repoSvc, ownerPK: u.PK,
+		owner: "octocat", repo: "hello", private: "secret", blank: "blank",
 		headSHA: head.Commit, branch: head.Name,
 	}
 }
@@ -197,7 +202,8 @@ func buildGitFixture(t *testing.T, dir string) {
 	if _, err := wt.Add("big.txt"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig}); err != nil {
+	second, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig})
+	if err != nil {
 		t.Fatalf("second commit: %v", err)
 	}
 	if _, err := r.CreateTag("v0.1.0", first, nil); err != nil {
@@ -205,6 +211,15 @@ func buildGitFixture(t *testing.T, dir string) {
 	}
 	if _, err := r.CreateTag("v1.0.0", first, &gogit.CreateTagOptions{Tagger: sig, Message: "release one"}); err != nil {
 		t.Fatalf("annotated tag: %v", err)
+	}
+	// "dual" is both a branch and a tag, deliberately at different commits: the
+	// branch stays on the first commit (no docs, no big.txt) while the tag sits
+	// on the second, so a test can tell which one a page resolved.
+	if err := r.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName("dual"), first)); err != nil {
+		t.Fatalf("dual branch: %v", err)
+	}
+	if _, err := r.CreateTag("dual", second, nil); err != nil {
+		t.Fatalf("dual tag: %v", err)
 	}
 }
 
@@ -522,6 +537,154 @@ func TestCommitPagePatchBounded(t *testing.T) {
 	}
 	if strings.Contains(body, "too large to show in full") {
 		t.Fatal("small page carried the truncation note")
+	}
+}
+
+// TestWrongCaseRepoPathRedirects covers the case-canonicalization 301: the
+// store finds the repo at any casing, but the page lives at exactly one URL.
+// The ref and file path after the first two segments are case-sensitive and
+// must survive byte for byte, and the query string rides along.
+func TestWrongCaseRepoPathRedirects(t *testing.T) {
+	fx := newFixture(t)
+	cases := []struct{ path, want string }{
+		{"/Octocat/Hello", "/octocat/hello"},
+		{"/OCTOCAT/hello/tree/master/docs", "/octocat/hello/tree/master/docs"},
+		{"/octocat/HELLO/blob/MASTER/docs", "/octocat/hello/blob/MASTER/docs"},
+		{"/octocat/HELLO/commits?foo=Bar", "/octocat/hello/commits?foo=Bar"},
+	}
+	for _, tc := range cases {
+		resp, _ := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusMovedPermanently {
+			t.Fatalf("GET %s: status %d, want 301", tc.path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != tc.want {
+			t.Errorf("GET %s: Location = %q, want %q", tc.path, loc, tc.want)
+		}
+	}
+}
+
+// TestWrongCasePrivateRepoStays404 makes sure the canonicalization runs after
+// the visibility gate: a wrong-cased URL for a private repo is the same hard
+// 404 an exact one is, so the redirect never confirms the repo exists.
+func TestWrongCasePrivateRepoStays404(t *testing.T) {
+	fx := newFixture(t)
+	resp, _ := get(t, fx.srv, "/Octocat/Secret")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("wrong-cased private repo status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestRenamedRepoRedirects renames a repository and checks the old URL 301s to
+// the new home, sub-path and query intact. A fresh repo claiming the old name
+// then shadows the redirect: the direct lookup always wins.
+func TestRenamedRepoRedirects(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	newName := "hi"
+	if _, err := fx.repos.UpdateRepo(ctx, fx.ownerPK, "octocat", "hello", domain.RepoPatch{Name: &newName}); err != nil {
+		t.Fatalf("UpdateRepo: %v", err)
+	}
+
+	cases := []struct{ path, want string }{
+		{"/octocat/hello", "/octocat/hi"},
+		{"/Octocat/Hello/tree/master/docs?x=1", "/octocat/hi/tree/master/docs?x=1"},
+	}
+	for _, tc := range cases {
+		resp, _ := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusMovedPermanently {
+			t.Fatalf("GET %s: status %d, want 301", tc.path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != tc.want {
+			t.Errorf("GET %s: Location = %q, want %q", tc.path, loc, tc.want)
+		}
+	}
+
+	// The new name serves directly, no redirect hop.
+	resp, _ := get(t, fx.srv, "/octocat/hi")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /octocat/hi: status %d, want 200", resp.StatusCode)
+	}
+
+	// A new repo taking the vacated name shadows the redirect.
+	if _, err := fx.repos.CreateRepo(ctx, fx.ownerPK, "octocat", domain.RepoInput{Name: "hello"}); err != nil {
+		t.Fatalf("CreateRepo: %v", err)
+	}
+	resp, _ = get(t, fx.srv, "/octocat/hello")
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET /octocat/hello after reclaim: status %d, want 200", resp.StatusCode)
+	}
+}
+
+// TestQualifiedRefsResolve covers the refs/heads, refs/tags, and HEAD forms of
+// a ref-path tail: each must serve the same content the short form does, and a
+// name qualified into the wrong namespace must stay a 404.
+func TestQualifiedRefsResolve(t *testing.T) {
+	fx := newFixture(t)
+	base := "/" + fx.owner + "/" + fx.repo
+
+	ok := []struct{ path, contains string }{
+		{base + "/tree/refs/heads/master", "big.txt"},
+		{base + "/tree/refs/heads/master/docs", "guide.md"},
+		{base + "/blob/refs/heads/master/README.md", "welcome aboard"},
+		{base + "/tree/refs/tags/v1.0.0", "main.go"},
+		{base + "/tree/HEAD", "big.txt"},
+		{base + "/blob/HEAD/docs/guide.md", "guide body"},
+		{base + "/commits/refs/heads/master", "add the guide"},
+	}
+	for _, tc := range ok {
+		resp, body := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: status %d, want 200", tc.path, resp.StatusCode)
+			continue
+		}
+		if !strings.Contains(body, tc.contains) {
+			t.Errorf("GET %s: body is missing %q", tc.path, tc.contains)
+		}
+	}
+
+	for _, path := range []string{
+		base + "/tree/refs/tags/master",  // a branch is not a tag
+		base + "/tree/refs/heads/v1.0.0", // a tag is not a branch
+	} {
+		resp, _ := get(t, fx.srv, path)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s: status %d, want 404", path, resp.StatusCode)
+		}
+	}
+}
+
+// TestBranchBeatsTag pins the precedence for a name that is both a branch and
+// a tag: the bare name serves the branch (github.com's documented order, the
+// opposite of git rev-parse's), and the qualified tag form is how the tag half
+// stays reachable. The fixture's "dual" branch sits on the first commit, which
+// has no docs directory; the "dual" tag sits on the second, which does.
+func TestBranchBeatsTag(t *testing.T) {
+	fx := newFixture(t)
+	base := "/" + fx.owner + "/" + fx.repo
+
+	resp, body := get(t, fx.srv, base+"/tree/dual")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET tree/dual: status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "main.go") {
+		t.Error("tree/dual is missing main.go")
+	}
+	if strings.Contains(body, "guide.md") || strings.Contains(body, "big.txt") {
+		t.Error("tree/dual served the tag's commit, want the branch's")
+	}
+
+	// The second commit's files exist only on the tag, so a blob read through
+	// the bare name must miss while the qualified tag form hits.
+	resp, _ = get(t, fx.srv, base+"/blob/dual/docs/guide.md")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("blob/dual/docs/guide.md: status %d, want 404 (branch has no docs)", resp.StatusCode)
+	}
+	resp, body = get(t, fx.srv, base+"/blob/refs/tags/dual/docs/guide.md")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("blob/refs/tags/dual/docs/guide.md: status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "guide body") {
+		t.Error("qualified tag blob is missing the file body")
 	}
 }
 

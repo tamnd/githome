@@ -723,3 +723,13 @@ CREATE INDEX issues_repo_comments_number_idx
     WHERE deleted_at IS NULL;
 CREATE INDEX issue_labels_label_idx ON issue_labels (label_pk);
 CREATE INDEX gists_public_updated_idx ON gists (public, updated_at DESC);
+
+-- 0022_repo_redirects
+CREATE TABLE repo_redirects (
+    pk         INTEGER PRIMARY KEY AUTOINCREMENT,
+    old_owner  TEXT    NOT NULL,
+    old_name   TEXT    NOT NULL,
+    repo_pk    INTEGER NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX repo_redirects_old_uq ON repo_redirects (old_owner, old_name);

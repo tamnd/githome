@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +48,8 @@ type RepoStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
 	RepoByDBID(ctx context.Context, dbID int64) (*store.RepoRow, error)
+	RepoByRedirect(ctx context.Context, owner, name string) (*store.RepoRow, error)
+	UpsertRepoRedirect(ctx context.Context, oldOwner, oldName string, repoPK int64) error
 	ReposByOwner(ctx context.Context, ownerPK int64) ([]*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
@@ -283,6 +286,7 @@ func (s *RepoService) UpdateRepo(ctx context.Context, viewerPK int64, owner, nam
 		Archived:      p.Archived,
 		IsTemplate:    p.IsTemplate,
 	}
+	oldName := row.Name
 	updated, err := s.store.UpdateRepo(ctx, row.PK, sp)
 	if err != nil {
 		return nil, err
@@ -291,7 +295,44 @@ func (s *RepoService) UpdateRepo(ctx context.Context, viewerPK int64, owner, nam
 	if err != nil {
 		return nil, err
 	}
+	// A rename leaves a redirect behind so the old URL keeps working. The
+	// redirect points at the repository row, not at the new name, so a chain
+	// of renames collapses to wherever the repo currently lives, and a new
+	// repository claiming the old name shadows the redirect because the direct
+	// lookup always runs first. A case-only rename records nothing: the direct
+	// lookup is case-insensitive and still hits.
+	if p.Name != nil && !strings.EqualFold(*p.Name, oldName) {
+		if err := s.store.UpsertRepoRedirect(ctx, ownerRow.Login, oldName, row.PK); err != nil {
+			return nil, err
+		}
+	}
 	return repoFromRow(updated, userFromRow(ownerRow)), nil
+}
+
+// RepoRedirect resolves a repository that used to live at owner/name, for the
+// 301 the web front serves after a rename. The redirect table is only
+// consulted after the direct lookup missed (the caller's GetRepo), and the
+// target is gated by the same visibility rule, so a moved private repository
+// never confirms its existence through a redirect.
+func (s *RepoService) RepoRedirect(ctx context.Context, viewerPK int64, owner, name string) (*Repo, error) {
+	row, err := s.store.RepoByRedirect(ctx, owner, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !canSee(row, viewerPK) {
+		return nil, ErrRepoNotFound
+	}
+	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRepoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
 }
 
 // DeleteRepo soft-deletes the repository identified by owner/name. Only the
@@ -687,6 +728,19 @@ const MaxCompareCommits = 250
 // list is capped at MaxCompareCommits; when the cap bites, one extra rev-list
 // --count establishes the honest TotalCommits.
 func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
+	return s.compare(ctx, repo, base, head, false)
+}
+
+// CompareDirect is Compare over the two-dot form: the files are the diff
+// between the two trees themselves rather than between head and the merge
+// base, so changes only on the base side show up reversed. The commit list is
+// the same base..head walk both forms share. Unrelated histories still
+// produce the direct diff; only the merge base is absent.
+func (s *RepoService) CompareDirect(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
+	return s.compare(ctx, repo, base, head, true)
+}
+
+func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string, direct bool) (*CompareResult, error) {
 	baseBranch, err := s.GetBranch(repo, base)
 	if err != nil {
 		return nil, ErrGitNotFound
@@ -699,7 +753,10 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
+	if !ok && !direct {
+		// The three-dot diff is against the merge base; with no common history
+		// there is nothing to diff. The direct form needs no ancestor, so it
+		// proceeds without one.
 		return &CompareResult{Base: baseBranch, Head: headBranch}, nil
 	}
 
@@ -718,7 +775,11 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 	}()
 	go func() {
 		defer wg.Done()
-		files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		if direct {
+			files, fdErr = s.gitStore.ChangedFilesDirect(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		} else {
+			files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		}
 	}()
 	wg.Wait()
 	if commitsErr != nil {

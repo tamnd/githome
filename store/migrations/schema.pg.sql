@@ -473,3 +473,13 @@ CREATE TABLE release_assets (
     deleted_at     TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX release_assets_release_name_uq ON release_assets (release_pk, name) WHERE deleted_at IS NULL;
+
+-- 0022_repo_redirects
+CREATE TABLE repo_redirects (
+    pk         BIGSERIAL   PRIMARY KEY,
+    old_owner  TEXT        NOT NULL,
+    old_name   TEXT        NOT NULL,
+    repo_pk    BIGINT      NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX repo_redirects_old_uq ON repo_redirects (old_owner, old_name);
