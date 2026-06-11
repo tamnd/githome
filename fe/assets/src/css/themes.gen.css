@@ -1153,7 +1153,7 @@
   --bgColor-muted: #151b23;
   --bgColor-subtle: #151b23;
   --bgColor-inset: #010409;
-  --bgColor-emphasis: #151b23;
+  --bgColor-emphasis: #3d444d;
   --bgColor-disabled: #212830;
   --bgColor-transparent: transparent;
   --bgColor-accent-muted: #388bfd1a;
@@ -1280,7 +1280,7 @@
     --bgColor-muted: #151b23;
     --bgColor-subtle: #151b23;
     --bgColor-inset: #010409;
-    --bgColor-emphasis: #151b23;
+    --bgColor-emphasis: #3d444d;
     --bgColor-disabled: #212830;
     --bgColor-transparent: transparent;
     --bgColor-accent-muted: #388bfd1a;
@@ -1407,7 +1407,7 @@
   --bgColor-muted: #2a313c;
   --bgColor-subtle: #2a313c;
   --bgColor-inset: #1c2128;
-  --bgColor-emphasis: #2a313c;
+  --bgColor-emphasis: #444c56;
   --bgColor-disabled: #2a313c;
   --bgColor-transparent: transparent;
   --bgColor-accent-muted: #388bfd1a;
@@ -1534,7 +1534,7 @@
     --bgColor-muted: #2a313c;
     --bgColor-subtle: #2a313c;
     --bgColor-inset: #1c2128;
-    --bgColor-emphasis: #2a313c;
+    --bgColor-emphasis: #444c56;
     --bgColor-disabled: #2a313c;
     --bgColor-transparent: transparent;
     --bgColor-accent-muted: #388bfd1a;
@@ -1915,7 +1915,7 @@
   --bgColor-muted: #151b23;
   --bgColor-subtle: #151b23;
   --bgColor-inset: #010409;
-  --bgColor-emphasis: #151b23;
+  --bgColor-emphasis: #3d444d;
   --bgColor-disabled: #212830;
   --bgColor-transparent: transparent;
   --bgColor-accent-muted: #388bfd1a;
@@ -2042,7 +2042,7 @@
     --bgColor-muted: #151b23;
     --bgColor-subtle: #151b23;
     --bgColor-inset: #010409;
-    --bgColor-emphasis: #151b23;
+    --bgColor-emphasis: #3d444d;
     --bgColor-disabled: #212830;
     --bgColor-transparent: transparent;
     --bgColor-accent-muted: #388bfd1a;
@@ -2169,7 +2169,7 @@
   --bgColor-muted: #151b23;
   --bgColor-subtle: #151b23;
   --bgColor-inset: #010409;
-  --bgColor-emphasis: #151b23;
+  --bgColor-emphasis: #3d444d;
   --bgColor-disabled: #212830;
   --bgColor-transparent: transparent;
   --bgColor-accent-muted: #388bfd1a;
@@ -2296,7 +2296,7 @@
     --bgColor-muted: #151b23;
     --bgColor-subtle: #151b23;
     --bgColor-inset: #010409;
-    --bgColor-emphasis: #151b23;
+    --bgColor-emphasis: #3d444d;
     --bgColor-disabled: #212830;
     --bgColor-transparent: transparent;
     --bgColor-accent-muted: #388bfd1a;
