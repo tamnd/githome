@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,9 @@ type Store interface {
 	GetEventByPK(ctx context.Context, pk int64) (*store.EventRow, error)
 	SetEventPayload(ctx context.Context, pk int64, payload string) error
 	ListActiveWebhooks(ctx context.Context, repoPK int64) ([]store.WebhookRow, error)
+	RepoByPK(ctx context.Context, pk int64) (*store.RepoRow, error)
+	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
+	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	GetWebhookByPK(ctx context.Context, pk int64) (*store.WebhookRow, error)
 	SetWebhookLastResponse(ctx context.Context, pk int64, summary string) error
 	InsertDelivery(ctx context.Context, d *store.WebhookDeliveryRow) error
@@ -88,6 +92,11 @@ func (d *Deliverer) DeliverEventHandler() worker.Handler {
 		if err != nil {
 			return err
 		}
+		orgHooks, err := d.orgHooks(ctx, ev.RepoPK)
+		if err != nil {
+			return err
+		}
+		hooks = append(hooks, orgHooks...)
 		for i := range hooks {
 			if !subscribed(&hooks[i], ev.Event) {
 				continue
@@ -102,6 +111,33 @@ func (d *Deliverer) DeliverEventHandler() worker.Handler {
 		}
 		return nil
 	}
+}
+
+// orgHooks returns the active webhooks on the repo owner's org-hook anchor
+// repository, the org-scoped half of the fan-out: an org hook receives every
+// event from every repository the org owns. An owner without an anchor has no
+// org hooks; a store failure propagates so the queue retries the fan-out.
+func (d *Deliverer) orgHooks(ctx context.Context, repoPK int64) ([]store.WebhookRow, error) {
+	repo, err := d.store.RepoByPK(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	if repo.Name == domain.OrgHookRepo {
+		// The event is on the anchor itself; its hooks are already listed.
+		return nil, nil
+	}
+	owner, err := d.store.UserByPK(ctx, repo.OwnerPK)
+	if err != nil {
+		return nil, err
+	}
+	anchor, err := d.store.RepoByOwnerName(ctx, owner.Login, domain.OrgHookRepo)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return d.store.ListActiveWebhooks(ctx, anchor.PK)
 }
 
 // DeliverWebhookHandler binds the deliver_webhook kind: it loads the hook, builds

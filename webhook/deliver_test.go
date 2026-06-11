@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -413,6 +414,85 @@ func TestInactiveHookIsNotDelivered(t *testing.T) {
 	f.drain(t)
 	if n := f.rcv.count("issues"); n != 0 {
 		t.Errorf("an inactive hook received %d issues deliveries", n)
+	}
+}
+
+// TestOrgHookFanOut covers the org-level path: a hook created through
+// CreateOrgHook lands on the synthetic _org anchor, gets its creation ping in
+// the /orgs URL space, and then receives events recorded against the org's
+// ordinary repositories.
+func TestOrgHookFanOut(t *testing.T) {
+	f := newDeliverFixture(t)
+	secret := "org-wide"
+	hook, err := f.hooks.CreateOrgHook(f.ctx, f.ownerPK, "octocat", domain.HookInput{
+		URL:    f.srv.URL,
+		Secret: &secret,
+		Events: []string{"issues"},
+	})
+	if err != nil {
+		t.Fatalf("CreateOrgHook: %v", err)
+	}
+	f.drain(t)
+
+	ping, ok := f.rcv.lastByEvent("ping")
+	if !ok {
+		t.Fatal("creating an org hook delivered no ping")
+	}
+	var pingBody struct {
+		HookID int64 `json:"hook_id"`
+		Hook   struct {
+			Type string `json:"type"`
+			URL  string `json:"url"`
+		} `json:"hook"`
+		Repository *json.RawMessage `json:"repository"`
+	}
+	if err := json.Unmarshal(ping.body, &pingBody); err != nil {
+		t.Fatalf("decode ping body: %v", err)
+	}
+	if pingBody.HookID != hook.ID || pingBody.Hook.Type != "Organization" {
+		t.Errorf("ping hook_id/type = %d/%q, want %d/Organization", pingBody.HookID, pingBody.Hook.Type, hook.ID)
+	}
+	if want := "/orgs/octocat/hooks/"; !strings.Contains(pingBody.Hook.URL, want) {
+		t.Errorf("ping hook.url = %q, want it under %q", pingBody.Hook.URL, want)
+	}
+	if pingBody.Repository != nil {
+		t.Errorf("org ping carries a repository: %s", *pingBody.Repository)
+	}
+
+	// An issue on a repository the org owns fans out to the org hook.
+	if _, err := f.issues.CreateIssue(f.ctx, f.ownerPK, "octocat", f.repoName, domain.IssueInput{Title: "org-wide"}); err != nil {
+		t.Fatalf("CreateIssue: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.lastByEvent("issues")
+	if !ok {
+		t.Fatal("the org hook received no issues delivery")
+	}
+	if !Verify(secret, got.headers.Get("X-Hub-Signature-256"), got.body) {
+		t.Error("org delivery signature did not verify over the received body")
+	}
+	var payload struct {
+		Action string `json:"action"`
+		Issue  struct {
+			Title string `json:"title"`
+		} `json:"issue"`
+		Repository struct {
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+	}
+	if err := json.Unmarshal(got.body, &payload); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if payload.Action != "opened" || payload.Issue.Title != "org-wide" {
+		t.Errorf("payload action/title = %q/%q", payload.Action, payload.Issue.Title)
+	}
+	// The body names the real repository the event happened on, not the anchor.
+	if payload.Repository.FullName != "octocat/hello" {
+		t.Errorf("payload repository = %q, want octocat/hello", payload.Repository.FullName)
+	}
+	if n := f.rcv.count("issues"); n != 1 {
+		t.Errorf("issues deliveries = %d, want exactly one", n)
 	}
 }
 

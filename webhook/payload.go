@@ -168,11 +168,18 @@ func (r *Renderer) RenderPing(ctx context.Context, row *store.WebhookRow, sender
 	}
 	hook := domain.HookForDelivery(row)
 	body := restmodel.WebhookPing{
-		Zen:        zenLines[int(row.DBID)%len(zenLines)],
-		HookID:     hook.ID,
-		Hook:       r.urls.Hook(repo.Owner.Login, repo.Name, hook),
-		Repository: r.urls.Repository(repo, r.format, nil),
-		Sender:     r.urls.SimpleUser(sender, r.format),
+		Zen:    zenLines[int(row.DBID)%len(zenLines)],
+		HookID: hook.ID,
+		Sender: r.urls.SimpleUser(sender, r.format),
+	}
+	if repo.Name == domain.OrgHookRepo {
+		// An org hook anchors on the synthetic repo; its ping renders the hook
+		// in the /orgs URL space and carries no repository.
+		body.Hook = r.urls.OrgHook(repo.Owner.Login, hook)
+	} else {
+		body.Hook = r.urls.Hook(repo.Owner.Login, repo.Name, hook)
+		repository := r.urls.Repository(repo, r.format, nil)
+		body.Repository = &repository
 	}
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {

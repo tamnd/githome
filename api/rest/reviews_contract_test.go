@@ -101,8 +101,15 @@ func reviewServer(t *testing.T) reviewFixture {
 	return fx
 }
 
-// seedToken inserts a classic PAT for a user and returns its plaintext.
+// seedToken inserts a repo-scoped classic PAT for a user and returns its
+// plaintext.
 func seedToken(t *testing.T, st *store.Store, userPK int64) string {
+	t.Helper()
+	return seedScopedToken(t, st, userPK, "repo")
+}
+
+// seedScopedToken inserts a classic PAT carrying the given scope string.
+func seedScopedToken(t *testing.T, st *store.Store, userPK int64, scopes string) string {
 	t.Helper()
 	g, err := auth.GenerateToken(auth.PrefixClassicPAT)
 	if err != nil {
@@ -111,7 +118,7 @@ func seedToken(t *testing.T, st *store.Store, userPK int64) string {
 	hash := g.Hash
 	if err := st.InsertToken(context.Background(), &store.TokenRow{
 		UserPK: &userPK, TokenHash: hash[:], TokenPrefix: auth.PrefixClassicPAT,
-		LastEight: g.Last8, Kind: "pat", Scopes: "repo",
+		LastEight: g.Last8, Kind: "pat", Scopes: scopes,
 	}); err != nil {
 		t.Fatalf("insert token: %v", err)
 	}

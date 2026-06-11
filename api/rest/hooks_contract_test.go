@@ -1,12 +1,14 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-mizu/mizu"
@@ -22,11 +24,15 @@ import (
 
 // hookFixture is a REST server backed by a store seeded with owner octocat, repo
 // hello, and a second user mallory who has no rights to the repo. It carries both
-// users' tokens so a test can drive the admin path and the forbidden path.
+// users' tokens so a test can drive the admin path and the forbidden path. The
+// org tokens hold admin:org_hook, which the /orgs hook surface requires and the
+// plain repo scope does not imply.
 type hookFixture struct {
-	srv    *httptest.Server
-	token  string // octocat, the repo owner
-	intrud string // mallory, an unrelated user
+	srv       *httptest.Server
+	token     string // octocat, the repo owner
+	intrud    string // mallory, an unrelated user
+	orgToken  string // octocat with admin:org_hook
+	orgIntrud string // mallory with admin:org_hook
 }
 
 func hookServer(t *testing.T) hookFixture {
@@ -76,9 +82,11 @@ func hookServer(t *testing.T) hookFixture {
 	t.Cleanup(srv.Close)
 
 	return hookFixture{
-		srv:    srv,
-		token:  seedToken(t, st, owner.PK),
-		intrud: seedToken(t, st, intruder.PK),
+		srv:       srv,
+		token:     seedToken(t, st, owner.PK),
+		intrud:    seedToken(t, st, intruder.PK),
+		orgToken:  seedScopedToken(t, st, owner.PK, "admin:org_hook"),
+		orgIntrud: seedScopedToken(t, st, intruder.PK, "admin:org_hook"),
 	}
 }
 
@@ -209,5 +217,97 @@ func TestHookWriteErrors(t *testing.T) {
 	id := fx.seedHook(t)
 	if resp, _ := authedSend(t, fx.srv, http.MethodPost, fmt.Sprintf("/repos/octocat/hello/hooks/%d/deliveries/999/attempts", id), fx.token, ""); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("missing delivery redeliver status %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestOrgHooksContract(t *testing.T) {
+	fx := hookServer(t)
+
+	// Before the first hook the org has no anchor repository. That reads as an
+	// empty list, not a 404, so a list-create-list flow works.
+	resp, body := authedSend(t, fx.srv, http.MethodGet, "/orgs/octocat/hooks", fx.orgToken, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("initial list status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	if string(body) != "[]" {
+		t.Errorf("initial list body = %s, want []", body)
+	}
+
+	// The plain repo scope does not reach the org surface.
+	if resp, _ := authedSend(t, fx.srv, http.MethodGet, "/orgs/octocat/hooks", fx.token, ""); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("repo-scope list status %d, want 403", resp.StatusCode)
+	}
+
+	// A correctly scoped token of an unrelated user is still forbidden.
+	if resp, _ := authedSend(t, fx.srv, http.MethodPost, "/orgs/octocat/hooks", fx.orgIntrud,
+		`{"events":["issues"],"config":{"url":"https://example.test/orghook"}}`); resp.StatusCode != http.StatusForbidden {
+		t.Errorf("intruder create status %d, want 403", resp.StatusCode)
+	}
+
+	// Create renders into the /orgs URL space, type Organization, no test_url.
+	resp, body = authedSend(t, fx.srv, http.MethodPost, "/orgs/octocat/hooks", fx.orgToken,
+		`{"name":"web","active":true,"events":["issues","push"],"config":{"url":"https://example.test/orghook","content_type":"json","secret":"swordfish"}}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create status %d, want 201, body %s", resp.StatusCode, body)
+	}
+	assertWriteGolden(t, "org_hook_create.golden.json", body)
+	var created struct {
+		ID   int64  `json:"id"`
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+	if err := json.Unmarshal(body, &created); err != nil {
+		t.Fatalf("decode create: %v", err)
+	}
+	if created.Type != "Organization" {
+		t.Errorf("type = %q, want Organization", created.Type)
+	}
+	if want := fmt.Sprintf("/orgs/octocat/hooks/%d", created.ID); !strings.HasSuffix(created.URL, want) {
+		t.Errorf("url = %q, want suffix %q", created.URL, want)
+	}
+	if bytes.Contains(body, []byte("test_url")) {
+		t.Errorf("org hook body carries test_url: %s", body)
+	}
+
+	// The hook reads back through the list and the single GET.
+	resp, body = authedSend(t, fx.srv, http.MethodGet, "/orgs/octocat/hooks", fx.orgToken, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("list status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	var listed []struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(body, &listed); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(listed) != 1 || listed[0].ID != created.ID {
+		t.Errorf("list = %s, want the one created hook", body)
+	}
+	path := fmt.Sprintf("/orgs/octocat/hooks/%d", created.ID)
+	if resp, body := authedSend(t, fx.srv, http.MethodGet, path, fx.orgToken, ""); resp.StatusCode != http.StatusOK {
+		t.Errorf("get status %d, want 200, body %s", resp.StatusCode, body)
+	}
+
+	// The org-level ping accepts and queues like the repo-level one.
+	if resp, body := authedSend(t, fx.srv, http.MethodPost, path+"/pings", fx.orgToken, ""); resp.StatusCode != http.StatusNoContent {
+		t.Errorf("ping status %d, want 204, body %s", resp.StatusCode, body)
+	}
+
+	// Delete tears it down and the org lists empty again.
+	if resp, _ := authedSend(t, fx.srv, http.MethodDelete, path, fx.orgToken, ""); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete status %d, want 204", resp.StatusCode)
+	}
+	if resp, _ := authedSend(t, fx.srv, http.MethodGet, path, fx.orgToken, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("get after delete status %d, want 404", resp.StatusCode)
+	}
+	resp, body = authedSend(t, fx.srv, http.MethodGet, "/orgs/octocat/hooks", fx.orgToken, "")
+	if resp.StatusCode != http.StatusOK || string(body) != "[]" {
+		t.Errorf("final list status %d body %s, want 200 []", resp.StatusCode, body)
+	}
+
+	// An org that does not exist is a 404 on create.
+	if resp, _ := authedSend(t, fx.srv, http.MethodPost, "/orgs/nope/hooks", fx.orgToken,
+		`{"events":["issues"],"config":{"url":"https://example.test/orghook"}}`); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("missing org create status %d, want 404", resp.StatusCode)
 	}
 }

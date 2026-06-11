@@ -2,10 +2,11 @@ package restmodel
 
 import "encoding/json"
 
-// Hook is the REST representation of a repository webhook: GET, POST, and PATCH
-// on /repos/{owner}/{repo}/hooks all return it. The signing secret is never
+// Hook is the REST representation of a webhook; the /repos/{owner}/{repo}/hooks
+// and /orgs/{org}/hooks surfaces both return it. The signing secret is never
 // emitted; config.secret is rendered as a fixed mask when one is set and omitted
-// when it is not, matching github.com.
+// when it is not, matching github.com. test_url only exists on repository
+// hooks, so it drops out of org hook bodies.
 type Hook struct {
 	Type          string       `json:"type"`
 	ID            int64        `json:"id"`
@@ -16,7 +17,7 @@ type Hook struct {
 	UpdatedAt     Time         `json:"updated_at"`
 	CreatedAt     Time         `json:"created_at"`
 	URL           string       `json:"url"`
-	TestURL       string       `json:"test_url"`
+	TestURL       string       `json:"test_url,omitempty"`
 	PingURL       string       `json:"ping_url"`
 	DeliveriesURL string       `json:"deliveries_url"`
 	LastResponse  HookResponse `json:"last_response"`
@@ -159,12 +160,13 @@ type WebhookPusher struct {
 
 // WebhookPing is the body of a ping delivery: the zen line, the hook's id, the
 // hook object itself, and the repository and sender like every other delivery.
+// An org hook's ping has no repository, so the field drops out when nil.
 type WebhookPing struct {
-	Zen        string     `json:"zen"`
-	HookID     int64      `json:"hook_id"`
-	Hook       Hook       `json:"hook"`
-	Repository Repository `json:"repository"`
-	Sender     SimpleUser `json:"sender"`
+	Zen        string      `json:"zen"`
+	HookID     int64       `json:"hook_id"`
+	Hook       Hook        `json:"hook"`
+	Repository *Repository `json:"repository,omitempty"`
+	Sender     SimpleUser  `json:"sender"`
 }
 
 // WebhookIssues is the body of an issues delivery. label is set only on
