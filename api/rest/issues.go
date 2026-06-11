@@ -12,6 +12,7 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/etag"
+	"github.com/tamnd/githome/presenter/restmodel"
 	"github.com/tamnd/githome/store"
 )
 
@@ -106,7 +107,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
-			out := make([]any, 0, len(issues))
+			out := make([]restmodel.Issue, 0, len(issues))
 			for _, iss := range issues {
 				out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 			}
@@ -144,7 +145,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		out := make([]any, 0, len(issues))
+		out := make([]restmodel.Issue, 0, len(issues))
 		for _, iss := range issues {
 			out = append(out, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		}
@@ -335,7 +336,7 @@ func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 			hasNext = len(peek) > 0
 		}
 	}
-	out := make([]any, 0, len(comments))
+	out := make([]restmodel.IssueComment, 0, len(comments))
 	for _, cm := range comments {
 		out = append(out, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
 	}
@@ -512,7 +513,7 @@ func handleLabelsList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		out := make([]any, 0, len(labels))
+		out := make([]restmodel.Label, 0, len(labels))
 		for _, l := range labels {
 			out = append(out, d.URLs.Label(c.Param("owner"), c.Param("repo"), l, d.NodeFormat))
 		}
@@ -608,7 +609,7 @@ func handleMilestonesList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		out := make([]any, 0, len(ms))
+		out := make([]restmodel.Milestone, 0, len(ms))
 		for _, m := range ms {
 			out = append(out, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		}
@@ -865,8 +866,8 @@ func handleCommentReactionDelete(d Deps) mizu.Handler {
 }
 
 // reactions renders a reaction list.
-func (d Deps) reactions(rs []*domain.Reaction) []any {
-	out := make([]any, 0, len(rs))
+func (d Deps) reactions(rs []*domain.Reaction) []restmodel.Reaction {
+	out := make([]restmodel.Reaction, 0, len(rs))
 	for _, r := range rs {
 		out = append(out, d.URLs.Reaction(r, d.NodeFormat))
 	}

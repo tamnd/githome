@@ -12,6 +12,8 @@ import (
 // domain user, URL config, and node-id format always produce the same bytes.
 func (b *URLBuilder) SimpleUser(u *domain.User, format nodeid.Format) restmodel.SimpleUser {
 	base := b.UserAPI(u.Login)
+	var links [9]string
+	suffixLinks(base, userLinkSuffixes[:], links[:])
 	return restmodel.SimpleUser{
 		Login:             u.Login,
 		ID:                u.ID,
@@ -20,18 +22,32 @@ func (b *URLBuilder) SimpleUser(u *domain.User, format nodeid.Format) restmodel.
 		GravatarID:        emptyString(),
 		URL:               base,
 		HTMLURL:           b.UserHTML(u.Login),
-		FollowersURL:      base + "/followers",
-		FollowingURL:      base + "/following{/other_user}",
-		GistsURL:          base + "/gists{/gist_id}",
-		StarredURL:        base + "/starred{/owner}{/repo}",
-		SubscriptionsURL:  base + "/subscriptions",
-		OrganizationsURL:  base + "/orgs",
-		ReposURL:          base + "/repos",
-		EventsURL:         base + "/events{/privacy}",
-		ReceivedEventsURL: base + "/received_events",
+		FollowersURL:      links[0],
+		FollowingURL:      links[1],
+		GistsURL:          links[2],
+		StarredURL:        links[3],
+		SubscriptionsURL:  links[4],
+		OrganizationsURL:  links[5],
+		ReposURL:          links[6],
+		EventsURL:         links[7],
+		ReceivedEventsURL: links[8],
 		Type:              u.Type,
 		SiteAdmin:         u.SiteAdmin,
 	}
+}
+
+// userLinkSuffixes are the templated links a SimpleUser hangs off its API URL,
+// in the order suffixLinks returns them.
+var userLinkSuffixes = [9]string{
+	"/followers",
+	"/following{/other_user}",
+	"/gists{/gist_id}",
+	"/starred{/owner}{/repo}",
+	"/subscriptions",
+	"/orgs",
+	"/repos",
+	"/events{/privacy}",
+	"/received_events",
 }
 
 // User renders the full profile. When authenticated is true (GET /user for the
