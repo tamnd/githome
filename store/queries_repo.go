@@ -14,7 +14,10 @@ import (
 const repoColumns = `r.pk, r.db_id, r.owner_pk, r.name, r.description, r.homepage,
 	r.private, r.fork, r.default_branch, r.has_issues, r.has_projects, r.has_wiki,
 	r.has_downloads, r.archived, r.disabled, r.is_template, r.open_issues_count,
-	r.pushed_at, r.created_at, r.updated_at, r.topics`
+	r.pushed_at, r.created_at, r.updated_at, r.topics,
+	r.allow_squash_merge, r.allow_merge_commit, r.allow_rebase_merge,
+	r.allow_auto_merge, r.delete_branch_on_merge, r.allow_update_branch,
+	r.web_commit_signoff_required, r.fork_of_pk`
 
 // repoColumnsBare is repoColumns with the alias stripped, for RETURNING
 // clauses: SQLite refuses qualified column names there. The scan order stays
@@ -89,23 +92,31 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	}
 	q := s.rebind(`INSERT INTO repositories
 		(db_id, owner_pk, name, description, homepage, private, fork,
-		 default_branch, open_issues_count, pushed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 default_branch, open_issues_count, pushed_at, fork_of_pk)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING pk, db_id, created_at, updated_at,
 		          has_issues, has_projects, has_wiki, has_downloads,
-		          archived, disabled, is_template, topics`)
+		          archived, disabled, is_template, topics,
+		          allow_squash_merge, allow_merge_commit, allow_rebase_merge,
+		          allow_auto_merge, delete_branch_on_merge, allow_update_branch,
+		          web_commit_signoff_required`)
 	var (
 		created, updated                              nullTime
 		hasIssues, hasProjects, hasWiki, hasDownloads boolVal
 		archived, disabled, isTemplate                boolVal
+		squash, mergeCommit, rebase, autoMerge        boolVal
+		deleteBranch, updateBranch, signoff           boolVal
 	)
 	err = s.db.QueryRowContext(ctx, q,
 		dbID, r.OwnerPK, r.Name, argStr(r.Description), argStr(r.Homepage),
 		r.Private, r.Fork, r.DefaultBranch, r.OpenIssuesCount, argTime(r.PushedAt),
+		argI64(r.ForkOfPK),
 	).Scan(
 		&r.PK, &r.DBID, &created, &updated,
 		&hasIssues, &hasProjects, &hasWiki, &hasDownloads,
 		&archived, &disabled, &isTemplate, &r.Topics,
+		&squash, &mergeCommit, &rebase,
+		&autoMerge, &deleteBranch, &updateBranch, &signoff,
 	)
 	if err != nil {
 		return err
@@ -114,6 +125,9 @@ func (s *Store) InsertRepo(ctx context.Context, r *RepoRow) error {
 	r.HasIssues, r.HasProjects = hasIssues.Bool, hasProjects.Bool
 	r.HasWiki, r.HasDownloads = hasWiki.Bool, hasDownloads.Bool
 	r.Archived, r.Disabled, r.IsTemplate = archived.Bool, disabled.Bool, isTemplate.Bool
+	r.AllowSquashMerge, r.AllowMergeCommit, r.AllowRebaseMerge = squash.Bool, mergeCommit.Bool, rebase.Bool
+	r.AllowAutoMerge, r.DeleteBranchOnMerge = autoMerge.Bool, deleteBranch.Bool
+	r.AllowUpdateBranch, r.WebCommitSignoffRequired = updateBranch.Bool, signoff.Bool
 	if r.Topics == "" {
 		r.Topics = "[]"
 	}
@@ -135,6 +149,14 @@ type RepoPatch struct {
 	HasWiki       *bool
 	Archived      *bool
 	IsTemplate    *bool
+
+	AllowSquashMerge         *bool
+	AllowMergeCommit         *bool
+	AllowRebaseMerge         *bool
+	AllowAutoMerge           *bool
+	DeleteBranchOnMerge      *bool
+	AllowUpdateBranch        *bool
+	WebCommitSignoffRequired *bool
 }
 
 // UpdateRepo applies p to the repository identified by pk and returns the
@@ -152,6 +174,13 @@ func (s *Store) UpdateRepo(ctx context.Context, pk int64, p RepoPatch) (*RepoRow
 		has_wiki = COALESCE(?, has_wiki),
 		archived = COALESCE(?, archived),
 		is_template = COALESCE(?, is_template),
+		allow_squash_merge = COALESCE(?, allow_squash_merge),
+		allow_merge_commit = COALESCE(?, allow_merge_commit),
+		allow_rebase_merge = COALESCE(?, allow_rebase_merge),
+		allow_auto_merge = COALESCE(?, allow_auto_merge),
+		delete_branch_on_merge = COALESCE(?, delete_branch_on_merge),
+		allow_update_branch = COALESCE(?, allow_update_branch),
+		web_commit_signoff_required = COALESCE(?, web_commit_signoff_required),
 		updated_at = ?
 		WHERE pk = ? AND deleted_at IS NULL
 		RETURNING ` + repoColumnsBare)
@@ -159,6 +188,9 @@ func (s *Store) UpdateRepo(ctx context.Context, pk int64, p RepoPatch) (*RepoRow
 		p.Name, p.Description, p.Homepage, p.DefaultBranch,
 		p.Private, p.HasIssues, p.HasProjects, p.HasWiki,
 		p.Archived, p.IsTemplate,
+		p.AllowSquashMerge, p.AllowMergeCommit, p.AllowRebaseMerge,
+		p.AllowAutoMerge, p.DeleteBranchOnMerge, p.AllowUpdateBranch,
+		p.WebCommitSignoffRequired,
 		nowUTC(), pk,
 	)
 	return scanRepo(row)
@@ -212,6 +244,41 @@ func (s *Store) TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) e
 	return err
 }
 
+// CountForks reports how many live repositories were forked from pk. It backs
+// the network_count field on the full repository shape.
+func (s *Store) CountForks(ctx context.Context, pk int64) (int64, error) {
+	q := s.rebind(`SELECT COUNT(*) FROM repositories
+		WHERE fork_of_pk = ? AND deleted_at IS NULL`)
+	var n int64
+	if err := s.rdb.QueryRowContext(ctx, q, pk).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ForksOf lists the live forks of pk, newest first, which is the order the
+// repository forks endpoint serves by default.
+func (s *Store) ForksOf(ctx context.Context, pk int64) ([]*RepoRow, error) {
+	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
+		JOIN users u ON u.pk = r.owner_pk
+		WHERE r.fork_of_pk = ? AND r.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY r.created_at DESC, r.pk DESC`)
+	rows, err := s.rdb.QueryContext(ctx, q, pk)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*RepoRow
+	for rows.Next() {
+		r, err := scanRepo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // scanRepo maps one repositories row into a RepoRow, absorbing the dialect
 // differences for nullable text, the boolean flags, and timestamps.
 func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
@@ -220,6 +287,9 @@ func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
 		description, homepage                                        sql.NullString
 		private, fork, hasIssues, hasProjects, hasWiki, hasDownloads boolVal
 		archived, disabled, isTemplate                               boolVal
+		squash, mergeCommit, rebase, autoMerge                       boolVal
+		deleteBranch, updateBranch, signoff                          boolVal
+		forkOf                                                       sql.NullInt64
 		pushed, created, updated                                     nullTime
 	)
 	err := row.Scan(
@@ -227,6 +297,9 @@ func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
 		&private, &fork, &r.DefaultBranch, &hasIssues, &hasProjects, &hasWiki,
 		&hasDownloads, &archived, &disabled, &isTemplate, &r.OpenIssuesCount,
 		&pushed, &created, &updated, &r.Topics,
+		&squash, &mergeCommit, &rebase,
+		&autoMerge, &deleteBranch, &updateBranch,
+		&signoff, &forkOf,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -239,6 +312,10 @@ func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {
 	r.HasIssues, r.HasProjects = hasIssues.Bool, hasProjects.Bool
 	r.HasWiki, r.HasDownloads = hasWiki.Bool, hasDownloads.Bool
 	r.Archived, r.Disabled, r.IsTemplate = archived.Bool, disabled.Bool, isTemplate.Bool
+	r.AllowSquashMerge, r.AllowMergeCommit, r.AllowRebaseMerge = squash.Bool, mergeCommit.Bool, rebase.Bool
+	r.AllowAutoMerge, r.DeleteBranchOnMerge = autoMerge.Bool, deleteBranch.Bool
+	r.AllowUpdateBranch, r.WebCommitSignoffRequired = updateBranch.Bool, signoff.Bool
+	r.ForkOfPK = i64Ptr(forkOf)
 	r.PushedAt = pushed.ptr()
 	r.CreatedAt, r.UpdatedAt = created.Time, updated.Time
 	if r.Topics == "" {

@@ -33,6 +33,19 @@ type Repo struct {
 	Disabled     bool
 	IsTemplate   bool
 
+	AllowSquashMerge         bool
+	AllowMergeCommit         bool
+	AllowRebaseMerge         bool
+	AllowAutoMerge           bool
+	DeleteBranchOnMerge      bool
+	AllowUpdateBranch        bool
+	WebCommitSignoffRequired bool
+
+	// ForkOfPK is the internal pk of the repository this one was forked
+	// from, nil for a non-fork. The REST handler resolves it to the
+	// parent/source objects on the full repository shape.
+	ForkOfPK *int64
+
 	OpenIssuesCount int
 	PushedAt        *time.Time
 	CreatedAt       time.Time

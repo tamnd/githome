@@ -106,6 +106,21 @@ type RepoRow struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Topics          string // JSON array, e.g. '["go","api"]'
+
+	// The merge-policy settings 0023 adds: which merge methods pull requests
+	// may use plus the auto-merge, branch-cleanup, update-branch, and commit
+	// signoff switches.
+	AllowSquashMerge         bool
+	AllowMergeCommit         bool
+	AllowRebaseMerge         bool
+	AllowAutoMerge           bool
+	DeleteBranchOnMerge      bool
+	AllowUpdateBranch        bool
+	WebCommitSignoffRequired bool
+
+	// ForkOfPK links a fork to its parent repository's pk; nil for a
+	// repository that is not a fork (or whose parent was hard-deleted).
+	ForkOfPK *int64
 }
 
 // PullRow is a row of the pull_requests table, the extension a pull request

@@ -174,6 +174,14 @@ type RepoPatch struct {
 	HasWiki       *bool
 	Archived      *bool
 	IsTemplate    *bool
+
+	AllowSquashMerge         *bool
+	AllowMergeCommit         *bool
+	AllowRebaseMerge         *bool
+	AllowAutoMerge           *bool
+	DeleteBranchOnMerge      *bool
+	AllowUpdateBranch        *bool
+	WebCommitSignoffRequired *bool
 }
 
 // ListReposByLogin returns all non-deleted repositories owned by ownerLogin,
@@ -285,6 +293,14 @@ func (s *RepoService) UpdateRepo(ctx context.Context, viewerPK int64, owner, nam
 		HasWiki:       p.HasWiki,
 		Archived:      p.Archived,
 		IsTemplate:    p.IsTemplate,
+
+		AllowSquashMerge:         p.AllowSquashMerge,
+		AllowMergeCommit:         p.AllowMergeCommit,
+		AllowRebaseMerge:         p.AllowRebaseMerge,
+		AllowAutoMerge:           p.AllowAutoMerge,
+		DeleteBranchOnMerge:      p.DeleteBranchOnMerge,
+		AllowUpdateBranch:        p.AllowUpdateBranch,
+		WebCommitSignoffRequired: p.WebCommitSignoffRequired,
 	}
 	oldName := row.Name
 	updated, err := s.store.UpdateRepo(ctx, row.PK, sp)
@@ -839,6 +855,15 @@ func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 		CreatedAt:       r.CreatedAt,
 		UpdatedAt:       r.UpdatedAt,
 		Topics:          r.Topics,
+
+		AllowSquashMerge:         r.AllowSquashMerge,
+		AllowMergeCommit:         r.AllowMergeCommit,
+		AllowRebaseMerge:         r.AllowRebaseMerge,
+		AllowAutoMerge:           r.AllowAutoMerge,
+		DeleteBranchOnMerge:      r.DeleteBranchOnMerge,
+		AllowUpdateBranch:        r.AllowUpdateBranch,
+		WebCommitSignoffRequired: r.WebCommitSignoffRequired,
+		ForkOfPK:                 r.ForkOfPK,
 	}
 }
 

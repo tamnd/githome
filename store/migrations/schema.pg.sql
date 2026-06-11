@@ -67,10 +67,19 @@ CREATE TABLE repositories (
     next_milestone_number BIGINT NOT NULL DEFAULT 1,
     search_vector tsvector GENERATED ALWAYS AS (
         to_tsvector('simple', name || ' ' || COALESCE(description, ''))
-    ) STORED
+    ) STORED,
+    allow_squash_merge          BOOLEAN NOT NULL DEFAULT TRUE,   -- 0023
+    allow_merge_commit          BOOLEAN NOT NULL DEFAULT TRUE,   -- 0023
+    allow_rebase_merge          BOOLEAN NOT NULL DEFAULT TRUE,   -- 0023
+    allow_auto_merge            BOOLEAN NOT NULL DEFAULT FALSE,  -- 0023
+    delete_branch_on_merge      BOOLEAN NOT NULL DEFAULT FALSE,  -- 0023
+    allow_update_branch         BOOLEAN NOT NULL DEFAULT FALSE,  -- 0023
+    web_commit_signoff_required BOOLEAN NOT NULL DEFAULT FALSE,  -- 0023
+    fork_of_pk                  BIGINT REFERENCES repositories(pk) ON DELETE SET NULL  -- 0023
 );
 CREATE UNIQUE INDEX repos_owner_name_uq ON repositories (owner_pk, lower(name)) WHERE deleted_at IS NULL;
 CREATE INDEX repos_search_vector_gin ON repositories USING GIN (search_vector);
+CREATE INDEX repos_fork_of_idx ON repositories (fork_of_pk) WHERE fork_of_pk IS NOT NULL;  -- 0023
 
 CREATE TABLE oauth_apps (
     pk                  BIGSERIAL PRIMARY KEY,
