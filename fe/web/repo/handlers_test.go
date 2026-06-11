@@ -525,6 +525,40 @@ func TestCommitPagePatchBounded(t *testing.T) {
 	}
 }
 
+// TestWrongCaseRepoPathRedirects covers the case-canonicalization 301: the
+// store finds the repo at any casing, but the page lives at exactly one URL.
+// The ref and file path after the first two segments are case-sensitive and
+// must survive byte for byte, and the query string rides along.
+func TestWrongCaseRepoPathRedirects(t *testing.T) {
+	fx := newFixture(t)
+	cases := []struct{ path, want string }{
+		{"/Octocat/Hello", "/octocat/hello"},
+		{"/OCTOCAT/hello/tree/master/docs", "/octocat/hello/tree/master/docs"},
+		{"/octocat/HELLO/blob/MASTER/docs", "/octocat/hello/blob/MASTER/docs"},
+		{"/octocat/HELLO/commits?foo=Bar", "/octocat/hello/commits?foo=Bar"},
+	}
+	for _, tc := range cases {
+		resp, _ := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusMovedPermanently {
+			t.Fatalf("GET %s: status %d, want 301", tc.path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != tc.want {
+			t.Errorf("GET %s: Location = %q, want %q", tc.path, loc, tc.want)
+		}
+	}
+}
+
+// TestWrongCasePrivateRepoStays404 makes sure the canonicalization runs after
+// the visibility gate: a wrong-cased URL for a private repo is the same hard
+// 404 an exact one is, so the redirect never confirms the repo exists.
+func TestWrongCasePrivateRepoStays404(t *testing.T) {
+	fx := newFixture(t)
+	resp, _ := get(t, fx.srv, "/Octocat/Secret")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("wrong-cased private repo status = %d, want 404", resp.StatusCode)
+	}
+}
+
 // TestRefPickerCapped feeds the picker more refs than it inlines: each group
 // stops at the cap with a view-all link, and the current-tag detection still
 // works when the current ref sits past the cap.

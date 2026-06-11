@@ -14,11 +14,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/render"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/markup"
@@ -87,6 +89,11 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		}
 		if err != nil {
 			return err
+		}
+		// The lookup is case-insensitive; the URL is not. A wrong-cased owner or
+		// name 301s to the canonical spelling instead of serving every variant.
+		if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), ownerLogin(repo), repo.Name); ok {
+			return c.Redirect(http.StatusMovedPermanently, target)
 		}
 		r := c.Request()
 		*r = *r.WithContext(context.WithValue(ctx, keyRepo, repo))

@@ -50,6 +50,44 @@ func TestIsReservedTop(t *testing.T) {
 	}
 }
 
+func TestCanonicalRepoPath(t *testing.T) {
+	cases := []struct {
+		name        string
+		path, query string
+		reqO, reqR  string
+		owner, repo string
+		want        string
+		wantOK      bool
+	}{
+		{"already canonical", "/octocat/hello", "", "octocat", "hello", "octocat", "hello", "", false},
+		{"wrong-case owner", "/Octocat/hello", "", "Octocat", "hello", "octocat", "hello", "/octocat/hello", true},
+		{"wrong-case repo", "/octocat/Hello", "", "octocat", "Hello", "octocat", "hello", "/octocat/hello", true},
+		// The sub-path keeps its exact bytes: refs and file paths are
+		// case-sensitive, so only the first two segments are rewritten.
+		{"sub-path preserved", "/Octocat/Hello/tree/Main/Docs", "", "Octocat", "Hello", "octocat", "hello",
+			"/octocat/hello/tree/Main/Docs", true},
+		{"query preserved", "/Octocat/hello/issues", "q=is%3Aopen", "Octocat", "hello", "octocat", "hello",
+			"/octocat/hello/issues?q=is%3Aopen", true},
+		// Escaped segments in the tail survive untouched.
+		{"escaped tail", "/Octocat/hello/blob/main/a%20b.txt", "", "Octocat", "hello", "octocat", "hello",
+			"/octocat/hello/blob/main/a%20b.txt", true},
+		// A rename: the request spelling maps to a different name entirely.
+		{"renamed repo", "/octocat/old-name/pulls", "", "octocat", "old-name", "octocat", "new-name",
+			"/octocat/new-name/pulls", true},
+		// An incomplete canonical pair never redirects.
+		{"missing owner", "/Octocat/hello", "", "Octocat", "hello", "", "hello", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := CanonicalRepoPath(tc.path, tc.query, tc.reqO, tc.reqR, tc.owner, tc.repo)
+			if got != tc.want || ok != tc.wantOK {
+				t.Errorf("CanonicalRepoPath(%q, %q, %q, %q, %q, %q) = (%q, %v), want (%q, %v)",
+					tc.path, tc.query, tc.reqO, tc.reqR, tc.owner, tc.repo, got, ok, tc.want, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestSplitRefPath(t *testing.T) {
 	// The repository has a branch "main", a slash-containing branch
 	// "release/1.0", and a tag "v2". Anything else does not resolve.

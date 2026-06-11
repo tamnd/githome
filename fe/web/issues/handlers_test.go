@@ -297,6 +297,17 @@ func TestNewBeforeNumberRouting(t *testing.T) {
 	}
 }
 
+func TestWrongCaseIssuesPathRedirects(t *testing.T) {
+	fx := newFixture(t)
+	resp, _ := get(t, fx.srv, "/Octocat/Hello/issues/"+itoa(fx.openNum))
+	if resp.StatusCode != http.StatusMovedPermanently {
+		t.Fatalf("status %d, want 301", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); loc != "/octocat/hello/issues/"+itoa(fx.openNum) {
+		t.Errorf("Location = %q", loc)
+	}
+}
+
 func TestPrivateRepoIssuesNotFound(t *testing.T) {
 	fx := newFixture(t)
 	resp, _ := get(t, fx.srv, "/octocat/secret/issues")
