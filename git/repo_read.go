@@ -69,6 +69,9 @@ func (r *Repo) HEAD() (Branch, error) {
 // Branches lists the repository's branches in name order. An empty repository
 // yields an empty slice, not an error.
 func (r *Repo) Branches() ([]Branch, error) {
+	if out, ok := r.branchesBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.Branches()
 	if err != nil {
 		return nil, err
@@ -88,6 +91,9 @@ func (r *Repo) Branches() ([]Branch, error) {
 // Tags lists the repository's tags in name order, peeling annotated tags to the
 // commit they point at and carrying the tag object metadata alongside.
 func (r *Repo) Tags() ([]Tag, error) {
+	if out, ok := r.tagsBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.Tags()
 	if err != nil {
 		return nil, err
@@ -124,6 +130,9 @@ func (r *Repo) Tags() ([]Tag, error) {
 // target is the object the ref names directly: a commit for branches and
 // lightweight tags, the tag object for annotated tags.
 func (r *Repo) Refs() ([]Ref, error) {
+	if out, ok := r.refsBatch(); ok {
+		return out, nil
+	}
 	iter, err := r.repo.References()
 	if err != nil {
 		return nil, err
