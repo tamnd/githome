@@ -95,6 +95,26 @@ func FirstSegment(p string) (head, rest string) {
 	return head, rest
 }
 
+// SplitPatchSuffix peels the .diff or .patch suffix off a path tail: the
+// commit, compare, and pull URLs all grow a plain-text twin by suffix
+// (github.com's /commit/{sha}.diff family). ok is false when the tail carries
+// neither suffix, or nothing but the suffix; rest is then the input unchanged
+// so the caller falls through to the HTML page.
+func SplitPatchSuffix(s string) (rest, format string, ok bool) {
+	switch {
+	case strings.HasSuffix(s, ".diff"):
+		rest, format = strings.TrimSuffix(s, ".diff"), "diff"
+	case strings.HasSuffix(s, ".patch"):
+		rest, format = strings.TrimSuffix(s, ".patch"), "patch"
+	default:
+		return s, "", false
+	}
+	if rest == "" {
+		return s, "", false
+	}
+	return rest, format, true
+}
+
 // CompareSide is one side of a compare range. Owner and Repo are the optional
 // qualifiers of the owner:ref and owner:repo:ref forms; both empty means the
 // ref lives in the repository the URL names.

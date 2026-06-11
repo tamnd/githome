@@ -11,6 +11,11 @@ import "time"
 // sites stay light while the type still documents intent.
 type SHA = string
 
+// EmptyTreeSHA is the id of git's well-known empty tree. Git special-cases it,
+// so it can stand in as the diff base of a root commit even when no empty-tree
+// object physically exists in the repository.
+const EmptyTreeSHA SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 // ObjectType is a git object kind as it appears in the REST git-data models.
 type ObjectType string
 

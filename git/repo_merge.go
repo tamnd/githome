@@ -354,6 +354,37 @@ func (s *Store) FormatPatch(ctx context.Context, pk int64, base, head SHA) ([]by
 	return r.stdout, nil
 }
 
+// DiffDirect returns the plain two-point diff between base and head, no merge
+// base involved: the body the two-dot compare's .diff form and the commit
+// page's .diff form serve. Either end may be a tree id, which is how a root
+// commit diffs against the empty tree.
+func (s *Store) DiffDirect(ctx context.Context, pk int64, base, head SHA) ([]byte, error) {
+	args := []string{"diff", "--no-color", "--end-of-options", base, head}
+	r, err := s.run(ctx, pk, nil, args...)
+	if err != nil {
+		return nil, err
+	}
+	if r.code != 0 {
+		return nil, fail(args, r)
+	}
+	return r.stdout, nil
+}
+
+// FormatPatchCommit returns one commit as a format-patch mail, the body the
+// commit page's .patch form serves. format-patch -1 handles a root commit
+// without a parent.
+func (s *Store) FormatPatchCommit(ctx context.Context, pk int64, sha SHA) ([]byte, error) {
+	args := []string{"format-patch", "-1", "--stdout", "--no-color", "--end-of-options", string(sha)}
+	r, err := s.run(ctx, pk, nil, args...)
+	if err != nil {
+		return nil, err
+	}
+	if r.code != 0 {
+		return nil, fail(args, r)
+	}
+	return r.stdout, nil
+}
+
 // TestMerge performs a three-way merge of base and head in memory and reports
 // whether it is conflict-free, writing the merged tree to the object store but
 // touching no ref. clean is true when git produced a tree with no conflicts;
