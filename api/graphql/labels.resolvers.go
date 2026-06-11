@@ -129,7 +129,7 @@ func (r *mutationResolver) CreateLabel(ctx context.Context, input generated.Crea
 		return nil, mapErr(err)
 	}
 	return &generated.CreateLabelPayload{
-		Label:            r.URLs.GQLLabel(label, r.NodeFormat),
+		Label:            r.URLs.GQLLabel(label, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -177,7 +177,7 @@ func (r *mutationResolver) UpdateLabel(ctx context.Context, input generated.Upda
 		return nil, mapErr(err)
 	}
 	return &generated.UpdateLabelPayload{
-		Label:            r.URLs.GQLLabel(label, r.NodeFormat),
+		Label:            r.URLs.GQLLabel(label, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }

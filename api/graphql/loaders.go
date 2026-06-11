@@ -128,10 +128,12 @@ func loadersFrom(ctx context.Context) *Loaders {
 }
 
 // loadersMiddleware creates a fresh Loaders instance for each request and
-// stores it on the request context before calling next.
+// stores it on the request context before calling next. The loaders render
+// node ids, so they pick up the per-request format the X-Github-Next-Global-ID
+// middleware stored on the context, falling back to the configured default.
 func loadersMiddleware(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid.Format, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := withLoaders(r.Context(), newLoaders(batch, urls, format))
+		ctx := withLoaders(r.Context(), newLoaders(batch, urls, idFormat(r.Context(), format)))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

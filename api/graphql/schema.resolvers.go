@@ -42,7 +42,7 @@ func (r *queryResolver) Repository(ctx context.Context, owner string, name strin
 		return nil, err
 	}
 
-	out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+	out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 	return &out, nil
 }
 
@@ -58,7 +58,7 @@ func (r *queryResolver) Viewer(ctx context.Context) (*gqlmodel.User, error) {
 	if err != nil {
 		return nil, nil
 	}
-	return r.URLs.GQLUser(u, r.NodeFormat), nil
+	return r.URLs.GQLUser(u, r.format(ctx)), nil
 }
 
 // User resolves a public user profile by login. A missing user resolves to null,
@@ -71,7 +71,7 @@ func (r *queryResolver) User(ctx context.Context, login string) (*gqlmodel.User,
 	if err != nil {
 		return nil, err
 	}
-	return r.URLs.GQLUser(u, r.NodeFormat), nil
+	return r.URLs.GQLUser(u, r.format(ctx)), nil
 }
 
 // RepositoryOwner is the resolver for the repositoryOwner field. It looks up
@@ -85,7 +85,7 @@ func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (gqlm
 	if err != nil {
 		return nil, err
 	}
-	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
+	return r.URLs.GQLRepositoryOwner(u, r.format(ctx)), nil
 }
 
 // Node is the resolver for the node(id) field. It decodes the opaque node ID,
@@ -105,8 +105,12 @@ func (r *queryResolver) Node(ctx context.Context, id string) (generated.Node, er
 
 // Nodes is the resolver for the nodes(ids) field. It resolves each id
 // independently and leaves null in each slot that does not resolve; only a
-// real failure (not a missing object) fails the list.
+// real failure (not a missing object) fails the list. GitHub caps the ids
+// argument at 100 per request, and so does Githome.
 func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.Node, error) {
+	if len(ids) > maxNodeIDs {
+		return nil, gqlError{"You may not provide more than 100 node ids."}
+	}
 	out := make([]generated.Node, len(ids))
 	for i, id := range ids {
 		node, err := r.resolveNode(ctx, id)
@@ -157,7 +161,7 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 			if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 				branch = &b
 			}
-			out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+			out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 			nodes = append(nodes, out)
 		}
 		conn.Nodes = nodes
@@ -178,10 +182,10 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 				if pErr != nil {
 					continue
 				}
-				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat))
+				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)))
 				continue
 			}
-			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.NodeFormat))
+			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.format(ctx)))
 		}
 		conn.Nodes = nodes
 		conn.IssueCount = int32(total)
@@ -239,7 +243,7 @@ func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository
 	if err != nil {
 		return &gqlmodel.User{Login: obj.RepoOwner}, nil
 	}
-	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
+	return r.URLs.GQLRepositoryOwner(u, r.format(ctx)), nil
 }
 
 // Repositories is the resolver for the repositories field on User.

@@ -24,6 +24,10 @@ import (
 // errBadID is returned when a node ID cannot be decoded.
 var errBadID = errors.New("invalid node ID")
 
+// maxNodeIDs is the most ids one nodes(ids:) call may carry, matching GitHub's
+// per-request cap.
+const maxNodeIDs = 100
+
 // branchProtectionRuleID is a placeholder node ID for branch protection rules.
 // Githome does not yet store rules, so we use a fixed sentinel rather than a
 // real node-id encode so clients that pass the id back in an update receive it
@@ -46,17 +50,17 @@ func (r *mutationResolver) setThreadResolved(ctx context.Context, threadID strin
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLReviewThread(owner, name, thread, r.NodeFormat), nil
+	return r.URLs.GQLReviewThread(owner, name, thread, r.format(ctx)), nil
 }
 
 // buildIssueConnection renders a page of domain issues into the GraphQL
 // connection. Each edge's cursor carries its absolute offset plus the issue's
 // number, so a follow-up after: cursor resumes past it with a keyset seek.
-func (r *Resolver) buildIssueConnection(owner, name string, issues []*domain.Issue, total, offset int) *gqlmodel.IssueConnection {
+func (r *Resolver) buildIssueConnection(ctx context.Context, owner, name string, issues []*domain.Issue, total, offset int) *gqlmodel.IssueConnection {
 	nodes := make([]*gqlmodel.Issue, 0, len(issues))
 	edges := make([]*gqlmodel.IssueEdge, 0, len(issues))
 	for i, iss := range issues {
-		node := r.URLs.GQLIssue(owner, name, iss, r.NodeFormat)
+		node := r.URLs.GQLIssue(owner, name, iss, r.format(ctx))
 		nodes = append(nodes, node)
 		edges = append(edges, &gqlmodel.IssueEdge{Cursor: encodeCursorSeek(offset+i+1, iss.Number), Node: node})
 	}
@@ -322,26 +326,26 @@ func (r *Resolver) userLoginsFromIDs(ctx context.Context, ids []string) ([]strin
 // the PullRequest shape (with base/head refs etc.) is returned.
 func (r *Resolver) labelableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.LabelableNode, error) {
 	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	}
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // assignableFromIssue converts the updated domain issue into the GraphQL
 // AssignableNode shape. Mirrors labelableFromIssue.
 func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, number int64, isPR bool, iss *domain.Issue) (generated.AssignableNode, error) {
 	if !isPR {
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	}
 	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // resolveNode decodes a node ID and fetches the matching domain object,
@@ -373,7 +377,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 			branch = &b
 		}
-		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 		return out, nil
 	case nodeid.KindIssue:
 		owner, name, number, err := r.Issues.IssueRef(ctx, dbID)
@@ -390,7 +394,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
+		return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
 	case nodeid.KindPullRequest:
 		pr, err := r.Pulls.GetPRByID(ctx, viewer, dbID)
 		if errors.Is(err, domain.ErrPullNotFound) {
@@ -399,13 +403,13 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLPullRequest(pr.Repo.Owner.Login, pr.Repo.Name, pr, r.NodeFormat), nil
+		return r.URLs.GQLPullRequest(pr.Repo.Owner.Login, pr.Repo.Name, pr, r.format(ctx)), nil
 	case nodeid.KindUser:
 		u, err := r.Users.Viewer(ctx, dbID)
 		if err != nil {
 			return nil, nil
 		}
-		return r.URLs.GQLUser(u, r.NodeFormat), nil
+		return r.URLs.GQLUser(u, r.format(ctx)), nil
 	case nodeid.KindLabel:
 		labelName, owner, name, err := r.Issues.LabelRepoRef(ctx, dbID)
 		if errors.Is(err, domain.ErrLabelNotFound) {
@@ -421,7 +425,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLLabel(l, r.NodeFormat), nil
+		return r.URLs.GQLLabel(l, r.format(ctx)), nil
 	case nodeid.KindMilestone:
 		number, owner, name, err := r.Issues.MilestoneRepoRef(ctx, dbID)
 		if errors.Is(err, domain.ErrMilestoneNotFound) {
@@ -437,7 +441,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLMilestone(owner, name, m, r.NodeFormat), nil
+		return r.URLs.GQLMilestone(owner, name, m, r.format(ctx)), nil
 	case nodeid.KindIssueComment:
 		owner, name, err := r.Issues.CommentRepoRef(ctx, dbID)
 		if errors.Is(err, domain.ErrCommentNotFound) {
@@ -453,7 +457,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLIssueComment(owner, name, cm, r.NodeFormat), nil
+		return r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx)), nil
 	case nodeid.KindPullRequestReview:
 		owner, name, number, err := r.Reviews.ReviewRef(ctx, viewer, dbID)
 		if errors.Is(err, domain.ErrReviewNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
@@ -469,7 +473,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return gqlReview(rv, r.URLs, owner, name, r.NodeFormat), nil
+		return gqlReview(rv, r.URLs, owner, name, r.format(ctx)), nil
 	case nodeid.KindPullRequestReviewThread:
 		owner, name, number, err := r.Reviews.ThreadRef(ctx, viewer, dbID)
 		if errors.Is(err, domain.ErrCommentNotFound) || errors.Is(err, domain.ErrRepoNotFound) || errors.Is(err, domain.ErrPullNotFound) {
@@ -484,7 +488,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		}
 		for _, t := range threads {
 			if t.ID == dbID {
-				return r.URLs.GQLReviewThread(owner, name, t, r.NodeFormat), nil
+				return r.URLs.GQLReviewThread(owner, name, t, r.format(ctx)), nil
 			}
 		}
 		return nil, nil
@@ -503,7 +507,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		out := presenter.GQLCheckRun(cr, r.NodeFormat)
+		out := presenter.GQLCheckRun(cr, r.format(ctx))
 		return out, nil
 	default:
 		return nil, nil
@@ -559,7 +563,7 @@ func (r *Resolver) listReposForLogin(ctx context.Context, login string, first *i
 		if b, e := r.Repos.DefaultBranchRef(repo); e == nil {
 			branch = &b
 		}
-		out := r.URLs.GQLRepository(repo, branch, r.NodeFormat)
+		out := r.URLs.GQLRepository(repo, branch, r.format(ctx))
 		nodes = append(nodes, &out)
 	}
 	return &gqlmodel.RepositoryConnection{
@@ -601,12 +605,12 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 
 // buildReviewConnection windows a review listing and renders it into the
 // GraphQL connection with Relay page info.
-func (r *Resolver) buildReviewConnection(revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
+func (r *Resolver) buildReviewConnection(ctx context.Context, revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
 	total := len(revs)
 	start, end := page.window(total)
 	nodes := make([]*generated.PullRequestReview, 0, end-start)
 	for _, rv := range revs[start:end] {
-		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.NodeFormat))
+		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.format(ctx)))
 	}
 	return &generated.PullRequestReviewConnection{
 		Nodes:      nodes,

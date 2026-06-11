@@ -75,6 +75,9 @@ func NewHandler(d Deps) http.Handler {
 	if d.Batch != nil {
 		h = loadersMiddleware(d.Batch, d.URLs, d.NodeFormat, h)
 	}
+	// The format middleware sits outside the loaders middleware so the
+	// per-request dataloaders render node ids in the header-selected format.
+	h = idFormatMiddleware(d.NodeFormat, h)
 	return authenticate(d.Auth, h)
 }
 

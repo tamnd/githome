@@ -44,7 +44,7 @@ func (r *mutationResolver) CreatePullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.CreatePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -82,7 +82,7 @@ func (r *mutationResolver) MergePullRequest(ctx context.Context, input generated
 		return nil, mapErr(err)
 	}
 	return &generated.MergePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -100,7 +100,7 @@ func (r *mutationResolver) EnablePullRequestAutoMerge(ctx context.Context, input
 		return nil, mapErr(err)
 	}
 	return &generated.EnablePullRequestAutoMergePayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -143,7 +143,7 @@ func (r *mutationResolver) UpdatePullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.UpdatePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -161,7 +161,7 @@ func (r *mutationResolver) ClosePullRequest(ctx context.Context, input generated
 		return nil, mapErr(err)
 	}
 	return &generated.ClosePullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -179,7 +179,7 @@ func (r *mutationResolver) ReopenPullRequest(ctx context.Context, input generate
 		return nil, mapErr(err)
 	}
 	return &generated.ReopenPullRequestPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -197,7 +197,7 @@ func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.R
 		return nil, mapErr(err)
 	}
 	return &generated.RequestReviewsPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -213,7 +213,7 @@ func (r *mutationResolver) ConvertPullRequestToDraft(ctx context.Context, input 
 		return nil, mapErr(err)
 	}
 	return &generated.ConvertPullRequestToDraftPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -229,7 +229,7 @@ func (r *mutationResolver) MarkPullRequestReadyForReview(ctx context.Context, in
 		return nil, mapErr(err)
 	}
 	return &generated.MarkPullRequestReadyForReviewPayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -247,7 +247,7 @@ func (r *mutationResolver) DisablePullRequestAutoMerge(ctx context.Context, inpu
 		return nil, mapErr(err)
 	}
 	return &generated.DisablePullRequestAutoMergePayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -372,7 +372,7 @@ func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullReq
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildReviewConnection(revs, page, obj.RepoOwner, obj.RepoName), nil
+	return r.buildReviewConnection(ctx, revs, page, obj.RepoOwner, obj.RepoName), nil
 }
 
 // LatestReviews is the resolver for the latestReviews field. It folds the
@@ -387,7 +387,7 @@ func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.P
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.buildReviewConnection(latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
+	return r.buildReviewConnection(ctx, latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
 }
 
 // ReviewRequests is the resolver for the reviewRequests field. Githome does not
@@ -436,7 +436,7 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	}
 	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
 	for _, cm := range comments {
-		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
+		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.format(ctx)))
 	}
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
@@ -470,7 +470,7 @@ func (r *repositoryResolver) PullRequest(ctx context.Context, obj *gqlmodel.Repo
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat), nil
+	return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
 }
 
 // PullRequests is the resolver for the pullRequests field. A repository the actor
@@ -510,7 +510,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 					return nil, mapErr(err)
 				}
 			}
-			return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+			return r.buildPullRequestConnection(ctx, owner, name, prs, total, page.offset), nil
 		}
 		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
 			State:   state,
@@ -523,7 +523,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 		if err != nil {
 			return nil, mapErr(err)
 		}
-		return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+		return r.buildPullRequestConnection(ctx, owner, name, prs, total, page.offset), nil
 	}
 
 	// A filter or a non-native order scans the newest pull requests (capped),
@@ -538,7 +538,7 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 	}
 	sortPullRequests(matched, orderBy)
 	start, end := page.window(len(matched))
-	return r.buildPullRequestConnection(owner, name, matched[start:end], len(matched), start), nil
+	return r.buildPullRequestConnection(ctx, owner, name, matched[start:end], len(matched), start), nil
 }
 
 // Commit returns generated.CommitResolver implementation.

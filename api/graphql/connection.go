@@ -182,11 +182,11 @@ func emptyIssueConnection() *gqlmodel.IssueConnection {
 // GraphQL connection. Each edge's cursor carries its absolute offset plus the
 // pull request's number, so a follow-up after: cursor resumes past it with a
 // keyset seek, the same forward window the issues connection pages over.
-func (r *Resolver) buildPullRequestConnection(owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
+func (r *Resolver) buildPullRequestConnection(ctx context.Context, owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
 	nodes := make([]*gqlmodel.PullRequest, 0, len(prs))
 	edges := make([]*gqlmodel.PullRequestEdge, 0, len(prs))
 	for i, pr := range prs {
-		node := r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat)
+		node := r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx))
 		nodes = append(nodes, node)
 		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursorSeek(offset+i+1, pr.Number), Node: node})
 	}

@@ -78,9 +78,9 @@ var registry = map[Kind]entry{
 	KindLabel:                    {"Label", "05", "LA"},
 	KindMilestone:                {"Milestone", "09", "MI"},
 	KindCommit:                   {"Commit", "06", "C"},
-	KindReaction:                 {"Reaction", "08", "RA"},
+	KindReaction:                 {"Reaction", "08", "REA"},
 	KindRelease:                  {"Release", "07", "RE"},
-	KindReleaseAsset:             {"ReleaseAsset", "012", "REA"},
+	KindReleaseAsset:             {"ReleaseAsset", "012", "RA"},
 	KindGist:                     {"Gist", "04", "G"},
 	KindGistComment:              {"GistComment", "011", "GC"},
 }

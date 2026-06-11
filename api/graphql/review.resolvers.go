@@ -39,7 +39,7 @@ func (r *commitResolver) StatusCheckRollup(ctx context.Context, obj *gqlmodel.Co
 	if rollup.TotalCount == 0 {
 		return nil, nil
 	}
-	return presenter.GQLStatusCheckRollupFor(rollup, obj.RepoOwner, obj.RepoName, r.NodeFormat), nil
+	return presenter.GQLStatusCheckRollupFor(rollup, obj.RepoOwner, obj.RepoName, r.format(ctx)), nil
 }
 
 // ResolveReviewThread is the resolver for the resolveReviewThread field. It marks
@@ -109,7 +109,7 @@ func (r *mutationResolver) AddPullRequestReview(ctx context.Context, input gener
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	rev := gqlReview(review, r.URLs, owner, name, r.NodeFormat)
+	rev := gqlReview(review, r.URLs, owner, name, r.format(ctx))
 	return &generated.AddPullRequestReviewPayload{
 		PullRequestReview: rev,
 		ReviewEdge: &generated.PullRequestReviewEdge{
@@ -140,7 +140,7 @@ func (r *mutationResolver) SubmitPullRequestReview(ctx context.Context, input ge
 		return nil, mapErr(err)
 	}
 	return &generated.SubmitPullRequestReviewPayload{
-		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.NodeFormat),
+		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.format(ctx)),
 		ClientMutationID:  input.ClientMutationID,
 	}, nil
 }
@@ -162,7 +162,7 @@ func (r *mutationResolver) DeletePullRequestReview(ctx context.Context, input ge
 		owner, name = "", ""
 	}
 	return &generated.DeletePullRequestReviewPayload{
-		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.NodeFormat),
+		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.format(ctx)),
 		ClientMutationID:  input.ClientMutationID,
 	}, nil
 }
@@ -215,7 +215,7 @@ func (r *mutationResolver) AddPullRequestReviewComment(ctx context.Context, inpu
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	c := r.URLs.GQLReviewComment(owner, name, comment, r.NodeFormat)
+	c := r.URLs.GQLReviewComment(owner, name, comment, r.format(ctx))
 	return &generated.AddPullRequestReviewCommentPayload{
 		Comment:          c,
 		CommentEdge:      &generated.PullRequestReviewCommentEdge{Cursor: encodeCursor(0), Node: c},
@@ -247,7 +247,7 @@ func (r *pullRequestResolver) ReviewThreads(ctx context.Context, obj *gqlmodel.P
 	}
 	nodes := make([]*gqlmodel.PullRequestReviewThread, 0, len(threads))
 	for _, th := range threads {
-		nodes = append(nodes, r.URLs.GQLReviewThread(obj.RepoOwner, obj.RepoName, th, r.NodeFormat))
+		nodes = append(nodes, r.URLs.GQLReviewThread(obj.RepoOwner, obj.RepoName, th, r.format(ctx)))
 	}
 	return &gqlmodel.PullRequestReviewThreadConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
 }
@@ -282,7 +282,7 @@ func (r *statusCheckRollupResolver) Contexts(ctx context.Context, obj *gqlmodel.
 		if len(nodes) >= limit {
 			break
 		}
-		c := presenter.GQLCheckRun(cr, r.NodeFormat)
+		c := presenter.GQLCheckRun(cr, r.format(ctx))
 		nodes = append(nodes, c)
 	}
 	for _, s := range rollup.Statuses {
