@@ -22,25 +22,29 @@ import (
 // and presenter members arrive in M1; a zero member leaves its routes unmounted,
 // which keeps the M0 foundation tests able to build a minimal surface.
 type Deps struct {
-	Config     config.Config
-	Logger     *slog.Logger
-	Ready      Pinger
-	Auth       *auth.Service
-	Users      *domain.UserService
-	Repos      *domain.RepoService
-	Issues     *domain.IssueService
-	Pulls      *domain.PRService
-	Reviews    *domain.ReviewService
-	Checks     *domain.ChecksService
-	Keys       *domain.KeyService
-	Teams      *domain.TeamService
-	Hooks      *domain.HookService
-	Events     *domain.EventService
-	Search     *domain.SearchService
-	Releases   *domain.ReleaseService
-	Gists      *domain.GistService
-	URLs       *presenter.URLBuilder
-	NodeFormat nodeid.Format
+	Config   config.Config
+	Logger   *slog.Logger
+	Ready    Pinger
+	Auth     *auth.Service
+	Users    *domain.UserService
+	Repos    *domain.RepoService
+	Issues   *domain.IssueService
+	Pulls    *domain.PRService
+	Reviews  *domain.ReviewService
+	Checks   *domain.ChecksService
+	Keys     *domain.KeyService
+	Teams    *domain.TeamService
+	Hooks    *domain.HookService
+	Events   *domain.EventService
+	Search   *domain.SearchService
+	Releases *domain.ReleaseService
+	Gists    *domain.GistService
+	// Notifications maintains and serves the per-user inbox. Its routes also
+	// need Repos, both to gate the repo-scoped list and to render each
+	// thread's repository summary.
+	Notifications *domain.NotificationService
+	URLs          *presenter.URLBuilder
+	NodeFormat    nodeid.Format
 
 	// WebFront reports that the server-rendered web front is mounted on the same
 	// router and owns the bare root namespace (/{owner}/{repo}). When set, the
@@ -164,6 +168,9 @@ func mountAPI(r *mizu.Router, d Deps) {
 	}
 	if d.Auth != nil {
 		mountApp(r, d)
+	}
+	if d.Notifications != nil && d.Repos != nil {
+		mountNotifications(r, d)
 	}
 }
 

@@ -120,6 +120,7 @@ func run() error {
 	gistSvc := domain.NewGistService(st)
 	keySvc := domain.NewKeyService(st)
 	teamSvc := domain.NewTeamService(st)
+	notifSvc := domain.NewNotificationService(st)
 	urls := presenter.NewURLBuilder(cfg.URLs)
 
 	// The webhook deliverer renders each recorded event through the presenter and
@@ -146,25 +147,26 @@ func run() error {
 
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{
-		Config:     cfg,
-		WebFront:   cfg.Web.Enabled,
-		Logger:     logger,
-		Ready:      st,
-		Auth:       authSvc,
-		Users:      userSvc,
-		Repos:      repoSvc,
-		Issues:     issueSvc,
-		Pulls:      pullSvc,
-		Reviews:    reviewSvc,
-		Checks:     checksSvc,
-		Keys:       keySvc,
-		Teams:      teamSvc,
-		Hooks:      hookSvc,
-		Events:     eventSvc,
-		Search:     searchSvc,
-		Gists:      gistSvc,
-		URLs:       urls,
-		NodeFormat: nodeid.FormatNew,
+		Config:        cfg,
+		WebFront:      cfg.Web.Enabled,
+		Logger:        logger,
+		Ready:         st,
+		Auth:          authSvc,
+		Users:         userSvc,
+		Repos:         repoSvc,
+		Issues:        issueSvc,
+		Pulls:         pullSvc,
+		Reviews:       reviewSvc,
+		Checks:        checksSvc,
+		Keys:          keySvc,
+		Teams:         teamSvc,
+		Hooks:         hookSvc,
+		Events:        eventSvc,
+		Search:        searchSvc,
+		Gists:         gistSvc,
+		Notifications: notifSvc,
+		URLs:          urls,
+		NodeFormat:    nodeid.FormatNew,
 	})
 	graphql.Mount(root, graphql.Deps{
 		Auth:       authSvc,

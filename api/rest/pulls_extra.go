@@ -184,6 +184,9 @@ func handleRequestedReviewersAdd(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		if d.Notifications != nil {
+			d.Notifications.NotifyReviewRequested(ctx, actor.UserID, owner, repo, number, body.Reviewers)
+		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
 		return nil
 	}

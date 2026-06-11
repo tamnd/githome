@@ -185,6 +185,13 @@ func handleIssueCreate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		if d.Notifications != nil {
+			text := ""
+			if iss.Body != nil {
+				text = *iss.Body
+			}
+			d.Notifications.NotifyIssueOpened(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), iss.Number, text)
+		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
 	}
@@ -246,6 +253,9 @@ func handleIssueEdit(d Deps) mizu.Handler {
 		}
 		if err != nil {
 			return err
+		}
+		if d.Notifications != nil && body.Assignees != nil {
+			d.Notifications.NotifyAssigned(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, *body.Assignees)
 		}
 		writeJSON(c.Writer(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
@@ -354,6 +364,9 @@ func handleIssueCommentCreate(d Deps) mizu.Handler {
 		}
 		if err != nil {
 			return err
+		}
+		if d.Notifications != nil {
+			d.Notifications.NotifyIssueComment(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, body.Body)
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
 		return nil

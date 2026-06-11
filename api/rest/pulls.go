@@ -127,6 +127,13 @@ func handlePullCreate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		if d.Notifications != nil {
+			text := ""
+			if pr.Body != nil {
+				text = *pr.Body
+			}
+			d.Notifications.NotifyIssueOpened(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), pr.Number, text)
+		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.PullRequest(c.Param("owner"), c.Param("repo"), pr, d.NodeFormat, true))
 		return nil
 	}
