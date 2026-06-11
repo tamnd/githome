@@ -8,12 +8,59 @@ package graphql
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
+
+// ID is the resolver for the Commit id field. The node id is the repo-scoped
+// commit encoding, which needs the repository's database id; the presenter
+// fills it where it has one, and this resolver looks the repository up by the
+// coordinates the commit carries otherwise.
+func (r *commitResolver) ID(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.ID != "" {
+		return obj.ID, nil
+	}
+	repo, err := r.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	return nodeid.EncodeGitObject("commit", repo.ID, string(obj.Oid)), nil
+}
+
+// Message is the resolver for the Commit message field. The presenter fills
+// the message where it already read the commit; a Ref.target commit starts
+// out as just a SHA, so the resolver reads the commit from git on demand.
+func (r *commitResolver) Message(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.Message != "" {
+		return obj.Message, nil
+	}
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return "", err
+	}
+	return c.Message, nil
+}
+
+// MessageHeadline is the resolver for the Commit messageHeadline field,
+// loading the commit on demand the way message does.
+func (r *commitResolver) MessageHeadline(ctx context.Context, obj *gqlmodel.Commit) (string, error) {
+	if obj.MessageHeadline != "" {
+		return obj.MessageHeadline, nil
+	}
+	msg, err := r.Message(ctx, obj)
+	if err != nil {
+		return "", err
+	}
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return msg[:i], nil
+	}
+	return msg, nil
+}
 
 // CreatePullRequest is the resolver for the createPullRequest field. gh pr create
 // sends this mutation with the repository node ID, base/head branch names, title,

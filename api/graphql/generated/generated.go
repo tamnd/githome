@@ -82,6 +82,12 @@ type ComplexityRoot struct {
 		MergeMethod    func(childComplexity int) int
 	}
 
+	Blob struct {
+		AbbreviatedOid func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Oid            func(childComplexity int) int
+	}
+
 	BranchProtectionRule struct {
 		AllowsDeletions              func(childComplexity int) int
 		AllowsForcePushes            func(childComplexity int) int
@@ -126,6 +132,8 @@ type ComplexityRoot struct {
 	}
 
 	Commit struct {
+		AbbreviatedOid    func(childComplexity int) int
+		ID                func(childComplexity int) int
 		Message           func(childComplexity int) int
 		MessageHeadline   func(childComplexity int) int
 		Oid               func(childComplexity int) int
@@ -188,10 +196,6 @@ type ComplexityRoot struct {
 		Actor            func(childComplexity int) int
 		ClientMutationID func(childComplexity int) int
 		PullRequest      func(childComplexity int) int
-	}
-
-	GitObject struct {
-		Oid func(childComplexity int) int
 	}
 
 	Issue struct {
@@ -671,11 +675,25 @@ type ComplexityRoot struct {
 		PullRequestReview func(childComplexity int) int
 	}
 
+	Tag struct {
+		AbbreviatedOid func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Name           func(childComplexity int) int
+		Oid            func(childComplexity int) int
+		Target         func(childComplexity int) int
+	}
+
 	Team struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
 		Organization func(childComplexity int) int
 		Slug         func(childComplexity int) int
+	}
+
+	Tree struct {
+		AbbreviatedOid func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Oid            func(childComplexity int) int
 	}
 
 	UnresolveReviewThreadPayload struct {
@@ -738,6 +756,10 @@ type CheckRunResolver interface {
 	IsRequired(ctx context.Context, obj *gqlmodel.CheckRun, pullRequestID *string) (bool, error)
 }
 type CommitResolver interface {
+	ID(ctx context.Context, obj *gqlmodel.Commit) (string, error)
+
+	Message(ctx context.Context, obj *gqlmodel.Commit) (string, error)
+	MessageHeadline(ctx context.Context, obj *gqlmodel.Commit) (string, error)
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
 type IssueResolver interface {
@@ -974,6 +996,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.AutoMergeRequest.MergeMethod(childComplexity), true
 
+	case "Blob.abbreviatedOid":
+		if e.ComplexityRoot.Blob.AbbreviatedOid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Blob.AbbreviatedOid(childComplexity), true
+	case "Blob.id":
+		if e.ComplexityRoot.Blob.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Blob.ID(childComplexity), true
+	case "Blob.oid":
+		if e.ComplexityRoot.Blob.Oid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Blob.Oid(childComplexity), true
+
 	case "BranchProtectionRule.allowsDeletions":
 		if e.ComplexityRoot.BranchProtectionRule.AllowsDeletions == nil {
 			break
@@ -1152,6 +1193,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ClosePullRequestPayload.PullRequest(childComplexity), true
 
+	case "Commit.abbreviatedOid":
+		if e.ComplexityRoot.Commit.AbbreviatedOid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Commit.AbbreviatedOid(childComplexity), true
+	case "Commit.id":
+		if e.ComplexityRoot.Commit.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Commit.ID(childComplexity), true
 	case "Commit.message":
 		if e.ComplexityRoot.Commit.Message == nil {
 			break
@@ -1320,13 +1373,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EnablePullRequestAutoMergePayload.PullRequest(childComplexity), true
-
-	case "GitObject.oid":
-		if e.ComplexityRoot.GitObject.Oid == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GitObject.Oid(childComplexity), true
 
 	case "Issue.assignees":
 		if e.ComplexityRoot.Issue.Assignees == nil {
@@ -3553,6 +3599,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.SubmitPullRequestReviewPayload.PullRequestReview(childComplexity), true
 
+	case "Tag.abbreviatedOid":
+		if e.ComplexityRoot.Tag.AbbreviatedOid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.AbbreviatedOid(childComplexity), true
+	case "Tag.id":
+		if e.ComplexityRoot.Tag.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.ID(childComplexity), true
+	case "Tag.name":
+		if e.ComplexityRoot.Tag.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Name(childComplexity), true
+	case "Tag.oid":
+		if e.ComplexityRoot.Tag.Oid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Oid(childComplexity), true
+	case "Tag.target":
+		if e.ComplexityRoot.Tag.Target == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tag.Target(childComplexity), true
+
 	case "Team.id":
 		if e.ComplexityRoot.Team.ID == nil {
 			break
@@ -3577,6 +3654,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Team.Slug(childComplexity), true
+
+	case "Tree.abbreviatedOid":
+		if e.ComplexityRoot.Tree.AbbreviatedOid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tree.AbbreviatedOid(childComplexity), true
+	case "Tree.id":
+		if e.ComplexityRoot.Tree.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tree.ID(childComplexity), true
+	case "Tree.oid":
+		if e.ComplexityRoot.Tree.Oid == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Tree.Oid(childComplexity), true
 
 	case "UnresolveReviewThreadPayload.clientMutationId":
 		if e.ComplexityRoot.UnresolveReviewThreadPayload.ClientMutationID == nil {
@@ -4524,9 +4620,12 @@ type PullRequestCommit {
   commit: Commit!
 }
 
-# Commit is the reduced git commit gh pr view reads.
-type Commit {
+# Commit is the reduced git commit gh pr view reads. It implements GitObject,
+# so a Ref.target can narrow to it with an inline fragment.
+type Commit implements GitObject & Node {
+  id: ID!
   oid: GitObjectID!
+  abbreviatedOid: String!
   message: String!
   messageHeadline: String!
 }
@@ -5392,9 +5491,35 @@ type Ref implements Node {
   prefix: String!
 }
 
-# GitObject is a git object addressed by its SHA.
-type GitObject {
+# GitObject is a git object addressed by its SHA: the interface Commit, Tree,
+# Blob, and Tag implement, so Ref.target narrows with inline fragments.
+interface GitObject {
+  id: ID!
   oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tree is a git tree object.
+type Tree implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Blob is a git blob object.
+type Blob implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tag is an annotated git tag object.
+type Tag implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+  name: String!
+  target: GitObject
 }
 
 # RateLimit is the current rate-limit state for the viewer.
@@ -5578,8 +5703,12 @@ func (ec *executionContext) childFields_ClosePullRequestPayload(ctx context.Cont
 
 func (ec *executionContext) childFields_Commit(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
+	case "id":
+		return ec.fieldContext_Commit_id(ctx, field)
 	case "oid":
 		return ec.fieldContext_Commit_oid(ctx, field)
+	case "abbreviatedOid":
+		return ec.fieldContext_Commit_abbreviatedOid(ctx, field)
 	case "message":
 		return ec.fieldContext_Commit_message(ctx, field)
 	case "messageHeadline":
@@ -5704,14 +5833,6 @@ func (ec *executionContext) childFields_EnablePullRequestAutoMergePayload(ctx co
 		return ec.fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type EnablePullRequestAutoMergePayload", field.Name)
-}
-
-func (ec *executionContext) childFields_GitObject(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "oid":
-		return ec.fieldContext_GitObject_oid(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type GitObject", field.Name)
 }
 
 func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8642,6 +8763,75 @@ func (ec *executionContext) fieldContext_AutoMergeRequest_mergeMethod(_ context.
 	return graphql.NewScalarFieldContext("AutoMergeRequest", field, false, false, errors.New("field of type PullRequestMergeMethod does not have child fields"))
 }
 
+func (ec *executionContext) _Blob_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Blob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Blob_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Blob_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Blob", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Blob_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Blob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Blob_oid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Oid, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObjectID) graphql.Marshaler {
+			return ec.marshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Blob_oid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Blob", field, false, false, errors.New("field of type GitObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _Blob_abbreviatedOid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Blob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Blob_abbreviatedOid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AbbreviatedOid(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Blob_abbreviatedOid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Blob", field, true, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _BranchProtectionRule_id(ctx context.Context, field graphql.CollectedField, obj *BranchProtectionRule) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9343,6 +9533,29 @@ func (ec *executionContext) fieldContext_ClosePullRequestPayload_clientMutationI
 	return graphql.NewScalarFieldContext("ClosePullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Commit_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Commit().ID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type ID does not have child fields"))
+}
+
 func (ec *executionContext) _Commit_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9366,6 +9579,29 @@ func (ec *executionContext) fieldContext_Commit_oid(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Commit", field, false, false, errors.New("field of type GitObjectID does not have child fields"))
 }
 
+func (ec *executionContext) _Commit_abbreviatedOid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_abbreviatedOid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AbbreviatedOid(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_abbreviatedOid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Commit", field, true, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Commit_message(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9375,7 +9611,7 @@ func (ec *executionContext) _Commit_message(ctx context.Context, field graphql.C
 			return ec.fieldContext_Commit_message(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Message, nil
+			return ec.Resolvers.Commit().Message(ctx, obj)
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
@@ -9386,7 +9622,7 @@ func (ec *executionContext) _Commit_message(ctx context.Context, field graphql.C
 	)
 }
 func (ec *executionContext) fieldContext_Commit_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Commit", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Commit_messageHeadline(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
@@ -9398,7 +9634,7 @@ func (ec *executionContext) _Commit_messageHeadline(ctx context.Context, field g
 			return ec.fieldContext_Commit_messageHeadline(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.MessageHeadline, nil
+			return ec.Resolvers.Commit().MessageHeadline(ctx, obj)
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
@@ -9409,7 +9645,7 @@ func (ec *executionContext) _Commit_messageHeadline(ctx context.Context, field g
 	)
 }
 func (ec *executionContext) fieldContext_Commit_messageHeadline(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Commit", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Commit_statusCheckRollup(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
@@ -10038,29 +10274,6 @@ func (ec *executionContext) _EnablePullRequestAutoMergePayload_clientMutationId(
 }
 func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EnablePullRequestAutoMergePayload", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _GitObject_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.GitObject) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GitObject_oid(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Oid, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObjectID) graphql.Marshaler {
-			return ec.marshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GitObject_oid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GitObject", field, false, false, errors.New("field of type GitObjectID does not have child fields"))
 }
 
 func (ec *executionContext) _Issue_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
@@ -17043,8 +17256,8 @@ func (ec *executionContext) _Ref_target(ctx context.Context, field graphql.Colle
 			return obj.Target, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.GitObject) graphql.Marshaler {
-			return ec.marshalOGitObject2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObject) graphql.Marshaler {
+			return ec.marshalOGitObject2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx, selections, v)
 		},
 		true,
 		false,
@@ -17057,7 +17270,7 @@ func (ec *executionContext) fieldContext_Ref_target(_ context.Context, field gra
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_GitObject(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -19190,6 +19403,130 @@ func (ec *executionContext) fieldContext_SubmitPullRequestReviewPayload_clientMu
 	return graphql.NewScalarFieldContext("SubmitPullRequestReviewPayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Tag_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_oid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Oid, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObjectID) graphql.Marshaler {
+			return ec.marshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_oid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, false, false, errors.New("field of type GitObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_abbreviatedOid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_abbreviatedOid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AbbreviatedOid(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_abbreviatedOid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, true, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_name(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tag", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Tag_target(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tag) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tag_target(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Target, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObject) graphql.Marshaler {
+			return ec.marshalOGitObject2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Tag_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Tag",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Team_id(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -19289,6 +19626,75 @@ func (ec *executionContext) fieldContext_Team_organization(_ context.Context, fi
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Tree_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tree_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tree_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tree", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Tree_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tree_oid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Oid, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.GitObjectID) graphql.Marshaler {
+			return ec.marshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tree_oid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tree", field, false, false, errors.New("field of type GitObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _Tree_abbreviatedOid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Tree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Tree_abbreviatedOid(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AbbreviatedOid(), nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Tree_abbreviatedOid(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Tree", field, true, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _UnresolveReviewThreadPayload_thread(ctx context.Context, field graphql.CollectedField, obj *UnresolveReviewThreadPayload) (ret graphql.Marshaler) {
@@ -23333,6 +23739,47 @@ func (ec *executionContext) _AssignableNode(ctx context.Context, sel ast.Selecti
 	}
 }
 
+func (ec *executionContext) _GitObject(ctx context.Context, sel ast.SelectionSet, obj gqlmodel.GitObject) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case gqlmodel.Tree:
+		return ec._Tree(ctx, sel, &obj)
+	case *gqlmodel.Tree:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Tree(ctx, sel, obj)
+	case gqlmodel.Tag:
+		return ec._Tag(ctx, sel, &obj)
+	case *gqlmodel.Tag:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Tag(ctx, sel, obj)
+	case gqlmodel.Commit:
+		return ec._Commit(ctx, sel, &obj)
+	case *gqlmodel.Commit:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Commit(ctx, sel, obj)
+	case gqlmodel.Blob:
+		return ec._Blob(ctx, sel, &obj)
+	case *gqlmodel.Blob:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Blob(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of GitObject must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _LabelableNode(ctx context.Context, sel ast.SelectionSet, obj LabelableNode) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -23371,6 +23818,34 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
+	case gqlmodel.Tree:
+		return ec._Tree(ctx, sel, &obj)
+	case *gqlmodel.Tree:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Tree(ctx, sel, obj)
+	case gqlmodel.Tag:
+		return ec._Tag(ctx, sel, &obj)
+	case *gqlmodel.Tag:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Tag(ctx, sel, obj)
+	case gqlmodel.Commit:
+		return ec._Commit(ctx, sel, &obj)
+	case *gqlmodel.Commit:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Commit(ctx, sel, obj)
+	case gqlmodel.Blob:
+		return ec._Blob(ctx, sel, &obj)
+	case *gqlmodel.Blob:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Blob(ctx, sel, obj)
 	case gqlmodel.Repository:
 		return ec._Repository(ctx, sel, &obj)
 	case *gqlmodel.Repository:
@@ -23812,6 +24287,55 @@ func (ec *executionContext) _AutoMergeRequest(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var blobImplementors = []string{"Blob", "GitObject", "Node"}
+
+func (ec *executionContext) _Blob(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Blob) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, blobImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Blob")
+		case "id":
+			out.Values[i] = ec._Blob_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "oid":
+			out.Values[i] = ec._Blob_oid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "abbreviatedOid":
+			out.Values[i] = ec._Blob_abbreviatedOid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var branchProtectionRuleImplementors = []string{"BranchProtectionRule"}
 
 func (ec *executionContext) _BranchProtectionRule(ctx context.Context, sel ast.SelectionSet, obj *BranchProtectionRule) graphql.Marshaler {
@@ -24151,7 +24675,7 @@ func (ec *executionContext) _ClosePullRequestPayload(ctx context.Context, sel as
 	return out
 }
 
-var commitImplementors = []string{"Commit"}
+var commitImplementors = []string{"Commit", "GitObject", "Node"}
 
 func (ec *executionContext) _Commit(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Commit) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, commitImplementors)
@@ -24162,21 +24686,124 @@ func (ec *executionContext) _Commit(ctx context.Context, sel ast.SelectionSet, o
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Commit")
+		case "id":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_id(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "oid":
 			out.Values[i] = ec._Commit_oid(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "abbreviatedOid":
+			out.Values[i] = ec._Commit_abbreviatedOid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "message":
-			out.Values[i] = ec._Commit_message(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_message(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "messageHeadline":
-			out.Values[i] = ec._Commit_messageHeadline(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_messageHeadline(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "statusCheckRollup":
 			field := field
 
@@ -24662,45 +25289,6 @@ func (ec *executionContext) _EnablePullRequestAutoMergePayload(ctx context.Conte
 			out.Values[i] = ec._EnablePullRequestAutoMergePayload_actor(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._EnablePullRequestAutoMergePayload_clientMutationId(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var gitObjectImplementors = []string{"GitObject"}
-
-func (ec *executionContext) _GitObject(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.GitObject) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, gitObjectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("GitObject")
-		case "oid":
-			out.Values[i] = ec._GitObject_oid(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -29153,6 +29741,62 @@ func (ec *executionContext) _SubmitPullRequestReviewPayload(ctx context.Context,
 	return out
 }
 
+var tagImplementors = []string{"Tag", "GitObject", "Node"}
+
+func (ec *executionContext) _Tag(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Tag) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tagImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Tag")
+		case "id":
+			out.Values[i] = ec._Tag_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "oid":
+			out.Values[i] = ec._Tag_oid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "abbreviatedOid":
+			out.Values[i] = ec._Tag_abbreviatedOid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Tag_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "target":
+			out.Values[i] = ec._Tag_target(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var teamImplementors = []string{"Team", "RequestedReviewer"}
 
 func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj *Team) graphql.Marshaler {
@@ -29181,6 +29825,55 @@ func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "organization":
 			out.Values[i] = ec._Team_organization(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var treeImplementors = []string{"Tree", "GitObject", "Node"}
+
+func (ec *executionContext) _Tree(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Tree) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, treeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Tree")
+		case "id":
+			out.Values[i] = ec._Tree_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "oid":
+			out.Values[i] = ec._Tree_oid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "abbreviatedOid":
+			out.Values[i] = ec._Tree_abbreviatedOid(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -31287,7 +31980,7 @@ func (ec *executionContext) marshalOEnablePullRequestAutoMergePayload2ᚖgithub�
 	return ec._EnablePullRequestAutoMergePayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOGitObject2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitObject) graphql.Marshaler {
+func (ec *executionContext) marshalOGitObject2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx context.Context, sel ast.SelectionSet, v gqlmodel.GitObject) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

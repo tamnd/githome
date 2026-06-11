@@ -196,6 +196,20 @@ func patchStatus(status string) gqlmodel.PatchStatus {
 	}
 }
 
+// GQLCommit renders a git commit into the GraphQL Commit shape. repoDBID is
+// the repository's public database id the node id encodes; owner and name are
+// the coordinates the statusCheckRollup resolver reads back.
+func GQLCommit(repoDBID int64, owner, name string, c git.Commit) *gqlmodel.Commit {
+	return &gqlmodel.Commit{
+		ID:              nodeid.EncodeGitObject("commit", repoDBID, string(c.SHA)),
+		Oid:             gqlmodel.GitObjectID(c.SHA),
+		Message:         c.Message,
+		MessageHeadline: messageHeadline(c.Message),
+		RepoOwner:       owner,
+		RepoName:        name,
+	}
+}
+
 // messageHeadline is the first line of a commit message, the headline GitHub
 // splits from the body.
 func messageHeadline(message string) string {

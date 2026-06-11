@@ -62,12 +62,18 @@ func GQLRef(repoID int64, qualifiedName, shortName, sha string) *gqlmodel.Ref {
 	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
 		prefix = qualifiedName[:i+1]
 	}
-	return &gqlmodel.Ref{
+	ref := &gqlmodel.Ref{
 		ID:     nodeid.EncodeGitObject("ref", repoID, qualifiedName),
 		Name:   shortName,
 		Prefix: prefix,
-		Target: &gqlmodel.GitObject{Oid: gqlmodel.GitObjectID(sha)},
 	}
+	if sha != "" {
+		ref.Target = &gqlmodel.Commit{
+			ID:  nodeid.EncodeGitObject("commit", repoID, sha),
+			Oid: gqlmodel.GitObjectID(sha),
+		}
+	}
+	return ref
 }
 
 // GQLUser renders a domain user into the GraphQL User shape.

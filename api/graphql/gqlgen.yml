@@ -100,6 +100,16 @@ models:
     fields:
       statusCheckRollup:
         resolver: true
+      # The presenter cannot always compute the commit node id (it needs the
+      # repository database id); the resolver fills the gap.
+      id:
+        resolver: true
+      # A Ref.target commit starts out as just a SHA; the message resolvers
+      # read the commit from git on demand.
+      message:
+        resolver: true
+      messageHeadline:
+        resolver: true
   StatusCheckRollup:
     model: github.com/tamnd/githome/presenter/gqlmodel.StatusCheckRollup
     fields:

@@ -181,9 +181,12 @@ type PullRequestCommit {
   commit: Commit!
 }
 
-# Commit is the reduced git commit gh pr view reads.
-type Commit {
+# Commit is the reduced git commit gh pr view reads. It implements GitObject,
+# so a Ref.target can narrow to it with an inline fragment.
+type Commit implements GitObject & Node {
+  id: ID!
   oid: GitObjectID!
+  abbreviatedOid: String!
   message: String!
   messageHeadline: String!
 }

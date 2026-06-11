@@ -354,10 +354,16 @@ func (r *Resolver) assignableFromIssue(ctx context.Context, owner, name string, 
 // they decode through the git-object codec first.
 func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, error) {
 	if tag, repoID, name, gErr := nodeid.DecodeGitObject(id); gErr == nil {
-		if tag != "ref" {
+		switch tag {
+		case "ref":
+			return r.resolveRefNode(ctx, repoID, name)
+		case "commit":
+			return r.resolveCommitNode(ctx, repoID, name)
+		default:
+			// Blob and tree ids decode but nothing serves their objects over
+			// GraphQL yet, so they resolve to null.
 			return nil, nil
 		}
-		return r.resolveRefNode(ctx, repoID, name)
 	}
 	kind, dbID, err := nodeid.Decode(id)
 	if err != nil {
@@ -534,6 +540,57 @@ func (r *Resolver) resolveRefNode(ctx context.Context, repoID int64, qualifiedNa
 		shortName = qualifiedName[i+1:]
 	}
 	return presenter.GQLRef(repo.ID, qualifiedName, shortName, ref.Target), nil
+}
+
+// loadCommit reads the underlying git commit for a partially filled Commit:
+// by the repository coordinates when the presenter recorded them, by the
+// repo-scoped node id otherwise. ok is false when the commit does not resolve
+// for the viewer, which renders the field as its zero value rather than an
+// error, since the surrounding object already proved visible.
+func (r *Resolver) loadCommit(ctx context.Context, obj *gqlmodel.Commit) (git.Commit, bool, error) {
+	var repo *domain.Repo
+	var err error
+	switch {
+	case obj.RepoOwner != "":
+		repo, err = r.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	case obj.ID != "":
+		_, repoID, _, dErr := nodeid.DecodeGitObject(obj.ID)
+		if dErr != nil {
+			return git.Commit{}, false, nil
+		}
+		repo, err = r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	default:
+		return git.Commit{}, false, nil
+	}
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return git.Commit{}, false, nil
+	}
+	if err != nil {
+		return git.Commit{}, false, err
+	}
+	c, err := r.Repos.GetCommit(repo, string(obj.Oid))
+	if err != nil {
+		return git.Commit{}, false, nil
+	}
+	return c, true, nil
+}
+
+// resolveCommitNode resolves a commit node id's (repo, sha) pair to the Commit
+// shape, or nil when the repository or the commit does not resolve for the
+// viewer.
+func (r *Resolver) resolveCommitNode(ctx context.Context, repoID int64, sha string) (generated.Node, error) {
+	repo, err := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	c, err := r.Repos.GetCommit(repo, sha)
+	if err != nil {
+		return nil, nil
+	}
+	return presenter.GQLCommit(repo.ID, repo.Owner.Login, repo.Name, c), nil
 }
 
 // listReposForLogin resolves a list of repositories for a user identified by

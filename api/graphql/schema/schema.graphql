@@ -212,9 +212,35 @@ type Ref implements Node {
   prefix: String!
 }
 
-# GitObject is a git object addressed by its SHA.
-type GitObject {
+# GitObject is a git object addressed by its SHA: the interface Commit, Tree,
+# Blob, and Tag implement, so Ref.target narrows with inline fragments.
+interface GitObject {
+  id: ID!
   oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tree is a git tree object.
+type Tree implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Blob is a git blob object.
+type Blob implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+}
+
+# Tag is an annotated git tag object.
+type Tag implements GitObject & Node {
+  id: ID!
+  oid: GitObjectID!
+  abbreviatedOid: String!
+  name: String!
+  target: GitObject
 }
 
 # RateLimit is the current rate-limit state for the viewer.
