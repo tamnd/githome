@@ -436,7 +436,8 @@ type themeDef struct {
 // themes lists the nine themes in the order they are emitted. The high
 // contrast themes flatten the surface ramps and harden borders; the
 // colorblind and tritanopia themes remap the success/open ramp away from
-// green so state never rides on a hue the viewer cannot separate.
+// green and the danger/closed ramp away from red so state never rides on a
+// hue the viewer cannot separate.
 var themes = []themeDef{
 	{name: "light", mode: "light", override: nil},
 	{name: "light_high_contrast", mode: "light", override: map[string]string{
@@ -459,25 +460,48 @@ var themes = []themeDef{
 		"focus-outlineColor":            "#0349b4",
 	}},
 	{name: "light_colorblind", mode: "light", override: map[string]string{
+		// Success and open ride on blue, danger and closed on orange, so the
+		// open/closed pair never meets a red/green axis.
+		"fgColor-success":               "#0969da",
+		"fgColor-open":                  "#0969da",
 		"bgColor-success-muted":         "#ddf4ff",
 		"bgColor-success-emphasis":      "#0969da",
 		"bgColor-open-muted":            "#ddf4ff",
 		"bgColor-open-emphasis":         "#0969da",
 		"borderColor-success-muted":     "#54aeff66",
 		"borderColor-success-emphasis":  "#0969da",
+		"fgColor-danger":                "#b35900",
+		"fgColor-closed":                "#b35900",
+		"bgColor-danger-muted":          "#fff5e8",
+		"bgColor-danger-emphasis":       "#b35900",
+		"bgColor-closed-muted":          "#fff5e8",
+		"bgColor-closed-emphasis":       "#b35900",
+		"borderColor-danger-muted":      "#f0883e66",
+		"borderColor-danger-emphasis":   "#b35900",
 		"button-primary-bgColor-rest":   "#0969da",
 		"button-primary-bgColor-hover":  "#0860ca",
 		"button-primary-bgColor-active": "#0757ba",
 	}},
 	{name: "light_tritanopia", mode: "light", override: map[string]string{
+		// Tritanopia keeps the success/open swap and moves danger and closed
+		// to the same orange the colorblind theme uses, but onto teal instead
+		// of blue for success since blue is the confusable hue here.
+		"fgColor-success":               "#1b7c83",
+		"fgColor-open":                  "#1b7c83",
 		"bgColor-success-muted":         "#ddf4ff",
 		"bgColor-success-emphasis":      "#1b7c83",
 		"bgColor-open-muted":            "#ddf4ff",
 		"bgColor-open-emphasis":         "#1b7c83",
 		"borderColor-success-muted":     "#54aeff66",
 		"borderColor-success-emphasis":  "#1b7c83",
+		"fgColor-danger":                "#b35900",
+		"fgColor-closed":                "#b35900",
 		"bgColor-danger-muted":          "#ffece5",
+		"bgColor-danger-emphasis":       "#b35900",
 		"bgColor-closed-muted":          "#ffece5",
+		"bgColor-closed-emphasis":       "#b35900",
+		"borderColor-danger-muted":      "#f0883e66",
+		"borderColor-danger-emphasis":   "#b35900",
 		"button-primary-bgColor-rest":   "#1b7c83",
 		"button-primary-bgColor-hover":  "#166e74",
 		"button-primary-bgColor-active": "#115b60",
@@ -535,23 +559,43 @@ var themes = []themeDef{
 		"focus-outlineColor":              "#71b7ff",
 	}},
 	{name: "dark_colorblind", mode: "dark", override: map[string]string{
+		"fgColor-success":               "#4493f8",
+		"fgColor-open":                  "#4493f8",
 		"bgColor-success-muted":         "#388bfd1a",
 		"bgColor-success-emphasis":      "#1f6feb",
 		"bgColor-open-muted":            "#388bfd1a",
 		"bgColor-open-emphasis":         "#1f6feb",
 		"borderColor-success-muted":     "#4493f866",
 		"borderColor-success-emphasis":  "#1f6feb",
+		"fgColor-danger":                "#d47616",
+		"fgColor-closed":                "#d47616",
+		"bgColor-danger-muted":          "#d476161a",
+		"bgColor-danger-emphasis":       "#d47616",
+		"bgColor-closed-muted":          "#d476161a",
+		"bgColor-closed-emphasis":       "#d47616",
+		"borderColor-danger-muted":      "#d4761666",
+		"borderColor-danger-emphasis":   "#d47616",
 		"button-primary-bgColor-rest":   "#1f6feb",
 		"button-primary-bgColor-hover":  "#388bfd",
 		"button-primary-bgColor-active": "#4493f8",
 	}},
 	{name: "dark_tritanopia", mode: "dark", override: map[string]string{
+		"fgColor-success":               "#39c5cf",
+		"fgColor-open":                  "#39c5cf",
 		"bgColor-success-muted":         "#388bfd1a",
 		"bgColor-success-emphasis":      "#1b7c83",
 		"bgColor-open-muted":            "#388bfd1a",
 		"bgColor-open-emphasis":         "#1b7c83",
 		"borderColor-success-muted":     "#4493f866",
 		"borderColor-success-emphasis":  "#1b7c83",
+		"fgColor-danger":                "#d47616",
+		"fgColor-closed":                "#d47616",
+		"bgColor-danger-muted":          "#d476161a",
+		"bgColor-danger-emphasis":       "#d47616",
+		"bgColor-closed-muted":          "#d476161a",
+		"bgColor-closed-emphasis":       "#d47616",
+		"borderColor-danger-muted":      "#d4761666",
+		"borderColor-danger-emphasis":   "#d47616",
 		"button-primary-bgColor-rest":   "#1b7c83",
 		"button-primary-bgColor-hover":  "#208d96",
 		"button-primary-bgColor-active": "#24a0aa",

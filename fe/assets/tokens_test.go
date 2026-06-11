@@ -95,6 +95,41 @@ func TestThemeCatalogComplete(t *testing.T) {
 	}
 }
 
+// TestColorVisionThemesRemapBothAxes guards review 02 task R02-02: the
+// colorblind and tritanopia themes must move the danger/closed ramp off red
+// (to orange) and the success/open ramp off green, in the foregrounds as
+// well as the fills. A theme that only remaps the green fills still shows
+// open/closed as a red/green pair the viewer cannot separate.
+func TestColorVisionThemesRemapBothAxes(t *testing.T) {
+	themes := themeBlocks(t)
+	cases := []struct {
+		theme   string
+		danger  string
+		success string
+	}{
+		{"light_colorblind", "#b35900", "#0969da"},
+		{"light_tritanopia", "#b35900", "#1b7c83"},
+		{"dark_colorblind", "#d47616", "#4493f8"},
+		{"dark_tritanopia", "#d47616", "#39c5cf"},
+	}
+	for _, c := range cases {
+		tokens := themes[c.theme]
+		if tokens == nil {
+			t.Fatalf("theme %s missing", c.theme)
+		}
+		for _, name := range []string{"fgColor-danger", "fgColor-closed", "bgColor-danger-emphasis", "bgColor-closed-emphasis"} {
+			if got := tokens[name]; got != c.danger {
+				t.Errorf("%s --%s = %s, want the orange remap %s", c.theme, name, got, c.danger)
+			}
+		}
+		for _, name := range []string{"fgColor-success", "fgColor-open"} {
+			if got := tokens[name]; got != c.success {
+				t.Errorf("%s --%s = %s, want the remapped hue %s", c.theme, name, got, c.success)
+			}
+		}
+	}
+}
+
 // TestEveryVarReferenceIsDefined guards review 02 task R02-06: a component
 // sheet must never read a custom property nothing defines, because the
 // var() fallback (or worse, nothing) silently takes over and drifts from
