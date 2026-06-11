@@ -22,7 +22,7 @@ func (h *Handlers) Raw(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
-	ref, path, ok := h.resolveRef(repo, c.Param("rest"))
+	ref, path, ok := h.resolveRef(repo, h.loadRefs(repo), c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}

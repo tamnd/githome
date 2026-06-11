@@ -36,6 +36,7 @@ type Sessions struct {
 	cookieName string
 	ttl        time.Duration
 	lookup     ViewerLookup
+	cache      viewerCache
 }
 
 // DefaultSessionCookie is the cookie name the front uses for its session. It is
@@ -49,7 +50,13 @@ func NewSessions(key []byte, ttl time.Duration, lookup ViewerLookup) *Sessions {
 	if ttl <= 0 {
 		ttl = 30 * 24 * time.Hour
 	}
-	return &Sessions{key: key, cookieName: DefaultSessionCookie, ttl: ttl, lookup: lookup}
+	return &Sessions{
+		key:        key,
+		cookieName: DefaultSessionCookie,
+		ttl:        ttl,
+		lookup:     lookup,
+		cache:      viewerCache{items: map[int64]viewerEntry{}},
+	}
 }
 
 // Middleware loads the viewer for the request from the session cookie and stores
@@ -64,13 +71,20 @@ func (s *Sessions) Middleware() mizu.Middleware {
 			if err != nil || ck.Value == "" {
 				return next(c)
 			}
-			pk, ok := s.verify(ck.Value, time.Now())
+			now := time.Now()
+			pk, ok := s.verify(ck.Value, now)
 			if !ok {
 				return next(c)
 			}
-			v, err := s.lookup(c.Context(), pk)
-			if err != nil {
-				return err
+			v, ok := s.cache.get(pk, now)
+			if !ok {
+				v, err = s.lookup(c.Context(), pk)
+				if err != nil {
+					return err
+				}
+				if v != nil {
+					s.cache.put(pk, v, now)
+				}
 			}
 			if v != nil {
 				ctx := view.WithViewer(c.Context(), v)
@@ -83,8 +97,10 @@ func (s *Sessions) Middleware() mizu.Middleware {
 }
 
 // Issue writes the session cookie for userPK. It is called by the login handler
-// once credentials check out.
+// once credentials check out. It drops any cached viewer for the user so the
+// first page after login reflects the account as it is now.
 func (s *Sessions) Issue(c *mizu.Ctx, userPK int64, now time.Time) {
+	s.cache.drop(userPK)
 	exp := now.Add(s.ttl)
 	value := s.sign(userPK, exp)
 	http.SetCookie(c.Writer(), &http.Cookie{
@@ -98,8 +114,13 @@ func (s *Sessions) Issue(c *mizu.Ctx, userPK int64, now time.Time) {
 	})
 }
 
-// Clear deletes the session cookie. It is called by the logout handler.
+// Clear deletes the session cookie. It is called by the logout handler. It also
+// drops the viewer from the session cache, so a logout takes effect on the very
+// next request rather than after the cache entry ages out.
 func (s *Sessions) Clear(c *mizu.Ctx) {
+	if pk := ViewerID(c.Context()); pk > 0 {
+		s.cache.drop(pk)
+	}
 	http.SetCookie(c.Writer(), &http.Cookie{
 		Name:     s.cookieName,
 		Value:    "",

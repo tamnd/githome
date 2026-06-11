@@ -521,8 +521,9 @@ func BenchmarkRepoSearch(b *testing.B) {
 
 // ── SLO gate ───────────────────────────────────────────────────────────────────
 
-// TestPageSLO checks that every key page returns under 100 ms averaged over
-// 20 warm requests. The fixture is warm before timing starts. Run with:
+// TestPageSLO checks that every key page returns under the render budget
+// averaged over 20 warm requests. The fixture is warm before timing starts.
+// Run with:
 //
 //	go test ./fe -run=TestPageSLO -v
 func TestPageSLO(t *testing.T) {
@@ -553,9 +554,14 @@ func TestPageSLO(t *testing.T) {
 
 	const warmup = 3
 	const measure = 20
-	// 500 ms gives shared CI runners adequate headroom while still catching
-	// genuinely slow regressions; developer runs stay well under this limit.
-	const budget = 500 * time.Millisecond
+	// The render budget the performance review set (2005/review/03) is 50 ms,
+	// and every page on this fixture averages under 20 ms warm when this test
+	// runs alone. The gate runs inside the full suite though, sharing the
+	// machine with every other package, and contention has pushed the heavy
+	// pages past 50 ms in otherwise healthy runs. 100 ms keeps the gate honest
+	// without flaking: a page that regresses to a per-request history walk or
+	// an unbounded diff lands in the hundreds of milliseconds, far past this.
+	const budget = 100 * time.Millisecond
 
 	for _, p := range pages {
 		t.Run(p.name, func(t *testing.T) {
@@ -571,7 +577,7 @@ func TestPageSLO(t *testing.T) {
 			avg := time.Since(start) / measure
 			t.Logf("%s: avg=%v", p.name, avg)
 			if avg > budget {
-				t.Errorf("%s: avg=%v exceeds 100ms budget", p.name, avg)
+				t.Errorf("%s: avg=%v exceeds the %v budget", p.name, avg, budget)
 			}
 		})
 	}

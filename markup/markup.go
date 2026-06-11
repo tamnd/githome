@@ -37,6 +37,10 @@ type Renderer struct {
 	baseURL string
 	maxHL   int
 	log     *slog.Logger
+
+	// frags is the rendered-fragment LRU (cache.go): markdown bodies and
+	// highlighted lines, both keyed on content plus the version constants.
+	frags *fragCache
 }
 
 // Config is the markup section of the app config (cfg.Markup, implementation/01).
@@ -44,12 +48,17 @@ type Config struct {
 	BaseURL           string       // on-host base, for link/ref/anchor emission
 	CamoSecret        []byte       // HMAC key for the off-host image proxy; empty disables proxying
 	CamoBaseURL       string       // where the proxy is mounted (default {BaseURL}/camo)
-	MaxHighlightBytes int          // default 5<<20; a larger blob is shown unhighlighted (logged)
+	MaxHighlightBytes int          // default 512<<10; a larger blob is shown unhighlighted (logged)
 	EmojiAssetBase    string       // asset path for custom :octocat:-style image emoji (unused in v1)
 	Logger            *slog.Logger // optional; falls back to slog.Default
 }
 
-const defaultMaxHighlightBytes = 5 << 20
+// defaultMaxHighlightBytes matches github.com's highlight cutoff. The web blob
+// view stops inlining files at the same bound (its too-large stub with the raw
+// link), so on that path the highlighter never sees an over-cap blob; this cap
+// covers every other caller, where an over-cap input falls back to escaped
+// lines instead of a chroma pass over megabytes.
+const defaultMaxHighlightBytes = 512 << 10
 
 // New constructs the shared Renderer. It wires the sanitizer in front of every
 // render path (a package test asserts this, since goldmark runs WithUnsafe),
@@ -79,6 +88,7 @@ func New(cfg Config) *Renderer {
 		baseURL: cfg.BaseURL,
 		maxHL:   maxHL,
 		log:     log,
+		frags:   newFragCache(fragCacheMaxBytes),
 	}
 	r.md = r.buildGoldmark()
 	return r
@@ -179,7 +189,21 @@ func (r *Renderer) RenderFile(ctx context.Context, repo *RepoRef, ref, path, src
 // explicit context (Plain when no repo is given). RenderComment and RenderFile
 // are presets over it. It returns an error only for an internal failure; a
 // malformed document still renders, since CommonMark is total.
+//
+// A render whose context carries no Resolve closure is a pure function of
+// (src, rc, markupVersion), so it is served from the fragment cache; the cached
+// value already passed the sanitizer, so a hit stays inside the trust boundary.
+// With a Resolve closure present the output depends on caller state the cache
+// key cannot see, so those renders always run the full pipeline.
 func (r *Renderer) Render(ctx context.Context, src []byte, rc RenderContext) (template.HTML, error) {
+	cacheable := r.frags != nil && rc.Resolve == nil
+	var key fragKey
+	if cacheable {
+		key = markdownKey(rc, src)
+		if v, ok := r.frags.get(key); ok {
+			return v.(template.HTML), nil
+		}
+	}
 	rendered, err := r.renderMarkdown(ctx, src, rc)
 	if err != nil {
 		return "", err
@@ -188,8 +212,11 @@ func (r *Renderer) Render(ctx context.Context, src []byte, rc RenderContext) (te
 	sanitized := r.policy.Sanitize(rendered)
 	// Stage 5: post-process runs on already-sanitized HTML (anchors, rel/nofollow,
 	// camo, task-list wiring), so it can add ids and rels without re-opening safety.
-	out := r.postProcess(sanitized, rc)
-	return template.HTML(out), nil // nolint:gosec // out has passed Policy.Sanitize, the only sanctioned producer
+	out := template.HTML(r.postProcess(sanitized, rc)) // nolint:gosec // has passed Policy.Sanitize, the only sanctioned producer
+	if cacheable {
+		r.frags.put(key, out, int64(len(out))+64)
+	}
+	return out, nil
 }
 
 // escapeFallback renders source as escaped plain text wrapped in a paragraph, the

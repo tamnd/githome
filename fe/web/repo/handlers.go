@@ -118,9 +118,9 @@ func (h *Handlers) chrome(c *mizu.Ctx, title string) view.Chrome {
 // resolveRef reads the greedy {rest} tail of a tree/blob/raw URL and splits it
 // into a ref and a path, preferring the longest leading segment sequence that
 // names a real ref (a branch named feature/x beats the branch feature). The split
-// is backed by the repository's ref set through refExists. A tail that names no
-// ref returns ok false, which the caller renders as the soft 404. See
+// is backed by the request's shared ref set through refExists. A tail that names
+// no ref returns ok false, which the caller renders as the soft 404. See
 // implementation/07 section 2.
-func (h *Handlers) resolveRef(repo *domain.Repo, rest string) (ref, path string, ok bool) {
-	return route.SplitRefPath(rest, h.refExists(repo))
+func (h *Handlers) resolveRef(repo *domain.Repo, refs *refSet, rest string) (ref, path string, ok bool) {
+	return route.SplitRefPath(rest, h.refExists(repo, refs))
 }

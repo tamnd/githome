@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"errors"
-	"path"
 	"strings"
 
 	"github.com/tamnd/githome/git"
@@ -36,12 +35,13 @@ type SearchService struct {
 	repos    *RepoService
 	issues   *IssueService
 	gitStore *git.Store
+	corpus   *corpusCache
 }
 
 // NewSearchService builds a SearchService over the store, the repo and issue
 // services, and the git store code search reads blobs from.
 func NewSearchService(st SearchStore, repos *RepoService, issues *IssueService, gs *git.Store) *SearchService {
-	return &SearchService{store: st, repos: repos, issues: issues, gitStore: gs}
+	return &SearchService{store: st, repos: repos, issues: issues, gitStore: gs, corpus: newCorpusCache(corpusCacheMaxBytes)}
 }
 
 // codeScanLimit caps how many blobs a single code search reads before it stops
@@ -206,63 +206,34 @@ func (s *SearchService) SearchCode(ctx context.Context, viewerPK int64, raw stri
 	return all[lo:hi], total, incomplete, nil
 }
 
-// scanRepoCode reads the repository's head tree and returns the files matching
-// every term. budget caps how many blobs it reads; used is how many it read,
-// and capped reports that it ran out of budget before finishing.
+// scanRepoCode matches the repository's corpus against every term. budget caps
+// how many files it considers; used is how many it considered, and capped
+// reports that the scan stopped early, either out of budget or because the
+// corpus build itself hit the blob ceiling. The corpus is served from the
+// per-(repo, head) cache when this head was scanned before, so a repeated
+// search costs string matching, not a repository read (see search_corpus.go).
 func (s *SearchService) scanRepoCode(repo *Repo, terms []string, budget int) (hits []CodeResult, used int, capped bool) {
-	tree, err := s.repos.GetTree(repo, repo.DefaultBranch, true)
-	if err != nil {
+	c := s.repoCorpus(repo)
+	if c == nil {
 		// An empty or unreadable repository contributes no code matches.
 		return nil, 0, false
 	}
-	for _, e := range tree.Entries {
-		if e.Type != git.ObjectBlob {
-			continue
-		}
+	for _, d := range c.docs {
 		if used >= budget {
 			return hits, used, true
 		}
 		used++
-		if !s.matchBlob(repo, e, terms) {
+		if !matchDoc(d, terms) {
 			continue
 		}
 		hits = append(hits, CodeResult{
 			Repo: repo,
-			Path: e.Path,
-			Name: path.Base(e.Path),
-			SHA:  e.SHA,
+			Path: d.path,
+			Name: d.name,
+			SHA:  d.sha,
 		})
 	}
-	return hits, used, false
-}
-
-// matchBlob reports whether the blob at e satisfies every term. A term matches
-// when it appears in the file path or, for a readable text blob, in the
-// content. No terms means every file matches, the way an empty code query
-// lists the scoped tree.
-func (s *SearchService) matchBlob(repo *Repo, e git.TreeEntry, terms []string) bool {
-	if len(terms) == 0 {
-		return true
-	}
-	lowerPath := strings.ToLower(e.Path)
-	var content string
-	loaded := false
-	for _, t := range terms {
-		if strings.Contains(lowerPath, t) {
-			continue
-		}
-		if !loaded {
-			blob, err := s.repos.GetBlob(repo, e.SHA)
-			if err == nil && isText(blob.Content) {
-				content = strings.ToLower(string(blob.Content))
-			}
-			loaded = true
-		}
-		if !strings.Contains(content, t) {
-			return false
-		}
-	}
-	return true
+	return hits, used, c.truncated
 }
 
 // codeScope resolves the repository pks a code search runs over from its repo:,

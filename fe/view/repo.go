@@ -68,12 +68,16 @@ type TreeNav struct {
 
 // RefPickerVM is the branch/tag switcher. It lists the refs inline (bounded) and
 // each entry carries the URL that keeps the viewer on the same view kind and
-// path. F1 renders the full bounded set as plain links so it works with no JS.
+// path. The entries render as plain links so the picker works with no JS. Each
+// group is capped; when the cap bites, the More URL points at the full branches
+// or tags page so every ref stays reachable.
 type RefPickerVM struct {
-	Current  string
-	IsTag    bool
-	Branches []RefChoice
-	Tags     []RefChoice
+	Current         string
+	IsTag           bool
+	Branches        []RefChoice
+	Tags            []RefChoice
+	MoreBranchesURL string // set when the branch list was capped
+	MoreTagsURL     string // set when the tag list was capped
 }
 
 // RefChoice is one entry in the ref picker: the ref name and the URL that
@@ -341,7 +345,10 @@ type CommitVM struct {
 	ParentURLs  []string // tree browse URL for each parent
 	Diff        string   // rendered HTML from the markup pipeline; empty = initial commit
 	RawPatch    string   // raw unified-diff text, rendered only if Diff is empty
-	FilesCount  int      // number of files changed
-	CommitsURL  string   // back link to the history page
-	TreeURL     string   // tree at this commit
+	// PatchTruncated marks RawPatch as the bounded head of a larger patch; the
+	// template shows a note pointing at the browse view for the full change.
+	PatchTruncated bool
+	FilesCount     int    // number of files changed
+	CommitsURL     string // back link to the history page
+	TreeURL        string // tree at this commit
 }

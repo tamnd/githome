@@ -152,10 +152,24 @@ type patchLine struct {
 	noEOL bool
 }
 
+// Per-file inline render caps. A diff page caps how many files it shows, but a
+// single generated file (a lockfile, a vendored bundle, minified output) can
+// carry hundreds of thousands of lines on its own, and every one of them would
+// become an escaped row VM and a table row in the page. Past either bound the
+// file renders as too-large with its counts and the view-file link instead of
+// rows. The bounds sit well above GitHub's 400-line collapse tier because there
+// is no lazy-load fragment yet; when that endpoint lands the threshold can drop
+// to match.
+const (
+	maxDiffFileLines = 2000
+	maxDiffFileBytes = 100 << 10
+)
+
 // BuildDiffFile parses a file's unified-diff patch text and builds its row list
 // in the given mode. status, path, oldPath, and the line counts come from the
 // producer's per-file record; patch is the hunk text (empty for a binary file).
 // A binary file (a non-empty change with no patch) yields no rows and IsBinary.
+// A patch past the per-file caps yields no rows and TooLarge.
 func BuildDiffFile(path, oldPath string, status FileStatus, additions, deletions int, patch string, mode DiffMode) DiffFileVM {
 	f := DiffFileVM{
 		Path:      path,
@@ -170,6 +184,10 @@ func BuildDiffFile(path, oldPath string, status FileStatus, additions, deletions
 		// No hunks: a binary file, or a pure rename/mode change with no content
 		// delta. Either way there are no rows to render; the partial shows a note.
 		f.IsBinary = status != StatusRenamed && status != StatusCopied && (additions > 0 || deletions > 0)
+		return f
+	}
+	if len(patch) > maxDiffFileBytes || strings.Count(patch, "\n") >= maxDiffFileLines {
+		f.TooLarge = true
 		return f
 	}
 	f.Rows = buildRows(parsePatch(patch), mode)

@@ -129,7 +129,11 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	assets.With(webmw.Recover(d.Render, d.Logger)).
 		Get(render.AssetURLPrefix+"{file...}", d.Render.AssetHandler())
 
-	return themedMethodNotAllowed(assetDispatch(assets, root), d.Render)
+	// Compression wraps the whole servable surface (pages, assets, and the API
+	// routes sharing root), negotiated per request and applied per response
+	// content type, so HTML/CSS/JS/SVG/JSON ship gzipped while images,
+	// archives, and git packs pass through untouched.
+	return webmw.Gzip(themedMethodNotAllowed(assetDispatch(assets, root), d.Render))
 }
 
 // assetDispatch serves the hashed asset tree under render.AssetURLPrefix from

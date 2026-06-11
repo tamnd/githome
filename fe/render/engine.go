@@ -9,7 +9,9 @@ package render
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io"
@@ -148,6 +150,13 @@ func globUnder(fsys fs.FS, root string, dirs ...string) ([]string, error) {
 // Page renders a full page, or a fragment if the request is an htmx swap. name is
 // the logical page name ("home/index"). It buffers before writing the status so a
 // template error becomes a clean 500 rather than a half-written 200.
+//
+// Every full page carries a strong ETag over the rendered bytes (spec 03
+// section 6: the page is rendered for one viewer and color mode, both of which
+// land in the bytes, so the hash subsumes them) and Cache-Control: private,
+// no-cache, the revalidate-every-time policy. A back-button or repeat visit
+// whose If-None-Match still matches gets a 304 and ships no body. The render
+// happens either way; what the ETag saves is the transfer, not the template.
 func (s *Set) Page(c *mizu.Ctx, name string, vm any) error {
 	if IsFragment(c) {
 		return s.Fragment(c, name, vm)
@@ -159,7 +168,42 @@ func (s *Set) Page(c *mizu.Ctx, name string, vm any) error {
 	h := c.Header()
 	h.Add("Vary", "Cookie")
 	h.Add("Vary", "HX-Request")
+	etag := etagFor(buf.Bytes())
+	h.Set("ETag", etag)
+	h.Set("Cache-Control", "private, no-cache")
+	if r := c.Request(); (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
+		etagMatches(r.Header.Get("If-None-Match"), etag) {
+		// Header only: a 304 forbids a body, and net/http rejects any Write
+		// after it, so this cannot go through Bytes.
+		c.Writer().WriteHeader(http.StatusNotModified)
+		return nil
+	}
 	return c.Bytes(http.StatusOK, buf.Bytes(), "text/html; charset=utf-8")
+}
+
+// etagFor is the strong validator for a rendered page: a quoted hash of the
+// exact bytes, so any change to the page (content, viewer, theme) changes it.
+func etagFor(body []byte) string {
+	sum := sha256.Sum256(body)
+	return `"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// etagMatches implements the If-None-Match check: a comma-separated list of
+// entity tags, each possibly weak-prefixed, or the * wildcard. Comparison is
+// weak (the W/ prefix is ignored) per RFC 9110 section 13.1.2, which is the
+// right strength for deciding whether to resend a body.
+func etagMatches(header, etag string) bool {
+	if header == "" {
+		return false
+	}
+	for part := range strings.SplitSeq(header, ",") {
+		part = strings.TrimSpace(part)
+		part = strings.TrimPrefix(part, "W/")
+		if part == "*" || part == etag {
+			return true
+		}
+	}
+	return false
 }
 
 // Fragment renders one page's content template standalone (no layout) for an htmx

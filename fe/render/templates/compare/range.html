@@ -41,7 +41,10 @@
 
     {{if .Commits -}}
     <div class="compare-commits">
-      <h3 class="compare-section-title">{{len .Commits}} commit{{if ne (len .Commits) 1}}s{{end}}</h3>
+      <h3 class="compare-section-title">{{.TotalCommits}} commit{{if ne .TotalCommits 1}}s{{end}}</h3>
+      {{if gt .TotalCommits (len .Commits) -}}
+      <p class="compare-commits-capped">Showing the latest {{len .Commits}} commits.</p>
+      {{- end}}
       <ul class="commit-list">
         {{range .Commits -}}
         <li class="commit-row">

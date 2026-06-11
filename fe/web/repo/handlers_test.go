@@ -1,13 +1,16 @@
 package repo
 
 import (
+	"bytes"
 	"context"
+	"github.com/tamnd/githome/fe/route"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -126,6 +129,7 @@ func newFixture(t *testing.T) fixture {
 	rg.Get("/{owner}/{repo}/raw/{rest...}", h.Raw)
 	rg.Get("/{owner}/{repo}/commits", h.Commits)
 	rg.Get("/{owner}/{repo}/commits/{rest...}", h.Commits)
+	rg.Get("/{owner}/{repo}/commit/{sha}", h.Commit)
 	rg.Get("/{owner}/{repo}/branches", h.Branches)
 	rg.Get("/{owner}/{repo}/tags", h.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", h.FileFinder)
@@ -177,6 +181,14 @@ func buildGitFixture(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if _, err := wt.Add("docs/guide.md"); err != nil {
+		t.Fatal(err)
+	}
+	// A text file past the web display cutoff: the blob view must refuse to
+	// render it inline and offer the raw link instead.
+	if err := util.WriteFile(fs, "big.txt", bytes.Repeat([]byte("0123456789abcde\n"), (maxBlobDisplayBytes/16)+1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wt.Add("big.txt"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig}); err != nil {
@@ -431,5 +443,94 @@ func TestUnknownRefIsNotFound(t *testing.T) {
 	resp, _ := get(t, fx.srv, "/octocat/hello/tree/no-such-branch")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("unknown ref status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestBlobOverDisplayCutoffShowsTooLarge renders a text blob past the web
+// display cutoff and expects the too-large blankslate with the raw link, with
+// none of the file's content escaped into the page.
+func TestBlobOverDisplayCutoffShowsTooLarge(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/big.txt")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "too large to display") {
+		t.Errorf("big blob is missing the too-large notice:\n%s", body[:min(len(body), 2000)])
+	}
+	if !strings.Contains(body, "/octocat/hello/raw/master/big.txt") {
+		t.Errorf("big blob is missing the raw link")
+	}
+	if strings.Contains(body, "0123456789abcde") {
+		t.Errorf("big blob content leaked into the page")
+	}
+}
+
+// TestCommitPagePatchBounded renders the commit whose patch carries the big.txt
+// blob, far past the inline cap: the page must show the head of the patch plus
+// the truncation note, while a small commit still renders its patch whole.
+func TestCommitPagePatchBounded(t *testing.T) {
+	fx := newFixture(t)
+
+	resp, body := get(t, fx.srv, "/octocat/hello/commit/master")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "too large to show in full") {
+		t.Fatal("oversized patch rendered without the truncation note")
+	}
+	if !strings.Contains(body, "diff --git") {
+		t.Fatal("truncated commit page lost the head of its patch")
+	}
+	if len(body) > maxCommitPatchBytes*2 {
+		t.Fatalf("page is %d bytes, the patch cap did not bite", len(body))
+	}
+
+	// The first commit (both tags point at it) has no parent, so the page shows
+	// the no-diff blankslate; either way no truncation note belongs here.
+	resp, body = get(t, fx.srv, "/octocat/hello/commit/v0.1.0")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if strings.Contains(body, "too large to show in full") {
+		t.Fatal("small page carried the truncation note")
+	}
+}
+
+// TestRefPickerCapped feeds the picker more refs than it inlines: each group
+// stops at the cap with a view-all link, and the current-tag detection still
+// works when the current ref sits past the cap.
+func TestRefPickerCapped(t *testing.T) {
+	h := &Handlers{}
+	repo := &domain.Repo{Name: "hello", Owner: &domain.User{Login: "octocat"}}
+	refs := &refSet{}
+	for i := range maxRefPickerEntries + 5 {
+		refs.branches = append(refs.branches, git.Branch{Name: "branch-" + strconv.Itoa(i)})
+		refs.tags = append(refs.tags, git.Tag{Name: "tag-" + strconv.Itoa(i)})
+	}
+	current := "tag-" + strconv.Itoa(maxRefPickerEntries+2) // past the cap
+
+	vm := h.refPicker(repo, refs, current, route.KindTree, "")
+	if len(vm.Branches) != maxRefPickerEntries {
+		t.Fatalf("branches shown = %d, want %d", len(vm.Branches), maxRefPickerEntries)
+	}
+	if len(vm.Tags) != maxRefPickerEntries {
+		t.Fatalf("tags shown = %d, want %d", len(vm.Tags), maxRefPickerEntries)
+	}
+	if vm.MoreBranchesURL == "" || vm.MoreTagsURL == "" {
+		t.Fatalf("capped picker must link the full lists: branches=%q tags=%q", vm.MoreBranchesURL, vm.MoreTagsURL)
+	}
+	if !vm.IsTag {
+		t.Fatal("current tag past the cap must still flag IsTag")
+	}
+
+	// Under the cap nothing is cut and no view-all links appear.
+	small := &refSet{branches: refs.branches[:3], tags: refs.tags[:3]}
+	vm = h.refPicker(repo, small, "branch-1", route.KindTree, "")
+	if len(vm.Branches) != 3 || len(vm.Tags) != 3 {
+		t.Fatalf("small picker shows %d/%d, want 3/3", len(vm.Branches), len(vm.Tags))
+	}
+	if vm.MoreBranchesURL != "" || vm.MoreTagsURL != "" {
+		t.Fatal("small picker must not link the full lists")
 	}
 }

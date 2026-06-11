@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/tamnd/githome/git"
@@ -447,6 +448,19 @@ func (s *RepoService) ListCommits(repo *Repo, opts git.LogOpts) ([]git.Commit, e
 	return cs, nil
 }
 
+// LatestCommit returns the newest commit at rev touching path (the whole tree
+// when path is empty). ok is false when nothing matches: an unborn ref, a bad
+// revision, or a path with no history. It runs one bounded git log -1
+// subprocess instead of an in-process history walk, so a tree page asking for
+// its latest-commit bar does not pay for the repository's depth.
+func (s *RepoService) LatestCommit(ctx context.Context, repo *Repo, rev, path string) (git.Commit, bool, error) {
+	c, ok, err := s.gitStore.LastCommitForPath(ctx, repo.PK, rev, path)
+	if err != nil {
+		return git.Commit{}, false, gitErr(err)
+	}
+	return c, ok, nil
+}
+
 // GetTree loads a tree by any revision, optionally walking the whole subtree.
 func (s *RepoService) GetTree(repo *Repo, rev string, recursive bool) (git.Tree, error) {
 	gr, err := s.open(repo)
@@ -626,22 +640,38 @@ func gitErr(err error) error {
 
 // CompareResult is the three-dot comparison between two branches. Files and
 // Commits are the unique changes from base to head; Additions, Deletions, and
-// ChangedFiles are the aggregated line counts.
+// ChangedFiles are the aggregated line counts. Commits is capped at
+// MaxCompareCommits; TotalCommits is the real size of the range, so a capped
+// result still reports honest counts.
 type CompareResult struct {
 	Base         git.Branch
 	Head         git.Branch
 	MergeBase    git.SHA
 	Commits      []git.Commit
+	TotalCommits int
 	Files        []git.FileChange
 	Additions    int
 	Deletions    int
 	ChangedFiles int
 }
 
+// MaxCompareCommits caps how many commits a comparison loads, GitHub's own
+// compare ceiling. A compare across a release boundary can span tens of
+// thousands of commits; listing every one before render is unbounded work for a
+// page nobody scrolls to the end of.
+const MaxCompareCommits = 250
+
 // Compare resolves base and head as branch names and computes the three-dot
 // comparison between them. ErrGitNotFound is returned when either branch does
 // not exist in the repository. When the two branches share no common history, a
 // CompareResult with empty Commits and Files is returned rather than an error.
+//
+// The cost is three git subprocesses in the common case: the merge base, then
+// the commit list and the file diff in parallel (independent reads of immutable
+// objects). The per-file counts ChangedFiles already carries supply the
+// additions/deletions totals, so no separate diff --numstat runs. The commit
+// list is capped at MaxCompareCommits; when the cap bites, one extra rev-list
+// --count establishes the honest TotalCommits.
 func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
 	baseBranch, err := s.GetBranch(repo, base)
 	if err != nil {
@@ -658,27 +688,55 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 	if !ok {
 		return &CompareResult{Base: baseBranch, Head: headBranch}, nil
 	}
-	commits, err := s.gitStore.CommitsBetween(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-	if err != nil {
-		return nil, err
+
+	var (
+		commits           []git.Commit
+		files             []git.FileChange
+		commitsErr, fdErr error
+		wg                sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		// One past the cap so a result of exactly the cap is distinguishable
+		// from a truncated one without a second subprocess in the common case.
+		commits, commitsErr = s.gitStore.CommitsBetweenN(ctx, repo.PK, baseBranch.Commit, headBranch.Commit, MaxCompareCommits+1)
+	}()
+	go func() {
+		defer wg.Done()
+		files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	}()
+	wg.Wait()
+	if commitsErr != nil {
+		return nil, commitsErr
 	}
-	files, err := s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-	if err != nil {
-		return nil, err
+	if fdErr != nil {
+		return nil, fdErr
 	}
-	add, del, changed, err := s.gitStore.DiffStat(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-	if err != nil {
-		return nil, err
+
+	total := len(commits)
+	if len(commits) > MaxCompareCommits {
+		commits = commits[len(commits)-MaxCompareCommits:]
+		if ahead, _, err := s.gitStore.AheadBehind(ctx, repo.PK, baseBranch.Commit, headBranch.Commit); err == nil {
+			total = ahead
+		}
+	}
+
+	var add, del int
+	for i := range files {
+		add += files[i].Additions
+		del += files[i].Deletions
 	}
 	return &CompareResult{
 		Base:         baseBranch,
 		Head:         headBranch,
 		MergeBase:    mb,
 		Commits:      commits,
+		TotalCommits: total,
 		Files:        files,
 		Additions:    add,
 		Deletions:    del,
-		ChangedFiles: changed,
+		ChangedFiles: len(files),
 	}, nil
 }
 

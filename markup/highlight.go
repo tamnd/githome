@@ -46,12 +46,39 @@ func (r *Renderer) HighlightLines(code []byte, lang string) ([]template.HTML, er
 
 // highlightLines is the shared worker. It enforces the size cap (logged, not
 // silent), then delegates to the backend, falling back to escaped per-line text
-// when the backend cannot handle the language.
+// when the backend cannot handle the language. Highlighted output is a pure
+// function of (code, lang, highlighterVersion), so it is served from the
+// fragment cache; callers treat the returned slice as read-only.
 func (r *Renderer) highlightLines(code []byte, lang string) ([]template.HTML, bool) {
 	if r.maxHL > 0 && len(code) > r.maxHL {
 		r.log.Info("blob too large to highlight", "bytes", len(code), "lang", lang)
 		return escapeLines(code), false
 	}
+	cacheable := r.frags != nil
+	var key fragKey
+	if cacheable {
+		key = highlightKey(code, lang)
+		if v, ok := r.frags.get(key); ok {
+			c := v.(hlCached)
+			return c.lines, c.ok
+		}
+	}
+	lines, ok := r.runHighlight(code, lang)
+	if cacheable {
+		r.frags.put(key, hlCached{lines: lines, ok: ok}, linesCost(lines))
+	}
+	return lines, ok
+}
+
+// hlCached is the cached highlight value: the per-line HTML plus whether the
+// backend recognized the grammar (the bit the markdown toggle reads).
+type hlCached struct {
+	lines []template.HTML
+	ok    bool
+}
+
+// runHighlight is the uncached backend call behind highlightLines.
+func (r *Renderer) runHighlight(code []byte, lang string) ([]template.HTML, bool) {
 	if r.hl != nil {
 		if lines, ok := r.hl.highlight(code, lang); ok {
 			return lines, true

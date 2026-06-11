@@ -106,30 +106,45 @@ func breadcrumbs(r *domain.Repo, ref, p string, lastIsBlob bool) []view.Crumb {
 	return crumbs
 }
 
-// refPicker builds the branch/tag switcher, each entry carrying the URL that
-// keeps the viewer on the same view kind and path. F1 renders the full bounded
-// set as plain links so it switches refs with no JS.
-func (h *Handlers) refPicker(r *domain.Repo, current string, kind route.RefKind, p string) view.RefPickerVM {
+// maxRefPickerEntries caps each group of the inline ref picker. A repository
+// with ten thousand tags would otherwise put megabytes of picker links into
+// every tree and blob page; past the cap the picker shows the first entries and
+// a link to the full branches or tags page.
+const maxRefPickerEntries = 100
+
+// refPicker builds the branch/tag switcher from the request's shared ref set,
+// each entry carrying the URL that keeps the viewer on the same view kind and
+// path. Each group is capped at maxRefPickerEntries with a view-all link when
+// the cap bites; the entries render as plain links so the picker works with no
+// JS. The current tag is detected against the full tag list, not the capped
+// one, so the summary icon stays right past the cap.
+func (h *Handlers) refPicker(r *domain.Repo, refs *refSet, current string, kind route.RefKind, p string) view.RefPickerVM {
 	owner := ownerLogin(r)
-	branches, tags := h.branchTagLists(r)
 	vm := view.RefPickerVM{Current: current}
-	for _, b := range branches {
+	for i, b := range refs.branches {
+		if i == maxRefPickerEntries {
+			vm.MoreBranchesURL = route.Branches(owner, r.Name)
+			break
+		}
 		vm.Branches = append(vm.Branches, view.RefChoice{
 			Name:      b.Name,
 			URL:       switchURL(owner, r.Name, kind, b.Name, p),
 			IsCurrent: b.Name == current,
 		})
 	}
-	for _, t := range tags {
-		choice := view.RefChoice{
-			Name:      t.Name,
-			URL:       switchURL(owner, r.Name, kind, t.Name, p),
-			IsCurrent: t.Name == current,
-		}
+	for i, t := range refs.tags {
 		if t.Name == current {
 			vm.IsTag = true
 		}
-		vm.Tags = append(vm.Tags, choice)
+		if i >= maxRefPickerEntries {
+			vm.MoreTagsURL = route.Tags(owner, r.Name)
+			continue
+		}
+		vm.Tags = append(vm.Tags, view.RefChoice{
+			Name:      t.Name,
+			URL:       switchURL(owner, r.Name, kind, t.Name, p),
+			IsCurrent: t.Name == current,
+		})
 	}
 	return vm
 }
@@ -199,16 +214,16 @@ func entryKindIcon(e git.PathEntry) (kind, icon string) {
 	}
 }
 
-// latestCommit builds the latest-commit bar over a tree path. It reads one commit
-// from the path-scoped history; a path with no history (or an empty repo) yields
-// an absent summary the template hides. F1 reads this synchronously; the lazy
-// per-row cells are a later optimization (implementation/07 section 4.1).
-func (h *Handlers) latestCommit(r *domain.Repo, ref, p string) view.CommitSummary {
-	commits, err := h.repos.ListCommits(r, git.LogOpts{From: ref, Path: p, Max: 1})
-	if err != nil || len(commits) == 0 {
+// latestCommit builds the latest-commit bar over a tree path. It asks the domain
+// for the single newest commit in the path-scoped history (one git log -1
+// subprocess, not an in-process walk); a path with no history (or an empty repo)
+// yields an absent summary the template hides. F1 reads this synchronously; the
+// lazy per-row cells are a later optimization (implementation/07 section 4.1).
+func (h *Handlers) latestCommit(ctx context.Context, r *domain.Repo, ref, p string) view.CommitSummary {
+	c, ok, err := h.repos.LatestCommit(ctx, r, ref, p)
+	if err != nil || !ok {
 		return view.CommitSummary{}
 	}
-	c := commits[0]
 	return view.CommitSummary{
 		SHA:        c.SHA,
 		ShortSHA:   shortSHA(c.SHA),
@@ -233,6 +248,11 @@ func (h *Handlers) readme(ctx context.Context, r *domain.Repo, ref string, listi
 	path := joinPath(currentDir(listing), name)
 	res, err := h.repos.Contents(r, path, ref)
 	if err != nil || res.IsDir || res.File == nil {
+		return nil
+	}
+	if len(res.File.Content) > maxBlobDisplayBytes {
+		// The same display cutoff the blob view applies: a README past it is
+		// omitted rather than rendered or escaped wholesale into the tree page.
 		return nil
 	}
 	source := string(res.File.Content)
