@@ -49,26 +49,56 @@ func dict(pairs ...any) (map[string]any, error) {
 	return m, nil
 }
 
-// octicon renders the named icon as an inline <svg>. An unknown name renders a
-// visible dashed-box placeholder rather than the raw name or an empty string, so
-// a typo surfaces in review instead of shipping silently. size defaults to 16
-// when zero or negative. The svg is marked aria-hidden; a meaningful icon must
-// carry its own label at the call site (a visually-hidden span or aria-label).
-func octicon(name string, size int) template.HTML {
+// octicon renders the named icon as an inline <svg>. The optional arguments
+// are a pixel size (defaults to 16) and a label, in either order: an unlabeled
+// icon is decorative and marked aria-hidden, a labeled one renders role="img"
+// with an aria-label and a <title> so it reads as an image (spec 2005 doc 16
+// section 8.4). At 24px and above the helper prefers the 24-grid drawing when
+// the set has one instead of upscaling the 16-grid glyph, and the viewBox
+// always comes from the icon's own grid so the few non-square glyphs keep
+// their aspect ratio. An unknown name renders a visible dashed-box placeholder
+// rather than the raw name or an empty string, so a typo surfaces in review
+// instead of shipping silently; the coverage test in icons_coverage_test.go
+// turns that into a failing build for template references.
+func octicon(name string, args ...any) (template.HTML, error) {
+	size := 16
+	label := ""
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case int:
+			size = v
+		case string:
+			label = v
+		default:
+			return "", fmt.Errorf("octicon %q: argument %v is neither a size nor a label", name, arg)
+		}
+	}
 	if size <= 0 {
 		size = 16
 	}
-	body, ok := assets.Icons[name]
+	icon, ok := assets.Icons[name]
+	if size >= 24 {
+		if icon24, ok24 := assets.Icons24[name]; ok24 {
+			icon, ok = icon24, true
+		}
+	}
 	if !ok {
 		return template.HTML(fmt.Sprintf(
 			`<svg class="octicon octicon-missing" width="%d" height="%d" viewBox="0 0 16 16" `+
 				`aria-hidden="true" style="outline:1px dashed currentColor"><title>missing icon: %s</title></svg>`,
-			size, size, template.HTMLEscapeString(name)))
+			size, size, template.HTMLEscapeString(name))), nil
+	}
+	width := size * icon.Width / icon.Height
+	aria := `aria-hidden="true"`
+	title := ""
+	if label != "" {
+		aria = fmt.Sprintf(`role="img" aria-label="%s"`, template.HTMLEscapeString(label))
+		title = "<title>" + template.HTMLEscapeString(label) + "</title>"
 	}
 	return template.HTML(fmt.Sprintf(
-		`<svg class="octicon octicon-%s" width="%d" height="%d" viewBox="0 0 16 16" `+
-			`fill="currentColor" aria-hidden="true">%s</svg>`,
-		template.HTMLEscapeString(name), size, size, body))
+		`<svg class="octicon octicon-%s" width="%d" height="%d" viewBox="0 0 %d %d" `+
+			`fill="currentColor" %s>%s%s</svg>`,
+		template.HTMLEscapeString(name), width, size, icon.Width, icon.Height, aria, title, icon.Body)), nil
 }
 
 // colorModeAttrs renders the three attributes the html element carries so CSS

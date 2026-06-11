@@ -7,8 +7,10 @@
  * same on both the web front and the REST text/html surface. See implementation/10.
  */
 
+/* Rendered prose reads at 16px, the large body size GitHub gives documents,
+   while the UI chrome around it stays at the 14px default. */
 .markdown-body {
-  font-size: var(--text-body-size);
+  font-size: var(--text-body-size-large);
   line-height: var(--text-body-lineHeight);
   word-wrap: break-word;
   text-align: left;
@@ -62,8 +64,9 @@
   font-size: var(--text-body-size);
 }
 
-/* The heading anchor the post-process stage prepends: hidden until the heading
-   is hovered or the link itself is focused, so the document stays clean. */
+/* The heading anchor the post-process stage prepends, carrying the link
+   octicon as its body: hidden until the heading is hovered or the link itself
+   is focused, so the document stays clean. */
 .markdown-body .anchor {
   float: left;
   margin-left: calc(-1 * var(--base-size-20));
@@ -72,9 +75,9 @@
   opacity: 0;
 }
 
-.markdown-body .anchor::before {
-  content: "#";
+.markdown-body .anchor .octicon-link {
   color: var(--fgColor-muted);
+  vertical-align: middle;
 }
 
 .markdown-body h1:hover .anchor,
@@ -185,6 +188,69 @@
   border: 0;
 }
 
+/* The keycap element the sanitizer lets through: a small raised chip with the
+   keyboard shadow, GitHub's rendering of <kbd>Enter</kbd>. */
+.markdown-body kbd {
+  display: inline-block;
+  padding: var(--base-size-4);
+  font-family: var(--fontStack-monospace);
+  font-size: 11px;
+  line-height: 10px;
+  color: var(--fgColor-default);
+  vertical-align: middle;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: inset 0 -1px 0 var(--borderColor-default);
+}
+
+/* Collapsible sections. The summary reads as the clickable affordance and the
+   open state separates the revealed body from the next block. */
+.markdown-body details {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body details summary {
+  cursor: pointer;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown-body details[open] summary {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body del {
+  color: var(--fgColor-muted);
+}
+
+/* Definition lists, the GFM-adjacent element the sanitizer admits. */
+.markdown-body dl {
+  padding: 0;
+}
+
+.markdown-body dl dt {
+  padding: var(--base-size-16) 0 var(--base-size-8);
+  font-size: 1em;
+  font-style: italic;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown-body dl dd {
+  padding: 0 var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  margin-left: 0;
+}
+
+/* Custom emoji arrive as images; they must sit on the text line at glyph size
+   with no background, the same as a unicode emoji would. */
+.markdown-body img.emoji {
+  width: 20px;
+  height: 20px;
+  vertical-align: text-bottom;
+  background-color: transparent;
+  box-sizing: border-box;
+}
+
 /* Task lists: the renderer marks the list and each checkbox item so the bullet
    is dropped and the checkbox aligns with the text. */
 .markdown-body .contains-task-list {
@@ -203,10 +269,11 @@
 
 /*
  * Alert callouts (> [!NOTE] and friends). The transform stage emits a
- * markdown-alert block with a kind modifier and a title paragraph; each kind
- * tints its left border and title with a functional color. The data-octicon
- * attribute is reserved for the icon the title carries once the octicon sprite
- * is wired into rendered markup.
+ * markdown-alert block with a kind modifier and a title paragraph that leads
+ * with the kind's octicon (the markup post-process stage inlines it); each
+ * kind tints its left border with the role's emphasis border and its title
+ * with the role's foreground, the GitHub mapping: note is accent, tip is
+ * success, important is done, warning is attention, caution is danger.
  */
 .markdown-body .markdown-alert {
   padding: 0 var(--base-size-16);
@@ -225,13 +292,13 @@
 .markdown-body .markdown-alert-title {
   display: flex;
   align-items: center;
-  gap: var(--base-size-4);
+  gap: var(--base-size-8);
   font-weight: 600;
   line-height: 1;
 }
 
 .markdown-body .markdown-alert-note {
-  border-left-color: var(--fgColor-accent);
+  border-left-color: var(--borderColor-accent-emphasis);
 }
 
 .markdown-body .markdown-alert-note .markdown-alert-title {
@@ -239,39 +306,112 @@
 }
 
 .markdown-body .markdown-alert-tip {
-  border-left-color: var(--bgColor-success-emphasis);
+  border-left-color: var(--borderColor-success-emphasis);
 }
 
 .markdown-body .markdown-alert-tip .markdown-alert-title {
-  color: var(--bgColor-success-emphasis);
+  color: var(--fgColor-success);
 }
 
 .markdown-body .markdown-alert-important {
-  border-left-color: var(--color-prettylights-syntax-entity);
+  border-left-color: var(--borderColor-done-emphasis);
 }
 
 .markdown-body .markdown-alert-important .markdown-alert-title {
-  color: var(--color-prettylights-syntax-entity);
+  color: var(--fgColor-done);
 }
 
 .markdown-body .markdown-alert-warning {
-  border-left-color: var(--color-prettylights-syntax-keyword);
+  border-left-color: var(--borderColor-attention-emphasis);
 }
 
 .markdown-body .markdown-alert-warning .markdown-alert-title {
-  color: var(--color-prettylights-syntax-keyword);
+  color: var(--fgColor-attention);
 }
 
 .markdown-body .markdown-alert-caution {
-  border-left-color: var(--color-prettylights-syntax-keyword);
+  border-left-color: var(--borderColor-danger-emphasis);
 }
 
 .markdown-body .markdown-alert-caution .markdown-alert-title {
-  color: var(--color-prettylights-syntax-keyword);
+  color: var(--fgColor-danger);
 }
 
 /* A fenced code block inside rendered markdown drops the extra paragraph margin
    its highlight container already carries. */
 .markdown-body .highlight pre {
+  margin-bottom: 0;
+}
+
+/*
+ * Footnotes. The renderer collects them into a .footnotes block at the end of
+ * the document: small muted text under a top rule, with the goldmark separator
+ * hr hidden because the border already draws it. Following a reference link
+ * targets the list item, which gets the accent ring so the eye lands on it.
+ */
+.markdown-body .footnotes {
+  font-size: var(--text-body-size-small);
+  color: var(--fgColor-muted);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.markdown-body .footnotes hr {
+  display: none;
+}
+
+.markdown-body .footnotes ol {
+  padding-left: var(--base-size-16);
+}
+
+.markdown-body .footnotes li {
+  position: relative;
+}
+
+.markdown-body .footnotes li:target {
+  color: var(--fgColor-default);
+}
+
+.markdown-body .footnotes li:target::before {
+  position: absolute;
+  top: calc(-1 * var(--base-size-8));
+  right: calc(-1 * var(--base-size-8));
+  bottom: calc(-1 * var(--base-size-8));
+  left: calc(-1 * var(--base-size-24));
+  pointer-events: none;
+  content: "";
+  border: var(--borderWidth-thick) solid var(--borderColor-accent-emphasis);
+  border-radius: var(--borderRadius-medium);
+}
+
+/*
+ * Math and diagram placeholders. The renderer emits the escaped source in a
+ * .math span or div for the KaTeX island and a .render-diagram block for the
+ * Mermaid island; until those islands land (and always with scripting off)
+ * the source must read as code, not as a bare line of LaTeX in the prose.
+ */
+.markdown-body .math {
+  font-family: var(--fontStack-monospace);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.markdown-body .math-inline {
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+}
+
+.markdown-body .math-display {
+  padding: var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  overflow: auto;
+  font-size: var(--text-small-size);
+  line-height: 1.45;
+}
+
+.markdown-body .render-diagram {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body .render-diagram pre {
   margin-bottom: 0;
 }

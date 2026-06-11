@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: var(--base-size-8);
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
 }
 
 .repohead-icon {
@@ -82,12 +82,12 @@
 
 .reponav-item:hover {
   text-decoration: none;
-  border-bottom-color: var(--borderColor-muted);
+  border-bottom-color: var(--underlineNav-borderColor-hover);
 }
 
 .reponav-item.is-current {
   font-weight: 600;
-  border-bottom-color: var(--bgColor-accent-muted);
+  border-bottom-color: var(--underlineNav-borderColor-active);
 }
 
 /* Subhead: ref picker, breadcrumb, history, clone. */
@@ -122,7 +122,7 @@
 }
 
 .repo-sidebar-title {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 
@@ -135,6 +135,13 @@
 .repo-about-homepage {
   margin-top: var(--base-size-8);
   font-size: var(--text-small-size);
+}
+
+.repo-about-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--base-size-4);
+  margin-top: var(--base-size-8);
 }
 
 /* Ref picker disclosure. */
@@ -177,7 +184,7 @@
   background-color: var(--bgColor-default);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-floating-small);
 }
 
 .ref-picker-group-title {
@@ -248,7 +255,7 @@
 
 /* Breadcrumb. */
 .repo-breadcrumb {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
 }
 
 .repo-breadcrumb-item {
@@ -364,7 +371,7 @@
 }
 
 .readme-name {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
 }
 
 .readme-body {
@@ -511,7 +518,7 @@
 
 .commits-date {
   margin: var(--base-size-24) 0 var(--base-size-8);
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   color: var(--fgColor-muted);
 }
 
@@ -704,7 +711,7 @@
 }
 
 .quick-setup-heading {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 
@@ -758,7 +765,7 @@
 }
 
 .commit-detail-title {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 600;
   color: var(--fgColor-default);
   margin: 0 0 var(--base-size-8);
@@ -1026,7 +1033,7 @@
 }
 
 .quick-setup-title {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 

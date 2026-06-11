@@ -1,0 +1,238 @@
+package assets
+
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+)
+
+// themeBlocks lifts the explicit per-theme blocks out of themes.gen.css:
+// theme name to its token->value map. The explicit blocks are flat (the auto
+// duplicates sit inside media queries and repeat the same values), so a
+// simple regex is enough.
+func themeBlocks(t *testing.T) map[string]map[string]string {
+	t.Helper()
+	src, err := os.ReadFile("src/css/themes.gen.css")
+	if err != nil {
+		t.Fatalf("read themes.gen.css: %v", err)
+	}
+	blockRe := regexp.MustCompile(`\[data-color-mode="(?:light|dark)"\]\[data-(?:light|dark)-theme="([a-z_]+)"\]\s*\{([^}]*)\}`)
+	tokenRe := regexp.MustCompile(`--([a-zA-Z0-9-]+):\s*([^;]+);`)
+	out := map[string]map[string]string{}
+	for _, m := range blockRe.FindAllStringSubmatch(string(src), -1) {
+		tokens := map[string]string{}
+		for _, tm := range tokenRe.FindAllStringSubmatch(m[2], -1) {
+			tokens[tm[1]] = strings.TrimSpace(tm[2])
+		}
+		out[m[1]] = tokens
+	}
+	return out
+}
+
+// TestPrettylightsPaletteFullyConsumed guards review 02 task R02-26: the
+// themes define GitHub's full prettylights syntax palette, and every one of
+// those variables must be read by a pl-* rule in highlight.css, so no token
+// category the highlighter emits renders uncolored.
+func TestPrettylightsPaletteFullyConsumed(t *testing.T) {
+	themes := themeBlocks(t)
+	light, ok := themes["light"]
+	if !ok {
+		t.Fatal("themes.gen.css has no light theme block")
+	}
+	sheet, err := os.ReadFile("src/css/highlight.css")
+	if err != nil {
+		t.Fatalf("read highlight.css: %v", err)
+	}
+	count := 0
+	for name := range light {
+		if !strings.HasPrefix(name, "color-prettylights-syntax-") {
+			continue
+		}
+		count++
+		if !strings.Contains(string(sheet), "var(--"+name+")") {
+			t.Errorf("highlight.css never reads --%s; a token category renders uncolored", name)
+		}
+	}
+	if count < 30 {
+		t.Errorf("light theme defines %d prettylights variables, want the full set of 30", count)
+	}
+}
+
+// TestBaseScaleMatchesSpec guards review 02 task R02-07: the base sheet must
+// carry the full spec scale tables (doc 03 section 4), not a truncated slice
+// of them. Spacing runs to 192, the stack-gap roles exist, the title sizes
+// are the 32/24/20 ladder with a 16px subtitle, the small radius is Primer's
+// 3px, and the weight and caption roles are present.
+func TestBaseScaleMatchesSpec(t *testing.T) {
+	src, err := os.ReadFile("src/css/tokens.css")
+	if err != nil {
+		t.Fatalf("read tokens.css: %v", err)
+	}
+	want := map[string]string{
+		"--base-size-64":  "64px",
+		"--base-size-80":  "80px",
+		"--base-size-96":  "96px",
+		"--base-size-128": "128px",
+		"--base-size-160": "160px",
+		"--base-size-192": "192px",
+
+		"--stack-gap-condensed": "var(--base-size-8)",
+		"--stack-gap-normal":    "var(--base-size-16)",
+		"--stack-gap-spacious":  "var(--base-size-24)",
+
+		"--text-title-size-large":  "32px",
+		"--text-title-size-medium": "24px",
+		"--text-title-size-small":  "20px",
+		"--text-subtitle-size":     "16px",
+		"--text-body-size-small":   "12px",
+		"--text-caption-size":      "12px",
+
+		"--base-text-weight-light":    "300",
+		"--base-text-weight-normal":   "400",
+		"--base-text-weight-medium":   "500",
+		"--base-text-weight-semibold": "600",
+		"--base-text-weight-bold":     "700",
+
+		"--borderRadius-small": "3px",
+	}
+	for name, value := range want {
+		if !strings.Contains(string(src), name+": "+value+";") {
+			t.Errorf("tokens.css must define %s: %s", name, value)
+		}
+	}
+}
+
+// TestThemeCatalogComplete guards review 02 tasks R02-01 and R02-03: every
+// theme must define the same functional token set, and the set must cover
+// the catalog groups component CSS is allowed to lean on (controls, role
+// ramps, shadows, overlays, diff colors, the full prettylights palette).
+func TestThemeCatalogComplete(t *testing.T) {
+	themes := themeBlocks(t)
+	want := []string{
+		"light", "light_high_contrast", "light_colorblind", "light_tritanopia",
+		"dark", "dark_dimmed", "dark_high_contrast", "dark_colorblind", "dark_tritanopia",
+	}
+	if len(themes) != len(want) {
+		t.Fatalf("themes.gen.css defines %d themes, want %d", len(themes), len(want))
+	}
+	ref := themes["light"]
+	for _, name := range want {
+		tokens, ok := themes[name]
+		if !ok {
+			t.Fatalf("theme %s missing from themes.gen.css", name)
+		}
+		for k := range ref {
+			if _, ok := tokens[k]; !ok {
+				t.Errorf("theme %s is missing token --%s that light defines", name, k)
+			}
+		}
+		for k := range tokens {
+			if _, ok := ref[k]; !ok {
+				t.Errorf("theme %s defines --%s that light does not; the catalog must stay uniform", name, k)
+			}
+		}
+	}
+
+	required := []string{
+		"fgColor-subtle", "fgColor-disabled", "fgColor-link",
+		"fgColor-open", "fgColor-closed", "fgColor-draft", "fgColor-severe", "fgColor-sponsors",
+		"bgColor-disabled", "bgColor-transparent",
+		"bgColor-accent-emphasis", "bgColor-attention-emphasis",
+		"bgColor-open-emphasis", "bgColor-closed-emphasis", "bgColor-done-muted",
+		"borderColor-emphasis", "borderColor-disabled", "borderColor-translucent",
+		"control-bgColor-rest", "control-bgColor-hover", "control-bgColor-active",
+		"button-primary-bgColor-rest", "button-primary-bgColor-hover",
+		"underlineNav-borderColor-active", "underlineNav-borderColor-hover",
+		"overlay-bgColor", "overlay-backdrop-bgColor",
+		"focus-outlineColor", "selection-bgColor",
+		"shadow-resting-small", "shadow-resting-medium",
+		"shadow-floating-small", "shadow-floating-large", "shadow-inset",
+		"diffBlob-additionLine-bgColor", "diffBlob-additionWord-bgColor",
+		"diffBlob-deletionLine-bgColor", "diffBlob-deletionWord-bgColor",
+		"diffBlob-hunkLine-bgColor",
+		"color-prettylights-syntax-variable",
+		"color-prettylights-syntax-string-regexp",
+		"color-prettylights-syntax-markup-heading",
+		"color-prettylights-syntax-markup-deleted-bg",
+		"color-prettylights-syntax-markup-inserted-bg",
+		"color-prettylights-syntax-brackethighlighter-unmatched",
+		"color-prettylights-syntax-invalid-illegal-text",
+		"color-prettylights-syntax-carriage-return-text",
+	}
+	for _, name := range required {
+		if _, ok := ref[name]; !ok {
+			t.Errorf("catalog is missing required token --%s", name)
+		}
+	}
+}
+
+// TestColorVisionThemesRemapBothAxes guards review 02 task R02-02: the
+// colorblind and tritanopia themes must move the danger/closed ramp off red
+// (to orange) and the success/open ramp off green, in the foregrounds as
+// well as the fills. A theme that only remaps the green fills still shows
+// open/closed as a red/green pair the viewer cannot separate.
+func TestColorVisionThemesRemapBothAxes(t *testing.T) {
+	themes := themeBlocks(t)
+	cases := []struct {
+		theme   string
+		danger  string
+		success string
+	}{
+		{"light_colorblind", "#b35900", "#0969da"},
+		{"light_tritanopia", "#b35900", "#1b7c83"},
+		{"dark_colorblind", "#d47616", "#4493f8"},
+		{"dark_tritanopia", "#d47616", "#39c5cf"},
+	}
+	for _, c := range cases {
+		tokens := themes[c.theme]
+		if tokens == nil {
+			t.Fatalf("theme %s missing", c.theme)
+		}
+		for _, name := range []string{"fgColor-danger", "fgColor-closed", "bgColor-danger-emphasis", "bgColor-closed-emphasis"} {
+			if got := tokens[name]; got != c.danger {
+				t.Errorf("%s --%s = %s, want the orange remap %s", c.theme, name, got, c.danger)
+			}
+		}
+		for _, name := range []string{"fgColor-success", "fgColor-open"} {
+			if got := tokens[name]; got != c.success {
+				t.Errorf("%s --%s = %s, want the remapped hue %s", c.theme, name, got, c.success)
+			}
+		}
+	}
+}
+
+// TestEveryVarReferenceIsDefined guards review 02 task R02-06: a component
+// sheet must never read a custom property nothing defines, because the
+// var() fallback (or worse, nothing) silently takes over and drifts from
+// the theme. Declarations from every sheet count, including component-local
+// properties.
+func TestEveryVarReferenceIsDefined(t *testing.T) {
+	sheets, err := filepath.Glob("src/css/*.css")
+	if err != nil || len(sheets) == 0 {
+		t.Fatalf("glob src/css: %v (%d files)", err, len(sheets))
+	}
+	declRe := regexp.MustCompile(`--([a-zA-Z0-9-]+)\s*:`)
+	refRe := regexp.MustCompile(`var\(\s*--([a-zA-Z0-9-]+)`)
+	defined := map[string]bool{}
+	type ref struct{ file, name string }
+	var refs []ref
+	for _, sheet := range sheets {
+		src, err := os.ReadFile(sheet)
+		if err != nil {
+			t.Fatalf("read %s: %v", sheet, err)
+		}
+		for _, m := range declRe.FindAllStringSubmatch(string(src), -1) {
+			defined[m[1]] = true
+		}
+		for _, m := range refRe.FindAllStringSubmatch(string(src), -1) {
+			refs = append(refs, ref{file: filepath.Base(sheet), name: m[1]})
+		}
+	}
+	for _, r := range refs {
+		if !defined[r.name] {
+			t.Errorf("%s reads var(--%s) but no sheet defines it", r.file, r.name)
+		}
+	}
+}

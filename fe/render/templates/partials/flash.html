@@ -1,8 +1,15 @@
 {{define "flash" -}}
 {{/* The data here is a slice of Flash {Kind, Message}. Kind is one of success,
-     error, info; it maps to a CSS modifier. Flash messages are server-set and
-     shown once, so this renders nothing when the slice is empty. */ -}}
+     error, info; it maps to a CSS modifier and picks the leading octicon. The
+     dismiss button is markup-only here: app.ts wires the click and CSS keeps
+     it hidden until the js-enhanced flag confirms the wiring ran. Flash
+     messages are server-set and shown once, so this renders nothing when the
+     slice is empty. */ -}}
 {{range . -}}
-<div class="flash flash-{{.Kind}}" role="status">{{.Message}}</div>
+<div class="flash flash-{{.Kind}}" role="status">
+  {{- if eq .Kind "success"}}{{octicon "check-circle"}}{{else if eq .Kind "error"}}{{octicon "stop"}}{{else if eq .Kind "warn"}}{{octicon "alert"}}{{else}}{{octicon "info"}}{{end -}}
+  <span class="flash-message">{{.Message}}</span>
+  <button class="flash-close" type="button" data-flash-close aria-label="Dismiss this message">{{octicon "x"}}</button>
+</div>
 {{end -}}
 {{- end}}

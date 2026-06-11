@@ -17,13 +17,14 @@ func ownerLogin(r *domain.Repo) string {
 func (h *Handlers) header(r *domain.Repo, activeTab string) view.RepoHeaderVM {
 	owner := ownerLogin(r)
 	hdr := view.RepoHeaderVM{
-		Owner:     owner,
-		Name:      r.Name,
-		OwnerURL:  "/" + owner,
-		URL:       route.Repo(owner, r.Name),
-		Private:   r.Private,
-		Fork:      r.Fork,
-		ActiveTab: activeTab,
+		Owner:      owner,
+		Name:       r.Name,
+		OwnerURL:   "/" + owner,
+		URL:        route.Repo(owner, r.Name),
+		Private:    r.Private,
+		Fork:       r.Fork,
+		OpenIssues: r.OpenIssuesCount,
+		ActiveTab:  activeTab,
 	}
 	if r.Description != nil {
 		hdr.Description = *r.Description

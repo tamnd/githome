@@ -43,13 +43,13 @@
 }
 
 .profile-name {
-  font-size: var(--text-title-size-medium, 24px);
+  font-size: var(--text-title-size-medium);
   font-weight: 600;
   line-height: 1.25;
 }
 
 .profile-login {
-  font-size: var(--text-subtitle-size, 20px);
+  font-size: var(--text-title-size-small);
   font-weight: 300;
   color: var(--fgColor-muted);
 }
@@ -314,7 +314,7 @@
   background-color: var(--bgColor-default);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-floating-small);
 }
 
 .profile-sort-option {

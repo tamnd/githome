@@ -27,6 +27,13 @@
       {{if .About.Homepage -}}
       <p class="repo-about-homepage">{{octicon "link-external" 16}} <a href="{{.About.Homepage}}" rel="nofollow">{{.About.Homepage}}</a></p>
       {{- end}}
+      {{if .About.Topics -}}
+      <div class="repo-about-topics">
+        {{- range .About.Topics}}
+        <span class="topic-tag">{{.}}</span>
+        {{- end}}
+      </div>
+      {{- end}}
     </aside>
   </div>
 </div>

@@ -77,9 +77,15 @@ func newFixture(t *testing.T) fixture {
 
 	desc := "the hello repo"
 	pushed := fixedWhen
-	hello := &store.RepoRow{OwnerPK: u.PK, Name: "hello", Description: &desc, DefaultBranch: "master", PushedAt: &pushed}
+	hello := &store.RepoRow{
+		OwnerPK: u.PK, Name: "hello", Description: &desc, DefaultBranch: "master",
+		PushedAt: &pushed, OpenIssuesCount: 3,
+	}
 	if err := st.InsertRepo(ctx, hello); err != nil {
 		t.Fatalf("insert hello: %v", err)
+	}
+	if err := st.UpdateRepoTopics(ctx, hello.PK, `["go","forge"]`); err != nil {
+		t.Fatalf("set hello topics: %v", err)
 	}
 	secret := &store.RepoRow{OwnerPK: u.PK, Name: "secret", Private: true, DefaultBranch: "master"}
 	if err := st.InsertRepo(ctx, secret); err != nil {
@@ -262,6 +268,28 @@ func TestHomeRendersReadme(t *testing.T) {
 	// The address bar stays at the bare repo URL: the home does not redirect.
 	if !strings.Contains(body, `href="/octocat/hello/tree/`) {
 		t.Errorf("home is missing a tree link into the docs directory")
+	}
+}
+
+func TestHomeRendersRepoChrome(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat/hello")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// The Issues tab carries the open-issue counter the fixture seeds.
+	if !strings.Contains(body, `<span class="Counter">3</span>`) {
+		t.Errorf("home is missing the Issues tab counter:\n%s", body)
+	}
+	// The About sidebar shows the topics as plain chips: search has no topic
+	// qualifier yet, so there is nothing for a chip to link to.
+	for _, topic := range []string{`<span class="topic-tag">go</span>`, `<span class="topic-tag">forge</span>`} {
+		if !strings.Contains(body, topic) {
+			t.Errorf("home is missing topic chip %s", topic)
+		}
+	}
+	if strings.Contains(body, `<a class="topic-tag"`) {
+		t.Errorf("topic chips must not be links until a topic browse surface exists")
 	}
 }
 

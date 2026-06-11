@@ -117,7 +117,7 @@
   background-color: var(--bgColor-default);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-floating-small);
 }
 
 .AppHeader-menu-list a {
@@ -173,7 +173,9 @@
   box-shadow: 0 0 0 1px var(--bgColor-neutral-muted);
 }
 
-/* Buttons. */
+/* Buttons. The default button reads the control ramp so rest, hover, and
+   active are three visibly distinct steps in every theme; bgColor-subtle is
+   the same value as the muted rest face and hid the hover entirely. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -184,14 +186,18 @@
   line-height: 20px;
   color: var(--fgColor-default);
   cursor: pointer;
-  background-color: var(--bgColor-muted);
+  background-color: var(--control-bgColor-rest);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
 }
 
 .btn:hover {
   text-decoration: none;
-  background-color: var(--bgColor-subtle);
+  background-color: var(--control-bgColor-hover);
+}
+
+.btn:active {
+  background-color: var(--control-bgColor-active);
 }
 
 .btn-sm {
@@ -200,15 +206,22 @@
   line-height: 18px;
 }
 
+/* The primary button has its own component tokens: the green follows the
+   theme's success role (the color vision themes move it off green), and the
+   border is a translucent ink wash instead of the gray hairline that read as
+   a dirty edge on the green face. */
 .btn-primary {
-  color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-success-emphasis);
-  border-color: var(--borderColor-default);
+  color: var(--button-primary-fgColor-rest);
+  background-color: var(--button-primary-bgColor-rest);
+  border-color: var(--button-primary-borderColor-rest);
 }
 
 .btn-primary:hover {
-  background-color: var(--bgColor-success-emphasis);
-  filter: brightness(0.96);
+  background-color: var(--button-primary-bgColor-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--button-primary-bgColor-active);
 }
 
 .btn-danger {
@@ -221,6 +234,42 @@
   border-color: var(--borderColor-danger-muted);
 }
 
+/* An invisible button reads as a link until hovered. */
+.btn-invisible {
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-transparent);
+  border-color: transparent;
+}
+
+.btn-invisible:hover {
+  background-color: var(--control-transparent-bgColor-hover);
+  text-decoration: none;
+}
+
+/* A button group collapses the inner borders of its buttons. */
+.BtnGroup {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.BtnGroup .btn {
+  border-radius: 0;
+}
+
+.BtnGroup .btn:not(:first-child) {
+  margin-left: calc(-1 * var(--borderWidth-thin));
+}
+
+.BtnGroup .btn:first-child {
+  border-top-left-radius: var(--borderRadius-medium);
+  border-bottom-left-radius: var(--borderRadius-medium);
+}
+
+.BtnGroup .btn:last-child {
+  border-top-right-radius: var(--borderRadius-medium);
+  border-bottom-right-radius: var(--borderRadius-medium);
+}
+
 .input {
   width: 100%;
   padding: 5px var(--base-size-12);
@@ -230,6 +279,210 @@
   background-color: var(--bgColor-default);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
+}
+
+/* Box: the bordered container list pages build rows inside. */
+.Box {
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.Box-header {
+  padding: var(--base-size-16);
+  margin: calc(-1 * var(--borderWidth-thin)) calc(-1 * var(--borderWidth-thin)) 0;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-top-left-radius: var(--borderRadius-medium);
+  border-top-right-radius: var(--borderRadius-medium);
+}
+
+.Box-title {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+
+.Box-body {
+  padding: var(--base-size-16);
+}
+
+.Box-row {
+  padding: var(--base-size-16);
+  margin-top: calc(-1 * var(--borderWidth-thin));
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.Box-row:first-of-type {
+  border-top-color: transparent;
+}
+
+.Box-row:hover {
+  background-color: var(--bgColor-muted);
+}
+
+.Box-footer {
+  padding: var(--base-size-16);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+/* Subhead: the section heading with a hairline used by settings-style pages. */
+.Subhead {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin-bottom: var(--base-size-16);
+  padding-bottom: var(--base-size-8);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.Subhead-heading {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--text-title-size-small);
+  font-weight: 400;
+}
+
+.Subhead-heading--danger {
+  color: var(--fgColor-danger);
+  font-weight: 600;
+}
+
+.Subhead-description {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-body-size);
+  color: var(--fgColor-muted);
+}
+
+.Subhead-actions {
+  flex: 0 0 auto;
+}
+
+/* Counter: the rounded count chip a nav tab or heading carries. */
+.Counter {
+  display: inline-block;
+  min-width: var(--base-size-20);
+  padding: 0 var(--base-size-6);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-neutral-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+.Counter--primary {
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-emphasis);
+}
+
+/* Label: the bordered chip (topics, metadata). Role variants tint the text
+   and border; the fill stays the canvas. */
+.Label {
+  display: inline-block;
+  padding: 0 7px;
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--fgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-full);
+}
+
+.Label--accent {
+  color: var(--fgColor-accent);
+  border-color: var(--borderColor-accent-emphasis);
+}
+
+.Label--success {
+  color: var(--fgColor-success);
+  border-color: var(--borderColor-success-emphasis);
+}
+
+.Label--attention {
+  color: var(--fgColor-attention);
+  border-color: var(--borderColor-attention-emphasis);
+}
+
+.Label--severe {
+  color: var(--fgColor-severe);
+  border-color: var(--borderColor-severe-emphasis);
+}
+
+.Label--danger {
+  color: var(--fgColor-danger);
+  border-color: var(--borderColor-danger-emphasis);
+}
+
+.Label--done {
+  color: var(--fgColor-done);
+  border-color: var(--borderColor-done-emphasis);
+}
+
+.Label--sponsors {
+  color: var(--fgColor-sponsors);
+  border-color: var(--borderColor-sponsors-emphasis);
+}
+
+/* The filled topic chip on repo home and search cards. */
+.topic-tag {
+  display: inline-block;
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  font-weight: 500;
+  line-height: 22px;
+  white-space: nowrap;
+  color: var(--fgColor-accent);
+  background-color: var(--bgColor-accent-muted);
+  border-radius: var(--borderRadius-full);
+}
+
+.topic-tag:hover {
+  text-decoration: none;
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-accent-emphasis);
+}
+
+/* State: the issue/PR state pill. The open/closed role tokens keep the pill
+   legible in the color vision themes, which move these hues. */
+.State {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  padding: 5px var(--base-size-12);
+  font-size: var(--text-body-size);
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--fgColor-onEmphasis);
+  background-color: var(--bgColor-neutral-emphasis);
+  border-radius: var(--borderRadius-full);
+}
+
+.State--open {
+  background-color: var(--bgColor-open-emphasis);
+}
+
+.State--closed {
+  background-color: var(--bgColor-closed-emphasis);
+}
+
+.State--merged {
+  background-color: var(--bgColor-done-emphasis);
+}
+
+.State--draft {
+  background-color: var(--bgColor-neutral-emphasis);
+}
+
+.State--small {
+  padding: 0 var(--base-size-8);
+  font-size: var(--text-small-size);
+  line-height: 22px;
 }
 
 /* Search box in the header. The header is canvas-colored, so the input reads
@@ -305,12 +558,17 @@
   color: var(--fgColor-muted);
 }
 
-/* Flash banners. */
+/* Flash banners. Each kind leads with its role octicon, tinted with the role
+   foreground; the message stretches and the dismiss button only appears once
+   scripts run (the js-enhanced flag), because without them it does nothing. */
 .flash-region {
   min-height: 0;
 }
 
 .flash {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
   padding: var(--base-size-16);
   margin-bottom: var(--base-size-16);
   border: var(--borderWidth-thin) solid var(--borderColor-accent-muted);
@@ -318,9 +576,41 @@
   background-color: var(--bgColor-accent-muted);
 }
 
+.flash > .octicon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--fgColor-accent);
+}
+
+.flash-message {
+  flex: 1 1 auto;
+}
+
+.flash-close {
+  display: none;
+  flex: none;
+  padding: 0;
+  color: var(--fgColor-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+html[data-js-enhanced] .flash-close {
+  display: inline-flex;
+}
+
+.flash-close:hover {
+  color: var(--fgColor-default);
+}
+
 .flash-success {
   border-color: var(--borderColor-success-muted);
   background-color: var(--bgColor-success-muted);
+}
+
+.flash-success > .octicon {
+  color: var(--fgColor-success);
 }
 
 .flash-error {
@@ -328,9 +618,17 @@
   background-color: var(--bgColor-danger-muted);
 }
 
+.flash-error > .octicon {
+  color: var(--fgColor-danger);
+}
+
 .flash-warn {
   border-color: var(--borderColor-attention-muted);
   background-color: var(--bgColor-attention-muted);
+}
+
+.flash-warn > .octicon {
+  color: var(--fgColor-attention);
 }
 
 /* Blankslate (empty states). */
@@ -341,7 +639,7 @@
 }
 
 .blankslate-heading {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   color: var(--fgColor-default);
 }
 
@@ -354,6 +652,14 @@
 .blankslate-text {
   margin: var(--base-size-8) 0 0;
   color: var(--fgColor-muted);
+}
+
+.blankslate-action {
+  margin-top: var(--base-size-16);
+}
+
+.blankslate-spacious {
+  padding: var(--base-size-80) var(--base-size-40);
 }
 
 /* Error pages. */
@@ -374,7 +680,7 @@
 }
 
 .error-heading {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 600;
   color: var(--fgColor-default);
   margin: var(--base-size-16) 0 var(--base-size-8);
@@ -391,4 +697,136 @@
   overflow: visible;
   vertical-align: text-bottom;
   fill: currentColor;
+}
+
+/*
+ * Tooltips (doc 03 section 7.15). The Primer pattern: a .tooltipped element
+ * shows its own aria-label in a bubble on hover or keyboard focus, so the
+ * label screen readers announce is the same text sighted viewers get, with
+ * no script involved. A direction modifier (n, s, e, w) places the bubble;
+ * ::after is the bubble and ::before the caret pointing back at the control.
+ */
+.tooltipped {
+  position: relative;
+}
+
+.tooltipped::after {
+  position: absolute;
+  z-index: 100;
+  display: none;
+  padding: var(--base-size-4) var(--base-size-8);
+  font-size: var(--text-small-size);
+  font-weight: var(--base-text-weight-normal);
+  white-space: pre;
+  pointer-events: none;
+  content: attr(aria-label);
+  color: var(--fgColor-onEmphasis);
+  text-align: center;
+  background-color: var(--bgColor-emphasis);
+  border-radius: var(--borderRadius-medium);
+  opacity: 0;
+}
+
+.tooltipped::before {
+  position: absolute;
+  z-index: 101;
+  display: none;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  content: "";
+  border: 6px solid transparent;
+  opacity: 0;
+}
+
+.tooltipped:hover::before,
+.tooltipped:hover::after,
+.tooltipped:focus-visible::before,
+.tooltipped:focus-visible::after {
+  display: inline-block;
+  text-decoration: none;
+  opacity: 1;
+}
+
+.tooltipped-n::after {
+  right: 50%;
+  bottom: 100%;
+  margin-bottom: 6px;
+  transform: translateX(50%);
+}
+
+.tooltipped-n::before {
+  top: -7px;
+  right: 50%;
+  bottom: auto;
+  margin-right: -6px;
+  border-top-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-s::after {
+  top: 100%;
+  right: 50%;
+  margin-top: 6px;
+  transform: translateX(50%);
+}
+
+.tooltipped-s::before {
+  top: auto;
+  right: 50%;
+  bottom: -7px;
+  margin-right: -6px;
+  border-bottom-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-w::after {
+  right: 100%;
+  bottom: 50%;
+  margin-right: 6px;
+  transform: translateY(50%);
+}
+
+.tooltipped-w::before {
+  top: 50%;
+  bottom: 50%;
+  left: -7px;
+  margin-top: -6px;
+  border-left-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-e::after {
+  bottom: 50%;
+  left: 100%;
+  margin-left: 6px;
+  transform: translateY(50%);
+}
+
+.tooltipped-e::before {
+  top: 50%;
+  right: -7px;
+  bottom: 50%;
+  margin-top: -6px;
+  border-right-color: var(--bgColor-emphasis);
+}
+
+/* Below the md breakpoint (doc 16 section 8.3) the header collapses from one
+   squeezed row into two: the logo and the nav icons share the top row and the
+   search field drops to a full-width second row. Pure CSS order and wrap, so
+   the collapse works with scripting off. This block stays at the end of the
+   sheet: the test helper in css_test.go parses flat rules and tolerates a
+   trailing at-rule but not one mid-sheet. */
+@media (max-width: 767.98px) {
+  .AppHeader-inner {
+    flex-wrap: wrap;
+    row-gap: var(--base-size-8);
+  }
+
+  .AppHeader-nav {
+    order: 2;
+  }
+
+  .AppHeader-search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
 }

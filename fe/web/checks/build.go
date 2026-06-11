@@ -42,12 +42,13 @@ func (h *Handlers) build(c *mizu.Ctx, repo *domain.Repo, ref string, rollup *dom
 func (h *Handlers) header(c *mizu.Ctx, repo *domain.Repo) view.RepoHeaderVM {
 	owner, name := h.owner(c), h.name(c)
 	hdr := view.RepoHeaderVM{
-		Owner:    owner,
-		Name:     name,
-		OwnerURL: "/" + owner,
-		URL:      route.Repo(owner, name),
-		Private:  repo.Private,
-		Fork:     repo.Fork,
+		Owner:      owner,
+		Name:       name,
+		OwnerURL:   "/" + owner,
+		URL:        route.Repo(owner, name),
+		Private:    repo.Private,
+		Fork:       repo.Fork,
+		OpenIssues: repo.OpenIssuesCount,
 	}
 	if repo.Description != nil {
 		hdr.Description = *repo.Description

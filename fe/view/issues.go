@@ -31,13 +31,13 @@ type IssueStateVM struct {
 	Modifier string // "open" | "closed" | "not-planned"
 }
 
-// LabelVM is one issue label as a chip: the name, the background color hex (no
-// leading #), the contrasting text color the handler computes, and the index URL
-// that filters to it.
+// LabelVM is one issue label as a chip: the name, the label color split into
+// its RGB channels (the template emits them as --label-r/g/b custom properties
+// and the theme recipe mixes the final colors, so the chip re-themes in dark
+// modes), and the index URL that filters to it.
 type LabelVM struct {
 	Name        string
-	Color       string // 6-hex, no leading hash
-	TextColor   string // "ffffff" or "000000", computed for contrast
+	R, G, B     int // the label color channels, 0-255
 	Description string
 	URL         string
 }

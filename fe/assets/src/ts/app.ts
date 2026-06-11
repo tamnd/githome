@@ -41,6 +41,18 @@ function wireCopyButtons(): void {
   }
 }
 
+// wireFlashDismiss lets a [data-flash-close] button remove its flash banner.
+// The button ships in the server markup but CSS keeps it hidden until the
+// js-enhanced flag is set, so with scripting off the banner simply stays, the
+// same outcome as before the button existed.
+function wireFlashDismiss(): void {
+  for (const btn of Array.from(document.querySelectorAll<HTMLElement>("[data-flash-close]"))) {
+    btn.addEventListener("click", () => {
+      btn.closest(".flash")?.remove();
+    });
+  }
+}
+
 // wireFileFilter narrows a list as the viewer types into a [data-filter-target]
 // search box. The whole list is server-rendered and fully usable with JS off;
 // this only hides rows whose data-filter-text does not contain the query, so the
@@ -63,13 +75,70 @@ function wireFileFilter(): void {
   }
 }
 
-// localizeTimes upgrades any <relative-time> the server emitted with a stable ISO
-// value into a friendlier client-localized label, leaving the server's text as
-// the no-JS fallback. The custom element is registered in later milestones; here
-// we only confirm the bundle loads and the seam is wired.
+// RelativeTime upgrades the <relative-time> elements the server renders with a
+// machine datetime and an absolute fallback body. On connect the element swaps
+// its text for a relative phrase ("3 days ago") in the viewer's locale and
+// keeps the exact local timestamp in the title for hover. Anything older than
+// about a month stays on the server's absolute date, the github.com behavior,
+// and with scripting off the element never upgrades so the fallback stands.
+class RelativeTime extends HTMLElement {
+  connectedCallback(): void {
+    const iso = this.getAttribute("datetime");
+    if (!iso) {
+      return;
+    }
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) {
+      return;
+    }
+    if (!this.title) {
+      this.title = then.toLocaleString();
+    }
+    const seconds = Math.round((then.getTime() - Date.now()) / 1000);
+    const phrased = relativePhrase(seconds);
+    if (phrased !== null) {
+      this.textContent = phrased;
+    }
+  }
+}
+
+// relativePhrase renders an offset in seconds with the largest unit that fits,
+// or null when the moment is far enough away that an absolute date reads
+// better than "14 months ago".
+function relativePhrase(seconds: number): string | null {
+  const abs = Math.abs(seconds);
+  if (abs >= 30 * 86400) {
+    return null;
+  }
+  const fmt = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  if (abs < 60) {
+    return fmt.format(seconds, "second");
+  }
+  if (abs < 3600) {
+    return fmt.format(Math.trunc(seconds / 60), "minute");
+  }
+  if (abs < 86400) {
+    return fmt.format(Math.trunc(seconds / 3600), "hour");
+  }
+  if (abs < 7 * 86400) {
+    return fmt.format(Math.trunc(seconds / 86400), "day");
+  }
+  return fmt.format(Math.trunc(seconds / (7 * 86400)), "week");
+}
+
+// registerRelativeTime defines the element once; every <relative-time> already
+// in the document upgrades on definition and later ones upgrade on parse.
+function registerRelativeTime(): void {
+  if (!customElements.get("relative-time")) {
+    customElements.define("relative-time", RelativeTime);
+  }
+}
+
 function boot(): void {
   markEnhanced();
+  registerRelativeTime();
   wireCopyButtons();
+  wireFlashDismiss();
   wireFileFilter();
 }
 

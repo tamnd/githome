@@ -37,8 +37,9 @@ type Crumb struct {
 }
 
 // RepoHeaderVM is the context bar above every repo page: the owner/name with the
-// visibility pill and the fork-of line. The social counts ride here too, zero
-// until the domain tracks them (implementation/07 section 3.1 notes the gap).
+// visibility pill and the fork-of line. OpenIssues feeds the counter chip on the
+// Issues tab; the star/watch/fork counts stay absent until the domain tracks
+// them (implementation/07 section 3.1 notes the gap).
 type RepoHeaderVM struct {
 	Owner       string
 	Name        string
@@ -50,6 +51,7 @@ type RepoHeaderVM struct {
 	ParentName  string // owner/name of the fork parent, empty when not a fork
 	ParentURL   string
 	ActiveTab   string // code | issues | pulls | commits | branches | tags, drives the underline nav
+	OpenIssues  int    // open-issue count for the Issues tab counter, 0 hides it
 }
 
 // TreeNav is the per-tab link set the repo underline nav renders. It is computed
@@ -107,12 +109,14 @@ type CommitSummary struct {
 	Present    bool
 }
 
-// AboutVM is the repo home sidebar: the description and homepage. Topics, the
-// license chip, and the languages bar are left for the milestones that add their
-// domain fields (implementation/07 section 3.1).
+// AboutVM is the repo home sidebar: the description, homepage, and topic chips.
+// The license chip and the languages bar are left for the milestones that add
+// their domain fields (implementation/07 section 3.1). Topics render as plain
+// chips since no topic browse surface exists to link them to yet.
 type AboutVM struct {
 	Description string
 	Homepage    string
+	Topics      []string
 }
 
 // ReadmeVM is the rendered README shown under a tree. Body carries the

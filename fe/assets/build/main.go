@@ -33,6 +33,11 @@ func run() error {
 		return err
 	}
 
+	// Render the theme and alias sheets from the palettes before bundling.
+	if err := genThemes(srcDir); err != nil {
+		return err
+	}
+
 	// Remove stale dist files (keep manifest.json until we rewrite it).
 	entries, _ := os.ReadDir(distDir)
 	for _, e := range entries {

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/go-mizu/mizu"
@@ -65,8 +66,10 @@ func (h *Handlers) quickSetup(c *mizu.Ctx, repo *domain.Repo) error {
 	return h.render.Page(c, "repo/quick-setup", vm)
 }
 
-// about builds the repo home sidebar from the repository metadata. Topics, the
-// license chip, and the languages bar wait for their domain fields.
+// about builds the repo home sidebar from the repository metadata. The topics
+// column is the JSON array the REST surface stores; a malformed value renders
+// as no topics rather than an error. The license chip and the languages bar
+// wait for their domain fields.
 func (h *Handlers) about(repo *domain.Repo) view.AboutVM {
 	about := view.AboutVM{}
 	if repo.Description != nil {
@@ -74,6 +77,12 @@ func (h *Handlers) about(repo *domain.Repo) view.AboutVM {
 	}
 	if repo.Homepage != nil {
 		about.Homepage = *repo.Homepage
+	}
+	if repo.Topics != "" {
+		var topics []string
+		if err := json.Unmarshal([]byte(repo.Topics), &topics); err == nil {
+			about.Topics = topics
+		}
 	}
 	return about
 }
