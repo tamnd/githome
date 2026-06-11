@@ -37,7 +37,17 @@ func (s *IssueService) CreateComment(ctx context.Context, actorPK int64, owner, 
 	}); err != nil {
 		return nil, err
 	}
-	s.recordIssueEvent(ctx, actorPK, EventIssueComment, "created", repo, row.PK)
+	// The comment's pk rides the event detail so the delivery body can embed
+	// the comment object, not just the issue it landed on.
+	issuePK := row.PK
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventIssueComment,
+		Action:  "created",
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &issuePK,
+		Public:  !repo.Private,
+	}, nil, nil, &EventDetail{CommentPK: c.PK})
 	return s.assembleComment(ctx, c)
 }
 

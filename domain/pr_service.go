@@ -545,15 +545,24 @@ func (s *PRService) RecomputeMergeability(ctx context.Context, issuePK int64) er
 
 // OnHeadPush refreshes the pull requests a push to a branch touches. A push to a
 // head branch repoints that pull request's recorded head and its
-// refs/pull/<n>/head ref; a push to a base branch leaves the head alone. Either
-// way every affected open pull request is re-checked for mergeability.
-func (s *PRService) OnHeadPush(ctx context.Context, repoPK int64, branch, newSHA string) error {
+// refs/pull/<n>/head ref, and emits the pull_request synchronize event the new
+// head triggers; a push to a base branch leaves the head alone. Either way
+// every affected open pull request is re-checked for mergeability. pusherPK
+// names the pusher as the synchronize event's actor.
+func (s *PRService) OnHeadPush(ctx context.Context, pusherPK, repoPK int64, branch, newSHA string) error {
 	headPulls, err := s.store.OpenPullsByHeadRef(ctx, repoPK, branch)
 	if err != nil {
 		return err
 	}
+	var repo *Repo
+	if len(headPulls) > 0 {
+		if repo, err = s.repos.RepoForEvent(ctx, repoPK); err != nil {
+			return err
+		}
+	}
 	for i := range headPulls {
 		p := &headPulls[i]
+		before := p.HeadSHA
 		issueRow, err := s.store.GetIssueByPK(ctx, p.IssuePK)
 		if err != nil {
 			return err
@@ -568,6 +577,9 @@ func (s *PRService) OnHeadPush(ctx context.Context, repoPK int64, branch, newSHA
 			return err
 		}
 		s.enqueueRecompute(ctx, p.IssuePK)
+		if before != newSHA {
+			s.recordPullSync(ctx, pusherPK, repo, p.IssuePK, before, newSHA)
+		}
 	}
 	basePulls, err := s.store.OpenPullsByBaseRef(ctx, repoPK, branch)
 	if err != nil {
@@ -963,6 +975,21 @@ func (s *PRService) recordPullEvent(ctx context.Context, actorPK int64, action s
 	}, nil)
 }
 
+// recordPullSync appends the pull_request synchronize event a head push
+// produces, carrying the moved shas the delivery body reports as top-level
+// before and after.
+func (s *PRService) recordPullSync(ctx context.Context, actorPK int64, repo *Repo, issuePK int64, before, after string) {
+	pk := issuePK
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventPullRequest,
+		Action:  "synchronize",
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &pk,
+		Public:  !repo.Private,
+	}, nil, nil, &EventDetail{Before: before, After: after})
+}
+
 // recomputePayload is the JSON body of a recompute_mergeability job. The worker
 // handler decodes the same shape to dispatch back into the service.
 type recomputePayload struct {
@@ -1102,6 +1129,11 @@ func (s *PRService) SetDraft(ctx context.Context, actorPK int64, owner, name str
 			return nil, err
 		}
 		pullRow.Draft = draft
+		action := "ready_for_review"
+		if draft {
+			action = "converted_to_draft"
+		}
+		s.recordPullEvent(ctx, actorPK, action, repo, issueRow.PK)
 	}
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }

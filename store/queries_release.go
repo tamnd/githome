@@ -55,6 +55,14 @@ func (s *Store) GetReleaseByID(ctx context.Context, repoPK, dbID int64) (*Releas
 	return scanRelease(s.db.QueryRowContext(ctx, q, repoPK, dbID))
 }
 
+// GetReleaseByPK loads a release by its internal pk, the lookup the webhook
+// renderer resolves a recorded release event through.
+func (s *Store) GetReleaseByPK(ctx context.Context, pk int64) (*ReleaseRow, error) {
+	q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
+		WHERE pk = ? AND deleted_at IS NULL`)
+	return scanRelease(s.db.QueryRowContext(ctx, q, pk))
+}
+
 // GetReleaseByTag loads a release by its tag name within a repository.
 func (s *Store) GetReleaseByTag(ctx context.Context, repoPK int64, tag string) (*ReleaseRow, error) {
 	q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases

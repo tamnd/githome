@@ -117,6 +117,7 @@ func run() error {
 	hookSvc := domain.NewHookService(st, repoSvc, enqueuer)
 	eventSvc := domain.NewEventService(st, repoSvc)
 	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
+	releaseSvc := domain.NewReleaseService(st, repoSvc, cfg.AssetRoot())
 	gistSvc := domain.NewGistService(st)
 	keySvc := domain.NewKeyService(st)
 	teamSvc := domain.NewTeamService(st)
@@ -128,6 +129,9 @@ func run() error {
 	// handlers join the runtime below: deliver_event fans an event out to its
 	// hooks, and deliver_webhook performs one signed POST and records the result.
 	webhookRenderer := webhook.NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
+	webhookRenderer.BindGit(gitStore)
+	webhookRenderer.BindReviews(reviewSvc)
+	webhookRenderer.BindReleases(releaseSvc)
 	deliverer := webhook.NewDeliverer(st, webhookRenderer, nil, enqueuer, config.Version)
 
 	// The job runtime drains the queue the domain fills. M5 registers the
@@ -164,6 +168,7 @@ func run() error {
 		Events:        eventSvc,
 		Search:        searchSvc,
 		Gists:         gistSvc,
+		Releases:      releaseSvc,
 		Notifications: notifSvc,
 		URLs:          urls,
 		NodeFormat:    nodeid.FormatNew,

@@ -399,15 +399,17 @@ func TestDeliveryDetailAndRedeliver(t *testing.T) {
 		}
 	}
 
-	// Redeliver enqueues a replay and returns to the hook.
+	// Redeliver enqueues a replay and returns to the hook. The count is a delta
+	// because creating the hook already enqueued its ping.
+	before := fx.enq.calls
 	token := fx.csrfToken(t, detail)
 	rr := fx.post(t, detail+"/redeliver", token, url.Values{})
 	defer func() { _ = rr.Body.Close() }()
 	if rr.StatusCode != http.StatusSeeOther {
 		t.Fatalf("redeliver status %d, want 303", rr.StatusCode)
 	}
-	if fx.enq.calls != 1 {
-		t.Errorf("redeliver enqueued %d jobs, want 1", fx.enq.calls)
+	if got := fx.enq.calls - before; got != 1 {
+		t.Errorf("redeliver enqueued %d jobs, want 1", got)
 	}
 }
 

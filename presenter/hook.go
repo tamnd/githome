@@ -15,7 +15,23 @@ const secretMask = "********"
 // hook has one, config.secret is the fixed mask, and when it does not the field
 // is omitted, matching github.com.
 func (b *URLBuilder) Hook(owner, repo string, h *domain.Hook) restmodel.Hook {
-	base := b.RepoAPI(owner, repo) + "/hooks/" + strconv.FormatInt(h.ID, 10)
+	out := b.hookAt(b.RepoAPI(owner, repo)+"/hooks/"+strconv.FormatInt(h.ID, 10), h)
+	out.Type = "Repository"
+	out.TestURL = out.URL + "/test"
+	return out
+}
+
+// OrgHook renders an organization webhook. Storage rides the synthetic _org
+// repo, but the wire shape lives in the /orgs URL space with type Organization
+// and no test_url, matching github.com.
+func (b *URLBuilder) OrgHook(org string, h *domain.Hook) restmodel.Hook {
+	out := b.hookAt(b.API("orgs", org)+"/hooks/"+strconv.FormatInt(h.ID, 10), h)
+	out.Type = "Organization"
+	return out
+}
+
+// hookAt builds the parts of a hook body that repository and org hooks share.
+func (b *URLBuilder) hookAt(base string, h *domain.Hook) restmodel.Hook {
 	cfg := restmodel.HookConfig{
 		ContentType: h.Config.ContentType,
 		InsecureSSL: insecureSSL(h.Config.InsecureSSL),
@@ -26,7 +42,6 @@ func (b *URLBuilder) Hook(owner, repo string, h *domain.Hook) restmodel.Hook {
 		cfg.Secret = &mask
 	}
 	return restmodel.Hook{
-		Type:          "Repository",
 		ID:            h.ID,
 		Name:          h.Name,
 		Active:        h.Active,
@@ -35,7 +50,6 @@ func (b *URLBuilder) Hook(owner, repo string, h *domain.Hook) restmodel.Hook {
 		UpdatedAt:     restmodel.NewTime(h.UpdatedAt),
 		CreatedAt:     restmodel.NewTime(h.CreatedAt),
 		URL:           base,
-		TestURL:       base + "/test",
 		PingURL:       base + "/pings",
 		DeliveriesURL: base + "/deliveries",
 		LastResponse:  hookResponse(h.LastResponse),

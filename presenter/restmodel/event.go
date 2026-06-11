@@ -2,10 +2,11 @@ package restmodel
 
 import "encoding/json"
 
-// Hook is the REST representation of a repository webhook: GET, POST, and PATCH
-// on /repos/{owner}/{repo}/hooks all return it. The signing secret is never
+// Hook is the REST representation of a webhook; the /repos/{owner}/{repo}/hooks
+// and /orgs/{org}/hooks surfaces both return it. The signing secret is never
 // emitted; config.secret is rendered as a fixed mask when one is set and omitted
-// when it is not, matching github.com.
+// when it is not, matching github.com. test_url only exists on repository
+// hooks, so it drops out of org hook bodies.
 type Hook struct {
 	Type          string       `json:"type"`
 	ID            int64        `json:"id"`
@@ -16,7 +17,7 @@ type Hook struct {
 	UpdatedAt     Time         `json:"updated_at"`
 	CreatedAt     Time         `json:"created_at"`
 	URL           string       `json:"url"`
-	TestURL       string       `json:"test_url"`
+	TestURL       string       `json:"test_url,omitempty"`
 	PingURL       string       `json:"ping_url"`
 	DeliveriesURL string       `json:"deliveries_url"`
 	LastResponse  HookResponse `json:"last_response"`
@@ -106,23 +107,48 @@ type EventRepo struct {
 	URL  string `json:"url"`
 }
 
-// WebhookPush is the body of a push delivery. Githome does not walk the pushed
-// range, so commits is empty and head_commit is null; before and after carry the
-// moved tips, the fields a receiver keys synchronization off.
+// WebhookPush is the body of a push delivery. commits carries the pushed range
+// walked from the git layer, capped at twenty like GitHub, and head_commit is
+// the new tip; before and after carry the moved shas a receiver keys
+// synchronization off.
 type WebhookPush struct {
-	Ref        string        `json:"ref"`
-	Before     string        `json:"before"`
-	After      string        `json:"after"`
-	Created    bool          `json:"created"`
-	Deleted    bool          `json:"deleted"`
-	Forced     bool          `json:"forced"`
-	BaseRef    *string       `json:"base_ref"`
-	Compare    string        `json:"compare"`
-	Commits    []any         `json:"commits"`
-	HeadCommit *any          `json:"head_commit"`
-	Repository Repository    `json:"repository"`
-	Pusher     WebhookPusher `json:"pusher"`
-	Sender     SimpleUser    `json:"sender"`
+	Ref        string          `json:"ref"`
+	Before     string          `json:"before"`
+	After      string          `json:"after"`
+	Created    bool            `json:"created"`
+	Deleted    bool            `json:"deleted"`
+	Forced     bool            `json:"forced"`
+	BaseRef    *string         `json:"base_ref"`
+	Compare    string          `json:"compare"`
+	Commits    []WebhookCommit `json:"commits"`
+	HeadCommit *WebhookCommit  `json:"head_commit"`
+	Repository Repository      `json:"repository"`
+	Pusher     WebhookPusher   `json:"pusher"`
+	Sender     SimpleUser      `json:"sender"`
+}
+
+// WebhookCommit is one commit in a push delivery's commits list and its
+// head_commit field: the commit coordinates plus the per-file change lists.
+type WebhookCommit struct {
+	ID        string            `json:"id"`
+	TreeID    string            `json:"tree_id"`
+	Distinct  bool              `json:"distinct"`
+	Message   string            `json:"message"`
+	Timestamp Time              `json:"timestamp"`
+	URL       string            `json:"url"`
+	Author    WebhookCommitUser `json:"author"`
+	Committer WebhookCommitUser `json:"committer"`
+	Added     []string          `json:"added"`
+	Removed   []string          `json:"removed"`
+	Modified  []string          `json:"modified"`
+}
+
+// WebhookCommitUser is the git identity on a webhook commit. username is the
+// matched account login and is omitted when the identity matches no account.
+type WebhookCommitUser struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username,omitempty"`
 }
 
 // WebhookPusher is the name/email pair a push delivery names the pusher by, the
@@ -132,39 +158,141 @@ type WebhookPusher struct {
 	Email string `json:"email"`
 }
 
-// WebhookIssues is the body of an issues delivery.
+// WebhookPing is the body of a ping delivery: the zen line, the hook's id, the
+// hook object itself, and the repository and sender like every other delivery.
+// An org hook's ping has no repository, so the field drops out when nil.
+type WebhookPing struct {
+	Zen        string      `json:"zen"`
+	HookID     int64       `json:"hook_id"`
+	Hook       Hook        `json:"hook"`
+	Repository *Repository `json:"repository,omitempty"`
+	Sender     SimpleUser  `json:"sender"`
+}
+
+// WebhookIssues is the body of an issues delivery. label is set only on
+// labeled and unlabeled actions, naming the label the action moved.
 type WebhookIssues struct {
 	Action     string     `json:"action"`
 	Issue      Issue      `json:"issue"`
+	Label      *Label     `json:"label,omitempty"`
 	Repository Repository `json:"repository"`
 	Sender     SimpleUser `json:"sender"`
 }
 
-// WebhookPullRequest is the body of a pull_request delivery.
+// WebhookPullRequest is the body of a pull_request delivery. before and after
+// carry the moved head shas on a synchronize delivery and are omitted on every
+// other action, matching github.com.
 type WebhookPullRequest struct {
 	Action      string      `json:"action"`
 	Number      int64       `json:"number"`
+	Before      string      `json:"before,omitempty"`
+	After       string      `json:"after,omitempty"`
+	PullRequest PullRequest `json:"pull_request"`
+	Label       *Label      `json:"label,omitempty"`
+	Repository  Repository  `json:"repository"`
+	Sender      SimpleUser  `json:"sender"`
+}
+
+// WebhookIssueComment is the body of an issue_comment delivery: the comment
+// alongside the issue it landed on.
+type WebhookIssueComment struct {
+	Action     string       `json:"action"`
+	Issue      Issue        `json:"issue"`
+	Comment    IssueComment `json:"comment"`
+	Repository Repository   `json:"repository"`
+	Sender     SimpleUser   `json:"sender"`
+}
+
+// WebhookPullRequestReview is the body of a pull_request_review delivery: the
+// review alongside the pull request it was left on.
+type WebhookPullRequestReview struct {
+	Action      string      `json:"action"`
+	Review      Review      `json:"review"`
 	PullRequest PullRequest `json:"pull_request"`
 	Repository  Repository  `json:"repository"`
 	Sender      SimpleUser  `json:"sender"`
 }
 
+// WebhookPullRequestReviewComment is the body of a pull_request_review_comment
+// delivery: the inline comment alongside its pull request.
+type WebhookPullRequestReviewComment struct {
+	Action      string        `json:"action"`
+	Comment     ReviewComment `json:"comment"`
+	PullRequest PullRequest   `json:"pull_request"`
+	Repository  Repository    `json:"repository"`
+	Sender      SimpleUser    `json:"sender"`
+}
+
+// WebhookRelease is the body of a release delivery: the release object that
+// went live alongside the repository and sender.
+type WebhookRelease struct {
+	Action     string     `json:"action"`
+	Release    Release    `json:"release"`
+	Repository Repository `json:"repository"`
+	Sender     SimpleUser `json:"sender"`
+}
+
+// ReleaseEventPayload is the Events-API payload object for a ReleaseEvent.
+type ReleaseEventPayload struct {
+	Action  string  `json:"action"`
+	Release Release `json:"release"`
+}
+
 // PushEventPayload is the Events-API payload object for a PushEvent. It mirrors
 // the push delivery's moved tips in the feed's compact form.
 type PushEventPayload struct {
-	PushID       int64  `json:"push_id"`
-	Size         int    `json:"size"`
-	DistinctSize int    `json:"distinct_size"`
-	Ref          string `json:"ref"`
-	Head         string `json:"head"`
-	Before       string `json:"before"`
-	Commits      []any  `json:"commits"`
+	PushID       int64             `json:"push_id"`
+	Size         int               `json:"size"`
+	DistinctSize int               `json:"distinct_size"`
+	Ref          string            `json:"ref"`
+	Head         string            `json:"head"`
+	Before       string            `json:"before"`
+	Commits      []PushEventCommit `json:"commits"`
+}
+
+// PushEventCommit is the compact commit object a PushEvent feed entry carries.
+type PushEventCommit struct {
+	SHA      string               `json:"sha"`
+	Author   PushEventCommitIdent `json:"author"`
+	Message  string               `json:"message"`
+	Distinct bool                 `json:"distinct"`
+	URL      string               `json:"url"`
+}
+
+// PushEventCommitIdent is the email/name pair on a feed commit.
+type PushEventCommitIdent struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
 }
 
 // IssuesEventPayload is the Events-API payload object for an IssuesEvent.
 type IssuesEventPayload struct {
 	Action string `json:"action"`
 	Issue  Issue  `json:"issue"`
+}
+
+// IssueCommentEventPayload is the Events-API payload object for an
+// IssueCommentEvent.
+type IssueCommentEventPayload struct {
+	Action  string       `json:"action"`
+	Issue   Issue        `json:"issue"`
+	Comment IssueComment `json:"comment"`
+}
+
+// PullRequestReviewEventPayload is the Events-API payload object for a
+// PullRequestReviewEvent.
+type PullRequestReviewEventPayload struct {
+	Action      string      `json:"action"`
+	Review      Review      `json:"review"`
+	PullRequest PullRequest `json:"pull_request"`
+}
+
+// PullRequestReviewCommentEventPayload is the Events-API payload object for a
+// PullRequestReviewCommentEvent.
+type PullRequestReviewCommentEventPayload struct {
+	Action      string        `json:"action"`
+	Comment     ReviewComment `json:"comment"`
+	PullRequest PullRequest   `json:"pull_request"`
 }
 
 // PullRequestEventPayload is the Events-API payload object for a
@@ -197,8 +325,8 @@ type WebhookDelete struct {
 
 // CreateEventPayload is the Events-API payload for a CreateEvent.
 type CreateEventPayload struct {
-	Ref         string `json:"ref"`
-	RefType     string `json:"ref_type"`
+	Ref          string `json:"ref"`
+	RefType      string `json:"ref_type"`
 	MasterBranch string `json:"master_branch"`
 	Description  string `json:"description"`
 }

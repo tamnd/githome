@@ -174,7 +174,10 @@ func (s *ReviewService) CreateReview(ctx context.Context, actorPK int64, owner, 
 	}
 	if state != ReviewPending {
 		s.enqueueRecompute(ctx, issueRow.PK)
-		s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK)
+		s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK, reviewRow.PK)
+		for _, c := range resolved {
+			s.recordReviewCommentEvent(ctx, actorPK, repo, issueRow.PK, c.PK)
+		}
 	}
 	return s.assembleReview(ctx, reviewRow, number)
 }
@@ -214,7 +217,7 @@ func (s *ReviewService) SubmitReview(ctx context.Context, actorPK int64, owner, 
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
-	s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK)
+	s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK, reviewRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
 }
 
@@ -240,7 +243,7 @@ func (s *ReviewService) DismissReview(ctx context.Context, actorPK int64, owner,
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
-	s.recordReviewEvent(ctx, actorPK, "dismissed", repo, issueRow.PK)
+	s.recordReviewEvent(ctx, actorPK, "dismissed", repo, issueRow.PK, reviewRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
 }
 
@@ -386,6 +389,7 @@ func (s *ReviewService) ReplyComment(ctx context.Context, actorPK int64, owner, 
 		return nil, err
 	}
 	s.enqueueRecompute(ctx, issueRow.PK)
+	s.recordReviewCommentEvent(ctx, actorPK, repo, issueRow.PK, commentRow.PK)
 	return s.assembleComment(ctx, commentRow, number)
 }
 
@@ -878,18 +882,33 @@ func (s *ReviewService) enqueueRecompute(ctx context.Context, issuePK int64) {
 
 // recordReviewEvent appends a pull_request_review activity event and enqueues
 // its webhook fan-out. The actor, the repository, and the pull request's issue
-// row are the coordinates the renderer rebuilds the payload from; delivery is
-// best-effort, so a failure here never fails the user's write.
-func (s *ReviewService) recordReviewEvent(ctx context.Context, actorPK int64, action string, repo *Repo, issuePK int64) {
+// row are the coordinates the renderer rebuilds the payload from, and the
+// review's pk rides the event detail so the body can embed the review object;
+// delivery is best-effort, so a failure here never fails the user's write.
+func (s *ReviewService) recordReviewEvent(ctx context.Context, actorPK int64, action string, repo *Repo, issuePK, reviewPK int64) {
 	pk := issuePK
-	recordEvent(ctx, s.store, s.enq, &store.EventRow{
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
 		Event:   EventPullRequestReview,
 		Action:  action,
 		ActorPK: actorPK,
 		RepoPK:  repo.PK,
 		IssuePK: &pk,
 		Public:  !repo.Private,
-	}, nil)
+	}, nil, nil, &EventDetail{ReviewPK: reviewPK})
+}
+
+// recordReviewCommentEvent appends a pull_request_review_comment created event
+// for one inline comment, carrying the comment's pk for the delivery body.
+func (s *ReviewService) recordReviewCommentEvent(ctx context.Context, actorPK int64, repo *Repo, issuePK, commentPK int64) {
+	pk := issuePK
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventPullRequestReviewComment,
+		Action:  "created",
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		IssuePK: &pk,
+		Public:  !repo.Private,
+	}, nil, nil, &EventDetail{ReviewCommentPK: commentPK})
 }
 
 // stateForEvent maps a submit event to the review state it produces. An empty
@@ -920,6 +939,34 @@ func isOutdated(diff *pullDiff, row *store.ReviewCommentRow) bool {
 		return false
 	}
 	return !fd.contains(int(*row.Line), row.Side)
+}
+
+// ReviewForEvent loads one review by its internal pk for the delivery
+// renderer, off the visibility gate like every ForEvent loader.
+func (s *ReviewService) ReviewForEvent(ctx context.Context, reviewPK int64) (*Review, error) {
+	row, err := s.store.GetReviewByPK(ctx, reviewPK)
+	if err != nil {
+		return nil, err
+	}
+	number, err := s.store.PullNumberByPK(ctx, row.PullPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleReview(ctx, row, number)
+}
+
+// ReviewCommentForEvent loads one inline review comment by its internal pk for
+// the delivery renderer.
+func (s *ReviewService) ReviewCommentForEvent(ctx context.Context, commentPK int64) (*ReviewComment, error) {
+	row, err := s.store.GetReviewCommentByPK(ctx, commentPK)
+	if err != nil {
+		return nil, err
+	}
+	number, err := s.store.PullNumberByPK(ctx, row.PullPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleComment(ctx, row, number)
 }
 
 // EditReviewComment updates the body of an inline review comment.

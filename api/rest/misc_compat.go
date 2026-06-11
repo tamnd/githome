@@ -179,9 +179,10 @@ func handleWebhookPing(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		// Verify hook exists; if not, 404.
-		_, err := d.Hooks.GetHook(ctx, actor.UserID, owner, repo, hookID)
-		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+		// A ping is a real delivery: the worker POSTs the {zen, hook_id, hook}
+		// body to the endpoint, it does not just acknowledge here.
+		err := d.Hooks.PingHook(ctx, actor.UserID, owner, repo, hookID)
+		if errors.Is(err, domain.ErrHookNotFound) || errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}

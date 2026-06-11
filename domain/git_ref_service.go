@@ -71,7 +71,7 @@ func (s *RepoService) CreateRef(ctx context.Context, actorPK int64, owner, name,
 		ActorPK: actorPK,
 		RepoPK:  repo.PK,
 		Public:  !repo.Private,
-	}, nil, cd)
+	}, nil, cd, nil)
 	return resolved, nil
 }
 
@@ -122,7 +122,7 @@ func (s *RepoService) DeleteRef(ctx context.Context, actorPK int64, owner, name,
 		ActorPK: actorPK,
 		RepoPK:  repo.PK,
 		Public:  !repo.Private,
-	}, nil, cd)
+	}, nil, cd, nil)
 	return nil
 }
 

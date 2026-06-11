@@ -86,6 +86,7 @@ type IssueStore interface {
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
+	GetCommentByPK(ctx context.Context, pk int64) (*store.CommentRow, error)
 	UpdateComment(ctx context.Context, c *store.CommentRow) error
 	DeleteComment(ctx context.Context, pk int64) error
 
@@ -247,6 +248,17 @@ func (s *IssueService) IssueForEvent(ctx context.Context, repo *Repo, issuePK in
 		return nil, err
 	}
 	return s.assembleIssue(ctx, repo, row)
+}
+
+// CommentForEvent loads one issue comment by its internal pk for the delivery
+// renderer, off the visibility gate like every ForEvent loader: the event was
+// authorized when it was recorded.
+func (s *IssueService) CommentForEvent(ctx context.Context, commentPK int64) (*Comment, error) {
+	row, err := s.store.GetCommentByPK(ctx, commentPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleComment(ctx, row)
 }
 
 // IssueRef resolves an issue's public database id to the owner login,
@@ -455,7 +467,13 @@ func (s *IssueService) EditIssue(ctx context.Context, actorPK int64, owner, name
 	if action == "" {
 		action = "edited"
 	}
-	s.recordIssueEvent(ctx, actorPK, EventIssues, action, repo, row.PK)
+	// A pull request edited through the issues surface is still a pull request
+	// to a webhook receiver: GitHub delivers pull_request, not issues, for it.
+	event := EventIssues
+	if row.IsPull {
+		event = EventPullRequest
+	}
+	s.recordIssueEvent(ctx, actorPK, event, action, repo, row.PK)
 	return s.assembleIssue(ctx, repo, row)
 }
 
@@ -1035,7 +1053,29 @@ func (s *IssueService) AddLabels(ctx context.Context, actorPK int64, owner, name
 	}); err != nil {
 		return nil, err
 	}
+	s.recordLabeled(ctx, actorPK, repo, row, labels)
 	return s.assembleIssue(ctx, repo, row)
+}
+
+// recordLabeled appends one labeled event per attached label, the way GitHub
+// delivers one webhook per label. The label name rides the event detail so the
+// renderer can name the label the body's label object describes.
+func (s *IssueService) recordLabeled(ctx context.Context, actorPK int64, repo *Repo, row *store.IssueRow, labels []store.LabelRow) {
+	event := EventIssues
+	if row.IsPull {
+		event = EventPullRequest
+	}
+	pk := row.PK
+	for i := range labels {
+		recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+			Event:   event,
+			Action:  "labeled",
+			ActorPK: actorPK,
+			RepoPK:  repo.PK,
+			IssuePK: &pk,
+			Public:  !repo.Private,
+		}, nil, nil, &EventDetail{Label: labels[i].Name})
+	}
 }
 
 // RemoveLabels detaches the given label names from an issue, ignoring any that

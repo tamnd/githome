@@ -62,6 +62,7 @@ func mountHooks(r *mizu.Router, d Deps) {
 	r.Get("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookGet(d), "admin:org_hook"))
 	r.Patch("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookUpdate(d), "admin:org_hook"))
 	r.Delete("/orgs/{org}/hooks/{id}", requireScope(handleOrgHookDelete(d), "admin:org_hook"))
+	r.Post("/orgs/{org}/hooks/{id}/pings", requireScope(handleOrgHookPing(d), "admin:org_hook"))
 }
 
 // handleHooksList serves GET /repos/{owner}/{repo}/hooks.
@@ -299,19 +300,32 @@ func insecureSSLFlag(v any) bool {
 	}
 }
 
-// handleOrgHooksList serves GET /orgs/{org}/hooks.
-// Org-level webhooks are stored and delivered exactly like repo hooks; the
-// difference is the scope. For now Githome returns an empty list: org hooks
-// are not yet stored separately, but the endpoint must exist so Terraform's
-// github_organization_webhook resource can read-back after create.
+// handleOrgHooksList serves GET /orgs/{org}/hooks. Org hooks are stored as repo
+// hooks on the org's synthetic anchor repository; an org that never created one
+// has no anchor and lists empty.
 func handleOrgHooksList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		actor := auth.ActorFrom(c.Request().Context())
+		org := c.Param("org")
+		hooks, err := d.Hooks.ListOrgHooks(c.Request().Context(), actor.UserID, org)
+		if hookError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out := make([]restmodel.Hook, 0, len(hooks))
+		for i := range hooks {
+			out = append(out, d.URLs.OrgHook(org, &hooks[i]))
+		}
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
 
-// handleOrgHookCreate serves POST /orgs/{org}/hooks.
+// handleOrgHookCreate serves POST /orgs/{org}/hooks. The hook lands on the
+// org's anchor repository, created on first use, so the later reads and edits
+// all address the same storage the repo hook endpoints use.
 func handleOrgHookCreate(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		var body hookCreateBody
@@ -322,9 +336,6 @@ func handleOrgHookCreate(d Deps) mizu.Handler {
 			writeError(c.Writer(), errValidation(FieldError{Resource: "Hook", Field: "config", Code: "custom", Message: "Config url is required."}))
 			return nil
 		}
-		// Persist as a repo hook on a synthetic "_org" repo path so we can reuse
-		// the existing hook store. The org param acts as owner; "_org" as repo.
-		// This is a stopgap until org-level hook storage is added.
 		actor := auth.ActorFrom(c.Request().Context())
 		org := c.Param("org")
 		in := domain.HookInput{
@@ -336,15 +347,14 @@ func handleOrgHookCreate(d Deps) mizu.Handler {
 			Active:      body.Active,
 			Events:      body.Events,
 		}
-		// For the org hook create we use the org's first repo as the backing repo
-		// anchor. If the org has no repos return a synthetic response.
-		hook, err := d.Hooks.CreateHook(c.Request().Context(), actor.UserID, org, "_org", in)
-		if err != nil {
-			// Return a synthetic hook JSON with a stable fake ID when no anchor repo exists.
-			writeJSON(c.Writer(), http.StatusCreated, orgHookJSON(0, org, body, d))
+		hook, err := d.Hooks.CreateOrgHook(c.Request().Context(), actor.UserID, org, in)
+		if hookError(c.Writer(), err) {
 			return nil
 		}
-		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Hook(org, "_org", hook))
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, d.URLs.OrgHook(org, hook))
 		return nil
 	}
 }
@@ -360,12 +370,12 @@ func handleOrgHookGet(d Deps) mizu.Handler {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
 		org := c.Param("org")
-		hook, err := d.Hooks.GetHook(ctx, actor.UserID, org, "_org", id)
+		hook, err := d.Hooks.GetHook(ctx, actor.UserID, org, domain.OrgHookRepo, id)
 		if err != nil {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Hook(org, "_org", hook))
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.OrgHook(org, hook))
 		return nil
 	}
 }
@@ -398,14 +408,14 @@ func handleOrgHookUpdate(d Deps) mizu.Handler {
 			insecure := insecureSSLFlag(body.Config.InsecureSSL)
 			p.InsecureSSL = &insecure
 		}
-		hook, err := d.Hooks.UpdateHook(ctx, actor.UserID, org, "_org", id, p)
+		hook, err := d.Hooks.UpdateHook(ctx, actor.UserID, org, domain.OrgHookRepo, id, p)
 		if hookError(c.Writer(), err) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Hook(org, "_org", hook))
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.OrgHook(org, hook))
 		return nil
 	}
 }
@@ -421,7 +431,7 @@ func handleOrgHookDelete(d Deps) mizu.Handler {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
 		org := c.Param("org")
-		err := d.Hooks.DeleteHook(ctx, actor.UserID, org, "_org", id)
+		err := d.Hooks.DeleteHook(ctx, actor.UserID, org, domain.OrgHookRepo, id)
 		if hookError(c.Writer(), err) {
 			return nil
 		}
@@ -433,21 +443,26 @@ func handleOrgHookDelete(d Deps) mizu.Handler {
 	}
 }
 
-func orgHookJSON(id int64, org string, body hookCreateBody, d Deps) map[string]any {
-	return map[string]any{
-		"type":   "Organization",
-		"id":     id,
-		"name":   body.Name,
-		"active": body.Active == nil || *body.Active,
-		"events": body.Events,
-		"config": map[string]any{
-			"url":          body.Config.URL,
-			"content_type": body.Config.ContentType,
-			"insecure_ssl": "0",
-		},
-		"url":            d.URLs.API("orgs", org, "hooks"),
-		"ping_url":       d.URLs.API("orgs", org, "hooks", "0", "pings"),
-		"deliveries_url": d.URLs.API("orgs", org, "hooks", "0", "deliveries"),
+// handleOrgHookPing serves POST /orgs/{org}/hooks/{id}/pings, the org-level
+// twin of the repo hook ping.
+func handleOrgHookPing(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		org := c.Param("org")
+		err := d.Hooks.PingHook(c.Request().Context(), actor.UserID, org, domain.OrgHookRepo, id)
+		if hookError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
 	}
 }
 
