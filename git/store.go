@@ -25,9 +25,15 @@ type Store struct {
 	pool  *catFilePool
 	cache *objCache
 
-	// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
+// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
 	// is content-addressed (two full object ids), so an entry never goes stale.
 	diffs *diffCache
+
+	// repos keeps warm go-git handles between requests so a point read does not
+	// pay a cold pack-index parse. Handles are checked out exclusively (go-git
+	// handles are not safe for concurrent use) and returned via Repo.Release;
+	// InvalidateRepo drops a repository's handles after a push.
+	repos *repoCache
 
 	// overrides maps pk to an explicit filesystem path, bypassing the normal
 	// root/{shard}/{pk}.git layout. Used by browse mode to point at an
@@ -46,6 +52,7 @@ func NewStore(dir string) *Store {
 	s.pool = newCatFilePool("git", 64)
 	s.cache = newObjCache(objCacheMaxEntries)
 	s.diffs = newDiffCache(diffCacheMaxBytes)
+	s.repos = newRepoCache(repoCacheMaxRepos, repoCacheHandlesPerRepo)
 	return s
 }
 
@@ -91,21 +98,38 @@ func (s *Store) Dir(pk int64) string {
 
 // Open opens the bare repository for pk for reading. It returns ErrRepoNotFound
 // when no repository exists at the resolved path.
+//
+// The returned Repo may carry a warm handle from the store's repo cache; the
+// caller should call Release when done with it so the handle (and its parsed
+// pack index) is reused by the next request. A Repo that is never released
+// still works; it just forfeits the reuse.
 func (s *Store) Open(pk int64) (*Repo, error) {
 	dir := s.Dir(pk)
-	_, overridden := s.overrides[pk]
-	var r *gogit.Repository
-	var err error
-	if overridden {
-		// User-supplied path may be a working tree; detect the .git subdirectory.
-		r, err = gogit.PlainOpenWithOptions(dir, &gogit.PlainOpenOptions{DetectDotGit: true})
-	} else {
-		r, err = gogit.PlainOpen(dir)
+	if _, overridden := s.overrides[pk]; overridden {
+		// User-supplied path may be a working tree that changes outside our
+		// control; detect the .git subdirectory and never cache the handle.
+		r, err := gogit.PlainOpenWithOptions(dir, &gogit.PlainOpenOptions{DetectDotGit: true})
+		if err != nil {
+			return nil, ErrRepoNotFound
+		}
+		return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes, store: s, pk: pk}, nil
 	}
-	if err != nil {
-		return nil, ErrRepoNotFound
+	h, gen, ok := s.repos.acquire(dir)
+	if !ok {
+		r, err := gogit.PlainOpen(dir)
+		if err != nil {
+			return nil, ErrRepoNotFound
+		}
+		h = r
 	}
-	return &Repo{repo: r, maxBlobBytes: s.maxBlobBytes, store: s, pk: pk}, nil
+	return &Repo{repo: h, maxBlobBytes: s.maxBlobBytes, store: s, pk: pk, cacheDir: dir, cacheGen: gen}, nil
+}
+
+// InvalidateRepo drops the cached go-git handles for pk. The push path calls it
+// after receive-pack runs: a push can write a new packfile, and a warm handle's
+// lazily-built pack index would never see objects in it.
+func (s *Store) InvalidateRepo(pk int64) {
+	s.repos.invalidate(s.Dir(pk))
 }
 
 // blobSizes resolves the byte size of each sha, serving cache hits directly and

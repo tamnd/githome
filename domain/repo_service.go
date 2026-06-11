@@ -333,6 +333,7 @@ func (s *RepoService) DefaultBranchRef(repo *Repo) (git.Branch, error) {
 	if err != nil {
 		return git.Branch{}, err
 	}
+	defer gr.Release()
 	b, err := gr.HEAD()
 	if err != nil {
 		return git.Branch{}, gitErr(err)
@@ -350,6 +351,7 @@ func (s *RepoService) ListBranches(repo *Repo) ([]git.Branch, error) {
 		}
 		return nil, err
 	}
+	defer gr.Release()
 	bs, err := gr.Branches()
 	if err != nil {
 		return nil, gitErr(err)
@@ -363,6 +365,7 @@ func (s *RepoService) GetBranch(repo *Repo, name string) (git.Branch, error) {
 	if err != nil {
 		return git.Branch{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	ref, err := gr.RefByName("heads/" + name)
 	if err != nil {
 		return git.Branch{}, ErrGitNotFound
@@ -380,6 +383,7 @@ func (s *RepoService) ListTags(repo *Repo) ([]git.Tag, error) {
 		}
 		return nil, err
 	}
+	defer gr.Release()
 	ts, err := gr.Tags()
 	if err != nil {
 		return nil, gitErr(err)
@@ -396,6 +400,7 @@ func (s *RepoService) ListRefs(repo *Repo) ([]git.Ref, error) {
 		}
 		return nil, err
 	}
+	defer gr.Release()
 	rs, err := gr.Refs()
 	if err != nil {
 		return nil, gitErr(err)
@@ -410,6 +415,7 @@ func (s *RepoService) GetRef(repo *Repo, name string) (git.Ref, error) {
 	if err != nil {
 		return git.Ref{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	ref, err := gr.RefByName(name)
 	if err != nil {
 		return git.Ref{}, ErrGitNotFound
@@ -424,6 +430,7 @@ func (s *RepoService) GetCommit(repo *Repo, rev string) (git.Commit, error) {
 	if err != nil {
 		return git.Commit{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	c, err := gr.Commit(rev)
 	if err != nil {
 		return git.Commit{}, gitErr(err)
@@ -438,6 +445,7 @@ func (s *RepoService) ListCommits(repo *Repo, opts git.LogOpts) ([]git.Commit, e
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	if opts.From == "" {
 		opts.From = "HEAD"
 	}
@@ -467,6 +475,7 @@ func (s *RepoService) GetTree(repo *Repo, rev string, recursive bool) (git.Tree,
 	if err != nil {
 		return git.Tree{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	t, err := gr.Tree(rev, recursive)
 	if err != nil {
 		return git.Tree{}, gitErr(err)
@@ -480,6 +489,7 @@ func (s *RepoService) GetBlob(repo *Repo, sha string) (git.Blob, error) {
 	if err != nil {
 		return git.Blob{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	b, err := gr.Blob(sha)
 	if err != nil {
 		return git.Blob{}, gitErr(err)
@@ -494,6 +504,7 @@ func (s *RepoService) Contents(repo *Repo, path, ref string) (git.PathResult, er
 	if err != nil {
 		return git.PathResult{}, ErrGitNotFound
 	}
+	defer gr.Release()
 	if ref == "" {
 		ref = "HEAD"
 	}
@@ -529,6 +540,7 @@ func (s *RepoService) WriteFile(repo *Repo, in WriteFileInput) (*WriteFileResult
 	if err != nil {
 		return nil, err
 	}
+	defer gr.Release()
 	if err := checkCurrentBlob(gr, in); err != nil {
 		return nil, err
 	}
@@ -552,6 +564,7 @@ func (s *RepoService) DeleteFile(repo *Repo, in WriteFileInput) (*WriteFileResul
 	if err != nil {
 		return nil, err
 	}
+	defer gr.Release()
 	if err := checkCurrentBlob(gr, in); err != nil {
 		return nil, err
 	}
@@ -775,6 +788,7 @@ func (s *RepoService) Blame(repo *Repo, ref, path string) ([]git.BlameLine, erro
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	lines, err := gr.Blame(ref, path)
 	if err != nil {
 		return nil, gitErr(err)
@@ -790,6 +804,7 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 	if err != nil {
 		return "", gitErr(err)
 	}
+	defer gr.Release()
 	patch, err := gr.CommitPatch(sha)
 	if err != nil {
 		return "", gitErr(err)
@@ -803,6 +818,7 @@ func (s *RepoService) CreateBlob(repo *Repo, content []byte) (*git.CreateBlobRes
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	return gr.CreateBlob(git.CreateBlobInput{Content: content})
 }
 
@@ -812,6 +828,7 @@ func (s *RepoService) CreateTree(repo *Repo, baseTreeSHA string, entries []git.C
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	return gr.CreateTree(baseTreeSHA, entries)
 }
 
@@ -821,6 +838,7 @@ func (s *RepoService) CreateGitCommit(repo *Repo, in git.CreateCommitInput) (*gi
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	return gr.CreateCommit(in)
 }
 
@@ -830,6 +848,7 @@ func (s *RepoService) CreateGitTag(repo *Repo, in git.CreateTagInput) (*git.Crea
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	return gr.CreateTag(in)
 }
 
@@ -839,6 +858,7 @@ func (s *RepoService) GetGitTag(repo *Repo, sha string) (*git.GetTagResult, erro
 	if err != nil {
 		return nil, gitErr(err)
 	}
+	defer gr.Release()
 	res, err := gr.GetTag(sha)
 	if err != nil {
 		return nil, gitErr(err)

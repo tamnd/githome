@@ -35,6 +35,25 @@ type Repo struct {
 	// without a store (some tests) falls back to the per-object go-git lookup.
 	store *Store
 	pk    int64
+
+	// cacheDir and cacheGen tie this handle back to the store's repo cache so
+	// Release can return it for reuse. A Repo opened outside the cache (override
+	// paths, Init, tests) has an empty cacheDir and Release is a no-op.
+	cacheDir string
+	cacheGen uint64
+}
+
+// Release returns the underlying go-git handle to the store's warm-handle cache
+// for the next request to reuse, keeping the parsed pack index warm. The Repo
+// must not be used after Release: another goroutine may check the handle out
+// immediately. Releasing is optional; an unreleased handle is just collected.
+func (r *Repo) Release() {
+	if r == nil || r.store == nil || r.cacheDir == "" || r.repo == nil {
+		return
+	}
+	h := r.repo
+	r.repo = nil
+	r.store.repos.release(r.cacheDir, r.cacheGen, h)
 }
 
 // HEAD resolves the repository's default branch to its short name and head
