@@ -48,12 +48,17 @@ type Config struct {
 	BaseURL           string       // on-host base, for link/ref/anchor emission
 	CamoSecret        []byte       // HMAC key for the off-host image proxy; empty disables proxying
 	CamoBaseURL       string       // where the proxy is mounted (default {BaseURL}/camo)
-	MaxHighlightBytes int          // default 5<<20; a larger blob is shown unhighlighted (logged)
+	MaxHighlightBytes int          // default 512<<10; a larger blob is shown unhighlighted (logged)
 	EmojiAssetBase    string       // asset path for custom :octocat:-style image emoji (unused in v1)
 	Logger            *slog.Logger // optional; falls back to slog.Default
 }
 
-const defaultMaxHighlightBytes = 5 << 20
+// defaultMaxHighlightBytes matches github.com's highlight cutoff. The web blob
+// view stops inlining files at the same bound (its too-large stub with the raw
+// link), so on that path the highlighter never sees an over-cap blob; this cap
+// covers every other caller, where an over-cap input falls back to escaped
+// lines instead of a chroma pass over megabytes.
+const defaultMaxHighlightBytes = 512 << 10
 
 // New constructs the shared Renderer. It wires the sanitizer in front of every
 // render path (a package test asserts this, since goldmark runs WithUnsafe),

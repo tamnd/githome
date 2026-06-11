@@ -1,6 +1,7 @@
 package markup
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -344,5 +345,25 @@ func TestCodeNavUnavailableInPureGoBuild(t *testing.T) {
 	}
 	if defs := r.Definitions(context.Background(), nil, "go", "main"); defs != nil {
 		t.Errorf("Definitions must be empty in pure-Go build, got %v", defs)
+	}
+}
+
+func TestHighlightCapSkipsBackendOverCutoff(t *testing.T) {
+	r := newTestRenderer(t)
+	if r.maxHL != 512<<10 {
+		t.Fatalf("default highlight cap = %d, want %d (github's cutoff)", r.maxHL, 512<<10)
+	}
+	code := bytes.Repeat([]byte("func main() { return }\n"), (r.maxHL/23)+1)
+	lines, err := r.HighlightLines(code, "go")
+	if err != nil {
+		t.Fatalf("HighlightLines: %v", err)
+	}
+	if len(lines) == 0 {
+		t.Fatal("over-cap blob must still yield escaped lines")
+	}
+	for _, ln := range lines[:10] {
+		if strings.Contains(string(ln), "pl-") {
+			t.Fatalf("over-cap blob was highlighted: %q", ln)
+		}
 	}
 }
