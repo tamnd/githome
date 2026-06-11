@@ -93,11 +93,21 @@ hr {
   top: var(--base-size-8);
 }
 
-/* Home page. */
+/* Home page. The dashboard is the repositories sidebar beside the activity
+   feed; it collapses to one column on a narrow screen. */
 .home-dashboard {
-  max-width: 800px;
+  display: grid;
+  grid-template-columns: 296px minmax(0, 1fr);
+  gap: var(--base-size-32);
+  max-width: 1012px;
   margin: 0 auto;
   padding: var(--base-size-32) 0;
+}
+
+@media (max-width: 767px) {
+  .home-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .home-heading {
@@ -109,6 +119,56 @@ hr {
 .home-lede {
   color: var(--fgColor-muted);
   margin-bottom: var(--base-size-24);
+}
+
+.home-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--base-size-8);
+}
+
+.home-sidebar-title,
+.home-section-title {
+  font-size: var(--text-body-size-medium);
+  font-weight: 600;
+}
+
+.home-section-title {
+  margin-bottom: var(--base-size-8);
+}
+
+.home-repo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--base-size-8);
+}
+
+.home-repo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+  padding: var(--base-size-4) 0;
+}
+
+.home-repo-link {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-repo-lock {
+  color: var(--fgColor-muted);
+  flex: none;
+}
+
+.home-repos-all,
+.home-repo-empty {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
 }
 
 .home-landing {

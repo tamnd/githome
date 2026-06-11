@@ -1117,3 +1117,79 @@
   flex: 1 1 0;
   min-width: 0;
 }
+
+/* The create-repository form at /new: a single centered column with the
+   owner/name row, the description, and the visibility choices. It reuses the
+   settings form field classes for the labels and inputs. */
+.repo-new {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: var(--base-size-24) var(--base-size-16);
+}
+
+.repo-new-title {
+  font-size: var(--text-title-size-medium);
+  font-weight: 600;
+}
+
+.repo-new-lede {
+  margin: var(--base-size-4) 0 var(--base-size-16);
+  padding-bottom: var(--base-size-16);
+  color: var(--fgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.repo-new-owner-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.repo-new-owner {
+  font-weight: 600;
+}
+
+.repo-new-hint {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.repo-new-optional {
+  font-weight: 400;
+  color: var(--fgColor-muted);
+}
+
+.repo-new-visibility {
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-8);
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--base-size-16);
+}
+
+.repo-new-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+}
+
+.repo-new-choice .octicon {
+  margin-top: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.repo-new-choice-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.repo-new-choice-name {
+  font-weight: 600;
+}
+
+.repo-new-choice-hint {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}

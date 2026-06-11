@@ -132,7 +132,14 @@ func (h *Handlers) shell(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullRequest,
 
 		ConversationURL: route.Pull(owner, repo.Name, pr.Number),
 		CommitsURL:      route.PullCommits(owner, repo.Name, pr.Number),
+		ChecksURL:       route.PullChecks(owner, repo.Name, pr.Number),
 		FilesURL:        route.PullFiles(owner, repo.Name, pr.Number),
+	}
+	// The Checks tab shows only when the checks service is wired, the same gate
+	// the standalone checks page mounts behind.
+	if h.checks != nil {
+		sh.ShowChecksTab = true
+		sh.CheckCount = h.checkCount(c, repo, pr)
 	}
 	if pr.MergedAt != nil {
 		sh.MergedAt = pr.MergedAt.UTC().Format("Jan 2, 2006")

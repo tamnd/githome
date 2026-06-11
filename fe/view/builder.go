@@ -7,14 +7,32 @@ import "github.com/go-mizu/mizu"
 // so a handler stays a few lines: resolve domain data, build the view model,
 // render. Later milestones add their feature view models in their own files.
 
-// HomeVM is the landing page model. F0 carries only the shell; the dashboard
-// content is driven entirely off Chrome.Viewer (signed-in versus anonymous). The
-// feed and the viewer's repositories arrive in a later milestone.
+// HomeVM is the landing page model: the dashboard for a signed-in viewer, the
+// sign-in blankslate for an anonymous one, switched on Chrome.Viewer. The
+// dashboard carries the viewer's repositories for the sidebar and their recent
+// activity for the feed; the fe/web/home handlers fill both, so / and /dashboard
+// render the same page from the same model.
 type HomeVM struct {
 	Chrome Chrome
+
+	Repos      []HomeRepoVM // the viewer's repositories, newest activity first
+	ReposURL   string       // the "show all" link to the profile repositories tab
+	NewRepoURL string       // the create-repository form, /new
+
+	Feed      []FeedItemVM // the viewer's recent activity, the profile catalog's lines
+	FeedEmpty bool
 }
 
-// Home builds the landing page model.
+// HomeRepoVM is one repository line in the dashboard sidebar: the full name the
+// link shows and the lock the private ones carry.
+type HomeRepoVM struct {
+	FullName string
+	URL      string
+	Private  bool
+}
+
+// Home builds the landing page model's shell; the home handlers fill the
+// dashboard fields for a signed-in viewer.
 func (b *Builder) Home(c *mizu.Ctx) HomeVM {
 	title := ""
 	if ViewerFrom(c.Context()) == nil {

@@ -1,0 +1,64 @@
+{{define "content" -}}
+{{/* The data is RepoNewVM. The create-repository form: the owner the repository
+     lands under (the viewer, the one owner the create service accepts), the name
+     with its shape hint, the optional description, and the public/private choice.
+     A validation miss re-renders this page with the message inline and the input
+     preserved. The repository is created empty; the redirect lands on the repo
+     home, whose quick-setup view walks the first push. Plain form post, no JS. */ -}}
+<div class="repo-new">
+  <h1 class="repo-new-title">Create a new repository</h1>
+  <p class="repo-new-lede">A repository contains your project's files and their revision history.</p>
+
+  {{if .FormError -}}
+  <div class="flash flash-error">{{.FormError}}</div>
+  {{- end}}
+
+  <form class="repo-new-form" method="post" action="{{.Action}}">
+    {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+    <div class="settings-field repo-new-name">
+      <label class="settings-label" for="name">Repository name</label>
+      <div class="repo-new-owner-row">
+        <span class="repo-new-owner">{{.Owner}}</span>
+        <span class="repo-new-slash">/</span>
+        <input class="input" id="name" name="name" type="text" value="{{.NameValue}}"
+               autofocus required maxlength="100"
+               pattern="[A-Za-z0-9._\-]+"
+               title="Repository name may only contain letters, digits, dots, hyphens, and underscores">
+      </div>
+      <p class="repo-new-hint">Great repository names are short and memorable.</p>
+    </div>
+
+    <div class="settings-field">
+      <label class="settings-label" for="description">Description <span class="repo-new-optional">(optional)</span></label>
+      <input class="input" id="description" name="description" type="text" value="{{.DescriptionValue}}" maxlength="350">
+    </div>
+
+    <fieldset class="settings-field repo-new-visibility">
+      <legend class="settings-label">Visibility</legend>
+      <label class="repo-new-choice">
+        <input type="radio" name="visibility" value="public"{{if not .Private}} checked{{end}}>
+        {{octicon "repo" 16}}
+        <span class="repo-new-choice-main">
+          <span class="repo-new-choice-name">Public</span>
+          <span class="repo-new-choice-hint">Anyone can see this repository.</span>
+        </span>
+      </label>
+      <label class="repo-new-choice">
+        <input type="radio" name="visibility" value="private"{{if .Private}} checked{{end}}>
+        {{octicon "lock" 16}}
+        <span class="repo-new-choice-main">
+          <span class="repo-new-choice-name">Private</span>
+          <span class="repo-new-choice-hint">Only you can see this repository.</span>
+        </span>
+      </label>
+    </fieldset>
+
+    <p class="repo-new-hint">The repository is created empty. The next page shows you how to push your first commit or an existing repository.</p>
+
+    <div class="settings-actions">
+      <button class="btn btn-primary" type="submit">Create repository</button>
+    </div>
+  </form>
+</div>
+{{- end}}

@@ -36,7 +36,28 @@ type tColorMode struct{ Mode, Light, Dark string }
 type tViewer struct{ Login, Name, AvatarURL string }
 type tFlash struct{ Kind, Message string }
 
-type tHome struct{ Chrome tChrome }
+// tHome mirrors view.HomeVM the same way: the dashboard fields the signed-in
+// branch reads, left at their zero values so the test pins the shell, not the
+// dashboard content (the fe/web/home tests own that).
+type tHome struct {
+	Chrome     tChrome
+	Repos      []tHomeRepo
+	ReposURL   string
+	NewRepoURL string
+	Feed       []tFeedItem
+	FeedEmpty  bool
+}
+
+type tHomeRepo struct {
+	FullName, URL string
+	Private       bool
+}
+
+type tFeedItem struct {
+	Icon, ActorLogin, ActorURL, Verb         string
+	RepoFullName, RepoURL, Target, TargetURL string
+	CreatedAt, CreatedISO                    string
+}
 
 func newTestSet(t *testing.T) *Set {
 	t.Helper()

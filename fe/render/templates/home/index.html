@@ -1,16 +1,62 @@
 {{define "title"}}Home{{end}}
 {{define "content" -}}
-{{/* The data is HomeVM. F0 ships a real but minimal landing: a signed-in viewer
-     sees a dashboard shell, an anonymous viewer sees a sign-in blankslate. Later
-     milestones fill the dashboard with feeds and the viewer's repositories. */ -}}
+{{/* The data is HomeVM. A signed-in viewer sees the dashboard: their repositories
+     in the sidebar and their recent activity in the feed, the same page / and
+     /dashboard both render. An anonymous viewer sees the sign-in blankslate. The
+     feed lines reuse the profile timeline's classes because they are the same
+     component fed by the same event catalog. */ -}}
 {{if .Chrome.Viewer -}}
 <div class="home-dashboard">
-  <h1 class="home-heading">Welcome back, {{.Chrome.Viewer.Login}}</h1>
-  <p class="home-lede">Your dashboard is taking shape. Jump to a repository from the search bar above.</p>
-  <div class="home-actions">
-    <a class="btn btn-primary" href="/new">{{octicon "repo" 16}} New repository</a>
-    <a class="btn" href="/{{.Chrome.Viewer.Login}}?tab=repositories">Your repositories</a>
-  </div>
+  <aside class="home-sidebar">
+    <div class="home-sidebar-head">
+      <h2 class="home-sidebar-title">Repositories</h2>
+      <a class="btn btn-primary btn-sm" href="{{.NewRepoURL}}">{{octicon "repo" 16}} New</a>
+    </div>
+    {{if .Repos -}}
+    <ul class="home-repo-list">
+      {{range .Repos -}}
+      <li class="home-repo-item">
+        <a class="home-repo-link" href="{{.URL}}">{{.FullName}}</a>
+        {{if .Private}}<span class="home-repo-lock" aria-label="Private">{{octicon "lock" 16}}</span>{{end}}
+      </li>
+      {{- end}}
+    </ul>
+    <a class="home-repos-all" href="{{.ReposURL}}">Show all repositories</a>
+    {{- else -}}
+    <p class="home-repo-empty">No repositories yet. <a href="{{.NewRepoURL}}">Create your first repository</a> to get started.</p>
+    {{- end}}
+  </aside>
+
+  <section class="home-main">
+    <h1 class="home-heading">Welcome back, {{.Chrome.Viewer.Login}}</h1>
+    <h2 class="home-section-title">Recent activity</h2>
+    {{if .FeedEmpty -}}
+    <div class="blankslate home-feed-empty">
+      <span class="blankslate-icon" aria-hidden="true">{{octicon "history" 24}}</span>
+      <p class="blankslate-text">Your recent activity shows up here once you push, open issues, or send pull requests.</p>
+    </div>
+    {{- else -}}
+    <ul class="profile-feed">
+      {{range .Feed -}}
+      <li class="profile-feed-item">
+        <span class="profile-feed-icon" aria-hidden="true">{{octicon .Icon 16}}</span>
+        <div class="profile-feed-body">
+          <p class="profile-feed-line">
+            <a class="profile-feed-actor" href="{{.ActorURL}}">{{.ActorLogin}}</a>
+            {{.Verb}}
+            <a class="profile-feed-repo" href="{{.RepoURL}}">{{.RepoFullName}}</a>
+          </p>
+          {{if .Target}}
+          {{if .TargetURL}}<a class="profile-feed-target" href="{{.TargetURL}}">{{.Target}}</a>
+          {{else}}<span class="profile-feed-target">{{.Target}}</span>{{end}}
+          {{end}}
+          <p class="profile-feed-time"><relative-time datetime="{{.CreatedISO}}">{{.CreatedAt}}</relative-time></p>
+        </div>
+      </li>
+      {{- end}}
+    </ul>
+    {{- end}}
+  </section>
 </div>
 {{- else -}}
 <div class="blankslate home-landing">

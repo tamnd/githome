@@ -38,10 +38,12 @@ type feedSubject struct {
 	Title  string `json:"title"`
 }
 
-// feedItems maps a page of events into timeline lines, skipping any event the
+// FeedItems maps a page of events into timeline lines, skipping any event the
 // catalog cannot place (one missing its actor or repository, which the feed never
-// produces but the mapper guards against rather than panicking).
-func (h *Handlers) feedItems(events []domain.Event) []view.FeedItemVM {
+// produces but the mapper guards against rather than panicking). It is exported
+// because the dashboard's recent-activity feed reads the same stored events, and
+// one catalog keeps the two timelines telling the same story for the same event.
+func FeedItems(events []domain.Event) []view.FeedItemVM {
 	out := make([]view.FeedItemVM, 0, len(events))
 	for i := range events {
 		if item, ok := feedItem(&events[i]); ok {
