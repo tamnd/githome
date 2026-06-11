@@ -95,7 +95,7 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 	case domain.EventPush:
 		res, err = r.renderPush(ctx, ev, repo, sender, push)
 	case domain.EventIssues, domain.EventIssueComment:
-		res, err = r.renderIssue(ctx, ev, repo, sender)
+		res, err = r.renderIssue(ctx, ev, repo, sender, detail)
 	case domain.EventPullRequest, domain.EventPullRequestReview:
 		res, err = r.renderPull(ctx, ev, repo, sender, detail)
 	case domain.EventCreate:
@@ -245,7 +245,7 @@ func (r *Renderer) commitUser(sig git.Signature, sender *domain.User) restmodel.
 	return u
 }
 
-func (r *Renderer) renderIssue(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User) (*Rendered, error) {
+func (r *Renderer) renderIssue(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
 	if ev.IssuePK == nil {
 		return nil, fmt.Errorf("webhook: %s event has no issue", ev.Event)
 	}
@@ -258,11 +258,27 @@ func (r *Renderer) renderIssue(ctx context.Context, ev *store.EventRow, repo *do
 	body := restmodel.WebhookIssues{
 		Action:     ev.Action,
 		Issue:      rendered,
+		Label:      labelByName(rendered.Labels, detail),
 		Repository: r.urls.Repository(repo, r.format, nil),
 		Sender:     r.urls.SimpleUser(sender, r.format),
 	}
 	feed := restmodel.IssuesEventPayload{Action: ev.Action, Issue: rendered}
 	return marshalRendered(ev, body, feed)
+}
+
+// labelByName picks the named label out of the rendered issue's label list, the
+// object a labeled delivery embeds. Nil when the event carries no label name or
+// the label is gone by render time.
+func labelByName(labels []restmodel.Label, detail *domain.EventDetail) *restmodel.Label {
+	if detail == nil || detail.Label == "" {
+		return nil
+	}
+	for i := range labels {
+		if labels[i].Name == detail.Label {
+			return &labels[i]
+		}
+	}
+	return nil
 }
 
 func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
@@ -279,6 +295,7 @@ func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *dom
 		Action:      ev.Action,
 		Number:      pr.Number,
 		PullRequest: rendered,
+		Label:       labelByName(rendered.Labels, detail),
 		Repository:  r.urls.Repository(repo, r.format, nil),
 		Sender:      r.urls.SimpleUser(sender, r.format),
 	}

@@ -157,10 +157,12 @@ type WebhookPusher struct {
 	Email string `json:"email"`
 }
 
-// WebhookIssues is the body of an issues delivery.
+// WebhookIssues is the body of an issues delivery. label is set only on
+// labeled and unlabeled actions, naming the label the action moved.
 type WebhookIssues struct {
 	Action     string     `json:"action"`
 	Issue      Issue      `json:"issue"`
+	Label      *Label     `json:"label,omitempty"`
 	Repository Repository `json:"repository"`
 	Sender     SimpleUser `json:"sender"`
 }
@@ -174,6 +176,7 @@ type WebhookPullRequest struct {
 	Before      string      `json:"before,omitempty"`
 	After       string      `json:"after,omitempty"`
 	PullRequest PullRequest `json:"pull_request"`
+	Label       *Label      `json:"label,omitempty"`
 	Repository  Repository  `json:"repository"`
 	Sender      SimpleUser  `json:"sender"`
 }

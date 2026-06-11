@@ -455,7 +455,13 @@ func (s *IssueService) EditIssue(ctx context.Context, actorPK int64, owner, name
 	if action == "" {
 		action = "edited"
 	}
-	s.recordIssueEvent(ctx, actorPK, EventIssues, action, repo, row.PK)
+	// A pull request edited through the issues surface is still a pull request
+	// to a webhook receiver: GitHub delivers pull_request, not issues, for it.
+	event := EventIssues
+	if row.IsPull {
+		event = EventPullRequest
+	}
+	s.recordIssueEvent(ctx, actorPK, event, action, repo, row.PK)
 	return s.assembleIssue(ctx, repo, row)
 }
 
@@ -1035,7 +1041,29 @@ func (s *IssueService) AddLabels(ctx context.Context, actorPK int64, owner, name
 	}); err != nil {
 		return nil, err
 	}
+	s.recordLabeled(ctx, actorPK, repo, row, labels)
 	return s.assembleIssue(ctx, repo, row)
+}
+
+// recordLabeled appends one labeled event per attached label, the way GitHub
+// delivers one webhook per label. The label name rides the event detail so the
+// renderer can name the label the body's label object describes.
+func (s *IssueService) recordLabeled(ctx context.Context, actorPK int64, repo *Repo, row *store.IssueRow, labels []store.LabelRow) {
+	event := EventIssues
+	if row.IsPull {
+		event = EventPullRequest
+	}
+	pk := row.PK
+	for i := range labels {
+		recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+			Event:   event,
+			Action:  "labeled",
+			ActorPK: actorPK,
+			RepoPK:  repo.PK,
+			IssuePK: &pk,
+			Public:  !repo.Private,
+		}, nil, nil, &EventDetail{Label: labels[i].Name})
+	}
 }
 
 // RemoveLabels detaches the given label names from an issue, ignoring any that

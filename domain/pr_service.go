@@ -1129,6 +1129,11 @@ func (s *PRService) SetDraft(ctx context.Context, actorPK int64, owner, name str
 			return nil, err
 		}
 		pullRow.Draft = draft
+		action := "ready_for_review"
+		if draft {
+			action = "converted_to_draft"
+		}
+		s.recordPullEvent(ctx, actorPK, action, repo, issueRow.PK)
 	}
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }

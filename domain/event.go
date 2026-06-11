@@ -44,13 +44,14 @@ type DeliverEventPayload struct {
 
 // EventDetail pins the secondary coordinates some events render from and that
 // have no column on the event row: the comment, review, or release the body
-// embeds, and the moved head shas a pull_request synchronize reports at the
-// top level as before/after.
+// embeds, the label a labeled action names, and the moved head shas a
+// pull_request synchronize reports at the top level as before/after.
 type EventDetail struct {
 	CommentPK       int64  `json:"comment_pk,omitempty"`
 	ReviewPK        int64  `json:"review_pk,omitempty"`
 	ReviewCommentPK int64  `json:"review_comment_pk,omitempty"`
 	ReleasePK       int64  `json:"release_pk,omitempty"`
+	Label           string `json:"label,omitempty"`
 	Before          string `json:"before,omitempty"`
 	After           string `json:"after,omitempty"`
 }

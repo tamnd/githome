@@ -338,6 +338,151 @@ func TestPullRequestSynchronizeDelivery(t *testing.T) {
 	}
 }
 
+// pullActionBody is the slice of a pull_request delivery the action tests
+// decode.
+type pullActionBody struct {
+	Action      string `json:"action"`
+	Number      int64  `json:"number"`
+	PullRequest struct {
+		Title string `json:"title"`
+		State string `json:"state"`
+		Draft bool   `json:"draft"`
+	} `json:"pull_request"`
+	Label *struct {
+		Name  string `json:"name"`
+		Color string `json:"color"`
+	} `json:"label"`
+}
+
+// lastPullAction drains the queue and decodes the latest delivery, asserting it
+// went out as a pull_request event.
+func lastPullAction(t *testing.T, f *deliverFixture) pullActionBody {
+	t.Helper()
+	f.drain(t)
+	got, ok := f.rcv.last()
+	if !ok {
+		t.Fatal("receiver got no delivery")
+	}
+	if ev := got.headers.Get("X-GitHub-Event"); ev != "pull_request" {
+		t.Fatalf("X-GitHub-Event = %q, want pull_request", ev)
+	}
+	var body pullActionBody
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	return body
+}
+
+// TestPullRequestActionDeliveries walks a pull request through the lifecycle
+// edits that share the issues machinery and asserts each goes out as a
+// pull_request delivery with the GitHub action name: ready_for_review,
+// edited, closed, reopened, and labeled with the label object attached.
+func TestPullRequestActionDeliveries(t *testing.T) {
+	f := newDeliverFixture(t)
+	seedPushRepo(t, f)
+
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"pull_request"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	pr, err := f.pulls.CreatePR(f.ctx, f.ownerPK, "octocat", f.repoName, domain.PRInput{
+		Title: "draft work", Base: "main", Head: "feature", Draft: true,
+	})
+	if err != nil {
+		t.Fatalf("CreatePR: %v", err)
+	}
+
+	if _, err := f.pulls.SetDraft(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, false); err != nil {
+		t.Fatalf("SetDraft: %v", err)
+	}
+	if body := lastPullAction(t, f); body.Action != "ready_for_review" || body.PullRequest.Draft {
+		t.Errorf("ready_for_review body = %+v", body)
+	}
+
+	title := "renamed work"
+	if _, err := f.issues.EditIssue(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, domain.IssuePatch{Title: &title}); err != nil {
+		t.Fatalf("EditIssue title: %v", err)
+	}
+	if body := lastPullAction(t, f); body.Action != "edited" || body.PullRequest.Title != title {
+		t.Errorf("edited body = %+v", body)
+	}
+
+	closed := "closed"
+	if _, err := f.issues.EditIssue(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, domain.IssuePatch{State: &closed}); err != nil {
+		t.Fatalf("EditIssue close: %v", err)
+	}
+	if body := lastPullAction(t, f); body.Action != "closed" || body.PullRequest.State != "closed" {
+		t.Errorf("closed body = %+v", body)
+	}
+
+	open := "open"
+	if _, err := f.issues.EditIssue(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, domain.IssuePatch{State: &open}); err != nil {
+		t.Fatalf("EditIssue reopen: %v", err)
+	}
+	if body := lastPullAction(t, f); body.Action != "reopened" || body.PullRequest.State != "open" {
+		t.Errorf("reopened body = %+v", body)
+	}
+
+	if _, err := f.issues.CreateLabel(f.ctx, f.ownerPK, "octocat", f.repoName, domain.LabelInput{Name: "bug", Color: "d73a4a"}); err != nil {
+		t.Fatalf("CreateLabel: %v", err)
+	}
+	if _, err := f.issues.AddLabels(f.ctx, f.ownerPK, "octocat", f.repoName, pr.Number, []string{"bug"}); err != nil {
+		t.Fatalf("AddLabels: %v", err)
+	}
+	body := lastPullAction(t, f)
+	if body.Action != "labeled" {
+		t.Errorf("labeled action = %q", body.Action)
+	}
+	if body.Label == nil || body.Label.Name != "bug" || body.Label.Color != "d73a4a" {
+		t.Errorf("labeled label = %+v, want bug/d73a4a", body.Label)
+	}
+}
+
+// TestIssueLabeledDelivery checks the plain-issue side of the labeled action:
+// the delivery stays an issues event and embeds the label object.
+func TestIssueLabeledDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"issues"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	iss, err := f.issues.CreateIssue(f.ctx, f.ownerPK, "octocat", f.repoName, domain.IssueInput{Title: "tag me"})
+	if err != nil {
+		t.Fatalf("CreateIssue: %v", err)
+	}
+	if _, err := f.issues.CreateLabel(f.ctx, f.ownerPK, "octocat", f.repoName, domain.LabelInput{Name: "question", Color: "cc317c"}); err != nil {
+		t.Fatalf("CreateLabel: %v", err)
+	}
+	if _, err := f.issues.AddLabels(f.ctx, f.ownerPK, "octocat", f.repoName, iss.Number, []string{"question"}); err != nil {
+		t.Fatalf("AddLabels: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.last()
+	if !ok {
+		t.Fatal("receiver got no delivery")
+	}
+	if ev := got.headers.Get("X-GitHub-Event"); ev != "issues" {
+		t.Fatalf("X-GitHub-Event = %q, want issues", ev)
+	}
+	var body struct {
+		Action string `json:"action"`
+		Label  *struct {
+			Name string `json:"name"`
+		} `json:"label"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.Action != "labeled" || body.Label == nil || body.Label.Name != "question" {
+		t.Errorf("labeled issue body = %+v", body)
+	}
+}
+
 func whWriteFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
