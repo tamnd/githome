@@ -13,26 +13,26 @@ const sshKeyColumns = `pk, db_id, user_pk, title, key_type, public_key,
 func (s *Store) SSHKeysByUser(ctx context.Context, userPK int64) ([]*SSHKeyRow, error) {
 	q := s.rebind(`SELECT ` + sshKeyColumns +
 		` FROM ssh_keys WHERE user_pk = ? AND repo_pk IS NULL ORDER BY created_at`)
-	return scanSSHKeys(s.db.QueryContext(ctx, q, userPK))
+	return scanSSHKeys(s.rdb.QueryContext(ctx, q, userPK))
 }
 
 // DeployKeysByRepo returns all deploy keys for a repository.
 func (s *Store) DeployKeysByRepo(ctx context.Context, repoPK int64) ([]*SSHKeyRow, error) {
 	q := s.rebind(`SELECT ` + sshKeyColumns +
 		` FROM ssh_keys WHERE repo_pk = ? ORDER BY created_at`)
-	return scanSSHKeys(s.db.QueryContext(ctx, q, repoPK))
+	return scanSSHKeys(s.rdb.QueryContext(ctx, q, repoPK))
 }
 
 // SSHKeyByPK loads an SSH key by primary key.
 func (s *Store) SSHKeyByPK(ctx context.Context, pk int64) (*SSHKeyRow, error) {
 	q := s.rebind(`SELECT ` + sshKeyColumns + ` FROM ssh_keys WHERE pk = ?`)
-	return scanSSHKey(s.db.QueryRowContext(ctx, q, pk))
+	return scanSSHKey(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // SSHKeyByDBID loads an SSH key by its public db_id.
 func (s *Store) SSHKeyByDBID(ctx context.Context, dbID int64) (*SSHKeyRow, error) {
 	q := s.rebind(`SELECT ` + sshKeyColumns + ` FROM ssh_keys WHERE db_id = ?`)
-	return scanSSHKey(s.db.QueryRowContext(ctx, q, dbID))
+	return scanSSHKey(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // InsertSSHKey inserts a new SSH key and fills PK, DBID, and CreatedAt back onto k.
@@ -82,7 +82,7 @@ const branchProtColumns = `pk, repo_pk, branch_pattern, require_pr_reviews,
 func (s *Store) BranchProtectionByPattern(ctx context.Context, repoPK int64, pattern string) (*BranchProtectionRow, error) {
 	q := s.rebind(`SELECT ` + branchProtColumns +
 		` FROM branch_protections WHERE repo_pk = ? AND branch_pattern = ?`)
-	return scanBranchProtection(s.db.QueryRowContext(ctx, q, repoPK, pattern))
+	return scanBranchProtection(s.rdb.QueryRowContext(ctx, q, repoPK, pattern))
 }
 
 // UpsertBranchProtection inserts or replaces a branch protection rule.

@@ -12,13 +12,13 @@ const githubAppColumns = `pk, db_id, owner_pk, slug, name, client_id,
 // GitHubAppByPK loads a GitHub App by its internal primary key.
 func (s *Store) GitHubAppByPK(ctx context.Context, pk int64) (*GitHubAppRow, error) {
 	q := s.rebind(`SELECT ` + githubAppColumns + ` FROM github_apps WHERE pk = ?`)
-	return scanGitHubApp(s.db.QueryRowContext(ctx, q, pk))
+	return scanGitHubApp(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // GitHubAppByClientID loads a GitHub App by its OAuth client_id.
 func (s *Store) GitHubAppByClientID(ctx context.Context, clientID string) (*GitHubAppRow, error) {
 	q := s.rebind(`SELECT ` + githubAppColumns + ` FROM github_apps WHERE client_id = ?`)
-	return scanGitHubApp(s.db.QueryRowContext(ctx, q, clientID))
+	return scanGitHubApp(s.rdb.QueryRowContext(ctx, q, clientID))
 }
 
 const installationColumns = `pk, db_id, app_pk, account_pk, repository_selection,
@@ -27,14 +27,14 @@ const installationColumns = `pk, db_id, app_pk, account_pk, repository_selection
 // InstallationByPK loads an installation by its internal primary key.
 func (s *Store) InstallationByPK(ctx context.Context, pk int64) (*InstallationRow, error) {
 	q := s.rebind(`SELECT ` + installationColumns + ` FROM installations WHERE pk = ?`)
-	return scanInstallation(s.db.QueryRowContext(ctx, q, pk))
+	return scanInstallation(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // InstallationsByAppPK returns all installations for an app, ordered by created_at.
 func (s *Store) InstallationsByAppPK(ctx context.Context, appPK int64) ([]*InstallationRow, error) {
 	q := s.rebind(`SELECT ` + installationColumns +
 		` FROM installations WHERE app_pk = ? ORDER BY created_at`)
-	rows, err := s.db.QueryContext(ctx, q, appPK)
+	rows, err := s.rdb.QueryContext(ctx, q, appPK)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (s *Store) InstallationsByAppPK(ctx context.Context, appPK int64) ([]*Insta
 // InstallationRepoPKs returns the repo PKs accessible to an installation.
 func (s *Store) InstallationRepoPKs(ctx context.Context, instPK int64) ([]int64, error) {
 	q := s.rebind(`SELECT repo_pk FROM installation_repositories WHERE installation_pk = ?`)
-	rows, err := s.db.QueryContext(ctx, q, instPK)
+	rows, err := s.rdb.QueryContext(ctx, q, instPK)
 	if err != nil {
 		return nil, err
 	}

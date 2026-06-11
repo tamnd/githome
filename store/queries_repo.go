@@ -29,21 +29,21 @@ func (s *Store) RepoByOwnerName(ctx context.Context, owner, name string) (*RepoR
 		JOIN users u ON u.pk = r.owner_pk
 		WHERE lower(u.login) = lower(?) AND lower(r.name) = lower(?)
 		  AND r.deleted_at IS NULL AND u.deleted_at IS NULL`)
-	return scanRepo(s.db.QueryRowContext(ctx, q, owner, name))
+	return scanRepo(s.rdb.QueryRowContext(ctx, q, owner, name))
 }
 
 // RepoByPK loads a repository by primary key.
 func (s *Store) RepoByPK(ctx context.Context, pk int64) (*RepoRow, error) {
 	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
 		WHERE r.pk = ? AND r.deleted_at IS NULL`)
-	return scanRepo(s.db.QueryRowContext(ctx, q, pk))
+	return scanRepo(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // RepoByDBID loads a repository by its public database id.
 func (s *Store) RepoByDBID(ctx context.Context, dbID int64) (*RepoRow, error) {
 	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
 		WHERE r.db_id = ? AND r.deleted_at IS NULL`)
-	return scanRepo(s.db.QueryRowContext(ctx, q, dbID))
+	return scanRepo(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // InsertRepo allocates the shared db_id, writes the row, and fills the
@@ -157,7 +157,7 @@ func (s *Store) ReposByOwner(ctx context.Context, ownerPK int64) ([]*RepoRow, er
 		JOIN users u ON u.pk = r.owner_pk
 		WHERE r.owner_pk = ? AND r.deleted_at IS NULL AND u.deleted_at IS NULL
 		ORDER BY r.name ASC`)
-	rows, err := s.db.QueryContext(ctx, q, ownerPK)
+	rows, err := s.rdb.QueryContext(ctx, q, ownerPK)
 	if err != nil {
 		return nil, err
 	}

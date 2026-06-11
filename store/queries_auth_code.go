@@ -36,7 +36,7 @@ func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash []byte) (*AuthCode
 		used    boolVal
 		exp, cr nullTime
 	)
-	err := s.db.QueryRowContext(ctx, q, codeHash).Scan(
+	err := s.rdb.QueryRowContext(ctx, q, codeHash).Scan(
 		&a.PK, &a.CodeHash, &a.OAuthAppPK, &a.UserPK, &a.RedirectURI, &a.Scopes, &used, &exp, &cr,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

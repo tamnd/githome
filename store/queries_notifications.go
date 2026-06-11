@@ -60,7 +60,7 @@ func (s *Store) ListNotificationThreads(ctx context.Context, userPK, repoPK int6
 	}
 
 	var total int
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.rdb.QueryRowContext(ctx,
 		s.rebind(`SELECT COUNT(*) FROM notification_threads`+where), args...,
 	).Scan(&total); err != nil {
 		return nil, 0, err
@@ -72,7 +72,7 @@ func (s *Store) ListNotificationThreads(ctx context.Context, userPK, repoPK int6
 	q := s.rebind(`SELECT ` + notificationThreadColumns +
 		` FROM notification_threads` + where +
 		` ORDER BY updated_at DESC, pk DESC LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, append(args, limit, offset)...)
+	rows, err := s.rdb.QueryContext(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -92,7 +92,7 @@ func (s *Store) ListNotificationThreads(ctx context.Context, userPK, repoPK int6
 func (s *Store) NotificationThreadByPK(ctx context.Context, pk int64) (*NotificationThreadRow, error) {
 	q := s.rebind(`SELECT ` + notificationThreadColumns +
 		` FROM notification_threads WHERE pk = ?`)
-	t, err := scanNotificationThreadRow(s.db.QueryRowContext(ctx, q, pk))
+	t, err := scanNotificationThreadRow(s.rdb.QueryRowContext(ctx, q, pk))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

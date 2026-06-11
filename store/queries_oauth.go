@@ -36,7 +36,7 @@ func (s *Store) OAuthAppByClientID(ctx context.Context, clientID string) (*OAuth
 		dfe     boolVal
 		created nullTime
 	)
-	err := s.db.QueryRowContext(ctx, q, clientID).Scan(
+	err := s.rdb.QueryRowContext(ctx, q, clientID).Scan(
 		&a.PK, &a.ClientID, &secret, &a.Name, &ownerPK, &dfe, &a.CallbackURL, &created,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -79,13 +79,13 @@ func (s *Store) InsertDeviceCode(ctx context.Context, d *DeviceCodeRow) error {
 // the polling endpoint uses.
 func (s *Store) DeviceCodeByHash(ctx context.Context, hash []byte) (*DeviceCodeRow, error) {
 	q := s.rebind(deviceCodeSelect + ` WHERE device_code_hash = ?`)
-	return scanDeviceCode(s.db.QueryRowContext(ctx, q, hash))
+	return scanDeviceCode(s.rdb.QueryRowContext(ctx, q, hash))
 }
 
 // DeviceCodeByUserCode loads a device-flow row by the human-typed user_code.
 func (s *Store) DeviceCodeByUserCode(ctx context.Context, userCode string) (*DeviceCodeRow, error) {
 	q := s.rebind(deviceCodeSelect + ` WHERE user_code = ?`)
-	return scanDeviceCode(s.db.QueryRowContext(ctx, q, userCode))
+	return scanDeviceCode(s.rdb.QueryRowContext(ctx, q, userCode))
 }
 
 // SetDeviceState moves a device-flow row to approved or denied. userPK is the

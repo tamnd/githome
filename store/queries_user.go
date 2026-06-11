@@ -17,7 +17,7 @@ const userColumns = `pk, db_id, login, type, name, email, site_admin,
 // matches.
 func (s *Store) UserByPK(ctx context.Context, pk int64) (*UserRow, error) {
 	q := s.rebind(`SELECT ` + userColumns + ` FROM users WHERE pk = ? AND deleted_at IS NULL`)
-	return scanUser(s.db.QueryRowContext(ctx, q, pk))
+	return scanUser(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // UserByLogin loads a user by login, case-insensitively, matching GitHub's
@@ -25,7 +25,7 @@ func (s *Store) UserByPK(ctx context.Context, pk int64) (*UserRow, error) {
 func (s *Store) UserByLogin(ctx context.Context, login string) (*UserRow, error) {
 	q := s.rebind(`SELECT ` + userColumns + ` FROM users
 		WHERE lower(login) = lower(?) AND deleted_at IS NULL`)
-	return scanUser(s.db.QueryRowContext(ctx, q, login))
+	return scanUser(s.rdb.QueryRowContext(ctx, q, login))
 }
 
 // InsertUser allocates the shared db_id, writes the row, and fills the
@@ -64,7 +64,7 @@ func (s *Store) InsertUser(ctx context.Context, u *UserRow) error {
 func (s *Store) UserLoginExists(ctx context.Context, login string) (bool, error) {
 	var n int
 	q := s.rebind(`SELECT COUNT(*) FROM users WHERE lower(login) = lower(?) AND deleted_at IS NULL`)
-	if err := s.db.QueryRowContext(ctx, q, login).Scan(&n); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, q, login).Scan(&n); err != nil {
 		return false, err
 	}
 	return n > 0, nil
@@ -75,7 +75,7 @@ func (s *Store) UserLoginExists(ctx context.Context, login string) (bool, error)
 func (s *Store) PasswordHashFor(ctx context.Context, login string) (pk int64, hash string, err error) {
 	q := s.rebind(`SELECT pk, COALESCE(password_hash,'') FROM users
 		WHERE lower(login) = lower(?) AND deleted_at IS NULL`)
-	err = s.db.QueryRowContext(ctx, q, login).Scan(&pk, &hash)
+	err = s.rdb.QueryRowContext(ctx, q, login).Scan(&pk, &hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, "", ErrNotFound
 	}

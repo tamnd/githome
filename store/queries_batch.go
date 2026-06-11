@@ -33,7 +33,7 @@ func (s *Store) UsersByPKs(ctx context.Context, pks []int64) (map[int64]*UserRow
 	}
 	q := s.rebind(`SELECT ` + userColumns + ` FROM users
 		WHERE pk IN ` + inPlaceholders(len(pks)) + ` AND deleted_at IS NULL`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(pks)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(pks)...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *Store) LabelsByIssuePKs(ctx context.Context, issuePKs []int64) (map[int
 		JOIN issue_labels il ON il.label_pk = l.pk
 		WHERE il.issue_pk IN ` + inPlaceholders(len(issuePKs)) + `
 		ORDER BY il.issue_pk, lower(l.name)`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(issuePKs)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(issuePKs)...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *Store) AssigneesByIssuePKs(ctx context.Context, issuePKs []int64) (map[
 	q := s.rebind(`SELECT issue_pk, user_pk FROM assignees
 		WHERE issue_pk IN ` + inPlaceholders(len(issuePKs)) + `
 		ORDER BY issue_pk, position, user_pk`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(issuePKs)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(issuePKs)...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *Store) ReactionRollupsBySubjectPKs(ctx context.Context, subjectType str
 	q := s.rebind(`SELECT subject_pk, content, COUNT(*) FROM reactions
 		WHERE subject_type = ? AND subject_pk IN ` + inPlaceholders(len(subjectPKs)) + `
 		GROUP BY subject_pk, content`)
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (s *Store) MilestonesByPKs(ctx context.Context, pks []int64) (map[int64]*Mi
 	}
 	q := s.rebind(`SELECT ` + milestoneColumns + ` FROM milestones
 		WHERE pk IN ` + inPlaceholders(len(pks)))
-	rows, err := s.db.QueryContext(ctx, q, i64Args(pks)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(pks)...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (s *Store) IssuesByPKs(ctx context.Context, pks []int64) (map[int64]*IssueR
 	}
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues
 		WHERE pk IN ` + inPlaceholders(len(pks)) + ` AND deleted_at IS NULL`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(pks)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(pks)...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (s *Store) ListCheckRunsForSuites(ctx context.Context, suitePKs []int64) (m
 	}
 	q := s.rebind(`SELECT ` + checkRunColumns + ` FROM check_runs
 		WHERE suite_pk IN ` + inPlaceholders(len(suitePKs)) + ` ORDER BY suite_pk, pk`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(suitePKs)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(suitePKs)...)
 	if err != nil {
 		return nil, err
 	}

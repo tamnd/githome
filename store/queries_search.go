@@ -170,7 +170,7 @@ func (s *Store) SearchIssues(ctx context.Context, q IssueSearch) ([]IssueRow, er
 	args = append(args, limit, q.Offset)
 	sql := s.rebind(`SELECT ` + issueSearchColumns + ` FROM issues i
 		JOIN repositories r ON r.pk = i.repo_pk` + where + q.orderBy() + ` LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, sql, args...)
+	rows, err := s.rdb.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (s *Store) CountSearchIssues(ctx context.Context, q IssueSearch) (int, erro
 	sql := s.rebind(`SELECT COUNT(*) FROM issues i
 		JOIN repositories r ON r.pk = i.repo_pk` + where)
 	var n int
-	if err := s.db.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -287,7 +287,7 @@ func (s *Store) SearchRepositories(ctx context.Context, q RepoSearch) ([]RepoRow
 	}
 	args = append(args, limit, q.Offset)
 	sql := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r` + where + q.orderBy() + ` LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, sql, args...)
+	rows, err := s.rdb.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (s *Store) CountSearchRepositories(ctx context.Context, q RepoSearch) (int,
 	args = append(args, termArgs...)
 	sql := s.rebind(`SELECT COUNT(*) FROM repositories r` + where)
 	var n int
-	if err := s.db.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -332,7 +332,7 @@ func (s *Store) VisibleRepoPKs(ctx context.Context, viewerPK int64, ownerPKs []i
 		args = append(args, fargs...)
 	}
 	b.WriteString(` ORDER BY r.db_id`)
-	rows, err := s.db.QueryContext(ctx, s.rebind(b.String()), args...)
+	rows, err := s.rdb.QueryContext(ctx, s.rebind(b.String()), args...)
 	if err != nil {
 		return nil, err
 	}

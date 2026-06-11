@@ -40,7 +40,7 @@ func (s *Store) InsertGist(ctx context.Context, g *GistRow) error {
 func (s *Store) GetGistByID(ctx context.Context, gistID string) (*GistRow, error) {
 	q := s.rebind(`SELECT pk, gist_id, owner_pk, description, public, created_at, updated_at
 		FROM gists WHERE gist_id = ?`)
-	g, err := scanGist(s.db.QueryRowContext(ctx, q, gistID))
+	g, err := scanGist(s.rdb.QueryRowContext(ctx, q, gistID))
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +54,13 @@ func (s *Store) GetGistByID(ctx context.Context, gistID string) (*GistRow, error
 func (s *Store) ListGistsByOwner(ctx context.Context, ownerPK int64, page, perPage int) ([]*GistRow, int, error) {
 	countQ := s.rebind(`SELECT COUNT(*) FROM gists WHERE owner_pk = ?`)
 	var total int
-	if err := s.db.QueryRowContext(ctx, countQ, ownerPK).Scan(&total); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, countQ, ownerPK).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	q := s.rebind(`SELECT pk, gist_id, owner_pk, description, public, created_at, updated_at
 		FROM gists WHERE owner_pk = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, ownerPK, perPage, (page-1)*perPage)
+	rows, err := s.rdb.QueryContext(ctx, q, ownerPK, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -72,13 +72,13 @@ func (s *Store) ListGistsByOwner(ctx context.Context, ownerPK int64, page, perPa
 func (s *Store) ListPublicGists(ctx context.Context, page, perPage int) ([]*GistRow, int, error) {
 	countQ := `SELECT COUNT(*) FROM gists WHERE public = 1`
 	var total int
-	if err := s.db.QueryRowContext(ctx, countQ).Scan(&total); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, countQ).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	q := s.rebind(`SELECT pk, gist_id, owner_pk, description, public, created_at, updated_at
 		FROM gists WHERE public = 1 ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, perPage, (page-1)*perPage)
+	rows, err := s.rdb.QueryContext(ctx, q, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -90,14 +90,14 @@ func (s *Store) ListPublicGists(ctx context.Context, page, perPage int) ([]*Gist
 func (s *Store) ListStarredGists(ctx context.Context, userPK int64, page, perPage int) ([]*GistRow, int, error) {
 	countQ := s.rebind(`SELECT COUNT(*) FROM gist_stars WHERE user_pk = ?`)
 	var total int
-	if err := s.db.QueryRowContext(ctx, countQ, userPK).Scan(&total); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, countQ, userPK).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	q := s.rebind(`SELECT g.pk, g.gist_id, g.owner_pk, g.description, g.public, g.created_at, g.updated_at
 		FROM gists g JOIN gist_stars gs ON gs.gist_pk = g.pk
 		WHERE gs.user_pk = ? ORDER BY g.updated_at DESC LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, userPK, perPage, (page-1)*perPage)
+	rows, err := s.rdb.QueryContext(ctx, q, userPK, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -163,7 +163,7 @@ func (s *Store) UnstarGist(ctx context.Context, gistPK, userPK int64) error {
 func (s *Store) IsGistStarred(ctx context.Context, gistPK, userPK int64) (bool, error) {
 	q := s.rebind(`SELECT 1 FROM gist_stars WHERE gist_pk = ? AND user_pk = ?`)
 	var one int
-	err := s.db.QueryRowContext(ctx, q, gistPK, userPK).Scan(&one)
+	err := s.rdb.QueryRowContext(ctx, q, gistPK, userPK).Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -188,7 +188,7 @@ func (s *Store) InsertGistComment(ctx context.Context, c *GistCommentRow) error 
 func (s *Store) ListGistComments(ctx context.Context, gistPK int64) ([]GistCommentRow, error) {
 	q := s.rebind(`SELECT pk, gist_pk, user_pk, body, created_at, updated_at
 		FROM gist_comments WHERE gist_pk = ? ORDER BY created_at ASC`)
-	rows, err := s.db.QueryContext(ctx, q, gistPK)
+	rows, err := s.rdb.QueryContext(ctx, q, gistPK)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func scanGist(row *sql.Row) (*GistRow, error) {
 
 func (s *Store) loadGistFiles(ctx context.Context, g *GistRow) error {
 	q := s.rebind(`SELECT pk, gist_pk, filename, content FROM gist_files WHERE gist_pk = ? ORDER BY filename ASC`)
-	rows, err := s.db.QueryContext(ctx, q, g.PK)
+	rows, err := s.rdb.QueryContext(ctx, q, g.PK)
 	if err != nil {
 		return err
 	}

@@ -68,7 +68,7 @@ func (t *Tx) InsertEvent(ctx context.Context, e *EventRow) error {
 // carries so the fan-out worker can render and store its payload.
 func (s *Store) GetEventByPK(ctx context.Context, pk int64) (*EventRow, error) {
 	q := s.rebind(`SELECT ` + eventColumns + ` FROM events WHERE pk = ?`)
-	return scanEvent(s.db.QueryRowContext(ctx, q, pk))
+	return scanEvent(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // SetEventPayload stores the rendered Events-API document on an event row, the
@@ -124,7 +124,7 @@ func (s *Store) ListEvents(ctx context.Context, f EventFilter) ([]EventRow, erro
 	}
 	q += ` ORDER BY e.pk DESC LIMIT ?`
 	args = append(args, limit)
-	rows, err := s.db.QueryContext(ctx, s.rebind(q), args...)
+	rows, err := s.rdb.QueryContext(ctx, s.rebind(q), args...)
 	if err != nil {
 		return nil, err
 	}

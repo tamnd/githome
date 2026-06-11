@@ -28,7 +28,7 @@ const labelColumns = `pk, db_id, repo_pk, name, color, description, is_default, 
 // ListLabels returns a repository's labels in name order.
 func (s *Store) ListLabels(ctx context.Context, repoPK int64) ([]LabelRow, error) {
 	q := s.rebind(`SELECT ` + labelColumns + ` FROM labels WHERE repo_pk = ? ORDER BY lower(name)`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *Store) ListLabels(ctx context.Context, repoPK int64) ([]LabelRow, error
 func (s *Store) GetLabel(ctx context.Context, repoPK int64, name string) (*LabelRow, error) {
 	q := s.rebind(`SELECT ` + labelColumns + ` FROM labels
 		WHERE repo_pk = ? AND lower(name) = lower(?)`)
-	return scanLabel(s.db.QueryRowContext(ctx, q, repoPK, name))
+	return scanLabel(s.rdb.QueryRowContext(ctx, q, repoPK, name))
 }
 
 // LabelsByNames resolves the named labels within a repository, skipping any that
@@ -84,7 +84,7 @@ func (s *Store) LabelsByIssue(ctx context.Context, issuePK int64) ([]LabelRow, e
 	q := s.rebind(`SELECT ` + labelColumnsAliased + ` FROM labels l
 		JOIN issue_labels il ON il.label_pk = l.pk
 		WHERE il.issue_pk = ? ORDER BY lower(l.name)`)
-	rows, err := s.db.QueryContext(ctx, q, issuePK)
+	rows, err := s.rdb.QueryContext(ctx, q, issuePK)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *Store) DeleteLabel(ctx context.Context, pk int64) error {
 // GetLabelByDBID resolves a single label by its public database id.
 func (s *Store) GetLabelByDBID(ctx context.Context, dbID int64) (*LabelRow, error) {
 	q := s.rebind(`SELECT ` + labelColumns + ` FROM labels WHERE db_id = ?`)
-	return scanLabel(s.db.QueryRowContext(ctx, q, dbID))
+	return scanLabel(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // AddLabels attaches the given labels to an issue, ignoring any that are already

@@ -66,21 +66,21 @@ type IssueFilter struct {
 func (s *Store) GetIssueByNumber(ctx context.Context, repoPK, number int64) (*IssueRow, error) {
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues
 		WHERE repo_pk = ? AND number = ? AND deleted_at IS NULL`)
-	return scanIssue(s.db.QueryRowContext(ctx, q, repoPK, number))
+	return scanIssue(s.rdb.QueryRowContext(ctx, q, repoPK, number))
 }
 
 // GetIssueByDBID resolves an issue by its public database id.
 func (s *Store) GetIssueByDBID(ctx context.Context, dbID int64) (*IssueRow, error) {
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues
 		WHERE db_id = ? AND deleted_at IS NULL`)
-	return scanIssue(s.db.QueryRowContext(ctx, q, dbID))
+	return scanIssue(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // GetIssueByPK resolves an issue by primary key.
 func (s *Store) GetIssueByPK(ctx context.Context, pk int64) (*IssueRow, error) {
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues
 		WHERE pk = ? AND deleted_at IS NULL`)
-	return scanIssue(s.db.QueryRowContext(ctx, q, pk))
+	return scanIssue(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // issueListQuery builds the shared WHERE/ORDER tail for ListIssues and
@@ -161,7 +161,7 @@ func (s *Store) ListIssues(ctx context.Context, repoPK int64, f IssueFilter) ([]
 	full := append([]any{repoPK}, args...)
 	full = append(full, limit, f.Offset)
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues i` + where + f.orderBy() + ` LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, full...)
+	rows, err := s.rdb.QueryContext(ctx, q, full...)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilte
 	order := ` ORDER BY i.created_at DESC, i.number DESC`
 	full = append(full, limit+1)
 	q := s.rebind(`SELECT ` + issueColumns + ` FROM issues i` + where + order + ` LIMIT ?`)
-	rows, err := s.db.QueryContext(ctx, q, full...)
+	rows, err := s.rdb.QueryContext(ctx, q, full...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -257,7 +257,7 @@ func (s *Store) CountIssues(ctx context.Context, repoPK int64, f IssueFilter) (i
 	full := append([]any{repoPK}, args...)
 	q := s.rebind(`SELECT COUNT(*) FROM issues i` + where)
 	var n int
-	if err := s.db.QueryRowContext(ctx, q, full...).Scan(&n); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, q, full...).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -479,7 +479,7 @@ type IssueEventRow struct {
 func (s *Store) ListIssueEvents(ctx context.Context, issuePK int64) ([]IssueEventRow, error) {
 	q := s.rebind(`SELECT pk, db_id, repo_pk, issue_pk, actor_pk, event, payload, created_at
 		FROM issue_events WHERE issue_pk = ? ORDER BY created_at, pk`)
-	rows, err := s.db.QueryContext(ctx, q, issuePK)
+	rows, err := s.rdb.QueryContext(ctx, q, issuePK)
 	if err != nil {
 		return nil, err
 	}

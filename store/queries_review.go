@@ -44,14 +44,14 @@ func (t *Tx) InsertReview(ctx context.Context, r *ReviewRow) error {
 // GetReviewByPK resolves a review by primary key.
 func (s *Store) GetReviewByPK(ctx context.Context, pk int64) (*ReviewRow, error) {
 	q := s.rebind(`SELECT ` + reviewColumns + ` FROM pull_request_reviews WHERE pk = ?`)
-	return scanReview(s.db.QueryRowContext(ctx, q, pk))
+	return scanReview(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // GetReviewByDBID resolves a review by its public database id, the value a
 // PullRequestReview node id decodes to.
 func (s *Store) GetReviewByDBID(ctx context.Context, dbID int64) (*ReviewRow, error) {
 	q := s.rebind(`SELECT ` + reviewColumns + ` FROM pull_request_reviews WHERE db_id = ?`)
-	return scanReview(s.db.QueryRowContext(ctx, q, dbID))
+	return scanReview(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // PendingReviewFor returns the user's open pending review on a pull request, or
@@ -60,7 +60,7 @@ func (s *Store) GetReviewByDBID(ctx context.Context, dbID int64) (*ReviewRow, er
 func (s *Store) PendingReviewFor(ctx context.Context, pullPK, userPK int64) (*ReviewRow, error) {
 	q := s.rebind(`SELECT ` + reviewColumns + ` FROM pull_request_reviews
 		WHERE pull_pk = ? AND user_pk = ? AND state = 'PENDING'`)
-	return scanReview(s.db.QueryRowContext(ctx, q, pullPK, userPK))
+	return scanReview(s.rdb.QueryRowContext(ctx, q, pullPK, userPK))
 }
 
 // DeleteReview hard-deletes a pending review by primary key. Only pending
@@ -77,7 +77,7 @@ func (s *Store) ListReviews(ctx context.Context, pullPK int64) ([]ReviewRow, err
 	q := s.rebind(`SELECT ` + reviewColumns + ` FROM pull_request_reviews
 		WHERE pull_pk = ? AND state <> 'PENDING'
 		ORDER BY submitted_at, pk`)
-	rows, err := s.db.QueryContext(ctx, q, pullPK)
+	rows, err := s.rdb.QueryContext(ctx, q, pullPK)
 	if err != nil {
 		return nil, err
 	}
@@ -184,13 +184,13 @@ func (t *Tx) InsertReviewComment(ctx context.Context, c *ReviewCommentRow) error
 // GetReviewComment resolves an inline comment by its public database id.
 func (s *Store) GetReviewComment(ctx context.Context, dbID int64) (*ReviewCommentRow, error) {
 	q := s.rebind(`SELECT ` + reviewCommentColumns + ` FROM pull_request_review_comments WHERE db_id = ?`)
-	return scanReviewComment(s.db.QueryRowContext(ctx, q, dbID))
+	return scanReviewComment(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // GetReviewCommentByPK resolves an inline comment by primary key.
 func (s *Store) GetReviewCommentByPK(ctx context.Context, pk int64) (*ReviewCommentRow, error) {
 	q := s.rebind(`SELECT ` + reviewCommentColumns + ` FROM pull_request_review_comments WHERE pk = ?`)
-	return scanReviewComment(s.db.QueryRowContext(ctx, q, pk))
+	return scanReviewComment(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // ListReviewComments returns every inline comment on a pull request, oldest
@@ -206,7 +206,7 @@ func (s *Store) ListReviewCommentsForReview(ctx context.Context, reviewPK int64)
 
 func (s *Store) queryReviewComments(ctx context.Context, where string, args ...any) ([]ReviewCommentRow, error) {
 	q := s.rebind(`SELECT ` + reviewCommentColumns + ` FROM pull_request_review_comments ` + where)
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

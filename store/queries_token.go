@@ -16,7 +16,7 @@ const tokenColumns = `pk, user_pk, oauth_app_pk, installation_pk, github_app_pk,
 // a point lookup. Returns ErrNotFound when no row matches.
 func (s *Store) TokenByHash(ctx context.Context, hash []byte) (*TokenRow, error) {
 	q := s.rebind(`SELECT ` + tokenColumns + ` FROM tokens WHERE token_hash = ?`)
-	return scanToken(s.db.QueryRowContext(ctx, q, hash))
+	return scanToken(s.rdb.QueryRowContext(ctx, q, hash))
 }
 
 // InsertToken writes a new credential and fills PK and CreatedAt back onto t.
@@ -46,7 +46,7 @@ func (s *Store) TokensForUser(ctx context.Context, userPK int64) ([]*TokenRow, e
 	q := s.rebind(`SELECT ` + tokenColumns + ` FROM tokens
 		WHERE user_pk = ? AND kind = 'pat' AND revoked_at IS NULL
 		ORDER BY created_at DESC, pk DESC`)
-	rows, err := s.db.QueryContext(ctx, q, userPK)
+	rows, err := s.rdb.QueryContext(ctx, q, userPK)
 	if err != nil {
 		return nil, err
 	}

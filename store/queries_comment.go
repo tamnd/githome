@@ -31,7 +31,7 @@ func (s *Store) ListIssueComments(ctx context.Context, issuePK int64, limit, off
 	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments
 		WHERE issue_pk = ? AND deleted_at IS NULL
 		ORDER BY created_at, pk LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, issuePK, limit, offset)
+	rows, err := s.rdb.QueryContext(ctx, q, issuePK, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -51,14 +51,14 @@ func (s *Store) ListIssueComments(ctx context.Context, issuePK int64, limit, off
 func (s *Store) GetComment(ctx context.Context, dbID int64) (*CommentRow, error) {
 	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments
 		WHERE db_id = ? AND deleted_at IS NULL`)
-	return scanComment(s.db.QueryRowContext(ctx, q, dbID))
+	return scanComment(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // GetCommentByPK resolves a single comment by primary key.
 func (s *Store) GetCommentByPK(ctx context.Context, pk int64) (*CommentRow, error) {
 	q := s.rebind(`SELECT ` + commentColumns + ` FROM issue_comments
 		WHERE pk = ? AND deleted_at IS NULL`)
-	return scanComment(s.db.QueryRowContext(ctx, q, pk))
+	return scanComment(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // UpdateComment changes a comment's body and stamps updated_at.

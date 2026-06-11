@@ -38,7 +38,7 @@ func (s *Store) ListMilestones(ctx context.Context, repoPK int64, state string) 
 		args = append(args, state)
 	}
 	q := s.rebind(`SELECT ` + milestoneColumns + ` FROM milestones ` + where + ` ORDER BY number`)
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,13 +57,13 @@ func (s *Store) ListMilestones(ctx context.Context, repoPK int64, state string) 
 // GetMilestoneByNumber resolves a milestone by its per-repo number.
 func (s *Store) GetMilestoneByNumber(ctx context.Context, repoPK, number int64) (*MilestoneRow, error) {
 	q := s.rebind(`SELECT ` + milestoneColumns + ` FROM milestones WHERE repo_pk = ? AND number = ?`)
-	return scanMilestone(s.db.QueryRowContext(ctx, q, repoPK, number))
+	return scanMilestone(s.rdb.QueryRowContext(ctx, q, repoPK, number))
 }
 
 // GetMilestoneByPK resolves a milestone by primary key.
 func (s *Store) GetMilestoneByPK(ctx context.Context, pk int64) (*MilestoneRow, error) {
 	q := s.rebind(`SELECT ` + milestoneColumns + ` FROM milestones WHERE pk = ?`)
-	return scanMilestone(s.db.QueryRowContext(ctx, q, pk))
+	return scanMilestone(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // MilestoneIssueCounts returns the open and closed issue counts for a milestone,
@@ -71,7 +71,7 @@ func (s *Store) GetMilestoneByPK(ctx context.Context, pk int64) (*MilestoneRow, 
 func (s *Store) MilestoneIssueCounts(ctx context.Context, milestonePK int64) (open, closed int, err error) {
 	q := s.rebind(`SELECT state, COUNT(*) FROM issues
 		WHERE milestone_pk = ? AND deleted_at IS NULL GROUP BY state`)
-	rows, err := s.db.QueryContext(ctx, q, milestonePK)
+	rows, err := s.rdb.QueryContext(ctx, q, milestonePK)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -104,7 +104,7 @@ func (s *Store) MilestoneIssueCountsByPKs(ctx context.Context, pks []int64) (map
 	q := s.rebind(`SELECT milestone_pk, state, COUNT(*) FROM issues
 		WHERE milestone_pk IN ` + inPlaceholders(len(pks)) + ` AND deleted_at IS NULL
 		GROUP BY milestone_pk, state`)
-	rows, err := s.db.QueryContext(ctx, q, i64Args(pks)...)
+	rows, err := s.rdb.QueryContext(ctx, q, i64Args(pks)...)
 	if err != nil {
 		return nil, err
 	}
