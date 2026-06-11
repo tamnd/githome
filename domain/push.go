@@ -88,7 +88,8 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 	for _, u := range b.Updates {
 		if u.Ref == defaultRef && !u.Deleted() {
 			key := "reindex:repo:" + strconv.FormatInt(b.RepoPK, 10)
-			if _, err := s.enq.Enqueue(ctx, JobReindexSearch, "", key); err != nil {
+			payload := `{"repo_pk":` + strconv.FormatInt(b.RepoPK, 10) + `}`
+			if _, err := s.enq.Enqueue(ctx, JobReindexSearch, payload, key); err != nil {
 				return err
 			}
 			break

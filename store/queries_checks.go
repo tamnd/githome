@@ -51,7 +51,7 @@ func (s *Store) InsertCommitStatus(ctx context.Context, st *CommitStatusRow) err
 func (s *Store) ListCommitStatuses(ctx context.Context, repoPK int64, sha string) ([]CommitStatusRow, error) {
 	q := s.rebind(`SELECT ` + commitStatusColumns + ` FROM commit_statuses
 		WHERE repo_pk = ? AND sha = ? ORDER BY created_at DESC, pk DESC`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, sha)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +121,14 @@ func (s *Store) EnsureCheckSuite(ctx context.Context, repoPK int64, headSHA, app
 func (s *Store) getCheckSuite(ctx context.Context, repoPK int64, headSHA, appSlug string) (*CheckSuiteRow, error) {
 	q := s.rebind(`SELECT ` + checkSuiteColumns + ` FROM check_suites
 		WHERE repo_pk = ? AND head_sha = ? AND app_slug = ?`)
-	return scanCheckSuite(s.db.QueryRowContext(ctx, q, repoPK, headSHA, appSlug))
+	return scanCheckSuite(s.rdb.QueryRowContext(ctx, q, repoPK, headSHA, appSlug))
 }
 
 // ListCheckSuites returns every suite reported against a head sha.
 func (s *Store) ListCheckSuites(ctx context.Context, repoPK int64, headSHA string) ([]CheckSuiteRow, error) {
 	q := s.rebind(`SELECT ` + checkSuiteColumns + ` FROM check_suites
 		WHERE repo_pk = ? AND head_sha = ? ORDER BY pk`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, headSHA)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, headSHA)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (s *Store) UpdateCheckRun(ctx context.Context, r *CheckRunRow) error {
 // GetCheckRun resolves a check run by its public database id.
 func (s *Store) GetCheckRun(ctx context.Context, dbID int64) (*CheckRunRow, error) {
 	q := s.rebind(`SELECT ` + checkRunColumns + ` FROM check_runs WHERE db_id = ?`)
-	return scanCheckRun(s.db.QueryRowContext(ctx, q, dbID))
+	return scanCheckRun(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // ListCheckRunsForRef returns every check run reported against a head sha, the
@@ -251,7 +251,7 @@ func (s *Store) ListCheckRunsForSuite(ctx context.Context, suitePK int64) ([]Che
 
 func (s *Store) queryCheckRuns(ctx context.Context, where string, args ...any) ([]CheckRunRow, error) {
 	q := s.rebind(`SELECT ` + checkRunColumns + ` FROM check_runs ` + where)
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (s *Store) GetPullCheckState(ctx context.Context, pullPK int64) (*PullCheck
 		decision sql.NullString
 		upd      nullTime
 	)
-	err := s.db.QueryRowContext(ctx, q, pullPK).Scan(&row.PullPK, &decision, &row.RollupState, &upd)
+	err := s.rdb.QueryRowContext(ctx, q, pullPK).Scan(&row.PullPK, &decision, &row.RollupState, &upd)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

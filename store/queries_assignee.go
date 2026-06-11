@@ -12,7 +12,7 @@ import (
 // caller only needs the set.
 func (s *Store) ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, error) {
 	q := s.rebind(`SELECT user_pk FROM assignees WHERE issue_pk = ? ORDER BY position, user_pk`)
-	rows, err := s.db.QueryContext(ctx, q, issuePK)
+	rows, err := s.rdb.QueryContext(ctx, q, issuePK)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (s *Store) ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, er
 func (s *Store) IsAssigned(ctx context.Context, issuePK, userPK int64) (bool, error) {
 	q := s.rebind(`SELECT 1 FROM assignees WHERE issue_pk = ? AND user_pk = ? LIMIT 1`)
 	var one int
-	switch err := s.db.QueryRowContext(ctx, q, issuePK, userPK).Scan(&one); {
+	switch err := s.rdb.QueryRowContext(ctx, q, issuePK, userPK).Scan(&one); {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, sql.ErrNoRows):

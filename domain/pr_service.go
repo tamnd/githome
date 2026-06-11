@@ -65,6 +65,7 @@ type PullStore interface {
 	ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]store.PullRow, error)
 	ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
 	CountPulls(ctx context.Context, repoPK int64, state string) (int, error)
+	PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error)
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
 	SetMergeability(ctx context.Context, issuePK int64, mergeable *bool, state string, rebaseable *bool, additions, deletions, changedFiles, commits int, checkedAt time.Time) error
@@ -115,6 +116,10 @@ type PRQuery struct {
 	Page    int
 	PerPage int
 	Cursor  string
+	// AfterNumber is the number of the last pull request on the previous page,
+	// the seek key the GraphQL connection cursors carry. The list orders by
+	// number descending, so it seeds the keyset seek directly.
+	AfterNumber int64
 }
 
 // MergeInput is the merge payload: the strategy, the optional commit title and
@@ -346,6 +351,32 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 	return out, total, nil
 }
 
+// ListPRsVersion returns the count and the latest updated_at marker of the
+// state-filtered window, the seed the REST pulls list hashes into a version
+// ETag, mirroring ListIssuesVersion.
+func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name, state string) (int, string, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, "", err
+	}
+	return s.store.PullListVersion(ctx, repo.PK, state)
+}
+
+// ListPRsWindow returns a page of the repository's pull requests without the
+// COUNT ListPRs runs; the REST handler pairs it with ListPRsVersion, which
+// already counted the window for the ETag seed.
+func (s *PRService) ListPRsWindow(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) ([]*PullRequest, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	if err != nil {
+		return nil, err
+	}
+	return s.assemblePRs(ctx, repo, rows)
+}
+
 // ListPRsPage returns a keyset-paginated page of the repository's pull requests
 // plus whether a further page exists, without the COUNT that ListPRs runs for
 // the page-number Link header. It is the flat read path for cursor walks: a
@@ -362,6 +393,9 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 			cursor = &cur
 		}
 	}
+	if cursor == nil && q.AfterNumber > 0 {
+		cursor = &store.PullCursor{Number: q.AfterNumber}
+	}
 	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, q.State, cursor, q.PerPage)
 	if err != nil {
 		return nil, false, err
@@ -371,6 +405,17 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 		return nil, false, err
 	}
 	return out, hasMore, nil
+}
+
+// CountPRs returns the total matching the state filter without fetching a
+// page. The GraphQL connection pairs it with ListPRsPage the same way the
+// issue connection pairs CountIssues with ListIssuesPage.
+func (s *PRService) CountPRs(ctx context.Context, viewerPK int64, owner, name, state string) (int, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, err
+	}
+	return s.store.CountPulls(ctx, repo.PK, state)
 }
 
 // Files returns the per-file diff of a pull request over the three-dot range

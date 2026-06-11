@@ -75,6 +75,10 @@ func (s *Store) BulkLoad(ctx context.Context, fn func() error) error {
 	if s.dialect != DialectSQLite {
 		return fn()
 	}
+	// SQLite refuses to leave WAL while other connections are open, so shed the
+	// read pool's idle connections for the duration of the load.
+	s.rdb.SetMaxIdleConns(0)
+	defer s.rdb.SetMaxIdleConns(readPoolSize())
 	if _, err := s.db.ExecContext(ctx, `PRAGMA synchronous=OFF`); err != nil {
 		return err
 	}

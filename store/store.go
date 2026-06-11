@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"runtime"
 	"strings"
 	"time"
 
@@ -41,10 +42,18 @@ var ErrNotFound = errors.New("store: not found")
 // once at Open from a known scheme.
 var errUnknownDialect = errors.New("store: unknown dialect")
 
-// Store wraps a *sql.DB together with its resolved dialect. It is safe for
-// concurrent use; *sql.DB is a connection pool.
+// Store wraps the database pools together with the resolved dialect. It is safe
+// for concurrent use; *sql.DB is a connection pool.
+//
+// On SQLite the store holds two pools over the same file: db is the write pool,
+// pinned to one connection so Go-side writers queue instead of fighting over the
+// database write lock, and rdb is a multi-connection read pool. WAL mode exists
+// precisely so N readers can run concurrently with the single writer; routing
+// reads through rdb keeps a slow COUNT or search scan from head-of-line-blocking
+// every other query. On Postgres both fields point at the same pool.
 type Store struct {
-	db      *sql.DB
+	db      *sql.DB // write pool (SQLite: MaxOpenConns=1)
+	rdb     *sql.DB // read pool (SQLite: multiple readers; Postgres: == db)
 	dialect Dialect
 }
 
@@ -67,13 +76,43 @@ func Open(ctx context.Context, dsn string, pgPoolSize ...int) (*Store, error) {
 	}
 	tunePool(db, dialect, poolSize)
 
+	// SQLite gets a second pool for reads: WAL allows N readers concurrent with
+	// the single writer, so reads must not queue behind the one write connection.
+	rdb := db
+	if dialect == DialectSQLite {
+		rdb, err = sql.Open(driver, normalized)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("store: open %s read pool: %w", dialect, err)
+		}
+		rdb.SetMaxOpenConns(readPoolSize())
+		rdb.SetMaxIdleConns(readPoolSize())
+		rdb.SetConnMaxLifetime(0)
+	}
+
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
 		_ = db.Close()
+		if rdb != db {
+			_ = rdb.Close()
+		}
 		return nil, fmt.Errorf("store: ping %s: %w", dialect, err)
 	}
-	return &Store{db: db, dialect: dialect}, nil
+	return &Store{db: db, rdb: rdb, dialect: dialect}, nil
+}
+
+// readPoolSize bounds the SQLite read pool: enough connections that concurrent
+// API reads do not serialize, without an unbounded fan-out of page caches.
+func readPoolSize() int {
+	n := runtime.GOMAXPROCS(0)
+	if n < 4 {
+		n = 4
+	}
+	if n > 16 {
+		n = 16
+	}
+	return n
 }
 
 // DB exposes the underlying pool. Reserved for the migration runner and tests;
@@ -86,8 +125,16 @@ func (s *Store) Dialect() Dialect { return s.dialect }
 // Ping verifies the database is reachable.
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
-// Close releases the connection pool.
-func (s *Store) Close() error { return s.db.Close() }
+// Close releases the connection pools.
+func (s *Store) Close() error {
+	err := s.db.Close()
+	if s.rdb != s.db {
+		if rerr := s.rdb.Close(); err == nil {
+			err = rerr
+		}
+	}
+	return err
+}
 
 // AllocDBID returns the next value of the global ID sequence shared by every
 // public resource (the REST `id` / GraphQL `databaseId`). On Postgres this draws

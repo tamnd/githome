@@ -102,6 +102,11 @@ func (s *Service) handleReceivePack(c *mizu.Ctx) error {
 		s.Log.Error("receive-pack failed", "err", runErr)
 	}
 
+	// The push may have written a new packfile that warm go-git handles would
+	// never see (their pack index is parsed once). Drop the cached handles before
+	// the post-receive sync below reads the new objects.
+	s.Git.InvalidateRepo(repo.PK)
+
 	// Sync metadata from the refs git actually wrote. A receive-pack failure
 	// (rejected push) leaves the refs unchanged, so the diff comes back empty and
 	// OnPush is a no-op; on success the diff is the accepted batch.

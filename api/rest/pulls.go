@@ -9,6 +9,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/etag"
 	"github.com/tamnd/githome/presenter/restmodel"
 	"github.com/tamnd/githome/store"
 )
@@ -67,7 +68,24 @@ func handlePullsList(d Deps) mizu.Handler {
 			return nil
 		}
 
-		prs, total, err := d.Pulls.ListPRs(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		// Seed a version ETag from one aggregate over the state-filtered
+		// window and short-circuit an If-None-Match hit before fetching,
+		// assembling, or marshaling the page, the same shape as the issues
+		// list. The marker covers the pull row too, so head pushes and
+		// mergeability recomputes invalidate the tag.
+		total, marker, err := d.Pulls.ListPRsVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q.State)
+		if pullError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		tag := etag.Version(c.Request().URL.RequestURI()+"|"+marker, int64(total))
+		if notModified(c.Writer(), c.Request(), tag) {
+			return nil
+		}
+
+		prs, err := d.Pulls.ListPRsWindow(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -87,7 +105,7 @@ func handlePullsList(d Deps) mizu.Handler {
 			nextCursor = store.EncodePullCursor(store.PullCursor{Number: prs[len(prs)-1].Number})
 		}
 		writeLinkHeaderCursor(c.Writer(), c.Request(), d.URLs, page, nextCursor)
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, out, tag)
 		return nil
 	}
 }

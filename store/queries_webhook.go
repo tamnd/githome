@@ -44,7 +44,7 @@ func (s *Store) InsertWebhook(ctx context.Context, w *WebhookRow) error {
 // GetWebhookByPK resolves a webhook by primary key.
 func (s *Store) GetWebhookByPK(ctx context.Context, pk int64) (*WebhookRow, error) {
 	q := s.rebind(`SELECT ` + webhookColumns + ` FROM webhooks WHERE pk = ?`)
-	return scanWebhook(s.db.QueryRowContext(ctx, q, pk))
+	return scanWebhook(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // GetWebhookForRepo resolves a webhook by its public id scoped to its
@@ -52,7 +52,7 @@ func (s *Store) GetWebhookByPK(ctx context.Context, pk int64) (*WebhookRow, erro
 // repository never addresses another's.
 func (s *Store) GetWebhookForRepo(ctx context.Context, repoPK, dbID int64) (*WebhookRow, error) {
 	q := s.rebind(`SELECT ` + webhookColumns + ` FROM webhooks WHERE repo_pk = ? AND db_id = ?`)
-	return scanWebhook(s.db.QueryRowContext(ctx, q, repoPK, dbID))
+	return scanWebhook(s.rdb.QueryRowContext(ctx, q, repoPK, dbID))
 }
 
 // ListWebhooks returns a repository's webhooks, oldest first.
@@ -70,7 +70,7 @@ func (s *Store) ListActiveWebhooks(ctx context.Context, repoPK int64) ([]Webhook
 }
 
 func (s *Store) queryWebhooks(ctx context.Context, q string, args ...any) ([]WebhookRow, error) {
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,14 +189,14 @@ func (s *Store) InsertDelivery(ctx context.Context, d *WebhookDeliveryRow) error
 func (s *Store) GetDeliveryForWebhook(ctx context.Context, webhookPK, dbID int64) (*WebhookDeliveryRow, error) {
 	q := s.rebind(`SELECT ` + deliveryColumns + ` FROM webhook_deliveries
 		WHERE webhook_pk = ? AND db_id = ?`)
-	return scanDelivery(s.db.QueryRowContext(ctx, q, webhookPK, dbID))
+	return scanDelivery(s.rdb.QueryRowContext(ctx, q, webhookPK, dbID))
 }
 
 // GetDeliveryByPK resolves one delivery by primary key, the value a redeliver
 // job carries so the worker can replay the recorded request.
 func (s *Store) GetDeliveryByPK(ctx context.Context, pk int64) (*WebhookDeliveryRow, error) {
 	q := s.rebind(`SELECT ` + deliveryColumns + ` FROM webhook_deliveries WHERE pk = ?`)
-	return scanDelivery(s.db.QueryRowContext(ctx, q, pk))
+	return scanDelivery(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // ListDeliveries returns a webhook's recent deliveries, newest first.
@@ -206,7 +206,7 @@ func (s *Store) ListDeliveries(ctx context.Context, webhookPK int64, limit int) 
 	}
 	q := s.rebind(`SELECT ` + deliveryColumns + ` FROM webhook_deliveries
 		WHERE webhook_pk = ? ORDER BY pk DESC LIMIT ?`)
-	rows, err := s.db.QueryContext(ctx, q, webhookPK, limit)
+	rows, err := s.rdb.QueryContext(ctx, q, webhookPK, limit)
 	if err != nil {
 		return nil, err
 	}

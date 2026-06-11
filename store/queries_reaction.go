@@ -29,7 +29,7 @@ var ReactionContents = []string{"+1", "-1", "laugh", "confused", "heart", "hoora
 func (s *Store) ListReactions(ctx context.Context, subjectType string, subjectPK int64) ([]ReactionRow, error) {
 	q := s.rebind(`SELECT pk, db_id, subject_type, subject_pk, user_pk, content, created_at
 		FROM reactions WHERE subject_type = ? AND subject_pk = ? ORDER BY created_at, pk`)
-	rows, err := s.db.QueryContext(ctx, q, subjectType, subjectPK)
+	rows, err := s.rdb.QueryContext(ctx, q, subjectType, subjectPK)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ type ReactionRollup struct {
 func (s *Store) ReactionRollupFor(ctx context.Context, subjectType string, subjectPK int64) (ReactionRollup, error) {
 	q := s.rebind(`SELECT content, COUNT(*) FROM reactions
 		WHERE subject_type = ? AND subject_pk = ? GROUP BY content`)
-	rows, err := s.db.QueryContext(ctx, q, subjectType, subjectPK)
+	rows, err := s.rdb.QueryContext(ctx, q, subjectType, subjectPK)
 	if err != nil {
 		return ReactionRollup{}, err
 	}
@@ -86,7 +86,7 @@ func (s *Store) InsertReaction(ctx context.Context, r *ReactionRow) (created boo
 	q := s.rebind(`SELECT pk, db_id, created_at FROM reactions
 		WHERE subject_type = ? AND subject_pk = ? AND user_pk = ? AND content = ?`)
 	var existingCreated nullTime
-	switch err := s.db.QueryRowContext(ctx, q, r.SubjectType, r.SubjectPK, r.UserPK, r.Content).
+	switch err := s.rdb.QueryRowContext(ctx, q, r.SubjectType, r.SubjectPK, r.UserPK, r.Content).
 		Scan(&r.PK, &r.DBID, &existingCreated); {
 	case err == nil:
 		r.CreatedAt = existingCreated.Time

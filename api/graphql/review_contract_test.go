@@ -168,6 +168,16 @@ func reviewGraphQLServer(t *testing.T) reviewGQLFixture {
 	}); err != nil {
 		t.Fatalf("seed pull: %v", err)
 	}
+	// Run the mergeability recompute the worker would, so the cached
+	// commits_count and changed_files columns hold the real totals the
+	// count-only commits and files connections answer from.
+	iss, err := st.GetIssueByNumber(ctx, repo.PK, 1)
+	if err != nil {
+		t.Fatalf("GetIssueByNumber: %v", err)
+	}
+	if err := pullSvc.RecomputeMergeability(ctx, iss.PK); err != nil {
+		t.Fatalf("RecomputeMergeability: %v", err)
+	}
 
 	line := int64(1)
 	if _, err := reviewSvc.CreateReview(ctx, reviewer.PK, "octocat", "hello", 1, domain.ReviewInput{

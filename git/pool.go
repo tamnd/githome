@@ -77,6 +77,55 @@ func (p *catProc) lookup(sha string) (objInfo, error) {
 	return objInfo{}, fmt.Errorf("git cat-file: unexpected %q", line)
 }
 
+// lookupBatch resolves many objects in one pipelined pass: a writer goroutine
+// streams every sha into the process while this goroutine reads the responses
+// back in order, so git answers as fast as it can read rather than paying a
+// round trip per object. The pipe would deadlock if we wrote all the input
+// without draining stdout (the kernel pipe buffer is tens of KB, the input is
+// megabytes), hence the concurrent writer. The result slice is positional: out[i]
+// is the info for shas[i]. On any I/O error the process is marked dead so the
+// pool recreates it.
+func (p *catProc) lookupBatch(shas []string) ([]objInfo, error) {
+	out := make([]objInfo, len(shas))
+	werr := make(chan error, 1)
+	go func() {
+		bw := bufio.NewWriter(p.w)
+		for _, sha := range shas {
+			if _, err := bw.WriteString(sha + "\n"); err != nil {
+				werr <- err
+				return
+			}
+		}
+		werr <- bw.Flush()
+	}()
+	for i := range shas {
+		line, err := p.r.ReadString('\n')
+		if err != nil {
+			p.dead = true
+			<-werr
+			return nil, err
+		}
+		line = strings.TrimRight(line, "\n")
+		parts := strings.Fields(line)
+		switch {
+		case len(parts) == 2 && parts[1] == "missing":
+			out[i] = objInfo{missing: true}
+		case len(parts) == 3:
+			sz, _ := strconv.ParseInt(parts[2], 10, 64)
+			out[i] = objInfo{typ: parts[1], size: sz}
+		default:
+			p.dead = true
+			<-werr
+			return nil, fmt.Errorf("git cat-file: unexpected %q", line)
+		}
+	}
+	if err := <-werr; err != nil {
+		p.dead = true
+		return nil, err
+	}
+	return out, nil
+}
+
 func (p *catProc) close() {
 	_ = p.w.Close()
 	_ = p.cmd.Wait()
@@ -117,6 +166,24 @@ func (pool *catFilePool) lookup(dir string, pk int64, sha string) (objInfo, erro
 	}
 	p.mu.Lock()
 	info, err := p.lookup(sha)
+	dead := p.dead
+	p.mu.Unlock()
+	if dead {
+		pool.evict(pk)
+	}
+	return info, err
+}
+
+// lookupBatch resolves a batch of shas against the repo at dir in one pipelined
+// pass through the pooled process. On process death the entry is evicted and the
+// error propagates; the next call recreates the process.
+func (pool *catFilePool) lookupBatch(dir string, pk int64, shas []string) ([]objInfo, error) {
+	p := pool.acquire(pk, dir)
+	if p == nil {
+		return nil, fmt.Errorf("git cat-file: failed to start process for repo %d", pk)
+	}
+	p.mu.Lock()
+	info, err := p.lookupBatch(shas)
 	dead := p.dead
 	p.mu.Unlock()
 	if dead {

@@ -2,9 +2,11 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/tamnd/githome/store"
 )
@@ -165,4 +167,52 @@ func TestOpenWithCustomPoolSize(t *testing.T) {
 		t.Fatalf("Open with custom pool size: %v", err)
 	}
 	_ = st.Close()
+}
+
+// TestReadsRunConcurrentWithWriteTx pins down the dual-pool contract on SQLite:
+// while a write transaction holds the single write connection, reads complete
+// on the read pool instead of queueing behind the writer. Before the read pool
+// existed this deadlocked until the transaction finished.
+func TestReadsRunConcurrentWithWriteTx(t *testing.T) {
+	ctx := context.Background()
+	dsn := "sqlite://" + filepath.Join(t.TempDir(), "dualpool.db")
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	txStarted := make(chan struct{})
+	release := make(chan struct{})
+	txDone := make(chan error, 1)
+	go func() {
+		txDone <- st.WithTx(ctx, func(tx *store.Tx) error {
+			close(txStarted)
+			<-release
+			return nil
+		})
+	}()
+	<-txStarted
+
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := st.UserByLogin(ctx, "nobody")
+		readDone <- err
+	}()
+	select {
+	case err := <-readDone:
+		if !errors.Is(err, store.ErrNotFound) {
+			t.Fatalf("UserByLogin during open write tx: %v, want ErrNotFound", err)
+		}
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("read blocked behind an open write transaction; read pool not in use")
+	}
+	close(release)
+	if err := <-txDone; err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
 }

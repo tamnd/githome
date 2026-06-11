@@ -16,6 +16,15 @@ const loaderWait = time.Millisecond
 
 type loadersKey struct{}
 
+// commentsPreviewKey identifies one comment-preview load: the issue and how
+// many leading comments the selection asked for. Keys with the same limit
+// batch into one window-function query; mixed limits in one wave (rare; it
+// takes two different first: arguments in one document) run one query each.
+type commentsPreviewKey struct {
+	IssuePK int64
+	Limit   int
+}
+
 // Loaders holds the per-request batch loaders. One instance is created per
 // HTTP request by loadersMiddleware and stored on the request context.
 type Loaders struct {
@@ -25,6 +34,10 @@ type Loaders struct {
 	LabelsByIssue *dataloader.Loader[int64, []*gqlmodel.Label]
 	// AssigneesByIssue loads the assignee slice for an issue by its primary key.
 	AssigneesByIssue *dataloader.Loader[int64, []*gqlmodel.User]
+	// CommentsByIssue loads the first-page comment preview for an issue. The
+	// value is the domain slice, not the rendered model: the renderer needs
+	// the issue number and repository coordinates only the caller holds.
+	CommentsByIssue *dataloader.Loader[commentsPreviewKey, []*domain.Comment]
 }
 
 // newLoaders constructs a fresh Loaders set for one request. batch provides
@@ -77,6 +90,25 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 					users = append(users, urls.GQLUser(u, format))
 				}
 				out[pk] = users
+			}
+			return out, nil
+		}, loaderWait),
+
+		CommentsByIssue: dataloader.New(func(ctx context.Context, keys []commentsPreviewKey) (map[commentsPreviewKey][]*domain.Comment, error) {
+			// Group by limit so each distinct first: argument is one query.
+			byLimit := map[int][]int64{}
+			for _, k := range keys {
+				byLimit[k.Limit] = append(byLimit[k.Limit], k.IssuePK)
+			}
+			out := make(map[commentsPreviewKey][]*domain.Comment, len(keys))
+			for limit, pks := range byLimit {
+				cmap, err := batch.CommentsPreviewByIssues(ctx, pks, limit)
+				if err != nil {
+					return nil, err
+				}
+				for pk, comments := range cmap {
+					out[commentsPreviewKey{IssuePK: pk, Limit: limit}] = comments
+				}
 			}
 			return out, nil
 		}, loaderWait),

@@ -19,7 +19,7 @@ func (s *Store) CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*
 	q := s.rebind(`SELECT pk, repo_pk, user_pk, permission FROM collaborators
 		WHERE repo_pk = ? AND user_pk = ?`)
 	var r CollaboratorRow
-	err := s.db.QueryRowContext(ctx, q, repoPK, userPK).Scan(&r.PK, &r.RepoPK, &r.UserPK, &r.Permission)
+	err := s.rdb.QueryRowContext(ctx, q, repoPK, userPK).Scan(&r.PK, &r.RepoPK, &r.UserPK, &r.Permission)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -57,13 +57,13 @@ const teamColumns = `pk, db_id, org_pk, name, slug, description, privacy, permis
 // TeamBySlug loads a team by its org and slug.
 func (s *Store) TeamBySlug(ctx context.Context, orgPK int64, slug string) (*TeamRow, error) {
 	q := s.rebind(`SELECT ` + teamColumns + ` FROM teams WHERE org_pk = ? AND slug = ?`)
-	return scanTeam(s.db.QueryRowContext(ctx, q, orgPK, slug))
+	return scanTeam(s.rdb.QueryRowContext(ctx, q, orgPK, slug))
 }
 
 // TeamByPK loads a team by primary key.
 func (s *Store) TeamByPK(ctx context.Context, pk int64) (*TeamRow, error) {
 	q := s.rebind(`SELECT ` + teamColumns + ` FROM teams WHERE pk = ?`)
-	return scanTeam(s.db.QueryRowContext(ctx, q, pk))
+	return scanTeam(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
 // InsertTeam inserts a new team and fills PK, DBID, CreatedAt, UpdatedAt back onto t.
@@ -126,7 +126,7 @@ func (s *Store) UpsertTeamMember(ctx context.Context, teamPK, userPK int64, role
 func (s *Store) TeamMemberRole(ctx context.Context, teamPK, userPK int64) (string, error) {
 	q := s.rebind(`SELECT role FROM team_members WHERE team_pk = ? AND user_pk = ?`)
 	var role string
-	err := s.db.QueryRowContext(ctx, q, teamPK, userPK).Scan(&role)
+	err := s.rdb.QueryRowContext(ctx, q, teamPK, userPK).Scan(&role)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
 	}
@@ -159,7 +159,7 @@ func (s *Store) UpsertTeamRepo(ctx context.Context, teamPK, repoPK int64, permis
 func (s *Store) TeamRepoPermission(ctx context.Context, teamPK, repoPK int64) (string, error) {
 	q := s.rebind(`SELECT permission FROM team_repos WHERE team_pk = ? AND repo_pk = ?`)
 	var permission string
-	err := s.db.QueryRowContext(ctx, q, teamPK, repoPK).Scan(&permission)
+	err := s.rdb.QueryRowContext(ctx, q, teamPK, repoPK).Scan(&permission)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
 	}

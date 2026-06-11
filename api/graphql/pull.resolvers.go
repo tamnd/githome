@@ -296,6 +296,19 @@ func (r *pullRequestResolver) Commits(ctx context.Context, obj *gqlmodel.PullReq
 	if err != nil {
 		return nil, err
 	}
+	// A count-only selection answers from the commits_count column the
+	// mergeability recompute maintains, the same source the additions and
+	// changedFiles fields read, so a 30-node connection selecting
+	// commits { totalCount } forks no git processes.
+	if countOnlySelection(ctx) {
+		total := int(obj.CommitsCount)
+		start, end := page.window(total)
+		return &gqlmodel.PullRequestCommitConnection{
+			Nodes:      []*gqlmodel.PullRequestCommit{},
+			PageInfo:   pageInfoFor(start, end-start, total),
+			TotalCount: int32(total),
+		}, nil
+	}
 	commits, err := r.Pulls.Commits(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
 		return nil, mapErr(err)
@@ -319,6 +332,17 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 	page, err := issuePageArgs(first, after, nil, nil)
 	if err != nil {
 		return nil, err
+	}
+	// Count-only selections read the changed_files column, exactly what the
+	// changedFiles schema field reports, instead of re-diffing the range.
+	if countOnlySelection(ctx) {
+		total := int(obj.ChangedFiles)
+		start, end := page.window(total)
+		return &gqlmodel.PullRequestChangedFileConnection{
+			Nodes:      []*gqlmodel.PullRequestChangedFile{},
+			PageInfo:   pageInfoFor(start, end-start, total),
+			TotalCount: int32(total),
+		}, nil
 	}
 	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
 	if err != nil {
@@ -388,11 +412,23 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	total := obj.CommentsCount
 	var comments []*domain.Comment
 	start := page.offset
-	if page.backward {
+	switch {
+	case page.backward:
 		var end int
 		start, end = page.window(int(total))
 		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
-	} else {
+	case page.seek > 0:
+		// The cursor carries the previous page's last comment id; resume past
+		// it with a keyset seek instead of replaying the OFFSET scan.
+		comments, err = r.Issues.ListCommentsAfter(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), page.seek, page.limit)
+	case page.offset == 0 && loadersFrom(ctx) != nil:
+		// First-page preview: batch every node's selection into one query via
+		// the loader, the same shape the issue connection takes.
+		comments, err = loadersFrom(ctx).CommentsByIssue.Load(ctx, commentsPreviewKey{IssuePK: obj.IssuePK, Limit: page.limit})
+		for _, cm := range comments {
+			cm.IssueNumber = int64(obj.Number)
+		}
+	default:
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
 	}
 	if err != nil {
@@ -405,9 +441,13 @@ func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRe
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}
+	var firstID, lastID int64
+	if len(comments) > 0 {
+		firstID, lastID = comments[0].ID, comments[len(comments)-1].ID
+	}
 	return &gqlmodel.IssueCommentConnection{
 		Nodes:      nodes,
-		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		PageInfo:   pageInfoSeek(start, len(nodes), int(total), firstID, lastID),
 		TotalCount: total,
 	}, nil
 }
@@ -447,10 +487,33 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 	owner, name := splitNWO(obj.NameWithOwner)
 
 	// The unfiltered listing in its native newest-first order pages straight
-	// through the store.
+	// through the store. The first page and any cursor carrying a seek key
+	// take the keyset path, with the COUNT run only when totalCount is
+	// actually selected; legacy offset-only cursors keep the page-number path.
 	if headRefName == nil && baseRefName == nil && len(labels) == 0 && defaultPROrder(orderBy) {
+		state := pullStateFilter(states)
+		if page.seek > 0 || page.offset == 0 {
+			prs, hasMore, err := r.Pulls.ListPRsPage(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+				State:       state,
+				PerPage:     page.limit,
+				AfterNumber: page.seek,
+			})
+			if errors.Is(err, domain.ErrRepoNotFound) {
+				return emptyPullRequestConnection(), nil
+			}
+			if err != nil {
+				return nil, mapErr(err)
+			}
+			total := lazyTotal(page.offset, len(prs), hasMore)
+			if totalCountSelected(ctx) {
+				if total, err = r.Pulls.CountPRs(ctx, viewerID(ctx), owner, name, state); err != nil {
+					return nil, mapErr(err)
+				}
+			}
+			return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
+		}
 		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
-			State:   pullStateFilter(states),
+			State:   state,
 			Page:    page.page(),
 			PerPage: page.limit,
 		})

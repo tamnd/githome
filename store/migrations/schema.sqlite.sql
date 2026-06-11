@@ -200,7 +200,9 @@ CREATE TABLE issue_comments (
     updated_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TEXT
 );
-CREATE INDEX issue_comments_issue_idx ON issue_comments (issue_pk, created_at) WHERE deleted_at IS NULL;
+CREATE INDEX issue_comments_issue_created_pk_idx
+    ON issue_comments (issue_pk, created_at, pk)
+    WHERE deleted_at IS NULL;
 
 CREATE TABLE issue_labels (
     issue_pk INTEGER NOT NULL REFERENCES issues(pk) ON DELETE CASCADE,
@@ -698,3 +700,26 @@ CREATE TABLE notification_threads (
 );
 CREATE UNIQUE INDEX notification_threads_user_issue_uq ON notification_threads (user_pk, issue_pk);
 CREATE INDEX notification_threads_user_updated ON notification_threads (user_pk, updated_at);
+
+-- 0020_code_search
+CREATE VIRTUAL TABLE code_fts USING fts5(
+    path, content,
+    repo_pk UNINDEXED, sha UNINDEXED
+);
+
+CREATE TABLE code_index_state (
+    repo_pk    INTEGER PRIMARY KEY REFERENCES repositories(pk) ON DELETE CASCADE,
+    head_sha   TEXT    NOT NULL,
+    truncated  INTEGER NOT NULL DEFAULT 0,
+    indexed_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 0021_list_indexes
+CREATE INDEX issues_repo_updated_number_idx
+    ON issues (repo_pk, updated_at DESC, number DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX issues_repo_comments_number_idx
+    ON issues (repo_pk, comments_count DESC, number DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX issue_labels_label_idx ON issue_labels (label_pk);
+CREATE INDEX gists_public_updated_idx ON gists (public, updated_at DESC);

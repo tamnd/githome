@@ -1,8 +1,10 @@
 package graphql
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
@@ -25,6 +27,10 @@ type issuePage struct {
 	offset   int
 	backward bool
 	before   int // exclusive end offset from a before: cursor, -1 when absent
+	// seek is the stable id (issue/pull number, comment id) of the item the
+	// after: cursor points at, when the cursor carried one. A forward window
+	// with a seek can resume with a keyset query instead of an OFFSET scan.
+	seek int64
 }
 
 // page is the one-based page number for the domain's page/per-page listing. The
@@ -86,11 +92,12 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		}
 	}
 	if after != nil {
-		off, err := decodeCursor(*after)
+		off, seek, err := decodeCursorSeek(*after)
 		if err != nil {
 			return p, err
 		}
 		p.offset = off
+		p.seek = seek
 	}
 	if before != nil {
 		off, err := decodeCursor(*before)
@@ -101,6 +108,64 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		p.backward = true
 	}
 	return p, nil
+}
+
+// totalCountSelected reports whether the executing connection field's
+// selection set asks for totalCount. The keyset list paths return the page
+// without a COUNT, so a query that does not select totalCount (gh issue list,
+// gh pr list) pays no count cost at all. Outside an operation, or when the
+// field context is unavailable, it errs on computing the count.
+func totalCountSelected(ctx context.Context) bool {
+	if !graphql.HasOperationContext(ctx) {
+		return true
+	}
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return true
+	}
+	for _, f := range graphql.CollectFields(graphql.GetOperationContext(ctx), fc.Field.Selections, nil) {
+		if f.Name == "totalCount" {
+			return true
+		}
+	}
+	return false
+}
+
+// countOnlySelection reports whether the executing connection field selects
+// nothing beyond totalCount and pageInfo, the badge-count shape
+// pullRequests { nodes { files { totalCount } } } sends. Those connections
+// answer from the cached count columns without listing, and in the commits
+// and files cases without forking git per node. It returns false when the
+// selection cannot be inspected, so the caller falls back to the full path.
+func countOnlySelection(ctx context.Context) bool {
+	if !graphql.HasOperationContext(ctx) {
+		return false
+	}
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return false
+	}
+	fields := graphql.CollectFields(graphql.GetOperationContext(ctx), fc.Field.Selections, nil)
+	if len(fields) == 0 {
+		return false
+	}
+	for _, f := range fields {
+		if f.Name != "totalCount" && f.Name != "pageInfo" && f.Name != "__typename" {
+			return false
+		}
+	}
+	return true
+}
+
+// lazyTotal synthesizes the total buildIssueConnection and friends derive
+// hasNextPage from, when the real count was skipped: one past the window when
+// a further page exists, exactly the window's end otherwise. The totalCount
+// field built from it is never serialized, because it was not selected.
+func lazyTotal(offset, count int, hasMore bool) int {
+	if hasMore {
+		return offset + count + 1
+	}
+	return offset + count
 }
 
 // emptyIssueConnection is the connection a not-found or invisible repository
@@ -114,16 +179,16 @@ func emptyIssueConnection() *gqlmodel.IssueConnection {
 }
 
 // buildPullRequestConnection renders a page of domain pull requests into the
-// GraphQL connection, cursoring each edge at its absolute offset so a follow-up
-// after: cursor resumes past it, the same forward window the issues connection
-// pages over.
+// GraphQL connection. Each edge's cursor carries its absolute offset plus the
+// pull request's number, so a follow-up after: cursor resumes past it with a
+// keyset seek, the same forward window the issues connection pages over.
 func (r *Resolver) buildPullRequestConnection(owner, name string, prs []*domain.PullRequest, total, offset int) *gqlmodel.PullRequestConnection {
 	nodes := make([]*gqlmodel.PullRequest, 0, len(prs))
 	edges := make([]*gqlmodel.PullRequestEdge, 0, len(prs))
 	for i, pr := range prs {
 		node := r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat)
 		nodes = append(nodes, node)
-		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursor(offset + i + 1), Node: node})
+		edges = append(edges, &gqlmodel.PullRequestEdge{Cursor: encodeCursorSeek(offset+i+1, pr.Number), Node: node})
 	}
 	info := &gqlmodel.PageInfo{HasNextPage: offset+len(prs) < total}
 	if len(edges) > 0 {
@@ -160,6 +225,23 @@ func pageInfoFor(start, count, total int) *gqlmodel.PageInfo {
 	}
 	if count > 0 {
 		s, e := encodeCursor(start+1), encodeCursor(start+count)
+		info.StartCursor = &s
+		info.EndCursor = &e
+	}
+	return info
+}
+
+// pageInfoSeek is pageInfoFor with the window's first and last item ids riding
+// on the cursors, so an after: built from endCursor resumes with a keyset
+// query. The comment connections use it; their nodes carry no edges, so the
+// page-info cursors are the only ones a client can hand back.
+func pageInfoSeek(start, count, total int, firstID, lastID int64) *gqlmodel.PageInfo {
+	info := &gqlmodel.PageInfo{
+		HasNextPage:     start+count < total,
+		HasPreviousPage: start > 0,
+	}
+	if count > 0 {
+		s, e := encodeCursorSeek(start+1, firstID), encodeCursorSeek(start+count, lastID)
 		info.StartCursor = &s
 		info.EndCursor = &e
 	}

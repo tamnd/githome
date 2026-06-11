@@ -24,25 +24,27 @@ const pullColumns = `pk, db_id, issue_pk, repo_pk, base_ref, base_sha, head_ref,
 // GetPullByIssuePK resolves the pull request extension of an issue row.
 func (s *Store) GetPullByIssuePK(ctx context.Context, issuePK int64) (*PullRow, error) {
 	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests WHERE issue_pk = ?`)
-	return scanPull(s.db.QueryRowContext(ctx, q, issuePK))
+	return scanPull(s.rdb.QueryRowContext(ctx, q, issuePK))
 }
 
 // GetPullByDBID resolves a pull request by its public database id, the value a
 // PullRequest node id decodes to.
 func (s *Store) GetPullByDBID(ctx context.Context, dbID int64) (*PullRow, error) {
 	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests WHERE db_id = ?`)
-	return scanPull(s.db.QueryRowContext(ctx, q, dbID))
+	return scanPull(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // ListPulls returns a repository's pull requests, newest number first, paged.
 // state is "open", "closed", or "all"; the empty string lists open ones. It
 // joins the issues table so the state filter and the number ordering read from
-// the row that owns them.
+// the row that owns them. The repository filter goes on i.repo_pk (identical
+// to pr.repo_pk by construction): that way the issues (repo_pk, number)
+// unique index serves both the filter and the ORDER BY, with no sort step.
 func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]PullRow, error) {
 	if limit <= 0 {
 		limit = 30
 	}
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
@@ -54,7 +56,7 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 	q := s.rebind(`SELECT ` + pullPrefixed + ` FROM pull_requests pr
 		JOIN issues i ON i.pk = pr.issue_pk` + where + `
 		ORDER BY i.number DESC LIMIT ? OFFSET ?`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, limit, offset)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +74,9 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 
 // ListPullsPage serves a keyset-paginated pull-request page and reports whether
 // a further page exists, without a COUNT. The list orders by number descending,
-// so a cursor seeks number < cursor.Number, served by the (repo_pk, number)
-// unique index in one step regardless of page depth. It fetches one row beyond
+// so a cursor seeks number < cursor.Number, served by the issues
+// (repo_pk, number) unique index in one step regardless of page depth; the
+// repository filter sits on i.repo_pk so the planner can use that index. It fetches one row beyond
 // the page and uses its presence as the has-next signal, so a list request on a
 // repo with hundreds of thousands of pulls costs the page, not a full count plus
 // a deep OFFSET scan. A nil cursor starts from the highest number.
@@ -81,7 +84,7 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 	if limit <= 0 {
 		limit = 30
 	}
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
@@ -99,7 +102,7 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 	q := s.rebind(`SELECT ` + pullPrefixed + ` FROM pull_requests pr
 		JOIN issues i ON i.pk = pr.issue_pk` + where + `
 		ORDER BY i.number DESC LIMIT ?`)
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -124,7 +127,7 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 
 // CountPulls counts a repository's pull requests matching the state filter.
 func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int, error) {
-	where := ` WHERE pr.repo_pk = ? AND i.deleted_at IS NULL`
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
 	switch state {
 	case "", "open":
 		where += ` AND i.state = 'open'`
@@ -135,10 +138,44 @@ func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int
 	q := s.rebind(`SELECT COUNT(*) FROM pull_requests pr
 		JOIN issues i ON i.pk = pr.issue_pk` + where)
 	var n int
-	if err := s.db.QueryRowContext(ctx, q, repoPK).Scan(&n); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, q, repoPK).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
+}
+
+// PullListVersion returns the count and the latest updated_at marker of the
+// pull requests matching the state filter. It is the version seed for the
+// pulls list ETag, the same shape as IssueListVersion. The marker covers both
+// the issue row and the pull row: head pushes and mergeability recomputes
+// bump pull_requests.updated_at without touching the issue, and both rows
+// feed the rendered body. Markers are raw column text in one timestamp
+// layout, so the larger of the two compares lexicographically.
+func (s *Store) PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error) {
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
+	switch state {
+	case "", "open":
+		where += ` AND i.state = 'open'`
+	case "closed":
+		where += ` AND i.state = 'closed'`
+	case "all":
+	}
+	q := s.rebind(`SELECT COUNT(*),
+			COALESCE(MAX(i.updated_at), ''), COALESCE(MAX(pr.updated_at), '')
+		FROM pull_requests pr
+		JOIN issues i ON i.pk = pr.issue_pk` + where)
+	var (
+		n                   int
+		issMarker, prMarker string
+	)
+	if err := s.rdb.QueryRowContext(ctx, q, repoPK).Scan(&n, &issMarker, &prMarker); err != nil {
+		return 0, "", err
+	}
+	marker := issMarker
+	if prMarker > marker {
+		marker = prMarker
+	}
+	return n, marker, nil
 }
 
 // OpenPullsByHeadRef returns the open pull requests in a repository whose head
@@ -147,7 +184,7 @@ func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int
 func (s *Store) OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]PullRow, error) {
 	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests
 		WHERE repo_pk = ? AND head_ref = ? AND merged = ?`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, headRef, false)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, headRef, false)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +206,7 @@ func (s *Store) OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef st
 func (s *Store) OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]PullRow, error) {
 	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests
 		WHERE repo_pk = ? AND base_ref = ? AND merged = ?`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, baseRef, false)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, baseRef, false)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +228,7 @@ func (s *Store) OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef st
 func (s *Store) OpenPullsByHeadSHA(ctx context.Context, repoPK int64, headSHA string) ([]PullRow, error) {
 	q := s.rebind(`SELECT ` + pullColumns + ` FROM pull_requests
 		WHERE repo_pk = ? AND head_sha = ? AND merged = ?`)
-	rows, err := s.db.QueryContext(ctx, q, repoPK, headSHA, false)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK, headSHA, false)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +251,7 @@ func (s *Store) PullNumberByPK(ctx context.Context, pullPK int64) (int64, error)
 	q := s.rebind(`SELECT i.number FROM pull_requests pr
 		JOIN issues i ON i.pk = pr.issue_pk WHERE pr.pk = ?`)
 	var number int64
-	if err := s.db.QueryRowContext(ctx, q, pullPK).Scan(&number); err != nil {
+	if err := s.rdb.QueryRowContext(ctx, q, pullPK).Scan(&number); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrNotFound
 		}

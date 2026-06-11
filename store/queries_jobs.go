@@ -163,7 +163,7 @@ func (s *Store) FailJob(ctx context.Context, pk int64, attempts, maxAttempts int
 func (s *Store) ListJobs(ctx context.Context) ([]JobRow, error) {
 	q := s.rebind(`SELECT pk, kind, payload, dedupe_key, state, attempts, max_attempts
 		FROM jobs ORDER BY pk`)
-	rows, err := s.db.QueryContext(ctx, q)
+	rows, err := s.rdb.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}

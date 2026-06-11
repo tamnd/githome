@@ -123,6 +123,12 @@ type PullRequest struct {
 	// CommentsCount is the cached count of issue-level comments; used by the
 	// comments resolver to return the correct totalCount without a second query.
 	CommentsCount int32
+
+	// CommitsCount is the cached count of the pull request's own commits, the
+	// commits_count column the mergeability recompute maintains alongside
+	// additions/deletions/changedFiles. The commits resolver answers a
+	// count-only selection from it without forking git.
+	CommitsCount int32
 }
 
 // AutoMergeRequest is the auto-merge configuration on a pull request. GitHub

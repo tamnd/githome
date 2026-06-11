@@ -51,15 +51,15 @@ func (r *mutationResolver) setThreadResolved(ctx context.Context, threadID strin
 }
 
 // buildIssueConnection renders a page of domain issues into the GraphQL
-// connection, cursoring each edge at its absolute offset so a follow-up after:
-// cursor resumes past it.
+// connection. Each edge's cursor carries its absolute offset plus the issue's
+// number, so a follow-up after: cursor resumes past it with a keyset seek.
 func (r *Resolver) buildIssueConnection(owner, name string, issues []*domain.Issue, total, offset int) *gqlmodel.IssueConnection {
 	nodes := make([]*gqlmodel.Issue, 0, len(issues))
 	edges := make([]*gqlmodel.IssueEdge, 0, len(issues))
 	for i, iss := range issues {
 		node := r.URLs.GQLIssue(owner, name, iss, r.NodeFormat)
 		nodes = append(nodes, node)
-		edges = append(edges, &gqlmodel.IssueEdge{Cursor: encodeCursor(offset + i + 1), Node: node})
+		edges = append(edges, &gqlmodel.IssueEdge{Cursor: encodeCursorSeek(offset+i+1, iss.Number), Node: node})
 	}
 	info := &gqlmodel.PageInfo{HasNextPage: offset+len(issues) < total}
 	if len(edges) > 0 {

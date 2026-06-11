@@ -77,11 +77,25 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	}
 	var comments []*domain.Comment
 	start := page.offset
-	if page.backward {
+	switch {
+	case page.backward:
 		var end int
 		start, end = page.window(int(total))
 		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
-	} else {
+	case page.seek > 0:
+		// The cursor carries the previous page's last comment id; resume past
+		// it with a keyset seek instead of replaying the OFFSET scan.
+		comments, err = r.Issues.ListCommentsAfter(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), page.seek, page.limit)
+	case page.offset == 0 && loadersFrom(ctx) != nil:
+		// A first-page preview, the shape every node of an issue connection
+		// selects. The loader batches all of them into one query; the parent
+		// resolution already gated repository visibility, the same trust the
+		// label and assignee loaders lean on.
+		comments, err = loadersFrom(ctx).CommentsByIssue.Load(ctx, commentsPreviewKey{IssuePK: obj.PK, Limit: page.limit})
+		for _, cm := range comments {
+			cm.IssueNumber = int64(obj.Number)
+		}
+	default:
 		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
 	}
 	if err != nil {
@@ -94,9 +108,13 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	if total < int32(len(nodes)) {
 		total = int32(len(nodes))
 	}
+	var firstID, lastID int64
+	if len(comments) > 0 {
+		firstID, lastID = comments[0].ID, comments[len(comments)-1].ID
+	}
 	return &gqlmodel.IssueCommentConnection{
 		Nodes:      nodes,
-		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		PageInfo:   pageInfoSeek(start, len(nodes), int(total), firstID, lastID),
 		TotalCount: total,
 	}, nil
 }
@@ -347,7 +365,31 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 		return nil, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
 	}
 	owner, name := splitNWO(obj.NameWithOwner)
-	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, issueListQuery(states, filterBy, orderBy, labels, page))
+	q := issueListQuery(states, filterBy, orderBy, labels, page)
+
+	// The first page and any cursor carrying a seek key take the keyset path:
+	// the page is an index range read, hasNextPage comes from the limit+1
+	// probe, and the COUNT runs only when totalCount is actually selected.
+	// Legacy offset-only cursors keep the page-number path.
+	if page.seek > 0 || page.offset == 0 {
+		q.AfterNumber = page.seek
+		issues, hasMore, err := r.Resolver.Issues.ListIssuesPage(ctx, viewerID(ctx), owner, name, q)
+		if errors.Is(err, domain.ErrRepoNotFound) {
+			return emptyIssueConnection(), nil
+		}
+		if err != nil {
+			return nil, mapErr(err)
+		}
+		total := lazyTotal(page.offset, len(issues), hasMore)
+		if totalCountSelected(ctx) {
+			if total, err = r.Resolver.Issues.CountIssues(ctx, viewerID(ctx), owner, name, q); err != nil {
+				return nil, mapErr(err)
+			}
+		}
+		return r.buildIssueConnection(owner, name, issues, total, page.offset), nil
+	}
+
+	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, q)
 	if errors.Is(err, domain.ErrRepoNotFound) {
 		return emptyIssueConnection(), nil
 	}

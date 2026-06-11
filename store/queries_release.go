@@ -52,7 +52,7 @@ const releaseAssetColumns = `pk, db_id, release_pk, name, label, content_type,
 func (s *Store) GetReleaseByID(ctx context.Context, repoPK, dbID int64) (*ReleaseRow, error) {
 	q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
 		WHERE repo_pk = ? AND db_id = ? AND deleted_at IS NULL`)
-	return scanRelease(s.db.QueryRowContext(ctx, q, repoPK, dbID))
+	return scanRelease(s.rdb.QueryRowContext(ctx, q, repoPK, dbID))
 }
 
 // GetReleaseByPK loads a release by its internal pk, the lookup the webhook
@@ -67,7 +67,7 @@ func (s *Store) GetReleaseByPK(ctx context.Context, pk int64) (*ReleaseRow, erro
 func (s *Store) GetReleaseByTag(ctx context.Context, repoPK int64, tag string) (*ReleaseRow, error) {
 	q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
 		WHERE repo_pk = ? AND tag_name = ? AND deleted_at IS NULL`)
-	return scanRelease(s.db.QueryRowContext(ctx, q, repoPK, tag))
+	return scanRelease(s.rdb.QueryRowContext(ctx, q, repoPK, tag))
 }
 
 // GetLatestRelease returns the most recent non-draft, non-prerelease release
@@ -76,7 +76,7 @@ func (s *Store) GetLatestRelease(ctx context.Context, repoPK int64) (*ReleaseRow
 	q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
 		WHERE repo_pk = ? AND draft = ? AND prerelease = ? AND deleted_at IS NULL
 		ORDER BY published_at DESC LIMIT 1`)
-	return scanRelease(s.db.QueryRowContext(ctx, q, repoPK, false, false))
+	return scanRelease(s.rdb.QueryRowContext(ctx, q, repoPK, false, false))
 }
 
 // ListReleases returns a page of releases for a repository, newest first.
@@ -91,12 +91,12 @@ func (s *Store) ListReleases(ctx context.Context, repoPK int64, includeDrafts bo
 		q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
 			WHERE repo_pk = ? AND deleted_at IS NULL
 			ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-		rows, err = s.db.QueryContext(ctx, q, repoPK, limit, offset)
+		rows, err = s.rdb.QueryContext(ctx, q, repoPK, limit, offset)
 	} else {
 		q := s.rebind(`SELECT ` + releaseColumns + ` FROM releases
 			WHERE repo_pk = ? AND draft = ? AND deleted_at IS NULL
 			ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-		rows, err = s.db.QueryContext(ctx, q, repoPK, false, limit, offset)
+		rows, err = s.rdb.QueryContext(ctx, q, repoPK, false, limit, offset)
 	}
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (s *Store) DeleteRelease(ctx context.Context, pk int64) error {
 func (s *Store) ListReleaseAssets(ctx context.Context, releasePK int64) ([]ReleaseAssetRow, error) {
 	q := s.rebind(`SELECT ` + releaseAssetColumns + ` FROM release_assets
 		WHERE release_pk = ? AND deleted_at IS NULL ORDER BY created_at`)
-	rows, err := s.db.QueryContext(ctx, q, releasePK)
+	rows, err := s.rdb.QueryContext(ctx, q, releasePK)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (s *Store) ListReleaseAssets(ctx context.Context, releasePK int64) ([]Relea
 func (s *Store) GetReleaseAssetByID(ctx context.Context, dbID int64) (*ReleaseAssetRow, error) {
 	q := s.rebind(`SELECT ` + releaseAssetColumns + ` FROM release_assets
 		WHERE db_id = ? AND deleted_at IS NULL`)
-	return scanReleaseAsset(s.db.QueryRowContext(ctx, q, dbID))
+	return scanReleaseAsset(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
 // InsertReleaseAsset allocates a db_id and writes the row.
