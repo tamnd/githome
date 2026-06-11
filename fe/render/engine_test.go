@@ -108,6 +108,81 @@ func TestPageHomeSignedIn(t *testing.T) {
 	mustContain(t, body, `href="/octocat"`)
 }
 
+func TestPageETagRevalidation(t *testing.T) {
+	s := newTestSet(t)
+	render := func(inm string) (*httptest.ResponseRecorder, string) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if inm != "" {
+			req.Header.Set("If-None-Match", inm)
+		}
+		if err := s.Page(mizu.NewCtx(rec, req, nil), "home/index", tHome{Chrome: anonChrome()}); err != nil {
+			t.Fatalf("Page: %v", err)
+		}
+		return rec, rec.Header().Get("ETag")
+	}
+
+	// A fresh render carries the validator and the revalidate-always policy.
+	first, etag := render("")
+	if etag == "" || !strings.HasPrefix(etag, `"`) || !strings.HasSuffix(etag, `"`) {
+		t.Fatalf("ETag = %q, want a quoted strong validator", etag)
+	}
+	if cc := first.Header().Get("Cache-Control"); cc != "private, no-cache" {
+		t.Errorf("Cache-Control = %q, want private, no-cache", cc)
+	}
+	if first.Code != http.StatusOK || first.Body.Len() == 0 {
+		t.Fatalf("fresh render: code=%d bodyLen=%d", first.Code, first.Body.Len())
+	}
+
+	// The same page hashes to the same tag, so the revisit ships no body.
+	hit, hitTag := render(etag)
+	if hit.Code != http.StatusNotModified {
+		t.Fatalf("matching If-None-Match: code = %d, want 304", hit.Code)
+	}
+	if hit.Body.Len() != 0 {
+		t.Errorf("304 must carry no body, got %d bytes", hit.Body.Len())
+	}
+	if hitTag != etag {
+		t.Errorf("304 ETag = %q, want %q", hitTag, etag)
+	}
+
+	// List and weak forms still match; a stale tag gets the full page again.
+	if rec, _ := render(`"stale", W/` + etag); rec.Code != http.StatusNotModified {
+		t.Errorf("list with weak match: code = %d, want 304", rec.Code)
+	}
+	if rec, _ := render("*"); rec.Code != http.StatusNotModified {
+		t.Errorf("wildcard: code = %d, want 304", rec.Code)
+	}
+	if rec, _ := render(`"stale"`); rec.Code != http.StatusOK || rec.Body.Len() == 0 {
+		t.Errorf("stale tag: code=%d bodyLen=%d, want a full 200", rec.Code, rec.Body.Len())
+	}
+
+	// 304 is a GET/HEAD answer only.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("If-None-Match", etag)
+	if err := s.Page(mizu.NewCtx(rec, req, nil), "home/index", tHome{Chrome: anonChrome()}); err != nil {
+		t.Fatalf("Page: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST with matching tag: code = %d, want 200", rec.Code)
+	}
+}
+
+func TestFragmentSkipsETag(t *testing.T) {
+	s := newTestSet(t)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("HX-Request", "true")
+	if err := s.Page(mizu.NewCtx(rec, req, nil), "home/index", tHome{Chrome: anonChrome()}); err != nil {
+		t.Fatalf("Page: %v", err)
+	}
+	// An htmx swap is part of a page, not a cacheable document of its own.
+	if got := rec.Header().Get("ETag"); got != "" {
+		t.Errorf("fragment ETag = %q, want none", got)
+	}
+}
+
 func TestFragmentOmitsLayout(t *testing.T) {
 	s := newTestSet(t)
 	rec := httptest.NewRecorder()
