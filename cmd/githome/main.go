@@ -151,6 +151,10 @@ func run() error {
 		}
 	}()
 
+	// Delivery records carry full request and response bodies; the retention
+	// loop keeps the table bounded by pruning records past the 30-day window.
+	go worker.RunDeliveryRetention(ctx, st, logger)
+
 	root := mizu.NewRouter()
 	rest.Mount(root, rest.Deps{
 		Config:        cfg,
