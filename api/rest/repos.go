@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -303,6 +304,10 @@ func handleRef(d Deps) mizu.Handler {
 }
 
 // repoPatchBody is the JSON body for PATCH /repos/{owner}/{repo}.
+// SecurityAndAnalysis is accepted so clients that always send the block (the
+// Terraform provider does) are not rejected, but githome has no security
+// products to toggle, so nothing from it is stored and the repository object
+// does not render it back.
 type repoPatchBody struct {
 	Name          *string `json:"name"`
 	Description   *string `json:"description"`
@@ -314,6 +319,17 @@ type repoPatchBody struct {
 	HasWiki       *bool   `json:"has_wiki"`
 	Archived      *bool   `json:"archived"`
 	IsTemplate    *bool   `json:"is_template"`
+
+	AllowSquashMerge         *bool   `json:"allow_squash_merge"`
+	AllowMergeCommit         *bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge         *bool   `json:"allow_rebase_merge"`
+	AllowAutoMerge           *bool   `json:"allow_auto_merge"`
+	DeleteBranchOnMerge      *bool   `json:"delete_branch_on_merge"`
+	AllowUpdateBranch        *bool   `json:"allow_update_branch"`
+	WebCommitSignoffRequired *bool   `json:"web_commit_signoff_required"`
+	Visibility               *string `json:"visibility"`
+
+	SecurityAndAnalysis json.RawMessage `json:"security_and_analysis"`
 }
 
 // handleRepoUpdate serves PATCH /repos/{owner}/{repo}. Only the repository
@@ -330,6 +346,24 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
+		// visibility is the modern spelling of the private flag; when both are
+		// sent, visibility wins. Githome has no internal visibility, so only
+		// the two real values are accepted.
+		if body.Visibility != nil {
+			switch *body.Visibility {
+			case "public":
+				f := false
+				body.Private = &f
+			case "private":
+				t := true
+				body.Private = &t
+			default:
+				writeError(c.Writer(), errValidation(FieldError{
+					Resource: "Repository", Field: "visibility", Code: "invalid",
+				}))
+				return nil
+			}
+		}
 		owner, name := c.Param("owner"), c.Param("repo")
 		repo, err := d.Repos.UpdateRepo(ctx, actor.UserID, owner, name, domain.RepoPatch{
 			Name:          body.Name,
@@ -342,6 +376,14 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 			HasWiki:       body.HasWiki,
 			Archived:      body.Archived,
 			IsTemplate:    body.IsTemplate,
+
+			AllowSquashMerge:         body.AllowSquashMerge,
+			AllowMergeCommit:         body.AllowMergeCommit,
+			AllowRebaseMerge:         body.AllowRebaseMerge,
+			AllowAutoMerge:           body.AllowAutoMerge,
+			DeleteBranchOnMerge:      body.DeleteBranchOnMerge,
+			AllowUpdateBranch:        body.AllowUpdateBranch,
+			WebCommitSignoffRequired: body.WebCommitSignoffRequired,
 		})
 		if errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())

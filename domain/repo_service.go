@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -152,6 +153,12 @@ func (s *RepoService) GetRepoByPK(ctx context.Context, viewerPK, repoPK int64) (
 }
 
 // RepoInput holds the caller-supplied fields for creating a new repository.
+// The nil-able feature and merge flags mean "use the default" (issues,
+// projects, wiki, and the three merge methods on; auto-merge and branch
+// deletion off). GitignoreTemplate and LicenseTemplate name templates from
+// init_templates.go; the API layer validates them before calling CreateRepo,
+// and a non-empty template implies an initial commit even without AutoInit,
+// matching GitHub.
 type RepoInput struct {
 	Name          string
 	Description   *string
@@ -159,6 +166,20 @@ type RepoInput struct {
 	Private       bool
 	AutoInit      bool   // init with a README commit
 	DefaultBranch string // default "main"
+
+	HasIssues   *bool
+	HasProjects *bool
+	HasWiki     *bool
+	IsTemplate  bool
+
+	AllowSquashMerge    *bool
+	AllowMergeCommit    *bool
+	AllowRebaseMerge    *bool
+	AllowAutoMerge      *bool
+	DeleteBranchOnMerge *bool
+
+	GitignoreTemplate string
+	LicenseTemplate   string
 }
 
 // RepoPatch holds nullable editable fields for PATCH /repos/{owner}/{repo}.
@@ -262,11 +283,99 @@ func (s *RepoService) CreateRepo(ctx context.Context, viewerPK int64, ownerLogin
 	if err := s.store.InsertRepo(ctx, row); err != nil {
 		return nil, err
 	}
+	// The insert leaves the feature and merge flags on their column defaults;
+	// settings the caller chose explicitly are applied in a follow-up patch so
+	// the insert path stays one shape.
+	sp := store.RepoPatch{
+		HasIssues:           inp.HasIssues,
+		HasProjects:         inp.HasProjects,
+		HasWiki:             inp.HasWiki,
+		AllowSquashMerge:    inp.AllowSquashMerge,
+		AllowMergeCommit:    inp.AllowMergeCommit,
+		AllowRebaseMerge:    inp.AllowRebaseMerge,
+		AllowAutoMerge:      inp.AllowAutoMerge,
+		DeleteBranchOnMerge: inp.DeleteBranchOnMerge,
+	}
+	if inp.IsTemplate {
+		t := true
+		sp.IsTemplate = &t
+	}
+	if sp != (store.RepoPatch{}) {
+		row, err = s.store.UpdateRepo(ctx, row.PK, sp)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if _, err := s.gitStore.Init(row.PK); err != nil {
 		return nil, err
 	}
 	owner := userFromRow(ownerRow)
-	return repoFromRow(row, owner), nil
+	repo := repoFromRow(row, owner)
+	if inp.AutoInit || inp.GitignoreTemplate != "" || inp.LicenseTemplate != "" {
+		if err := s.writeInitialCommit(ctx, repo, inp, ownerRow); err != nil {
+			return nil, err
+		}
+	}
+	return repo, nil
+}
+
+// writeInitialCommit seeds the freshly created repository: a README named
+// after the repo, plus the .gitignore and LICENSE templates the caller asked
+// for. Each file lands as its own commit on the default branch (GitHub folds
+// them into one; the file-write path here works a file at a time, and the
+// resulting tree is identical). pushed_at is stamped the way a real first
+// push would.
+func (s *RepoService) writeInitialCommit(ctx context.Context, repo *Repo, inp RepoInput, ownerRow *store.UserRow) error {
+	authorName := ownerRow.Login
+	if ownerRow.Name != nil && *ownerRow.Name != "" {
+		authorName = *ownerRow.Name
+	}
+	authorEmail := ""
+	if ownerRow.Email != nil {
+		authorEmail = *ownerRow.Email
+	}
+	write := func(path string, content []byte) error {
+		_, err := s.WriteFile(repo, WriteFileInput{
+			Path:        path,
+			Content:     content,
+			Message:     "Initial commit",
+			AuthorName:  authorName,
+			AuthorEmail: authorEmail,
+			Branch:      repo.DefaultBranch,
+		})
+		return err
+	}
+	readme := "# " + repo.Name + "\n"
+	if repo.Description != nil && *repo.Description != "" {
+		readme += "\n" + *repo.Description + "\n"
+	}
+	if err := write("README.md", []byte(readme)); err != nil {
+		return err
+	}
+	if inp.GitignoreTemplate != "" {
+		body, ok := GitignoreTemplate(inp.GitignoreTemplate)
+		if ok {
+			if err := write(".gitignore", []byte(body)); err != nil {
+				return err
+			}
+		}
+	}
+	if inp.LicenseTemplate != "" {
+		lic, ok := LicenseTemplate(inp.LicenseTemplate)
+		if ok {
+			year := strconv.Itoa(time.Now().UTC().Year())
+			body := fillLicense(lic.Body, year, authorName)
+			if err := write("LICENSE", []byte(body)); err != nil {
+				return err
+			}
+		}
+	}
+	now := time.Now().UTC()
+	if err := s.store.TouchRepoPushedAt(ctx, repo.PK, now); err != nil {
+		return err
+	}
+	repo.PushedAt = &now
+	return nil
 }
 
 // UpdateRepo applies patch to the repository identified by owner/name for the
