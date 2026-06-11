@@ -1,8 +1,10 @@
 package graphql
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
@@ -106,6 +108,38 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		p.backward = true
 	}
 	return p, nil
+}
+
+// totalCountSelected reports whether the executing connection field's
+// selection set asks for totalCount. The keyset list paths return the page
+// without a COUNT, so a query that does not select totalCount (gh issue list,
+// gh pr list) pays no count cost at all. Outside an operation, or when the
+// field context is unavailable, it errs on computing the count.
+func totalCountSelected(ctx context.Context) bool {
+	if !graphql.HasOperationContext(ctx) {
+		return true
+	}
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return true
+	}
+	for _, f := range graphql.CollectFields(graphql.GetOperationContext(ctx), fc.Field.Selections, nil) {
+		if f.Name == "totalCount" {
+			return true
+		}
+	}
+	return false
+}
+
+// lazyTotal synthesizes the total buildIssueConnection and friends derive
+// hasNextPage from, when the real count was skipped: one past the window when
+// a further page exists, exactly the window's end otherwise. The totalCount
+// field built from it is never serialized, because it was not selected.
+func lazyTotal(offset, count int, hasMore bool) int {
+	if hasMore {
+		return offset + count + 1
+	}
+	return offset + count
 }
 
 // emptyIssueConnection is the connection a not-found or invisible repository

@@ -35,6 +35,18 @@ const issuesPageQuery = `query($owner: String!, $name: String!, $first: Int!, $a
   }
 }`
 
+// issuesPageQueryNoTotal leaves totalCount unselected, the shape gh issue list
+// sends. The count query is skipped entirely then, so hasNextPage must come
+// from the keyset probe alone.
+const issuesPageQueryNoTotal = `query($owner: String!, $name: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(first: $first, after: $after, states: [OPEN]) {
+      nodes { number }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`
+
 const pullsPageQuery = `query($owner: String!, $name: String!, $first: Int!, $after: String) {
   repository(owner: $owner, name: $name) {
     pullRequests(first: $first, after: $after, states: [OPEN]) {
@@ -174,6 +186,30 @@ func TestIssueKeysetWalk(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("walked numbers %v, want %v", got, want)
 		}
+	}
+}
+
+// TestIssueWalkWithoutTotalCount walks the connection with totalCount left
+// unselected: hasNextPage must still flip off on the last page, driven by the
+// keyset limit+1 probe rather than a count.
+func TestIssueWalkWithoutTotalCount(t *testing.T) {
+	srv, token := issueServer(t)
+
+	pages := walkConn(t, srv, token, issuesPageQueryNoTotal,
+		map[string]any{"owner": "octocat", "name": "hello"}, "issues")
+
+	if len(pages) != 2 {
+		t.Fatalf("walked %d pages, want 2", len(pages))
+	}
+	var got []int
+	for _, p := range pages {
+		got = append(got, p.numbers...)
+	}
+	if len(got) != 2 || got[0] != 2 || got[1] != 1 {
+		t.Fatalf("walked numbers %v, want [2 1]", got)
+	}
+	if pages[0].hasNext != true || pages[1].hasNext != false {
+		t.Fatalf("hasNextPage sequence = [%v %v], want [true false]", pages[0].hasNext, pages[1].hasNext)
 	}
 }
 

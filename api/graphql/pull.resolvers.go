@@ -456,12 +456,13 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 	owner, name := splitNWO(obj.NameWithOwner)
 
 	// The unfiltered listing in its native newest-first order pages straight
-	// through the store. A cursor carrying the previous page's last pull number
-	// resumes with a keyset seek; only the totalCount stays a count query.
+	// through the store. The first page and any cursor carrying a seek key
+	// take the keyset path, with the COUNT run only when totalCount is
+	// actually selected; legacy offset-only cursors keep the page-number path.
 	if headRefName == nil && baseRefName == nil && len(labels) == 0 && defaultPROrder(orderBy) {
 		state := pullStateFilter(states)
-		if page.seek > 0 {
-			prs, _, err := r.Pulls.ListPRsPage(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+		if page.seek > 0 || page.offset == 0 {
+			prs, hasMore, err := r.Pulls.ListPRsPage(ctx, viewerID(ctx), owner, name, domain.PRQuery{
 				State:       state,
 				PerPage:     page.limit,
 				AfterNumber: page.seek,
@@ -472,9 +473,11 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 			if err != nil {
 				return nil, mapErr(err)
 			}
-			total, err := r.Pulls.CountPRs(ctx, viewerID(ctx), owner, name, state)
-			if err != nil {
-				return nil, mapErr(err)
+			total := lazyTotal(page.offset, len(prs), hasMore)
+			if totalCountSelected(ctx) {
+				if total, err = r.Pulls.CountPRs(ctx, viewerID(ctx), owner, name, state); err != nil {
+					return nil, mapErr(err)
+				}
 			}
 			return r.buildPullRequestConnection(owner, name, prs, total, page.offset), nil
 		}

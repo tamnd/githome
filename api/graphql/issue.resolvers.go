@@ -358,21 +358,24 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 	owner, name := splitNWO(obj.NameWithOwner)
 	q := issueListQuery(states, filterBy, orderBy, labels, page)
 
-	// A cursor that carries the previous page's last issue number resumes with
-	// a keyset seek; only the totalCount stays a count query. The first page
-	// and legacy offset-only cursors keep the page-number path.
-	if page.seek > 0 {
+	// The first page and any cursor carrying a seek key take the keyset path:
+	// the page is an index range read, hasNextPage comes from the limit+1
+	// probe, and the COUNT runs only when totalCount is actually selected.
+	// Legacy offset-only cursors keep the page-number path.
+	if page.seek > 0 || page.offset == 0 {
 		q.AfterNumber = page.seek
-		issues, _, err := r.Resolver.Issues.ListIssuesPage(ctx, viewerID(ctx), owner, name, q)
+		issues, hasMore, err := r.Resolver.Issues.ListIssuesPage(ctx, viewerID(ctx), owner, name, q)
 		if errors.Is(err, domain.ErrRepoNotFound) {
 			return emptyIssueConnection(), nil
 		}
 		if err != nil {
 			return nil, mapErr(err)
 		}
-		total, err := r.Resolver.Issues.CountIssues(ctx, viewerID(ctx), owner, name, q)
-		if err != nil {
-			return nil, mapErr(err)
+		total := lazyTotal(page.offset, len(issues), hasMore)
+		if totalCountSelected(ctx) {
+			if total, err = r.Resolver.Issues.CountIssues(ctx, viewerID(ctx), owner, name, q); err != nil {
+				return nil, mapErr(err)
+			}
 		}
 		return r.buildIssueConnection(owner, name, issues, total, page.offset), nil
 	}
