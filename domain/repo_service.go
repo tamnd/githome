@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -810,6 +811,27 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 		return "", gitErr(err)
 	}
 	return patch, nil
+}
+
+// Archive streams an archive of the tree at ref to w as one git archive
+// subprocess: format is "zip" or "tar", prefix the leading directory recorded
+// for every entry. The revision resolves before anything streams, so a bad
+// ref or an empty repository surfaces as ErrGitNotFound while the response
+// can still say so.
+func (s *RepoService) Archive(ctx context.Context, repo *Repo, ref, format, prefix string, w io.Writer) error {
+	gr, err := s.open(repo)
+	if err != nil {
+		return gitErr(err)
+	}
+	sha, err := gr.ResolveCommit(ref)
+	gr.Release()
+	if err != nil {
+		return gitErr(err)
+	}
+	if err := s.gitStore.ArchiveStream(ctx, repo.PK, format, prefix, sha, w); err != nil {
+		return gitErr(err)
+	}
+	return nil
 }
 
 // CreateBlob stores a blob object in the repository and returns its SHA.

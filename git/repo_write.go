@@ -67,7 +67,7 @@ func (s *Store) run(ctx context.Context, pk int64, stdin io.Reader, args ...stri
 // runEnv is run with extra environment entries appended after the scrubbed
 // base, used by the merge path to pass commit author and committer identity.
 func (s *Store) runEnv(ctx context.Context, pk int64, extraEnv []string, stdin io.Reader, args ...string) (runResult, error) {
-	full := append([]string{"--git-dir", s.Dir(pk)}, args...)
+	full := append([]string{"--git-dir", s.runDir(pk)}, args...)
 	cmd := exec.CommandContext(ctx, s.bin(), full...)
 	cmd.Env = append(baseEnv(), extraEnv...)
 	cmd.Stdin = stdin
@@ -94,7 +94,7 @@ func (s *Store) runEnv(ctx context.Context, pk int64, extraEnv []string, stdin i
 func (s *Store) runLimited(ctx context.Context, pk int64, max int64, args ...string) (stdout []byte, truncated bool, code int, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	full := append([]string{"--git-dir", s.Dir(pk)}, args...)
+	full := append([]string{"--git-dir", s.runDir(pk)}, args...)
 	cmd := exec.CommandContext(ctx, s.bin(), full...)
 	cmd.Env = baseEnv()
 	pipe, err := cmd.StdoutPipe()
@@ -181,7 +181,7 @@ func (s *Store) catFileLookup(ctx context.Context, pk int64, sha string) (objInf
 	if info, ok := s.cache.get(sha); ok {
 		return info, nil
 	}
-	info, err := s.pool.lookup(s.Dir(pk), pk, sha)
+	info, err := s.pool.lookup(s.runDir(pk), pk, sha)
 	if err != nil {
 		// Pool failed (process died or not started); fall back to single spawn.
 		args := []string{"cat-file", "--batch-check"}

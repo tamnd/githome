@@ -396,16 +396,23 @@ func (t *Tx) UpdateIssue(ctx context.Context, iss *IssueRow) error {
 // so the caller should re-read and retry the edit.
 var ErrOptimisticLock = errors.New("store: optimistic lock conflict")
 
-// AttachLabels links the given labels to the issue, ignoring any already linked.
+// AttachLabels links the given labels to the issue, ignoring any already
+// linked. All rows go in one multi-row insert: the tx holds the single-writer
+// lock, so per-item statements would stretch the hold for no benefit.
 func (t *Tx) AttachLabels(ctx context.Context, issuePK int64, labelPKs []int64) error {
-	for _, lp := range labelPKs {
-		q := t.rebind(`INSERT INTO issue_labels (issue_pk, label_pk) VALUES (?, ?)
-			ON CONFLICT (issue_pk, label_pk) DO NOTHING`)
-		if _, err := t.tx.ExecContext(ctx, q, issuePK, lp); err != nil {
-			return err
-		}
+	if len(labelPKs) == 0 {
+		return nil
 	}
-	return nil
+	rows := make([]string, len(labelPKs))
+	args := make([]any, 0, 2*len(labelPKs))
+	for i, lp := range labelPKs {
+		rows[i] = "(?, ?)"
+		args = append(args, issuePK, lp)
+	}
+	q := t.rebind(`INSERT INTO issue_labels (issue_pk, label_pk) VALUES ` +
+		strings.Join(rows, ", ") + ` ON CONFLICT (issue_pk, label_pk) DO NOTHING`)
+	_, err := t.tx.ExecContext(ctx, q, args...)
+	return err
 }
 
 // ReplaceLabels sets an issue's labels to exactly the given set.
@@ -426,30 +433,35 @@ func (t *Tx) DetachLabel(ctx context.Context, issuePK, labelPK int64) error {
 // AddAssignees links the given users to the issue, preserving request order in
 // the position column and ignoring users already assigned.
 func (t *Tx) AddAssignees(ctx context.Context, issuePK int64, userPKs []int64) error {
+	if len(userPKs) == 0 {
+		return nil
+	}
 	var base int
 	row := t.tx.QueryRowContext(ctx, t.rebind(`SELECT COALESCE(MAX(position)+1, 0) FROM assignees WHERE issue_pk = ?`), issuePK)
 	if err := row.Scan(&base); err != nil {
 		return err
 	}
+	rows := make([]string, len(userPKs))
+	args := make([]any, 0, 3*len(userPKs))
 	for i, up := range userPKs {
-		q := t.rebind(`INSERT INTO assignees (issue_pk, user_pk, position) VALUES (?, ?, ?)
-			ON CONFLICT (issue_pk, user_pk) DO NOTHING`)
-		if _, err := t.tx.ExecContext(ctx, q, issuePK, up, base+i); err != nil {
-			return err
-		}
+		rows[i] = "(?, ?, ?)"
+		args = append(args, issuePK, up, base+i)
 	}
-	return nil
+	q := t.rebind(`INSERT INTO assignees (issue_pk, user_pk, position) VALUES ` +
+		strings.Join(rows, ", ") + ` ON CONFLICT (issue_pk, user_pk) DO NOTHING`)
+	_, err := t.tx.ExecContext(ctx, q, args...)
+	return err
 }
 
-// RemoveAssignees unlinks the given users from the issue.
+// RemoveAssignees unlinks the given users from the issue in one statement.
 func (t *Tx) RemoveAssignees(ctx context.Context, issuePK int64, userPKs []int64) error {
-	for _, up := range userPKs {
-		q := t.rebind(`DELETE FROM assignees WHERE issue_pk = ? AND user_pk = ?`)
-		if _, err := t.tx.ExecContext(ctx, q, issuePK, up); err != nil {
-			return err
-		}
+	if len(userPKs) == 0 {
+		return nil
 	}
-	return nil
+	q := t.rebind(`DELETE FROM assignees WHERE issue_pk = ? AND user_pk IN ` + inPlaceholders(len(userPKs)))
+	args := append([]any{issuePK}, i64Args(userPKs)...)
+	_, err := t.tx.ExecContext(ctx, q, args...)
+	return err
 }
 
 // ReplaceAssignees sets an issue's assignees to exactly the given set.

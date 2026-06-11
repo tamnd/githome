@@ -1,6 +1,7 @@
 package git
 
 import (
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -103,6 +104,19 @@ func (s *Store) Dir(pk int64) string {
 	return filepath.Join(s.root, shard, strconv.FormatInt(pk, 10)+".git")
 }
 
+// runDir is the git directory subprocesses target for pk. A managed repository
+// is bare, so Dir is the git dir itself; a browse-mode override (or a test
+// fixture) may point at a worktree checkout, whose git dir lives under .git.
+// Without this, every --git-dir subprocess against such a repository fails and
+// the read falls back to the slow in-process path.
+func (s *Store) runDir(pk int64) string {
+	dir := s.Dir(pk)
+	if fi, err := os.Stat(filepath.Join(dir, ".git")); err == nil && fi.IsDir() {
+		return filepath.Join(dir, ".git")
+	}
+	return dir
+}
+
 // Open opens the bare repository for pk for reading. It returns ErrRepoNotFound
 // when no repository exists at the resolved path.
 //
@@ -165,7 +179,7 @@ func (s *Store) blobSizes(pk int64, shas []string) (map[string]int64, error) {
 	if len(miss) == 0 {
 		return out, nil
 	}
-	infos, err := s.pool.lookupBatch(s.Dir(pk), pk, miss)
+	infos, err := s.pool.lookupBatch(s.runDir(pk), pk, miss)
 	if err != nil {
 		return nil, err
 	}
