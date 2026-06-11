@@ -98,6 +98,10 @@ func TestAlertBlockquote(t *testing.T) {
 		`class="markdown-alert markdown-alert-warning"`,
 		`data-octicon="alert"`,
 		"Be careful here.",
+		// The post-process stage turns the data-octicon name into the inline
+		// icon the title leads with.
+		`<p class="markdown-alert-title"><svg class="octicon"`,
+		alertIconPaths["alert"],
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("alert missing %q in:\n%s", want, got)
