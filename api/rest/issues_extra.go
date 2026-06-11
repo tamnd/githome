@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -9,6 +11,35 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 )
+
+// decodeLabelsBody reads the labels add/replace request, which GitHub accepts
+// in two shapes: an object {"labels": [...]} or a bare JSON array. Members of
+// either array may be plain strings or {"name": ...} objects.
+func decodeLabelsBody(c *mizu.Ctx) ([]string, bool) {
+	var raw json.RawMessage
+	if !decodeJSON(c, &raw) {
+		return nil, false
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil, true
+	}
+	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+		var list labelList
+		if err := json.Unmarshal(raw, &list); err != nil {
+			writeError(c.Writer(), &apiError{Status: http.StatusBadRequest, Message: "Problems parsing JSON", DocURL: docRoot})
+			return nil, false
+		}
+		return list, true
+	}
+	var body struct {
+		Labels labelList `json:"labels"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		writeError(c.Writer(), &apiError{Status: http.StatusBadRequest, Message: "Problems parsing JSON", DocURL: docRoot})
+		return nil, false
+	}
+	return body.Labels, true
+}
 
 // handleIssueLabelsList serves GET /repos/{owner}/{repo}/issues/{number}/labels.
 func handleIssueLabelsList(d Deps) mizu.Handler {
@@ -46,13 +77,11 @@ func handleIssueLabelsAdd(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		var body struct {
-			Labels []string `json:"labels"`
-		}
-		if !decodeJSON(c, &body) {
+		labels, ok := decodeLabelsBody(c)
+		if !ok {
 			return nil
 		}
-		issue, err := d.Issues.AddLabels(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, body.Labels)
+		issue, err := d.Issues.AddLabels(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, labels)
 		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -79,14 +108,12 @@ func handleIssueLabelsReplace(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		var body struct {
-			Labels []string `json:"labels"`
-		}
-		if !decodeJSON(c, &body) {
+		labels, ok := decodeLabelsBody(c)
+		if !ok {
 			return nil
 		}
 		issue, err := d.Issues.EditIssue(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, domain.IssuePatch{
-			Labels: &body.Labels,
+			Labels: &labels,
 		})
 		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())

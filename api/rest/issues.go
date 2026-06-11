@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -17,13 +18,44 @@ import (
 )
 
 // issueCreateBody is the POST /issues request. milestone is the milestone
-// number, omitted to leave the issue unscheduled.
+// number, omitted to leave the issue unscheduled. assignee is the legacy
+// singular form, honored when assignees is absent.
 type issueCreateBody struct {
-	Title     string   `json:"title"`
-	Body      *string  `json:"body"`
-	Labels    []string `json:"labels"`
-	Assignees []string `json:"assignees"`
-	Milestone *int64   `json:"milestone"`
+	Title     string    `json:"title"`
+	Body      *string   `json:"body"`
+	Labels    labelList `json:"labels"`
+	Assignee  *string   `json:"assignee"`
+	Assignees []string  `json:"assignees"`
+	Milestone *int64    `json:"milestone"`
+}
+
+// labelList decodes a JSON array whose members are label names, either plain
+// strings or objects carrying a "name" field. GitHub accepts both shapes,
+// mixed freely, on issue create and edit.
+type labelList []string
+
+func (l *labelList) UnmarshalJSON(data []byte) error {
+	var arr []json.RawMessage
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+	out := make([]string, 0, len(arr))
+	for _, raw := range arr {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			out = append(out, s)
+			continue
+		}
+		var obj struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			return err
+		}
+		out = append(out, obj.Name)
+	}
+	*l = out
+	return nil
 }
 
 // issueEditBody is the PATCH /issues/{number} request. A nil field is left
@@ -188,11 +220,15 @@ func handleIssueCreate(d Deps) mizu.Handler {
 			writeError(c.Writer(), errValidation(FieldError{Resource: "Issue", Field: "title", Code: "missing_field"}))
 			return nil
 		}
+		assignees := body.Assignees
+		if len(assignees) == 0 && body.Assignee != nil && *body.Assignee != "" {
+			assignees = []string{*body.Assignee}
+		}
 		in := domain.IssueInput{
 			Title:           body.Title,
 			Body:            body.Body,
 			Labels:          body.Labels,
-			AssigneeLogins:  body.Assignees,
+			AssigneeLogins:  assignees,
 			MilestoneNumber: body.Milestone,
 		}
 		actor := auth.ActorFrom(c.Request().Context())
@@ -904,10 +940,25 @@ func decodeIssueEdit(c *mizu.Ctx) (issueEditBody, bool) {
 		}
 	}
 	if v, ok := raw["labels"]; ok {
-		body.Labels = toStrings(v)
+		body.Labels = toLabelNames(v)
 	}
 	if v, ok := raw["assignees"]; ok {
 		body.Assignees = toStrings(v)
+	}
+	if v, ok := raw["assignee"]; ok && body.Assignees == nil {
+		// The legacy singular form: a login assigns that one user, null or the
+		// empty string clears the assignees.
+		switch t := v.(type) {
+		case string:
+			one := []string{}
+			if t != "" {
+				one = append(one, t)
+			}
+			body.Assignees = &one
+		case nil:
+			empty := []string{}
+			body.Assignees = &empty
+		}
 	}
 	if v, ok := raw["milestone"]; ok {
 		body.milestoneSet = true
@@ -965,6 +1016,27 @@ func validReaction(content string) bool {
 	default:
 		return false
 	}
+}
+
+// toLabelNames coerces a decoded JSON labels array whose members are plain
+// strings or {"name": ...} objects, the two shapes GitHub accepts mixed.
+func toLabelNames(v any) *[]string {
+	arr, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, e := range arr {
+		switch t := e.(type) {
+		case string:
+			out = append(out, t)
+		case map[string]any:
+			if s, ok := t["name"].(string); ok {
+				out = append(out, s)
+			}
+		}
+	}
+	return &out
 }
 
 // toStrings coerces a decoded JSON array of strings, dropping non-string members.
