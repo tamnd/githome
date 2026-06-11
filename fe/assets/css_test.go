@@ -139,6 +139,31 @@ func TestHeaderCollapsesBelowMd(t *testing.T) {
 	}
 }
 
+// TestTooltipsAndFlashChrome guards review 02 task R02-18: the sheet carries
+// the Primer tooltip pattern (the bubble is the element's own aria-label, so
+// hover viewers and screen readers get the same text with no script), and the
+// flash dismiss button stays hidden until the js-enhanced flag proves the
+// click wiring ran.
+func TestTooltipsAndFlashChrome(t *testing.T) {
+	src, err := os.ReadFile("src/css/components.css")
+	if err != nil {
+		t.Fatalf("read components.css: %v", err)
+	}
+	bubble := ruleBody(t, string(src), ".tooltipped::after")
+	for _, want := range []string{"content: attr(aria-label)", "var(--bgColor-emphasis)", "var(--fgColor-onEmphasis)"} {
+		if !strings.Contains(bubble, want) {
+			t.Errorf(".tooltipped::after is missing %s:\n%s", want, bubble)
+		}
+	}
+	for _, sel := range []string{".tooltipped-n::before", ".tooltipped-s::before", ".tooltipped-e::before", ".tooltipped-w::before"} {
+		ruleBody(t, string(src), sel)
+	}
+	if body := ruleBody(t, string(src), ".flash-close"); !strings.Contains(body, "display: none") {
+		t.Errorf(".flash-close must stay hidden with scripting off:\n%s", body)
+	}
+	ruleBody(t, string(src), "html[data-js-enhanced] .flash-close")
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string

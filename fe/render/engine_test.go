@@ -110,6 +110,28 @@ func TestPageHomeAnonymous(t *testing.T) {
 	}
 }
 
+func TestPageFlashBanners(t *testing.T) {
+	s := newTestSet(t)
+	ch := anonChrome()
+	ch.Flashes = []tFlash{{Kind: "success", Message: "Repository created."}, {Kind: "error", Message: "Nope."}}
+	c, rec := newCtx(http.MethodGet, "/")
+	if err := s.Page(c, "home/index", tHome{Chrome: ch}); err != nil {
+		t.Fatalf("Page: %v", err)
+	}
+	body := rec.Body.String()
+
+	// Each kind leads with its role octicon and wraps the text in the message
+	// span the flex layout stretches.
+	mustContain(t, body, `class="flash flash-success"`)
+	mustContain(t, body, `class="flash flash-error"`)
+	mustContain(t, body, assets.Icons["check-circle"].Body)
+	mustContain(t, body, assets.Icons["stop"].Body)
+	mustContain(t, body, `<span class="flash-message">Repository created.</span>`)
+	// The dismiss button ships in the markup for app.ts to wire; CSS hides it
+	// until the js-enhanced flag confirms the wiring ran.
+	mustContain(t, body, `data-flash-close aria-label="Dismiss this message"`)
+}
+
 func TestPageHomeSignedIn(t *testing.T) {
 	s := newTestSet(t)
 	ch := anonChrome()

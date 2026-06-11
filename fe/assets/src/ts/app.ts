@@ -41,6 +41,18 @@ function wireCopyButtons(): void {
   }
 }
 
+// wireFlashDismiss lets a [data-flash-close] button remove its flash banner.
+// The button ships in the server markup but CSS keeps it hidden until the
+// js-enhanced flag is set, so with scripting off the banner simply stays, the
+// same outcome as before the button existed.
+function wireFlashDismiss(): void {
+  for (const btn of Array.from(document.querySelectorAll<HTMLElement>("[data-flash-close]"))) {
+    btn.addEventListener("click", () => {
+      btn.closest(".flash")?.remove();
+    });
+  }
+}
+
 // wireFileFilter narrows a list as the viewer types into a [data-filter-target]
 // search box. The whole list is server-rendered and fully usable with JS off;
 // this only hides rows whose data-filter-text does not contain the query, so the
@@ -70,6 +82,7 @@ function wireFileFilter(): void {
 function boot(): void {
   markEnhanced();
   wireCopyButtons();
+  wireFlashDismiss();
   wireFileFilter();
 }
 

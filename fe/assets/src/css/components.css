@@ -558,12 +558,17 @@
   color: var(--fgColor-muted);
 }
 
-/* Flash banners. */
+/* Flash banners. Each kind leads with its role octicon, tinted with the role
+   foreground; the message stretches and the dismiss button only appears once
+   scripts run (the js-enhanced flag), because without them it does nothing. */
 .flash-region {
   min-height: 0;
 }
 
 .flash {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
   padding: var(--base-size-16);
   margin-bottom: var(--base-size-16);
   border: var(--borderWidth-thin) solid var(--borderColor-accent-muted);
@@ -571,9 +576,41 @@
   background-color: var(--bgColor-accent-muted);
 }
 
+.flash > .octicon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--fgColor-accent);
+}
+
+.flash-message {
+  flex: 1 1 auto;
+}
+
+.flash-close {
+  display: none;
+  flex: none;
+  padding: 0;
+  color: var(--fgColor-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+html[data-js-enhanced] .flash-close {
+  display: inline-flex;
+}
+
+.flash-close:hover {
+  color: var(--fgColor-default);
+}
+
 .flash-success {
   border-color: var(--borderColor-success-muted);
   background-color: var(--bgColor-success-muted);
+}
+
+.flash-success > .octicon {
+  color: var(--fgColor-success);
 }
 
 .flash-error {
@@ -581,9 +618,17 @@
   background-color: var(--bgColor-danger-muted);
 }
 
+.flash-error > .octicon {
+  color: var(--fgColor-danger);
+}
+
 .flash-warn {
   border-color: var(--borderColor-attention-muted);
   background-color: var(--bgColor-attention-muted);
+}
+
+.flash-warn > .octicon {
+  color: var(--fgColor-attention);
 }
 
 /* Blankslate (empty states). */
@@ -652,6 +697,115 @@
   overflow: visible;
   vertical-align: text-bottom;
   fill: currentColor;
+}
+
+/*
+ * Tooltips (doc 03 section 7.15). The Primer pattern: a .tooltipped element
+ * shows its own aria-label in a bubble on hover or keyboard focus, so the
+ * label screen readers announce is the same text sighted viewers get, with
+ * no script involved. A direction modifier (n, s, e, w) places the bubble;
+ * ::after is the bubble and ::before the caret pointing back at the control.
+ */
+.tooltipped {
+  position: relative;
+}
+
+.tooltipped::after {
+  position: absolute;
+  z-index: 100;
+  display: none;
+  padding: var(--base-size-4) var(--base-size-8);
+  font-size: var(--text-small-size);
+  font-weight: var(--base-text-weight-normal);
+  white-space: pre;
+  pointer-events: none;
+  content: attr(aria-label);
+  color: var(--fgColor-onEmphasis);
+  text-align: center;
+  background-color: var(--bgColor-emphasis);
+  border-radius: var(--borderRadius-medium);
+  opacity: 0;
+}
+
+.tooltipped::before {
+  position: absolute;
+  z-index: 101;
+  display: none;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  content: "";
+  border: 6px solid transparent;
+  opacity: 0;
+}
+
+.tooltipped:hover::before,
+.tooltipped:hover::after,
+.tooltipped:focus-visible::before,
+.tooltipped:focus-visible::after {
+  display: inline-block;
+  text-decoration: none;
+  opacity: 1;
+}
+
+.tooltipped-n::after {
+  right: 50%;
+  bottom: 100%;
+  margin-bottom: 6px;
+  transform: translateX(50%);
+}
+
+.tooltipped-n::before {
+  top: -7px;
+  right: 50%;
+  bottom: auto;
+  margin-right: -6px;
+  border-top-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-s::after {
+  top: 100%;
+  right: 50%;
+  margin-top: 6px;
+  transform: translateX(50%);
+}
+
+.tooltipped-s::before {
+  top: auto;
+  right: 50%;
+  bottom: -7px;
+  margin-right: -6px;
+  border-bottom-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-w::after {
+  right: 100%;
+  bottom: 50%;
+  margin-right: 6px;
+  transform: translateY(50%);
+}
+
+.tooltipped-w::before {
+  top: 50%;
+  bottom: 50%;
+  left: -7px;
+  margin-top: -6px;
+  border-left-color: var(--bgColor-emphasis);
+}
+
+.tooltipped-e::after {
+  bottom: 50%;
+  left: 100%;
+  margin-left: 6px;
+  transform: translateY(50%);
+}
+
+.tooltipped-e::before {
+  top: 50%;
+  right: -7px;
+  bottom: 50%;
+  margin-top: -6px;
+  border-right-color: var(--bgColor-emphasis);
 }
 
 /* Below the md breakpoint (doc 16 section 8.3) the header collapses from one
