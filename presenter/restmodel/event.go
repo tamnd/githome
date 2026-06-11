@@ -165,10 +165,14 @@ type WebhookIssues struct {
 	Sender     SimpleUser `json:"sender"`
 }
 
-// WebhookPullRequest is the body of a pull_request delivery.
+// WebhookPullRequest is the body of a pull_request delivery. before and after
+// carry the moved head shas on a synchronize delivery and are omitted on every
+// other action, matching github.com.
 type WebhookPullRequest struct {
 	Action      string      `json:"action"`
 	Number      int64       `json:"number"`
+	Before      string      `json:"before,omitempty"`
+	After       string      `json:"after,omitempty"`
 	PullRequest PullRequest `json:"pull_request"`
 	Repository  Repository  `json:"repository"`
 	Sender      SimpleUser  `json:"sender"`
@@ -237,8 +241,8 @@ type WebhookDelete struct {
 
 // CreateEventPayload is the Events-API payload for a CreateEvent.
 type CreateEventPayload struct {
-	Ref         string `json:"ref"`
-	RefType     string `json:"ref_type"`
+	Ref          string `json:"ref"`
+	RefType      string `json:"ref_type"`
 	MasterBranch string `json:"master_branch"`
 	Description  string `json:"description"`
 }

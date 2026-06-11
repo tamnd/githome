@@ -129,7 +129,7 @@ func (s *Service) handleReceivePack(c *mizu.Ctx) error {
 		// lag, not data loss, so the push still reports success to the client.
 		s.Log.Error("post-receive sink failed", "err", err)
 	}
-	s.syncPulls(ctx, repo.PK, updates)
+	s.syncPulls(ctx, batch.PusherPK, repo.PK, updates)
 	return nil
 }
 
@@ -137,8 +137,9 @@ func (s *Service) handleReceivePack(c *mizu.Ctx) error {
 // head or base, then requeues its mergeability. It runs after the repo sync, off
 // the same accepted-ref batch, and only on branch updates: a deleted branch or a
 // tag push moves no pull request. A failure is logged, not surfaced, since the
-// push is already durable.
-func (s *Service) syncPulls(ctx context.Context, repoPK int64, updates []domain.RefUpdate) {
+// push is already durable. pusherPK travels through so the synchronize event a
+// head move emits names the pusher as its actor.
+func (s *Service) syncPulls(ctx context.Context, pusherPK, repoPK int64, updates []domain.RefUpdate) {
 	if s.Pulls == nil {
 		return
 	}
@@ -147,7 +148,7 @@ func (s *Service) syncPulls(ctx context.Context, repoPK int64, updates []domain.
 		if !ok || u.Deleted() {
 			continue
 		}
-		if err := s.Pulls.OnHeadPush(ctx, repoPK, branch, u.NewSHA); err != nil && s.Log != nil {
+		if err := s.Pulls.OnHeadPush(ctx, pusherPK, repoPK, branch, u.NewSHA); err != nil && s.Log != nil {
 			s.Log.Error("pull request head sync failed", "ref", u.Ref, "err", err)
 		}
 	}

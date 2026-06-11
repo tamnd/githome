@@ -36,9 +36,23 @@ const (
 // fan out, plus event-type-specific detail that has no home in a table and so
 // rides along.
 type DeliverEventPayload struct {
-	EventPK      int64               `json:"event_pk"`
-	Push         *PushPayload        `json:"push,omitempty"`
+	EventPK      int64                `json:"event_pk"`
+	Push         *PushPayload         `json:"push,omitempty"`
 	CreateDelete *CreateDeletePayload `json:"create_delete,omitempty"`
+	Detail       *EventDetail         `json:"detail,omitempty"`
+}
+
+// EventDetail pins the secondary coordinates some events render from and that
+// have no column on the event row: the comment, review, or release the body
+// embeds, and the moved head shas a pull_request synchronize reports at the
+// top level as before/after.
+type EventDetail struct {
+	CommentPK       int64  `json:"comment_pk,omitempty"`
+	ReviewPK        int64  `json:"review_pk,omitempty"`
+	ReviewCommentPK int64  `json:"review_comment_pk,omitempty"`
+	ReleasePK       int64  `json:"release_pk,omitempty"`
+	Before          string `json:"before,omitempty"`
+	After           string `json:"after,omitempty"`
 }
 
 // CreateDeletePayload carries the ref detail for create and delete webhook
@@ -66,11 +80,12 @@ type PushPayload struct {
 // for create/delete events. RedeliverOf, when set, replays a recorded delivery
 // instead of rendering the event afresh.
 type DeliverWebhookPayload struct {
-	WebhookPK    int64               `json:"webhook_pk"`
-	EventPK      int64               `json:"event_pk"`
-	Push         *PushPayload        `json:"push,omitempty"`
+	WebhookPK    int64                `json:"webhook_pk"`
+	EventPK      int64                `json:"event_pk"`
+	Push         *PushPayload         `json:"push,omitempty"`
 	CreateDelete *CreateDeletePayload `json:"create_delete,omitempty"`
-	RedeliverOf  int64               `json:"redeliver_of,omitempty"`
+	Detail       *EventDetail         `json:"detail,omitempty"`
+	RedeliverOf  int64                `json:"redeliver_of,omitempty"`
 }
 
 // eventRecorder is the slice of the store the event sink writes through: one
@@ -99,13 +114,13 @@ type batchEventRecorder interface {
 // job insert land in one transaction; otherwise they fall back to two separate
 // round trips.
 func recordEvent(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload) {
-	recordEventFull(ctx, st, enq, ev, push, nil)
+	recordEventFull(ctx, st, enq, ev, push, nil, nil)
 }
 
-func recordEventFull(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload, cd *CreateDeletePayload) {
+func recordEventFull(ctx context.Context, st eventRecorder, enq worker.Enqueuer, ev *store.EventRow, push *PushPayload, cd *CreateDeletePayload, detail *EventDetail) {
 	if batcher, ok := st.(batchEventRecorder); ok {
 		_ = batcher.InsertEventAndJob(ctx, ev, JobDeliverEvent, func(eventPK int64) string {
-			p, _ := json.Marshal(DeliverEventPayload{EventPK: eventPK, Push: push, CreateDelete: cd})
+			p, _ := json.Marshal(DeliverEventPayload{EventPK: eventPK, Push: push, CreateDelete: cd, Detail: detail})
 			return string(p)
 		})
 		return
@@ -113,7 +128,7 @@ func recordEventFull(ctx context.Context, st eventRecorder, enq worker.Enqueuer,
 	if err := st.InsertEvent(ctx, ev); err != nil {
 		return
 	}
-	payload, err := json.Marshal(DeliverEventPayload{EventPK: ev.PK, Push: push, CreateDelete: cd})
+	payload, err := json.Marshal(DeliverEventPayload{EventPK: ev.PK, Push: push, CreateDelete: cd, Detail: detail})
 	if err != nil {
 		return
 	}

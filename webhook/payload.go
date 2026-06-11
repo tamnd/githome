@@ -75,9 +75,11 @@ type Rendered struct {
 }
 
 // Render assembles an event's objects and renders both documents. push carries
-// the moved refs for a push; cd carries ref detail for create/delete events.
-// Both are nil for every other event type.
-func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.PushPayload, cd *domain.CreateDeletePayload) (*Rendered, error) {
+// the moved refs for a push; cd carries ref detail for create/delete events;
+// detail carries the secondary coordinates some bodies embed, like the moved
+// head shas a pull_request synchronize reports. Each is nil when the event type
+// has no use for it.
+func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.PushPayload, cd *domain.CreateDeletePayload, detail *domain.EventDetail) (*Rendered, error) {
 	repo, err := r.repos.RepoForEvent(ctx, ev.RepoPK)
 	if err != nil {
 		return nil, err
@@ -95,7 +97,7 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 	case domain.EventIssues, domain.EventIssueComment:
 		res, err = r.renderIssue(ctx, ev, repo, sender)
 	case domain.EventPullRequest, domain.EventPullRequestReview:
-		res, err = r.renderPull(ctx, ev, repo, sender)
+		res, err = r.renderPull(ctx, ev, repo, sender, detail)
 	case domain.EventCreate:
 		res, err = r.renderCreate(ev, repo, sender, cd)
 	case domain.EventDelete:
@@ -263,7 +265,7 @@ func (r *Renderer) renderIssue(ctx context.Context, ev *store.EventRow, repo *do
 	return marshalRendered(ev, body, feed)
 }
 
-func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User) (*Rendered, error) {
+func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
 	if ev.IssuePK == nil {
 		return nil, fmt.Errorf("webhook: %s event has no pull request", ev.Event)
 	}
@@ -279,6 +281,9 @@ func (r *Renderer) renderPull(ctx context.Context, ev *store.EventRow, repo *dom
 		PullRequest: rendered,
 		Repository:  r.urls.Repository(repo, r.format, nil),
 		Sender:      r.urls.SimpleUser(sender, r.format),
+	}
+	if detail != nil {
+		body.Before, body.After = detail.Before, detail.After
 	}
 	feed := restmodel.PullRequestEventPayload{Action: ev.Action, Number: pr.Number, PullRequest: rendered}
 	return marshalRendered(ev, body, feed)

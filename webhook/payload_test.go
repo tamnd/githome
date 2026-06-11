@@ -101,7 +101,7 @@ func renderPushBody(t *testing.T, f *deliverFixture, ref, before, after string) 
 		Protocol: "http",
 		Updates:  []domain.RefUpdate{{Ref: ref, OldSHA: before, NewSHA: after}},
 	}
-	rendered, err := f.renderer.Render(f.ctx, ev, push, nil)
+	rendered, err := f.renderer.Render(f.ctx, ev, push, nil, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestPushPayloadFeedMirrorsCommits(t *testing.T) {
 		RepoPK: f.repoPK, PusherPK: f.ownerPK, Protocol: "http",
 		Updates: []domain.RefUpdate{{Ref: "refs/heads/main", OldSHA: r.a, NewSHA: r.c}},
 	}
-	rendered, err := f.renderer.Render(f.ctx, ev, push, nil)
+	rendered, err := f.renderer.Render(f.ctx, ev, push, nil, nil)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -263,6 +263,78 @@ func TestPushPayloadDeletedBranch(t *testing.T) {
 	}
 	if len(body.Commits) != 0 || body.HeadCommit != nil {
 		t.Errorf("deleted push carries commits %v head %v, want none", body.Commits, body.HeadCommit)
+	}
+}
+
+// TestPullRequestSynchronizeDelivery covers the head-push path: a push to a
+// branch an open pull request tracks as its head emits a pull_request delivery
+// with action synchronize and the moved shas as top-level before/after.
+func TestPullRequestSynchronizeDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	r := seedPushRepo(t, f)
+
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"pull_request"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	pr, err := f.pulls.CreatePR(f.ctx, f.ownerPK, "octocat", f.repoName, domain.PRInput{
+		Title: "feature work", Base: "main", Head: "feature",
+	})
+	if err != nil {
+		t.Fatalf("CreatePR: %v", err)
+	}
+	f.drain(t)
+
+	// The push moves feature from d to b, both objects already in the bare repo.
+	if err := f.pulls.OnHeadPush(f.ctx, f.ownerPK, f.repoPK, "feature", r.b); err != nil {
+		t.Fatalf("OnHeadPush: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.last()
+	if !ok {
+		t.Fatal("receiver got no delivery")
+	}
+	if ev := got.headers.Get("X-GitHub-Event"); ev != "pull_request" {
+		t.Errorf("X-GitHub-Event = %q, want pull_request", ev)
+	}
+	var body struct {
+		Action      string `json:"action"`
+		Number      int64  `json:"number"`
+		Before      string `json:"before"`
+		After       string `json:"after"`
+		PullRequest struct {
+			Head struct {
+				SHA string `json:"sha"`
+			} `json:"head"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.Action != "synchronize" {
+		t.Errorf("action = %q, want synchronize", body.Action)
+	}
+	if body.Number != pr.Number {
+		t.Errorf("number = %d, want %d", body.Number, pr.Number)
+	}
+	if body.Before != r.d || body.After != r.b {
+		t.Errorf("before/after = %s/%s, want %s/%s", body.Before, body.After, r.d, r.b)
+	}
+	if body.PullRequest.Head.SHA != r.b {
+		t.Errorf("pull_request.head.sha = %s, want %s", body.PullRequest.Head.SHA, r.b)
+	}
+
+	// A push that leaves the head where it is emits nothing.
+	count := len(f.rcv.deliveries)
+	if err := f.pulls.OnHeadPush(f.ctx, f.ownerPK, f.repoPK, "feature", r.b); err != nil {
+		t.Fatalf("OnHeadPush again: %v", err)
+	}
+	f.drain(t)
+	if got := len(f.rcv.deliveries); got != count {
+		t.Errorf("deliveries after no-op push = %d, want %d", got, count)
 	}
 }
 
