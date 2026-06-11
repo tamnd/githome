@@ -139,6 +139,7 @@ func run() error {
 	// head moves; M7 adds the webhook fan-out and delivery handlers. It runs for
 	// the process lifetime and stops when the root context is canceled.
 	runtime := worker.NewRuntime(st, logger, 0)
+	runtime.Register(domain.JobReindexSearch, worker.ReindexSearchHandler(searchSvc))
 	runtime.Register(domain.JobRecomputeMergeability, worker.RecomputeMergeabilityHandler(pullSvc))
 	runtime.Register(domain.JobRecomputeReviewDecision, worker.RecomputeReviewDecisionHandler(reviewSvc))
 	runtime.Register(domain.JobDeliverEvent, deliverer.DeliverEventHandler())

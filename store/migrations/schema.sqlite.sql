@@ -698,3 +698,16 @@ CREATE TABLE notification_threads (
 );
 CREATE UNIQUE INDEX notification_threads_user_issue_uq ON notification_threads (user_pk, issue_pk);
 CREATE INDEX notification_threads_user_updated ON notification_threads (user_pk, updated_at);
+
+-- 0020_code_search
+CREATE VIRTUAL TABLE code_fts USING fts5(
+    path, content,
+    repo_pk UNINDEXED, sha UNINDEXED
+);
+
+CREATE TABLE code_index_state (
+    repo_pk    INTEGER PRIMARY KEY REFERENCES repositories(pk) ON DELETE CASCADE,
+    head_sha   TEXT    NOT NULL,
+    truncated  INTEGER NOT NULL DEFAULT 0,
+    indexed_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

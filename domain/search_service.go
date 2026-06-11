@@ -1,9 +1,12 @@
 package domain
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"path"
 	"strings"
+	"sync"
 
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/search"
@@ -11,43 +14,60 @@ import (
 )
 
 // SearchStore is the slice of the store the search service needs: the
-// cross-repository issue and repository scans, the visible-repository lookup
-// code search walks, and the login and owner/name resolution that turns
-// qualifiers into the internal pks the scans filter on.
+// cross-repository issue, repository, and code scans, the code index the
+// service maintains, the visible-repository lookup that scopes code search,
+// and the login and owner/name resolution that turns qualifiers into the
+// internal pks the scans filter on.
 type SearchStore interface {
 	SearchIssues(ctx context.Context, q store.IssueSearch) ([]store.IssueRow, error)
 	CountSearchIssues(ctx context.Context, q store.IssueSearch) (int, error)
 	SearchRepositories(ctx context.Context, q store.RepoSearch) ([]store.RepoRow, error)
 	CountSearchRepositories(ctx context.Context, q store.RepoSearch) (int, error)
+	SearchCode(ctx context.Context, q store.CodeSearch) ([]store.CodeHit, error)
+	CountSearchCode(ctx context.Context, q store.CodeSearch) (int, error)
+	CodeIndexHead(ctx context.Context, repoPK int64) (string, error)
+	CodeIndexTruncated(ctx context.Context, repoPKs []int64) (bool, error)
+	ReplaceCodeDocs(ctx context.Context, repoPK int64, headSHA string, truncated bool, docs []store.CodeDoc) error
 	VisibleRepoPKs(ctx context.Context, viewerPK int64, ownerPKs []int64) ([]int64, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 }
 
-// SearchService runs the three search surfaces over the store and git. Issue and
-// repository search are filtered scans; code search walks the head tree of each
-// in-scope repository. It reuses the repo and issue services to assemble the
-// domain values it returns, so visibility and rendering stay defined in one
-// place. The store scans already gate visibility by viewer, so a private
-// repository never appears in another viewer's results.
+// SearchService runs the three search surfaces over the store and git. Issue,
+// repository, and code search are filtered index scans; the service also owns
+// the code index, rebuilding a repository's documents from its head tree when
+// the push worker asks or when a search finds the index behind the head. It
+// reuses the repo and issue services to assemble the domain values it returns,
+// so visibility and rendering stay defined in one place. The store scans
+// already gate visibility by viewer, so a private repository never appears in
+// another viewer's results.
 type SearchService struct {
 	store    SearchStore
 	repos    *RepoService
 	issues   *IssueService
 	gitStore *git.Store
-	corpus   *corpusCache
+
+	// idxLocks serializes index rebuilds per repository (values are *sync.Mutex
+	// keyed by repo pk), so concurrent searches over a stale repo do not race
+	// to walk the same tree.
+	idxLocks sync.Map
 }
 
 // NewSearchService builds a SearchService over the store, the repo and issue
 // services, and the git store code search reads blobs from.
 func NewSearchService(st SearchStore, repos *RepoService, issues *IssueService, gs *git.Store) *SearchService {
-	return &SearchService{store: st, repos: repos, issues: issues, gitStore: gs, corpus: newCorpusCache(corpusCacheMaxBytes)}
+	return &SearchService{store: st, repos: repos, issues: issues, gitStore: gs}
 }
 
-// codeScanLimit caps how many blobs a single code search reads before it stops
-// and reports incomplete results, the way GitHub returns incomplete_results
-// when a search does not finish. It bounds the cost of an unindexed walk.
-const codeScanLimit = 2000
+// codeIndexMaxFiles caps how many files a single repository contributes to the
+// code index; a tree larger than this is indexed up to the cap and marked
+// truncated, which search reports as incomplete_results.
+const codeIndexMaxFiles = 20000
+
+// codeIndexMaxFileBytes caps the content size a single file contributes to the
+// index. Larger files (and binary ones) are indexed by path only, matching
+// GitHub's 384 KB code search ceiling.
+const codeIndexMaxFileBytes = 384 << 10
 
 // impossiblePK is a primary key no row holds; a qualifier that resolves to
 // nothing adds it so the scan returns an empty page rather than ignoring the
@@ -156,12 +176,14 @@ func (s *SearchService) SearchRepositories(ctx context.Context, viewerPK int64, 
 	return out, total, nil
 }
 
-// SearchCode walks the head tree of each repository the query scopes to and
-// returns the files whose path or content matches the free-text terms. It
-// requires a repo:, user:, or org: qualifier, since an unindexed walk cannot
-// span every repository. The bool result reports whether the walk stopped at
-// the scan limit before finishing, which becomes the envelope's
-// incomplete_results.
+// SearchCode queries the code index over the repositories the query scopes to
+// and returns the files whose path or content matches the free-text terms. It
+// requires a repo:, user:, or org: qualifier, matching GitHub's rule that a
+// code search cannot span every repository on the host. Before querying it
+// brings each scoped repository's index up to its current head, so a search
+// right after a push (or after a web edit that never went through the push
+// path) still sees the new content. The bool result reports whether any scoped
+// index is truncated, which becomes the envelope's incomplete_results.
 func (s *SearchService) SearchCode(ctx context.Context, viewerPK int64, raw string, page, perPage int) ([]CodeResult, int, bool, error) {
 	q := search.Parse(raw)
 	repoPKs, ok, err := s.codeScope(ctx, viewerPK, q)
@@ -172,68 +194,143 @@ func (s *SearchService) SearchCode(ctx context.Context, viewerPK int64, raw stri
 		return nil, 0, false, ErrSearchScopeRequired
 	}
 
-	terms := make([]string, 0, len(q.Terms))
-	for _, t := range q.Terms {
-		terms = append(terms, strings.ToLower(t))
-	}
-
-	var all []CodeResult
-	scanned := 0
-	incomplete := false
+	repoMap := make(map[int64]*Repo, len(repoPKs))
 	for _, pk := range repoPKs {
 		repo, err := s.repos.RepoForEvent(ctx, pk)
 		if err != nil {
 			return nil, 0, false, err
 		}
-		hits, used, capped := s.scanRepoCode(repo, terms, codeScanLimit-scanned)
-		scanned += used
-		all = append(all, hits...)
-		if capped {
-			incomplete = true
-			break
+		repoMap[pk] = repo
+		if err := s.ensureCodeIndex(ctx, repo); err != nil {
+			return nil, 0, false, err
 		}
 	}
 
-	total := len(all)
-	lo := offsetFor(page, perPage)
-	if lo > total {
-		lo = total
+	f := store.CodeSearch{
+		RepoPKs: repoPKs,
+		Terms:   q.Terms,
+		Limit:   pageSize(perPage),
+		Offset:  offsetFor(page, perPage),
 	}
-	hi := lo + pageSize(perPage)
-	if hi > total {
-		hi = total
+	hits, err := s.store.SearchCode(ctx, f)
+	if err != nil {
+		return nil, 0, false, err
 	}
-	return all[lo:hi], total, incomplete, nil
-}
+	total, err := s.store.CountSearchCode(ctx, f)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	incomplete, err := s.store.CodeIndexTruncated(ctx, repoPKs)
+	if err != nil {
+		return nil, 0, false, err
+	}
 
-// scanRepoCode matches the repository's corpus against every term. budget caps
-// how many files it considers; used is how many it considered, and capped
-// reports that the scan stopped early, either out of budget or because the
-// corpus build itself hit the blob ceiling. The corpus is served from the
-// per-(repo, head) cache when this head was scanned before, so a repeated
-// search costs string matching, not a repository read (see search_corpus.go).
-func (s *SearchService) scanRepoCode(repo *Repo, terms []string, budget int) (hits []CodeResult, used int, capped bool) {
-	c := s.repoCorpus(repo)
-	if c == nil {
-		// An empty or unreadable repository contributes no code matches.
-		return nil, 0, false
-	}
-	for _, d := range c.docs {
-		if used >= budget {
-			return hits, used, true
-		}
-		used++
-		if !matchDoc(d, terms) {
+	out := make([]CodeResult, 0, len(hits))
+	for _, h := range hits {
+		repo, ok := repoMap[h.RepoPK]
+		if !ok {
 			continue
 		}
-		hits = append(hits, CodeResult{
+		out = append(out, CodeResult{
 			Repo: repo,
-			Path: d.path,
-			Name: d.name,
-			SHA:  d.sha,
+			Path: h.Path,
+			Name: path.Base(h.Path),
+			SHA:  h.SHA,
 		})
 	}
-	return hits, used, c.truncated
+	return out, total, incomplete, nil
+}
+
+// ReindexRepoCode rebuilds the repository's code index when its head moved.
+// The reindex_search worker calls it after a default-branch push; searches call
+// the same path lazily through ensureCodeIndex, so the worker is an
+// optimization (warm index before anyone searches), not a correctness
+// requirement.
+func (s *SearchService) ReindexRepoCode(ctx context.Context, repoPK int64) error {
+	repo, err := s.repos.RepoForEvent(ctx, repoPK)
+	if err != nil {
+		return err
+	}
+	return s.ensureCodeIndex(ctx, repo)
+}
+
+// ensureCodeIndex brings the repository's code index up to its current default
+// branch head, doing nothing when it already is. Rebuilds are serialized per
+// repository and the head is re-checked under the lock, so concurrent searches
+// over a stale repository produce one walk, not several.
+func (s *SearchService) ensureCodeIndex(ctx context.Context, repo *Repo) error {
+	head := s.codeIndexHeadSHA(repo)
+	if fresh, err := s.codeIndexFresh(ctx, repo.PK, head); err != nil || fresh {
+		return err
+	}
+
+	muAny, _ := s.idxLocks.LoadOrStore(repo.PK, &sync.Mutex{})
+	mu := muAny.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Another request may have rebuilt the index while we waited on the lock.
+	if fresh, err := s.codeIndexFresh(ctx, repo.PK, head); err != nil || fresh {
+		return err
+	}
+	docs, truncated := s.buildCodeDocs(repo)
+	return s.store.ReplaceCodeDocs(ctx, repo.PK, head, truncated, docs)
+}
+
+// codeIndexHeadSHA resolves the commit the repository's index should be built
+// from: the default branch head, or "" for an empty repository (indexed as an
+// empty document set so the next search skips the walk).
+func (s *SearchService) codeIndexHeadSHA(repo *Repo) string {
+	br, err := s.repos.DefaultBranchRef(repo)
+	if err != nil {
+		return ""
+	}
+	return string(br.Commit)
+}
+
+// codeIndexFresh reports whether the stored index state already matches head.
+// A repository that was never indexed is not fresh.
+func (s *SearchService) codeIndexFresh(ctx context.Context, repoPK int64, head string) (bool, error) {
+	cur, err := s.store.CodeIndexHead(ctx, repoPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return cur == head, nil
+}
+
+// buildCodeDocs walks the repository's head tree into index documents. Every
+// blob is indexed by path; content rides along only for text files under the
+// size cap, so binary and oversized files still answer path queries. truncated
+// reports that the tree exceeded the file ceiling and the index is partial.
+func (s *SearchService) buildCodeDocs(repo *Repo) (docs []store.CodeDoc, truncated bool) {
+	tree, err := s.repos.GetTree(repo, repo.DefaultBranch, true)
+	if err != nil {
+		// An empty or unreadable repository indexes as no documents.
+		return nil, false
+	}
+	truncated = tree.Truncated
+	for _, e := range tree.Entries {
+		if e.Type != git.ObjectBlob {
+			continue
+		}
+		if len(docs) >= codeIndexMaxFiles {
+			truncated = true
+			break
+		}
+		content := ""
+		if e.Size <= codeIndexMaxFileBytes {
+			if blob, err := s.repos.GetBlob(repo, e.SHA); err == nil && isText(blob.Content) && bytes.IndexByte(blob.Content, 0) < 0 {
+				// ToValidUTF8 keeps a stray invalid byte from poisoning the row
+				// (Postgres rejects non-UTF-8 text); valid content passes through.
+				content = strings.ToValidUTF8(string(blob.Content), "�")
+			}
+		}
+		docs = append(docs, store.CodeDoc{Path: e.Path, SHA: e.SHA, Content: content})
+	}
+	return docs, truncated
 }
 
 // codeScope resolves the repository pks a code search runs over from its repo:,
