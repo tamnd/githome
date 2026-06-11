@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -177,6 +178,14 @@ func buildGitFixture(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if _, err := wt.Add("docs/guide.md"); err != nil {
+		t.Fatal(err)
+	}
+	// A text file past the web display cutoff: the blob view must refuse to
+	// render it inline and offer the raw link instead.
+	if err := util.WriteFile(fs, "big.txt", bytes.Repeat([]byte("0123456789abcde\n"), (maxBlobDisplayBytes/16)+1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wt.Add("big.txt"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig}); err != nil {
@@ -431,5 +440,25 @@ func TestUnknownRefIsNotFound(t *testing.T) {
 	resp, _ := get(t, fx.srv, "/octocat/hello/tree/no-such-branch")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("unknown ref status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestBlobOverDisplayCutoffShowsTooLarge renders a text blob past the web
+// display cutoff and expects the too-large blankslate with the raw link, with
+// none of the file's content escaped into the page.
+func TestBlobOverDisplayCutoffShowsTooLarge(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat/hello/blob/master/big.txt")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "too large to display") {
+		t.Errorf("big blob is missing the too-large notice:\n%s", body[:min(len(body), 2000)])
+	}
+	if !strings.Contains(body, "/octocat/hello/raw/master/big.txt") {
+		t.Errorf("big blob is missing the raw link")
+	}
+	if strings.Contains(body, "0123456789abcde") {
+		t.Errorf("big blob content leaked into the page")
 	}
 }

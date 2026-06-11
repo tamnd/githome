@@ -77,11 +77,19 @@ func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, ref, path stri
 	return h.render.Page(c, "repo/blob", vm)
 }
 
+// maxBlobDisplayBytes is the web view's display cutoff, GitHub's own ceiling. A
+// text blob past it is never split, escaped, or highlighted: the page renders
+// the too-large notice with the raw link instead. The git layer's 100MB
+// ErrBlobTooLarge cap protects memory; this one protects the render budget (a
+// 50MB log file is well under the read cap but indefensible as one HTML table).
+const maxBlobDisplayBytes = 512 << 10
+
 // buildBlob classifies a blob and builds its view model. The classification reads
 // the extension first (the unambiguous kinds: image, pdf, svg) and falls back to
 // a content sniff (a NUL byte or invalid UTF-8 marks a binary). A markdown blob
 // viewed without ?plain=1 renders as GFM; a text or svg blob is highlighted per
-// line; the other kinds carry just the size and the raw URL.
+// line; the other kinds carry just the size and the raw URL. A text-like blob
+// past maxBlobDisplayBytes renders the too-large notice instead of its content.
 func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, ref, path string, entry git.PathEntry, blob *git.Blob, plain bool) view.BlobVM {
 	content := blob.Content
 	size := entry.Size
@@ -105,6 +113,17 @@ func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, ref, path s
 		Lang:      grammar,
 	}
 	vm.Kind = classifyBlob(path, content)
+	if (vm.Kind == "text" || vm.Kind == "svg") && len(content) > maxBlobDisplayBytes {
+		// Past the display cutoff nothing is escaped or highlighted; the
+		// template renders the too-large blankslate over the raw link.
+		if h.log != nil {
+			h.log.Warn("blob over the web display cutoff",
+				"repo", repo.FullName(), "ref", ref, "path", path, "bytes", len(content))
+		}
+		vm.Kind = "toolarge"
+		vm.Truncated = true
+		return vm
+	}
 	switch {
 	case vm.Kind == "text" && !plain && h.markup != nil && isMarkdownName(baseName(path)):
 		// A markdown file renders to GFM by default; the Raw text toggle (?plain=1)

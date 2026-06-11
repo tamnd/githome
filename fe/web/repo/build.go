@@ -235,6 +235,11 @@ func (h *Handlers) readme(ctx context.Context, r *domain.Repo, ref string, listi
 	if err != nil || res.IsDir || res.File == nil {
 		return nil
 	}
+	if len(res.File.Content) > maxBlobDisplayBytes {
+		// The same display cutoff the blob view applies: a README past it is
+		// omitted rather than rendered or escaped wholesale into the tree page.
+		return nil
+	}
 	source := string(res.File.Content)
 	vm := &view.ReadmeVM{Name: name, Source: source}
 	if h.markup != nil && isMarkdownName(name) {
