@@ -39,6 +39,10 @@ var (
 	// ErrConflict is returned by a file write whose CurrentBlobSHA no longer
 	// matches the blob at the path. The REST layer maps it to GitHub's 409.
 	ErrConflict = errors.New("domain: current blob sha mismatch")
+
+	// ErrRepoExists is returned when a create or fork would claim a name the
+	// target account already uses for an unrelated repository.
+	ErrRepoExists = errors.New("domain: repository name already exists")
 )
 
 // RepoStore is the slice of the store the repo service needs. The write path
@@ -473,6 +477,100 @@ func (s *RepoService) RepoRedirect(ctx context.Context, viewerPK int64, owner, n
 		return nil, err
 	}
 	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// ForkInput holds the caller-supplied options for forking a repository.
+// Organization names the target account when the fork should land under an
+// org the viewer administers; empty forks under the viewer. Name renames the
+// fork; empty keeps the source's name. DefaultBranchOnly copies just the
+// source's default branch instead of every ref.
+type ForkInput struct {
+	Organization      string
+	Name              string
+	DefaultBranchOnly bool
+}
+
+// ForkRepo forks src for the viewer: a new repository row marked as a fork of
+// src plus a git-level copy of its refs and objects. Forking a repository the
+// viewer already forked returns the existing fork rather than failing, the
+// way GitHub answers a repeat fork with the same 202. A name collision with
+// an unrelated repository is ErrRepoExists. The caller has already resolved
+// src through the visibility gate, so no second check runs here.
+func (s *RepoService) ForkRepo(ctx context.Context, viewerPK int64, src *Repo, inp ForkInput) (*Repo, error) {
+	var ownerRow *store.UserRow
+	var err error
+	if inp.Organization != "" {
+		ownerRow, err = s.store.UserByLogin(ctx, inp.Organization)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if ownerRow.PK != viewerPK && !ownerRow.SiteAdmin {
+			return nil, ErrForbidden
+		}
+	} else {
+		ownerRow, err = s.store.UserByPK(ctx, viewerPK)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	name := inp.Name
+	if name == "" {
+		name = src.Name
+	}
+	if existing, err := s.store.RepoByOwnerName(ctx, ownerRow.Login, name); err == nil {
+		if existing.ForkOfPK != nil && *existing.ForkOfPK == src.PK {
+			return repoFromRow(existing, userFromRow(ownerRow)), nil
+		}
+		return nil, ErrRepoExists
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	forkOf := src.PK
+	row := &store.RepoRow{
+		OwnerPK:       ownerRow.PK,
+		Name:          name,
+		Description:   src.Description,
+		Homepage:      src.Homepage,
+		Private:       src.Private,
+		Fork:          true,
+		DefaultBranch: src.DefaultBranch,
+		ForkOfPK:      &forkOf,
+		PushedAt:      src.PushedAt,
+	}
+	if err := s.store.InsertRepo(ctx, row); err != nil {
+		return nil, err
+	}
+	if err := s.gitStore.ForkFrom(ctx, src.PK, row.PK, src.DefaultBranch, inp.DefaultBranchOnly); err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// ListForks returns the live forks of repoPK the viewer can see, newest
+// first, the order the forks endpoint serves by default.
+func (s *RepoService) ListForks(ctx context.Context, viewerPK, repoPK int64) ([]*Repo, error) {
+	rows, err := s.store.ForksOf(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		if !canSee(r, viewerPK) {
+			continue
+		}
+		ownerRow, err := s.store.UserByPK(ctx, r.OwnerPK)
+		if err != nil {
+			continue
+		}
+		out = append(out, repoFromRow(r, userFromRow(ownerRow)))
+	}
+	return out, nil
 }
 
 // ForksCount reports how many live repositories were forked from repoPK. It

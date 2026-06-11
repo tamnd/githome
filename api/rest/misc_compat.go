@@ -334,14 +334,95 @@ func handleOrgTeamReposList(d Deps) mizu.Handler {
 	}
 }
 
-// handleForkCreate serves POST /repos/{owner}/{repo}/forks.
+// handleForkCreate serves POST /repos/{owner}/{repo}/forks. GitHub answers
+// 202 with the fork's repository object; the copy here is synchronous, so the
+// 202 is already complete when it lands. Re-forking an already-forked source
+// returns the existing fork, also a 202.
 func handleForkCreate(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeError(c.Writer(), &apiError{
-			Status:  http.StatusNotImplemented,
-			Message: "Fork creation is not supported on this server",
-			DocURL:  docRoot,
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		var body struct {
+			Organization      string `json:"organization"`
+			Name              string `json:"name"`
+			DefaultBranchOnly bool   `json:"default_branch_only"`
+		}
+		if !decodeJSONOpt(c, &body) {
+			return nil
+		}
+		fork, err := d.Repos.ForkRepo(ctx, actor.UserID, repo, domain.ForkInput{
+			Organization:      body.Organization,
+			Name:              body.Name,
+			DefaultBranchOnly: body.DefaultBranchOnly,
 		})
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c.Writer(), errForbidden("Must have admin rights to the organization to fork into it"))
+			return nil
+		}
+		if errors.Is(err, domain.ErrRepoExists) {
+			writeError(c.Writer(), errForbidden("Name already exists on this account"))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		det, err := repoDetail(d, c, fork)
+		if err != nil {
+			return err
+		}
+		perm, err := repoPermissions(ctx, d, actor, fork)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusAccepted, d.URLs.RepositoryFull(fork, d.NodeFormat, perm, det))
+		return nil
+	}
+}
+
+// handleForksList serves GET /repos/{owner}/{repo}/forks, the live forks the
+// caller can see, newest first. The sort parameter is accepted for wire
+// compatibility; with no stars or watchers tracked, every order collapses to
+// newest first.
+func handleForksList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		page, perr := parsePageFor(c, "Repository")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		forks, err := d.Repos.ListForks(ctx, actor.UserID, repo.PK)
+		if err != nil {
+			return err
+		}
+		forks = paginateSlice(&page, forks)
+		out := make([]any, 0, len(forks))
+		for _, f := range forks {
+			perm, err := repoPermissions(ctx, d, actor, f)
+			if err != nil {
+				return err
+			}
+			out = append(out, d.URLs.Repository(f, d.NodeFormat, perm))
+		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -400,6 +481,7 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/repos/{owner}/{repo}/contributors", handleRepoContributors(d))
 		r.Get("/repos/{owner}/{repo}/collaborators", handleRepoCollaboratorsList(d))
 		r.Get("/repos/{owner}/{repo}/teams", handleRepoTeamsList(d))
+		r.Get("/repos/{owner}/{repo}/forks", handleForksList(d))
 		r.Post("/repos/{owner}/{repo}/forks", requireScope(handleForkCreate(d), "repo", "public_repo"))
 		r.Get("/repos/{owner}/{repo}/commits/{sha}", handleSingleCommitGet(d))
 		r.Post("/repos/{owner}/{repo}/git/blobs", requireScope(handleGitBlobCreate(d), "repo", "public_repo"))
