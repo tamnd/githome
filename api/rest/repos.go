@@ -40,7 +40,7 @@ func handleBranches(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -94,7 +94,7 @@ func handleTags(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -123,7 +123,7 @@ func handleCommits(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil

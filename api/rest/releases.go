@@ -46,7 +46,7 @@ func handleReleasesList(d Deps) mizu.Handler {
 		actor := auth.ActorFrom(c.Request().Context())
 		owner := c.Param("owner")
 		repo := c.Param("repo")
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Release")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil

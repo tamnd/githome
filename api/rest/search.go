@@ -21,7 +21,7 @@ func handleSearchIssues(d Deps) mizu.Handler {
 			writeError(c.Writer(), errValidation(missingQ()))
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Search")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -47,7 +47,7 @@ func handleSearchRepositories(d Deps) mizu.Handler {
 			writeError(c.Writer(), errValidation(missingQ()))
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Search")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -75,7 +75,7 @@ func handleSearchCode(d Deps) mizu.Handler {
 			writeError(c.Writer(), errValidation(missingQ()))
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Search")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil

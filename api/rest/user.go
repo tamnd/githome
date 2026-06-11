@@ -65,7 +65,7 @@ func handlePublicUserRepos(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -99,7 +99,7 @@ func handleUserReposList(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -194,7 +194,7 @@ func handleOrgReposList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
 		actor := auth.ActorFrom(ctx)
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Repository")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil

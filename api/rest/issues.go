@@ -74,7 +74,7 @@ type reactionBody struct {
 func handleIssuesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
-		page, perr := parsePage(c)
+		page, perr := parsePageFor(c, "Issue")
 		if perr != nil {
 			writeError(c.Writer(), perr)
 			return nil
@@ -315,7 +315,7 @@ func handleIssueCommentsGet(d Deps) mizu.Handler {
 // commentsList serves the issue's comment list, oldest first.
 func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 	actor := auth.ActorFrom(c.Request().Context())
-	page, perr := parsePage(c)
+	page, perr := parsePageFor(c, "Issue")
 	if perr != nil {
 		writeError(c.Writer(), perr)
 		return nil

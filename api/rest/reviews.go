@@ -133,7 +133,7 @@ func pullCommentsList(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
-	page, perr := parsePage(c)
+	page, perr := parsePageFor(c, "PullRequest")
 	if perr != nil {
 		writeError(c.Writer(), perr)
 		return nil

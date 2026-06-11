@@ -196,3 +196,36 @@ func TestPaginationPerPageClampAndBounds(t *testing.T) {
 		t.Errorf("per_page=0 status %d, want 422", resp.StatusCode)
 	}
 }
+
+// TestPaginationErrorResource asserts the bad-page 422 names the endpoint
+// family it happened on, not a fixed "Search": an issues list reports
+// Resource "Issue", a search reports "Search".
+func TestPaginationErrorResource(t *testing.T) {
+	ifx := issueServer(t)
+	resp, body := get(t, ifx.srv, "/repos/octocat/hello/issues?page=abc")
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("issues page=abc status %d, want 422", resp.StatusCode)
+	}
+	var envelope struct {
+		Errors []FieldError `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatalf("decode 422 body: %v", err)
+	}
+	if len(envelope.Errors) != 1 || envelope.Errors[0].Resource != "Issue" {
+		t.Errorf("issues 422 errors = %+v, want one entry with resource Issue", envelope.Errors)
+	}
+
+	sfx := searchServer(t)
+	resp, body = get(t, sfx.srv, "/search/issues?q=x&page=abc")
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("search page=abc status %d, want 422", resp.StatusCode)
+	}
+	envelope.Errors = nil
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatalf("decode 422 body: %v", err)
+	}
+	if len(envelope.Errors) != 1 || envelope.Errors[0].Resource != "Search" {
+		t.Errorf("search 422 errors = %+v, want one entry with resource Search", envelope.Errors)
+	}
+}
