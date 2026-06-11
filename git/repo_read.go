@@ -586,6 +586,9 @@ type BlameLine struct {
 // it. It returns ErrObjectNotFound when the path does not exist in the tree at
 // ref, and ErrRepoNotFound for other resolution failures.
 func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
+	if lines, err, handled := r.blameBatch(ref, path); handled {
+		return lines, err
+	}
 	c, err := r.commitFromRev(ref)
 	if err != nil {
 		return nil, err
@@ -616,6 +619,9 @@ func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
 // in standard unified-diff format; the handler renders it through the markup
 // pipeline.
 func (r *Repo) CommitPatch(sha string) (string, error) {
+	if patch, handled := r.commitPatchBatch(sha); handled {
+		return patch, nil
+	}
 	c, err := r.commitFromRev(sha)
 	if err != nil {
 		return "", err

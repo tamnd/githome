@@ -25,9 +25,14 @@ type Store struct {
 	pool  *catFilePool
 	cache *objCache
 
-// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
+	// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
 	// is content-addressed (two full object ids), so an entry never goes stale.
 	diffs *diffCache
+
+	// blames and patches cache Blame and CommitPatch results by (pk, sha, path)
+	// and (pk, sha); both keys are content-addressed, so entries never go stale.
+	blames  *costLRU[[]BlameLine]
+	patches *costLRU[string]
 
 	// repos keeps warm go-git handles between requests so a point read does not
 	// pay a cold pack-index parse. Handles are checked out exclusively (go-git
@@ -52,6 +57,8 @@ func NewStore(dir string) *Store {
 	s.pool = newCatFilePool("git", 64)
 	s.cache = newObjCache(objCacheMaxEntries)
 	s.diffs = newDiffCache(diffCacheMaxBytes)
+	s.blames = newCostLRU(blameCacheMaxBytes, blameCacheMaxEntryBytes, blameCost)
+	s.patches = newCostLRU(patchCacheMaxBytes, patchCacheMaxEntryBytes, func(p string) int64 { return int64(len(p)) })
 	s.repos = newRepoCache(repoCacheMaxRepos, repoCacheHandlesPerRepo)
 	return s
 }

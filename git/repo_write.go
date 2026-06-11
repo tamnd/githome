@@ -85,6 +85,46 @@ func (s *Store) runEnv(ctx context.Context, pk int64, extraEnv []string, stdin i
 	return res, nil
 }
 
+// runLimited is run with stdout capped at max bytes. When the command produces
+// more, the output is cut at the cap, the process is killed rather than drained,
+// and truncated reports the cut; code is zero in that case, since the kill is
+// ours, not a git failure. It exists for reads whose size the server cannot
+// know in advance, like a commit's patch, where buffering an unbounded diff
+// would defeat the point of capping it.
+func (s *Store) runLimited(ctx context.Context, pk int64, max int64, args ...string) (stdout []byte, truncated bool, code int, err error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	full := append([]string{"--git-dir", s.Dir(pk)}, args...)
+	cmd := exec.CommandContext(ctx, s.bin(), full...)
+	cmd.Env = baseEnv()
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, false, 0, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, false, 0, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	}
+	out, readErr := io.ReadAll(io.LimitReader(pipe, max+1))
+	if int64(len(out)) > max {
+		out, truncated = out[:max], true
+		cancel() // kill the producer; Wait's error is then ours to ignore
+	}
+	waitErr := cmd.Wait()
+	if truncated {
+		return out, true, 0, nil
+	}
+	if readErr != nil {
+		return nil, false, 0, fmt.Errorf("git %s: %w", strings.Join(args, " "), readErr)
+	}
+	if ee, ok := errors.AsType[*exec.ExitError](waitErr); ok {
+		return out, false, ee.ExitCode(), nil
+	}
+	if waitErr != nil {
+		return nil, false, 0, fmt.Errorf("git %s: %w", strings.Join(args, " "), waitErr)
+	}
+	return out, false, 0, nil
+}
+
 // fail turns a nonzero git exit into an error that carries the subcommand and
 // the captured stderr, which is what an operator needs to diagnose a refused
 // ref update.

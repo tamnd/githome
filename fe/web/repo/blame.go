@@ -28,7 +28,7 @@ func (h *Handlers) Blame(c *mizu.Ctx) error {
 	_ = webmw.ViewerID(ctx)
 
 	lines, err := h.repos.Blame(repo, ref, path)
-	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
+	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) || errors.Is(err, domain.ErrBlobTooLarge) {
 		return h.notFound(c)
 	}
 	if err != nil {
