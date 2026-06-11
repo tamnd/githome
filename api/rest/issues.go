@@ -185,6 +185,13 @@ func handleIssueCreate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		if d.Notifications != nil {
+			text := ""
+			if iss.Body != nil {
+				text = *iss.Body
+			}
+			d.Notifications.NotifyIssueOpened(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), iss.Number, text)
+		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
 	}
@@ -247,6 +254,9 @@ func handleIssueEdit(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		if d.Notifications != nil && body.Assignees != nil {
+			d.Notifications.NotifyAssigned(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, *body.Assignees)
+		}
 		writeJSON(c.Writer(), http.StatusOK, d.URLs.Issue(c.Param("owner"), c.Param("repo"), iss, d.NodeFormat))
 		return nil
 	}
@@ -287,17 +297,32 @@ func handleIssueCommentsGet(d Deps) mizu.Handler {
 // commentsList serves the issue's comment list, oldest first.
 func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 	actor := auth.ActorFrom(c.Request().Context())
-	comments, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(pageNum(c)), int64(perPage(c)))
+	page, perr := parsePage(c)
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return nil
+	}
+	comments, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(page.Page), int64(page.PerPage))
 	if issueError(c.Writer(), err) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
+	// A full page might be the last one; peek at the next page so rel="next"
+	// only appears when another comment exists.
+	hasNext := false
+	if len(comments) == page.PerPage {
+		peek, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(page.Page+1), int64(page.PerPage))
+		if err == nil {
+			hasNext = len(peek) > 0
+		}
+	}
 	out := make([]any, 0, len(comments))
 	for _, cm := range comments {
 		out = append(out, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
 	}
+	writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
 	writeJSON(c.Writer(), http.StatusOK, out)
 	return nil
 }
@@ -339,6 +364,9 @@ func handleIssueCommentCreate(d Deps) mizu.Handler {
 		}
 		if err != nil {
 			return err
+		}
+		if d.Notifications != nil {
+			d.Notifications.NotifyIssueComment(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, body.Body)
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
 		return nil

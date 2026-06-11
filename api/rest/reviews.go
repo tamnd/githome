@@ -55,7 +55,7 @@ type replyBody struct {
 // space, which net/http's mux cannot tell apart from the standalone
 // /pulls/comments/{id} review-comment lookup. seg1 == "comments" reads a single
 // review comment by id; otherwise seg1 is the pull number and seg2 selects the
-// sub-collection: files, commits, comments, or reviews.
+// sub-collection: files, commits, comments, reviews, or the merge check.
 func handlePullSubGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		seg1, seg2 := c.Param("seg1"), c.Param("seg2")
@@ -75,6 +75,8 @@ func handlePullSubGet(d Deps) mizu.Handler {
 			return numbered(d, c, seg1, pullCommentsList)
 		case seg2 == "reviews":
 			return numbered(d, c, seg1, pullReviewsList)
+		case seg2 == "merge":
+			return numbered(d, c, seg1, pullMergeCheck)
 		default:
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -131,10 +133,17 @@ func pullCommentsList(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
+	page, perr := parsePage(c)
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return nil
+	}
+	comments = paginateSlice(&page, comments)
 	out := make([]restmodel.ReviewComment, 0, len(comments))
 	for _, cm := range comments {
 		out = append(out, d.URLs.ReviewComment(owner, repo, cm, d.NodeFormat))
 	}
+	writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 	writeJSON(c.Writer(), http.StatusOK, out)
 	return nil
 }

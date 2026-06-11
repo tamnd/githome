@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,16 +17,16 @@ import (
 
 // FileWriteInput holds the parameters for creating or updating a file.
 type FileWriteInput struct {
-	Path          string
-	Content       []byte   // nil means delete
-	Message       string
-	AuthorName    string
-	AuthorEmail   string
+	Path           string
+	Content        []byte // nil means delete
+	Message        string
+	AuthorName     string
+	AuthorEmail    string
 	CommitterName  string
 	CommitterEmail string
-	When          time.Time
-	Branch        string // refs/heads/main by default
-	ParentSHA     string // current HEAD; required to detect races (empty skips check)
+	When           time.Time
+	Branch         string // refs/heads/main by default
+	ParentSHA      string // current HEAD; required to detect races (empty skips check)
 }
 
 // FileWriteResult holds the outcome of a WriteFile or DeleteFile call.
@@ -148,10 +149,10 @@ func (r *Repo) applyFileChange(in FileWriteInput, del bool) (*FileWriteResult, e
 	commitObj := st.NewEncodedObject()
 	commitObj.SetType(plumbing.CommitObject)
 	c := &object.Commit{
-		Author:    sig,
-		Committer: committerSig,
-		Message:   in.Message,
-		TreeHash:  newRootHash,
+		Author:       sig,
+		Committer:    committerSig,
+		Message:      in.Message,
+		TreeHash:     newRootHash,
 		ParentHashes: parentHashes,
 	}
 	if err := c.Encode(commitObj); err != nil {
@@ -242,7 +243,10 @@ func (r *Repo) rebuildTree(
 		}
 	}
 
-	// Write the new tree object.
+	// Write the new tree object. Entries must be in git's canonical tree order
+	// (directories compare with a trailing slash) or Encode refuses; appending
+	// the changed entry at the end broke that order on updates.
+	sort.Sort(object.TreeEntrySorter(newEntries))
 	treeObj := st.NewEncodedObject()
 	treeObj.SetType(plumbing.TreeObject)
 	newTree := &object.Tree{Entries: newEntries}

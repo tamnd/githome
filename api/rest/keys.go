@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -288,18 +289,17 @@ func userKeyToJSON(k *store.SSHKeyRow, d Deps) map[string]any {
 	}
 }
 
-
 // branchProtectionBody is the request body for PUT /branches/{branch}/protection.
 type branchProtectionBody struct {
 	RequiredStatusChecks *struct {
 		Strict   bool     `json:"strict"`
 		Contexts []string `json:"contexts"`
 	} `json:"required_status_checks"`
-	EnforceAdmins bool `json:"enforce_admins"`
+	EnforceAdmins              bool `json:"enforce_admins"`
 	RequiredPullRequestReviews *struct {
-		DismissStaleReviews      bool `json:"dismiss_stale_reviews"`
-		RequireCodeOwnerReviews  bool `json:"require_code_owner_reviews"`
-		RequiredApprovingReviewCount int `json:"required_approving_review_count"`
+		DismissStaleReviews          bool `json:"dismiss_stale_reviews"`
+		RequireCodeOwnerReviews      bool `json:"require_code_owner_reviews"`
+		RequiredApprovingReviewCount int  `json:"required_approving_review_count"`
 	} `json:"required_pull_request_reviews"`
 	Restrictions *struct {
 		Users []string `json:"users"`
@@ -324,7 +324,7 @@ func handleBranchProtectionGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, branchProtectionToJSON(p))
+		writeJSON(c.Writer(), http.StatusOK, branchProtectionToJSON(d, c, p))
 		return nil
 	}
 }
@@ -351,11 +351,11 @@ func handleBranchProtectionPut(d Deps) mizu.Handler {
 			return nil
 		}
 		p := &store.BranchProtectionRow{
-			RepoPK:        repo.PK,
-			BranchPattern: c.Param("branch"),
-			EnforceAdmins: body.EnforceAdmins,
-			AllowForcePushes: body.AllowForcePushes,
-			AllowDeletions:   body.AllowDeletions,
+			RepoPK:              repo.PK,
+			BranchPattern:       c.Param("branch"),
+			EnforceAdmins:       body.EnforceAdmins,
+			AllowForcePushes:    body.AllowForcePushes,
+			AllowDeletions:      body.AllowDeletions,
 			StatusCheckContexts: "[]",
 			RestrictionsUsers:   "[]",
 			RestrictionsTeams:   "[]",
@@ -363,6 +363,12 @@ func handleBranchProtectionPut(d Deps) mizu.Handler {
 		if body.RequiredStatusChecks != nil {
 			p.RequireStatusChecks = true
 			p.RequireBranchesUpToDate = body.RequiredStatusChecks.Strict
+			p.StatusCheckContexts = marshalStringList(body.RequiredStatusChecks.Contexts)
+		}
+		if body.Restrictions != nil {
+			p.RestrictionsEnabled = true
+			p.RestrictionsUsers = marshalStringList(body.Restrictions.Users)
+			p.RestrictionsTeams = marshalStringList(body.Restrictions.Teams)
 		}
 		if body.RequiredPullRequestReviews != nil {
 			p.RequirePRReviews = true
@@ -373,7 +379,7 @@ func handleBranchProtectionPut(d Deps) mizu.Handler {
 		if err := d.Keys.SetBranchProtection(ctx, p); err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, branchProtectionToJSON(p))
+		writeJSON(c.Writer(), http.StatusOK, branchProtectionToJSON(d, c, p))
 		return nil
 	}
 }
@@ -407,29 +413,93 @@ func handleBranchProtectionDelete(d Deps) mizu.Handler {
 	}
 }
 
-func branchProtectionToJSON(p *store.BranchProtectionRow) map[string]any {
+func branchProtectionToJSON(d Deps, c *mizu.Ctx, p *store.BranchProtectionRow) map[string]any {
 	var reqStatusChecks any = nil
 	if p.RequireStatusChecks {
+		contexts := unmarshalStringList(p.StatusCheckContexts)
+		checks := make([]map[string]any, 0, len(contexts))
+		for _, ctx := range contexts {
+			checks = append(checks, map[string]any{"context": ctx, "app_id": nil})
+		}
 		reqStatusChecks = map[string]any{
 			"strict":   p.RequireBranchesUpToDate,
-			"contexts": []string{},
+			"contexts": contexts,
+			"checks":   checks,
 		}
 	}
 	var reqReviews any = nil
 	if p.RequirePRReviews {
 		reqReviews = map[string]any{
-			"dismiss_stale_reviews":        p.DismissStaleReviews,
-			"require_code_owner_reviews":   p.RequireCodeOwnerReviews,
+			"dismiss_stale_reviews":           p.DismissStaleReviews,
+			"require_code_owner_reviews":      p.RequireCodeOwnerReviews,
 			"required_approving_review_count": p.RequiredApprovingCount,
 		}
 	}
-	return map[string]any{
-		"url":                    "",
-		"required_status_checks": reqStatusChecks,
-		"enforce_admins":         map[string]any{"url": "", "enabled": p.EnforceAdmins},
-		"required_pull_request_reviews": reqReviews,
-		"restrictions":           nil,
-		"allow_force_pushes":     map[string]any{"enabled": p.AllowForcePushes},
-		"allow_deletions":        map[string]any{"enabled": p.AllowDeletions},
+	var restrictions any = nil
+	if p.RestrictionsEnabled {
+		restrictions = map[string]any{
+			"users": restrictionUsersToJSON(d, c, unmarshalStringList(p.RestrictionsUsers)),
+			"teams": restrictionTeamsToJSON(unmarshalStringList(p.RestrictionsTeams)),
+			"apps":  []any{},
+		}
 	}
+	return map[string]any{
+		"url":                           "",
+		"required_status_checks":        reqStatusChecks,
+		"enforce_admins":                map[string]any{"url": "", "enabled": p.EnforceAdmins},
+		"required_pull_request_reviews": reqReviews,
+		"restrictions":                  restrictions,
+		"allow_force_pushes":            map[string]any{"enabled": p.AllowForcePushes},
+		"allow_deletions":               map[string]any{"enabled": p.AllowDeletions},
+	}
+}
+
+// restrictionUsersToJSON renders restriction logins as user objects, the shape
+// GitHub uses. Logins that no longer resolve still come back as a bare login so
+// the round-trip never silently drops an entry.
+func restrictionUsersToJSON(d Deps, c *mizu.Ctx, logins []string) []any {
+	out := make([]any, 0, len(logins))
+	for _, login := range logins {
+		if d.Users != nil && d.URLs != nil {
+			if u, err := d.Users.ByLogin(c.Request().Context(), login); err == nil {
+				out = append(out, d.URLs.SimpleUser(u, d.NodeFormat))
+				continue
+			}
+		}
+		out = append(out, map[string]any{"login": login, "type": "User"})
+	}
+	return out
+}
+
+// restrictionTeamsToJSON renders restriction team slugs as minimal team objects.
+func restrictionTeamsToJSON(slugs []string) []any {
+	out := make([]any, 0, len(slugs))
+	for _, slug := range slugs {
+		out = append(out, map[string]any{"name": slug, "slug": slug})
+	}
+	return out
+}
+
+// marshalStringList renders a string slice as a JSON array, with nil treated as
+// the empty list so the stored column is always a valid array.
+func marshalStringList(items []string) string {
+	if len(items) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(items)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+// unmarshalStringList parses a stored JSON array column, tolerating the empty
+// string a fresh row may carry.
+func unmarshalStringList(raw string) []string {
+	var out []string
+	if raw == "" {
+		return out
+	}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
 }

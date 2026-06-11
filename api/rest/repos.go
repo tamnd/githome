@@ -40,14 +40,21 @@ func handleBranches(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		branches, err := d.Repos.ListBranches(repo)
 		if err != nil {
 			return err
 		}
+		branches = paginateSlice(&page, branches)
 		out := make([]restmodel.BranchShort, 0, len(branches))
 		for _, br := range branches {
 			out = append(out, d.URLs.BranchShort(repo.Owner.Login, repo.Name, br))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
@@ -87,14 +94,21 @@ func handleTags(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		tags, err := d.Repos.ListTags(repo)
 		if err != nil {
 			return err
 		}
+		tags = paginateSlice(&page, tags)
 		out := make([]restmodel.Tag, 0, len(tags))
 		for _, t := range tags {
 			out = append(out, d.URLs.Tag(repo.Owner.Login, repo.Name, repo.ID, t))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
@@ -109,7 +123,15 @@ func handleCommits(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		opts := git.LogOpts{From: c.Query("sha"), Path: c.Query("path"), Max: perPage(c)}
+		page, perr := parsePage(c)
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		// Walk one commit past the requested window: the window itself is the
+		// page, and the extra commit is the existence proof for rel="next"
+		// without counting the whole history.
+		opts := git.LogOpts{From: c.Query("sha"), Path: c.Query("path"), Max: page.Offset() + page.PerPage + 1}
 		commits, err := d.Repos.ListCommits(repo, opts)
 		if errors.Is(err, domain.ErrEmptyRepo) {
 			writeError(c.Writer(), errConflict("Git Repository is empty."))
@@ -122,10 +144,13 @@ func handleCommits(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		out := make([]restmodel.RepoCommit, 0, len(commits))
-		for _, cm := range commits {
+		hasNext := len(commits) > page.Offset()+page.PerPage
+		window := paginateSlice(&page, commits)
+		out := make([]restmodel.RepoCommit, 0, len(window))
+		for _, cm := range window {
 			out = append(out, d.URLs.RepoCommit(repo.Owner.Login, repo.Name, repo.ID, cm))
 		}
+		writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}

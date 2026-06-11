@@ -67,7 +67,7 @@ func handleUserGists(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
-		gists, _, err := d.Gists.ListUserGists(c.Request().Context(), username, actor.UserID, page.Page, page.PerPage)
+		gists, total, err := d.Gists.ListUserGists(c.Request().Context(), username, actor.UserID, page.Page, page.PerPage)
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -75,6 +75,8 @@ func handleUserGists(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		return writeGists(c, d, gists)
 	}
 }
@@ -91,10 +93,12 @@ func handleGistList(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
-		gists, _, err := d.Gists.ListAuthUserGists(c.Request().Context(), actor.UserID, page.Page, page.PerPage)
+		gists, total, err := d.Gists.ListAuthUserGists(c.Request().Context(), actor.UserID, page.Page, page.PerPage)
 		if err != nil {
 			return err
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		return writeGists(c, d, gists)
 	}
 }
@@ -144,10 +148,12 @@ func handleGistListPublic(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
-		gists, _, err := d.Gists.ListPublicGists(c.Request().Context(), page.Page, page.PerPage)
+		gists, total, err := d.Gists.ListPublicGists(c.Request().Context(), page.Page, page.PerPage)
 		if err != nil {
 			return err
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		return writeGists(c, d, gists)
 	}
 }
@@ -164,10 +170,12 @@ func handleGistListStarred(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
-		gists, _, err := d.Gists.ListStarredGists(c.Request().Context(), actor.UserID, page.Page, page.PerPage)
+		gists, total, err := d.Gists.ListStarredGists(c.Request().Context(), actor.UserID, page.Page, page.PerPage)
 		if err != nil {
 			return err
 		}
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		return writeGists(c, d, gists)
 	}
 }

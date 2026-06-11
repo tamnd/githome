@@ -73,6 +73,24 @@ func (p *Page) finalize() {
 	p.HasNext = p.Page < p.Last
 }
 
+// paginateSlice clips a fully-loaded list to the requested page window and
+// records the total on the page, so handlers whose domain calls return the
+// whole collection can paginate and emit a counted Link header without each
+// reimplementing the window math. A page past the end is an empty list, the
+// same answer GitHub gives.
+func paginateSlice[T any](p *Page, items []T) []T {
+	p.Total = len(items)
+	start := p.Offset()
+	if start > len(items) {
+		start = len(items)
+	}
+	end := start + p.PerPage
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end]
+}
+
 // writeLinkHeader sets the RFC 5988 Link header for a paginated response, the
 // header gh and every paginating client follows. A single-page result carries
 // no header, matching GitHub. The rels appear in GitHub's order: prev, next,
@@ -110,6 +128,33 @@ func writeLinkHeaderCursor(w http.ResponseWriter, r *http.Request, ub *presenter
 		addPage("last", p.Last)
 	}
 	if p.HasPrev {
+		addPage("first", 1)
+	}
+	w.Header().Set("Link", strings.Join(parts, ", "))
+}
+
+// writeLinkHeaderUncounted sets the Link header for a list whose total is never
+// counted, such as a commit walk. Only prev, next, and first appear; there is
+// no rel="last" because deriving it would need the count the endpoint exists to
+// avoid, which is also why GitHub's own commits listing omits it.
+func writeLinkHeaderUncounted(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, p Page, hasNext bool) {
+	hasPrev := p.Page > 1
+	if !hasPrev && !hasNext {
+		return
+	}
+	path := r.URL.Path
+	raw := r.URL.RawQuery
+	var parts []string
+	addPage := func(rel string, page int) {
+		parts = append(parts, "<"+ub.PageLink(path, raw, page)+`>; rel="`+rel+`"`)
+	}
+	if hasPrev {
+		addPage("prev", p.Page-1)
+	}
+	if hasNext {
+		addPage("next", p.Page+1)
+	}
+	if hasPrev {
 		addPage("first", 1)
 	}
 	w.Header().Set("Link", strings.Join(parts, ", "))
