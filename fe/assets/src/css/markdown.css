@@ -382,3 +382,36 @@
   border: var(--borderWidth-thick) solid var(--borderColor-accent-emphasis);
   border-radius: var(--borderRadius-medium);
 }
+
+/*
+ * Math and diagram placeholders. The renderer emits the escaped source in a
+ * .math span or div for the KaTeX island and a .render-diagram block for the
+ * Mermaid island; until those islands land (and always with scripting off)
+ * the source must read as code, not as a bare line of LaTeX in the prose.
+ */
+.markdown-body .math {
+  font-family: var(--fontStack-monospace);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.markdown-body .math-inline {
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+}
+
+.markdown-body .math-display {
+  padding: var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  overflow: auto;
+  font-size: var(--text-small-size);
+  line-height: 1.45;
+}
+
+.markdown-body .render-diagram {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body .render-diagram pre {
+  margin-bottom: 0;
+}
