@@ -47,22 +47,23 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		repo.PushedAt = &pushed
 	}
 	if branch != nil {
-		repo.DefaultBranchRef = GQLRef(r.PK, "refs/heads/"+branch.Name, branch.Name, branch.Commit)
+		repo.DefaultBranchRef = GQLRef(r.ID, "refs/heads/"+branch.Name, branch.Name, branch.Commit)
 	}
 	return repo
 }
 
-// GQLRef renders a git reference into the GraphQL Ref shape. repoPK is the
-// internal repository PK used to encode the node ID; qualifiedName is the full
-// ref path (refs/heads/main); shortName is the bare ref name (main); sha is the
-// target commit's SHA.
-func GQLRef(repoPK int64, qualifiedName, shortName, sha string) *gqlmodel.Ref {
+// GQLRef renders a git reference into the GraphQL Ref shape. repoID is the
+// repository's public database ID used to encode the node ID, the same id the
+// REST presenter encodes, so a node_id from either API names the same ref;
+// qualifiedName is the full ref path (refs/heads/main); shortName is the bare
+// ref name (main); sha is the target commit's SHA.
+func GQLRef(repoID int64, qualifiedName, shortName, sha string) *gqlmodel.Ref {
 	prefix := ""
 	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
 		prefix = qualifiedName[:i+1]
 	}
 	return &gqlmodel.Ref{
-		ID:     nodeid.EncodeRef(repoPK, qualifiedName),
+		ID:     nodeid.EncodeGitObject("ref", repoID, qualifiedName),
 		Name:   shortName,
 		Prefix: prefix,
 		Target: &gqlmodel.GitObject{Oid: gqlmodel.GitObjectID(sha)},

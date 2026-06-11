@@ -63,11 +63,21 @@ func (b *URLBuilder) GQLPullRequest(owner, repo string, pr *domain.PullRequest, 
 		headPK = pr.Head.Repo.PK
 	}
 	out.IsCrossRepository = headPK != basePK
+	baseID, headID := int64(0), int64(0)
+	if pr.Repo != nil {
+		baseID, headID = pr.Repo.ID, pr.Repo.ID
+	}
+	if pr.Base.Repo != nil {
+		baseID = pr.Base.Repo.ID
+	}
+	if pr.Head.Repo != nil {
+		headID = pr.Head.Repo.ID
+	}
 	if pr.Base.Ref != "" {
-		out.BaseRef = GQLRef(basePK, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
+		out.BaseRef = GQLRef(baseID, "refs/heads/"+pr.Base.Ref, pr.Base.Ref, pr.Base.SHA)
 	}
 	if pr.Head.Ref != "" {
-		out.HeadRef = GQLRef(headPK, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
+		out.HeadRef = GQLRef(headID, "refs/heads/"+pr.Head.Ref, pr.Head.Ref, pr.Head.SHA)
 	}
 	headRepo := pr.Head.Repo
 	if headRepo == nil && headPK == pr.RepoPK {

@@ -31,7 +31,7 @@ func (r *mutationResolver) CreateRef(ctx context.Context, input generated.Create
 		shortName = ref.Name[i+1:]
 	}
 	return &generated.CreateRefPayload{
-		Ref:              presenter.GQLRef(repo.PK, ref.Name, shortName, ref.Target),
+		Ref:              presenter.GQLRef(repo.ID, ref.Name, shortName, ref.Target),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }
@@ -39,11 +39,11 @@ func (r *mutationResolver) CreateRef(ctx context.Context, input generated.Create
 // DeleteRef is the resolver for the deleteRef field. gh api and automation that
 // deletes branches via GraphQL send this mutation.
 func (r *mutationResolver) DeleteRef(ctx context.Context, input generated.DeleteRefInput) (*generated.DeleteRefPayload, error) {
-	repoPK, refName, err := nodeid.DecodeRef(input.RefID)
-	if err != nil {
+	tag, repoID, refName, err := nodeid.DecodeGitObject(input.RefID)
+	if err != nil || tag != "ref" {
 		return nil, unresolvable("Ref", input.RefID)
 	}
-	repo, rErr := r.Repos.GetRepoByPK(ctx, viewerID(ctx), repoPK)
+	repo, rErr := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
 	if rErr != nil {
 		return nil, mapErr(rErr)
 	}

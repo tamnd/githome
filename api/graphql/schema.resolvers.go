@@ -210,7 +210,7 @@ func (r *repositoryResolver) Ref(ctx context.Context, obj *gqlmodel.Repository, 
 	if i := strings.LastIndex(qualifiedName, "/"); i >= 0 {
 		shortName = qualifiedName[i+1:]
 	}
-	return presenter.GQLRef(repo.PK, qualifiedName, shortName, ref.Target), nil
+	return presenter.GQLRef(repo.ID, qualifiedName, shortName, ref.Target), nil
 }
 
 // PrimaryLanguage returns the repository's primary programming language. Githome
