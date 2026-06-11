@@ -7,8 +7,10 @@
  * same on both the web front and the REST text/html surface. See implementation/10.
  */
 
+/* Rendered prose reads at 16px, the large body size GitHub gives documents,
+   while the UI chrome around it stays at the 14px default. */
 .markdown-body {
-  font-size: var(--text-body-size);
+  font-size: var(--text-body-size-large);
   line-height: var(--text-body-lineHeight);
   word-wrap: break-word;
   text-align: left;
