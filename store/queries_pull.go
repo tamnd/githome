@@ -144,6 +144,40 @@ func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int
 	return n, nil
 }
 
+// PullListVersion returns the count and the latest updated_at marker of the
+// pull requests matching the state filter. It is the version seed for the
+// pulls list ETag, the same shape as IssueListVersion. The marker covers both
+// the issue row and the pull row: head pushes and mergeability recomputes
+// bump pull_requests.updated_at without touching the issue, and both rows
+// feed the rendered body. Markers are raw column text in one timestamp
+// layout, so the larger of the two compares lexicographically.
+func (s *Store) PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error) {
+	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
+	switch state {
+	case "", "open":
+		where += ` AND i.state = 'open'`
+	case "closed":
+		where += ` AND i.state = 'closed'`
+	case "all":
+	}
+	q := s.rebind(`SELECT COUNT(*),
+			COALESCE(MAX(i.updated_at), ''), COALESCE(MAX(pr.updated_at), '')
+		FROM pull_requests pr
+		JOIN issues i ON i.pk = pr.issue_pk` + where)
+	var (
+		n                   int
+		issMarker, prMarker string
+	)
+	if err := s.rdb.QueryRowContext(ctx, q, repoPK).Scan(&n, &issMarker, &prMarker); err != nil {
+		return 0, "", err
+	}
+	marker := issMarker
+	if prMarker > marker {
+		marker = prMarker
+	}
+	return n, marker, nil
+}
+
 // OpenPullsByHeadRef returns the open pull requests in a repository whose head
 // branch is the given short ref name, the set the post-receive sink refreshes
 // and re-checks when that branch moves.

@@ -120,7 +120,24 @@ func handleIssuesList(d Deps) mizu.Handler {
 			return nil
 		}
 
-		issues, total, err := d.Issues.ListIssues(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		// Seed a version ETag from one aggregate over the filtered window
+		// (count + latest updated_at) and short-circuit a polling client's
+		// If-None-Match hit before the page is fetched, assembled, or
+		// marshaled. Every write that changes the list body bumps an issue's
+		// updated_at or the count, so the seed tracks the representation.
+		total, marker, err := d.Issues.ListIssuesVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		tag := etag.Version(c.Request().URL.RequestURI()+"|"+marker, int64(total))
+		if notModified(c.Writer(), c.Request(), tag) {
+			return nil
+		}
+
+		issues, err := d.Issues.ListIssuesWindow(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if issueError(c.Writer(), err) {
 			return nil
 		}
@@ -145,7 +162,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 			})
 		}
 		writeLinkHeaderCursor(c.Writer(), c.Request(), d.URLs, page, nextCursor)
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, out, tag)
 		return nil
 	}
 }

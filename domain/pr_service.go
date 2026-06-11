@@ -65,6 +65,7 @@ type PullStore interface {
 	ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]store.PullRow, error)
 	ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
 	CountPulls(ctx context.Context, repoPK int64, state string) (int, error)
+	PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error)
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
 	SetMergeability(ctx context.Context, issuePK int64, mergeable *bool, state string, rebaseable *bool, additions, deletions, changedFiles, commits int, checkedAt time.Time) error
@@ -348,6 +349,32 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 		return nil, 0, err
 	}
 	return out, total, nil
+}
+
+// ListPRsVersion returns the count and the latest updated_at marker of the
+// state-filtered window, the seed the REST pulls list hashes into a version
+// ETag, mirroring ListIssuesVersion.
+func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name, state string) (int, string, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, "", err
+	}
+	return s.store.PullListVersion(ctx, repo.PK, state)
+}
+
+// ListPRsWindow returns a page of the repository's pull requests without the
+// COUNT ListPRs runs; the REST handler pairs it with ListPRsVersion, which
+// already counted the window for the ETag seed.
+func (s *PRService) ListPRsWindow(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) ([]*PullRequest, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	if err != nil {
+		return nil, err
+	}
+	return s.assemblePRs(ctx, repo, rows)
 }
 
 // ListPRsPage returns a keyset-paginated page of the repository's pull requests

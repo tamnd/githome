@@ -251,6 +251,27 @@ func (s *Store) listIssuesKeyset(ctx context.Context, repoPK int64, f IssueFilte
 	return out, hasMore, nil
 }
 
+// IssueListVersion returns the count and the latest updated_at marker of the
+// issues matching the filter, ignoring its page window. The pair is the cheap
+// version seed the REST list handler hashes into an ETag: every write that
+// changes a list body also bumps an issue's updated_at or the count, so an
+// If-None-Match hit answers from this one aggregate instead of fetching,
+// assembling, and marshaling the page. The marker is returned as the column's
+// raw text; callers hash it, they never parse it.
+func (s *Store) IssueListVersion(ctx context.Context, repoPK int64, f IssueFilter) (int, string, error) {
+	where, args := f.where()
+	full := append([]any{repoPK}, args...)
+	q := s.rebind(`SELECT COUNT(*), COALESCE(MAX(i.updated_at), '') FROM issues i` + where)
+	var (
+		n      int
+		marker string
+	)
+	if err := s.rdb.QueryRowContext(ctx, q, full...).Scan(&n, &marker); err != nil {
+		return 0, "", err
+	}
+	return n, marker, nil
+}
+
 // CountIssues counts the issues matching the filter, ignoring its page window.
 func (s *Store) CountIssues(ctx context.Context, repoPK int64, f IssueFilter) (int, error) {
 	where, args := f.where()

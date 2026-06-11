@@ -35,6 +35,20 @@ func conditionalJSON(w http.ResponseWriter, r *http.Request, status int, v any) 
 	_, _ = w.Write(body)
 }
 
+// notModified reports whether the request's If-None-Match validator already
+// covers tag, writing the 304 (ETag, no body) when it does. List handlers call
+// it with a version tag seeded from one cheap aggregate query, before fetching
+// the page, assembling the presenter models, or marshaling anything, so the
+// polling workload's 304s cost one query instead of the full render.
+func notModified(w http.ResponseWriter, r *http.Request, tag string) bool {
+	if !etag.Match(r.Header.Get("If-None-Match"), tag) {
+		return false
+	}
+	w.Header().Set("ETag", tag)
+	w.WriteHeader(http.StatusNotModified)
+	return true
+}
+
 // conditionalVersioned renders v as a JSON response carrying the pre-computed
 // version ETag tag, and short-circuits to 304 Not Modified without marshaling
 // the body when the request's If-None-Match validator already covers that tag.

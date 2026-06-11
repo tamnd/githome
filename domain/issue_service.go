@@ -59,6 +59,7 @@ type IssueStore interface {
 	ListIssues(ctx context.Context, repoPK int64, f store.IssueFilter) ([]store.IssueRow, error)
 	ListIssuesPage(ctx context.Context, repoPK int64, f store.IssueFilter) ([]store.IssueRow, bool, error)
 	CountIssues(ctx context.Context, repoPK int64, f store.IssueFilter) (int, error)
+	IssueListVersion(ctx context.Context, repoPK int64, f store.IssueFilter) (int, string, error)
 	LabelsByIssue(ctx context.Context, issuePK int64) ([]store.LabelRow, error)
 	ListAssigneePKs(ctx context.Context, issuePK int64) ([]int64, error)
 	LabelsByIssuePKs(ctx context.Context, issuePKs []int64) (map[int64][]store.LabelRow, error)
@@ -318,6 +319,43 @@ func (s *IssueService) ListIssues(ctx context.Context, viewerPK int64, owner, na
 		return nil, 0, err
 	}
 	return out, total, nil
+}
+
+// ListIssuesVersion returns the count and the latest updated_at marker of the
+// filtered window, the seed the REST list handler hashes into a version ETag.
+// A polling client's If-None-Match hit answers from this one aggregate query,
+// skipping the page fetch, presenter assembly, and marshal entirely. The
+// repository visibility check runs the same way the list itself would.
+func (s *IssueService) ListIssuesVersion(ctx context.Context, viewerPK int64, owner, name string, q IssueQuery) (int, string, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return 0, "", err
+	}
+	f, err := s.buildFilter(ctx, repo, q)
+	if err != nil {
+		return 0, "", err
+	}
+	return s.store.IssueListVersion(ctx, repo.PK, f)
+}
+
+// ListIssuesWindow returns a page of the repository's issues without the COUNT
+// ListIssues runs. The REST handler pairs it with ListIssuesVersion, which
+// already counted the window while seeding the ETag, so a 200 still pays one
+// count, not two.
+func (s *IssueService) ListIssuesWindow(ctx context.Context, viewerPK int64, owner, name string, q IssueQuery) ([]*Issue, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	f, err := s.buildFilter(ctx, repo, q)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListIssues(ctx, repo.PK, f)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleIssues(ctx, repo, rows)
 }
 
 // ListIssuesPage returns a keyset-paginated page of the repository's issues plus
