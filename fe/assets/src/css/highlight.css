@@ -3,8 +3,9 @@
  * (markup/highlight_chroma.go), mapped onto the prettylights syntax tokens the
  * theme generator defines (palettes.go). Only our spans are colored; the token
  * text itself is HTML-escaped by the highlighter, so this file styles trusted
- * markup. The chroma backend emits a conservative subset, so the categories
- * github.com leaves uncolored are simply absent here. See implementation/10
+ * markup. The class set is GitHub's full prettylights vocabulary, so a class
+ * the chroma backend learns to emit (or the future Tree-sitter backend emits
+ * from day one) is colored without touching this sheet. See implementation/10
  * section 6.
  */
 
@@ -17,19 +18,23 @@
   color: var(--color-prettylights-syntax-keyword);
 }
 
-.pl-s {
+.pl-s,
+.pl-pds,
+.pl-s .pl-pse .pl-s1,
+.pl-sr,
+.pl-sr .pl-cce,
+.pl-sr .pl-sre,
+.pl-sr .pl-sra {
   color: var(--color-prettylights-syntax-string);
 }
 
-.pl-c1 {
+.pl-c1,
+.pl-s .pl-v {
   color: var(--color-prettylights-syntax-constant);
 }
 
+.pl-e,
 .pl-en {
-  color: var(--color-prettylights-syntax-entity);
-}
-
-.pl-e {
   color: var(--color-prettylights-syntax-entity);
 }
 
@@ -37,8 +42,92 @@
   color: var(--color-prettylights-syntax-entity-tag);
 }
 
-.pl-smi {
+.pl-smi,
+.pl-s .pl-s1 {
   color: var(--color-prettylights-syntax-storage-modifier-import);
+}
+
+.pl-v,
+.pl-smw {
+  color: var(--color-prettylights-syntax-variable);
+}
+
+.pl-sr .pl-cce {
+  font-weight: bold;
+  color: var(--color-prettylights-syntax-string-regexp);
+}
+
+.pl-bu {
+  color: var(--color-prettylights-syntax-brackethighlighter-unmatched);
+}
+
+.pl-ba {
+  color: var(--color-prettylights-syntax-brackethighlighter-angle);
+}
+
+.pl-ii {
+  color: var(--color-prettylights-syntax-invalid-illegal-text);
+  background-color: var(--color-prettylights-syntax-invalid-illegal-bg);
+}
+
+.pl-c2 {
+  color: var(--color-prettylights-syntax-carriage-return-text);
+  background-color: var(--color-prettylights-syntax-carriage-return-bg);
+}
+
+.pl-ml {
+  color: var(--color-prettylights-syntax-markup-list);
+}
+
+.pl-mh,
+.pl-mh .pl-en,
+.pl-ms {
+  font-weight: bold;
+  color: var(--color-prettylights-syntax-markup-heading);
+}
+
+.pl-mi {
+  font-style: italic;
+  color: var(--color-prettylights-syntax-markup-italic);
+}
+
+.pl-mb {
+  font-weight: bold;
+  color: var(--color-prettylights-syntax-markup-bold);
+}
+
+.pl-md {
+  color: var(--color-prettylights-syntax-markup-deleted-text);
+  background-color: var(--color-prettylights-syntax-markup-deleted-bg);
+}
+
+.pl-mi1 {
+  color: var(--color-prettylights-syntax-markup-inserted-text);
+  background-color: var(--color-prettylights-syntax-markup-inserted-bg);
+}
+
+.pl-mc {
+  color: var(--color-prettylights-syntax-markup-changed-text);
+  background-color: var(--color-prettylights-syntax-markup-changed-bg);
+}
+
+.pl-mi2 {
+  color: var(--color-prettylights-syntax-markup-ignored-text);
+  background-color: var(--color-prettylights-syntax-markup-ignored-bg);
+}
+
+.pl-mdr {
+  font-weight: bold;
+  color: var(--color-prettylights-syntax-meta-diff-range);
+}
+
+.pl-sg {
+  color: var(--color-prettylights-syntax-sublimelinter-gutter-mark);
+}
+
+.pl-corl {
+  text-decoration: underline;
+  color: var(--color-prettylights-syntax-constant-other-reference-link);
 }
 
 /*

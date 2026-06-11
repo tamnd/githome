@@ -31,6 +31,35 @@ func themeBlocks(t *testing.T) map[string]map[string]string {
 	return out
 }
 
+// TestPrettylightsPaletteFullyConsumed guards review 02 task R02-26: the
+// themes define GitHub's full prettylights syntax palette, and every one of
+// those variables must be read by a pl-* rule in highlight.css, so no token
+// category the highlighter emits renders uncolored.
+func TestPrettylightsPaletteFullyConsumed(t *testing.T) {
+	themes := themeBlocks(t)
+	light, ok := themes["light"]
+	if !ok {
+		t.Fatal("themes.gen.css has no light theme block")
+	}
+	sheet, err := os.ReadFile("src/css/highlight.css")
+	if err != nil {
+		t.Fatalf("read highlight.css: %v", err)
+	}
+	count := 0
+	for name := range light {
+		if !strings.HasPrefix(name, "color-prettylights-syntax-") {
+			continue
+		}
+		count++
+		if !strings.Contains(string(sheet), "var(--"+name+")") {
+			t.Errorf("highlight.css never reads --%s; a token category renders uncolored", name)
+		}
+	}
+	if count < 30 {
+		t.Errorf("light theme defines %d prettylights variables, want the full set of 30", count)
+	}
+}
+
 // TestThemeCatalogComplete guards review 02 tasks R02-01 and R02-03: every
 // theme must define the same functional token set, and the set must cover
 // the catalog groups component CSS is allowed to lean on (controls, role

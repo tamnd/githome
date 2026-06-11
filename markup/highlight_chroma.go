@@ -88,13 +88,18 @@ func lexerFor(lang string) chroma.Lexer {
 
 // plClass maps a chroma token type to a GitHub pl-* class. The mapping is
 // deliberately conservative: categories github.com leaves uncolored map to the
-// empty class (plain escaped text). See implementation/10 section 6.2.
+// empty class (plain escaped text). Regex strings, markup tokens (headings,
+// emphasis, list markers, diff inserts and deletes), and lexer errors get
+// their own prettylights classes so a markdown or diff fence colors the way
+// github.com colors it. See implementation/10 section 6.2.
 func plClass(t chroma.TokenType) string {
 	switch {
 	case t.InCategory(chroma.Comment):
 		return "pl-c"
 	case t.InCategory(chroma.Keyword):
 		return "pl-k"
+	case t == chroma.LiteralStringRegex:
+		return "pl-sr"
 	case t.InSubCategory(chroma.LiteralString):
 		return "pl-s"
 	case t.InSubCategory(chroma.LiteralNumber):
@@ -112,7 +117,19 @@ func plClass(t chroma.TokenType) string {
 	case chroma.NameAttribute, chroma.NameDecorator:
 		return "pl-e"
 	case chroma.NameVariable, chroma.NameVariableInstance, chroma.NameVariableGlobal:
-		return "pl-smi"
+		return "pl-v"
+	case chroma.GenericHeading, chroma.GenericSubheading:
+		return "pl-mh"
+	case chroma.GenericEmph:
+		return "pl-mi"
+	case chroma.GenericStrong:
+		return "pl-mb"
+	case chroma.GenericInserted:
+		return "pl-mi1"
+	case chroma.GenericDeleted:
+		return "pl-md"
+	case chroma.Error, chroma.GenericError:
+		return "pl-ii"
 	}
 	return ""
 }
