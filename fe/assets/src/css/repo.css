@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: var(--base-size-8);
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
 }
 
 .repohead-icon {
@@ -122,7 +122,7 @@
 }
 
 .repo-sidebar-title {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 
@@ -255,7 +255,7 @@
 
 /* Breadcrumb. */
 .repo-breadcrumb {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
 }
 
 .repo-breadcrumb-item {
@@ -371,7 +371,7 @@
 }
 
 .readme-name {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
 }
 
 .readme-body {
@@ -518,7 +518,7 @@
 
 .commits-date {
   margin: var(--base-size-24) 0 var(--base-size-8);
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   color: var(--fgColor-muted);
 }
 
@@ -711,7 +711,7 @@
 }
 
 .quick-setup-heading {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 
@@ -765,7 +765,7 @@
 }
 
 .commit-detail-title {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 600;
   color: var(--fgColor-default);
   margin: 0 0 var(--base-size-8);
@@ -1033,7 +1033,7 @@
 }
 
 .quick-setup-title {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   margin-bottom: var(--base-size-8);
 }
 

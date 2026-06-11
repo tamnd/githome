@@ -111,7 +111,7 @@ hr {
 }
 
 .home-heading {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 600;
   margin-bottom: var(--base-size-8);
 }

@@ -29,7 +29,7 @@
 
 .auth-title {
   margin-bottom: var(--base-size-16);
-  font-size: var(--text-title-size-medium, 24px);
+  font-size: var(--text-title-size-medium);
   font-weight: 300;
   text-align: center;
   color: var(--fgColor-default);

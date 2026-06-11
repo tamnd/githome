@@ -60,6 +60,50 @@ func TestPrettylightsPaletteFullyConsumed(t *testing.T) {
 	}
 }
 
+// TestBaseScaleMatchesSpec guards review 02 task R02-07: the base sheet must
+// carry the full spec scale tables (doc 03 section 4), not a truncated slice
+// of them. Spacing runs to 192, the stack-gap roles exist, the title sizes
+// are the 32/24/20 ladder with a 16px subtitle, the small radius is Primer's
+// 3px, and the weight and caption roles are present.
+func TestBaseScaleMatchesSpec(t *testing.T) {
+	src, err := os.ReadFile("src/css/tokens.css")
+	if err != nil {
+		t.Fatalf("read tokens.css: %v", err)
+	}
+	want := map[string]string{
+		"--base-size-64":  "64px",
+		"--base-size-80":  "80px",
+		"--base-size-96":  "96px",
+		"--base-size-128": "128px",
+		"--base-size-160": "160px",
+		"--base-size-192": "192px",
+
+		"--stack-gap-condensed": "var(--base-size-8)",
+		"--stack-gap-normal":    "var(--base-size-16)",
+		"--stack-gap-spacious":  "var(--base-size-24)",
+
+		"--text-title-size-large":  "32px",
+		"--text-title-size-medium": "24px",
+		"--text-title-size-small":  "20px",
+		"--text-subtitle-size":     "16px",
+		"--text-body-size-small":   "12px",
+		"--text-caption-size":      "12px",
+
+		"--base-text-weight-light":    "300",
+		"--base-text-weight-normal":   "400",
+		"--base-text-weight-medium":   "500",
+		"--base-text-weight-semibold": "600",
+		"--base-text-weight-bold":     "700",
+
+		"--borderRadius-small": "3px",
+	}
+	for name, value := range want {
+		if !strings.Contains(string(src), name+": "+value+";") {
+			t.Errorf("tokens.css must define %s: %s", name, value)
+		}
+	}
+}
+
 // TestThemeCatalogComplete guards review 02 tasks R02-01 and R02-03: every
 // theme must define the same functional token set, and the set must cover
 // the catalog groups component CSS is allowed to lean on (controls, role

@@ -340,7 +340,7 @@
 .Subhead-heading {
   flex: 1 1 auto;
   margin: 0;
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 400;
 }
 
@@ -594,7 +594,7 @@
 }
 
 .blankslate-heading {
-  font-size: var(--text-title-size-small);
+  font-size: var(--text-subtitle-size);
   color: var(--fgColor-default);
 }
 
@@ -614,7 +614,7 @@
 }
 
 .blankslate-spacious {
-  padding: 80px var(--base-size-40);
+  padding: var(--base-size-80) var(--base-size-40);
 }
 
 /* Error pages. */
@@ -635,7 +635,7 @@
 }
 
 .error-heading {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 600;
   color: var(--fgColor-default);
   margin: var(--base-size-16) 0 var(--base-size-8);

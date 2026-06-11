@@ -6,7 +6,9 @@
  */
 
 :root {
-  /* Spacing scale, 4px base. */
+  /* Spacing scale, 4px base, running to the 192px stop the spec table ends at
+     (doc 03 section 4.5) so hero and blankslate paddings have tokens too. */
+  --base-size-0: 0;
   --base-size-4: 4px;
   --base-size-6: 6px;
   --base-size-8: 8px;
@@ -17,20 +19,42 @@
   --base-size-32: 32px;
   --base-size-40: 40px;
   --base-size-48: 48px;
+  --base-size-64: 64px;
+  --base-size-80: 80px;
+  --base-size-96: 96px;
+  --base-size-112: 112px;
+  --base-size-128: 128px;
+  --base-size-160: 160px;
+  --base-size-192: 192px;
 
-  /* Type scale. */
+  /* Stack-gap roles for component layout. */
+  --stack-gap-condensed: var(--base-size-8);
+  --stack-gap-normal: var(--base-size-16);
+  --stack-gap-spacious: var(--base-size-24);
+
+  /* Type scale, the doc 03 section 4.2 table: titles 32/24/20, subtitle 16. */
+  --text-display-size: 40px;
   --text-body-size: 14px;
   --text-body-size-medium: 14px;
   --text-body-size-large: 16px;
+  --text-body-size-small: 12px;
   --text-body-lineHeight: 1.5;
   --text-small-size: 12px;
-  --text-subtitle-size: 20px;
+  --text-caption-size: 12px;
+  --text-subtitle-size: 16px;
   --text-title-size-large: 32px;
-  --text-title-size-medium: 20px;
-  --text-title-size-small: 16px;
+  --text-title-size-medium: 24px;
+  --text-title-size-small: 20px;
+
+  /* Weight tokens. */
+  --base-text-weight-light: 300;
+  --base-text-weight-normal: 400;
+  --base-text-weight-medium: 500;
+  --base-text-weight-semibold: 600;
+  --base-text-weight-bold: 700;
 
   /* Radii. */
-  --borderRadius-small: 4px;
+  --borderRadius-small: 3px;
   --borderRadius-medium: 6px;
   --borderRadius-large: 12px;
   --borderRadius-full: 9999px;

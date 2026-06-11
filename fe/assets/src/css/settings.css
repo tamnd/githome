@@ -71,7 +71,7 @@
 .settings-title {
   margin: 0 0 var(--base-size-4);
   padding-bottom: var(--base-size-8);
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   font-weight: 400;
   border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
 }

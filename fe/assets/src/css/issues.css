@@ -236,7 +236,7 @@
 
 .issue-title-input {
   flex: 1 1 auto;
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
 }
 
 /* The state badge and its three states. */
@@ -597,7 +597,7 @@
 }
 
 .issue-new-heading {
-  font-size: var(--text-title-size-medium);
+  font-size: var(--text-title-size-small);
   margin-bottom: var(--base-size-16);
 }
 
