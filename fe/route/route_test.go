@@ -23,7 +23,14 @@ func TestChecks(t *testing.T) {
 
 func TestIsReservedTop(t *testing.T) {
 	reserved := []string{"login", "settings", "search", "notifications", "new",
-		"assets", "gist", "favicon.ico", "robots.txt"}
+		"assets", "gist", "favicon.ico", "robots.txt",
+		// The spec 02 §2.3 set: served, reserved-only, system mounts, and
+		// well-known root paths all count.
+		"about", "api", "billing", "blog", "codespaces", "customer-stories",
+		"enterprise", "help", "marketplace", "open-source", "pricing", "pulse",
+		"raw", "readme", "repositories", "security", "session", "signup",
+		"sponsors", "stars", "topics", "trending", "watching", "wiki",
+		"works-with", ".well-known"}
 	for _, name := range reserved {
 		if !IsReservedTop(name) {
 			t.Errorf("expected %q to be reserved", name)

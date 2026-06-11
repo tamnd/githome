@@ -10,16 +10,21 @@ import "strings"
 // reservedTop is the set of first path segments the web front owns, so they can
 // never be mistaken for a "/{owner}" profile. A registration that would collide
 // with one of these is a bug; the dispatcher checks membership before treating a
-// segment as a login. The list is the union of the front's own pages and the
-// well-known files a browser or crawler requests at the root.
+// segment as a login, and signup rejects them outright. The list is the full
+// spec 02 §2.3 set, which deliberately reserves more than Githome serves: a
+// reserved-only name just 404s today, but a login can never shadow it when the
+// route ships later. Membership is case-insensitive (IsReservedTop lowercases).
 var reservedTop = map[string]bool{
 	// Authentication and account.
 	"login":    true,
 	"logout":   true,
 	"join":     true,
+	"signup":   true,
+	"session":  true,
 	"sessions": true,
 	"settings": true,
 	"account":  true,
+	"personal": true,
 
 	// Global pages.
 	"notifications": true,
@@ -30,6 +35,16 @@ var reservedTop = map[string]bool{
 	"organizations": true,
 	"orgs":          true,
 	"about":         true,
+	"discover":      true,
+	"home":          true,
+	"marketplace":   true,
+	"stars":         true,
+	"topics":        true,
+	"trending":      true,
+	"watching":      true,
+	"collections":   true,
+	"sponsors":      true,
+	"codespaces":    true,
 
 	// The site-administration surface. Reserved now so an instance admin panel
 	// can mount under them later without a login ever shadowing the route;
@@ -38,17 +53,64 @@ var reservedTop = map[string]bool{
 	"admin":      true,
 
 	// Cross-cutting resource roots that are not a single owner.
-	"issues": true,
-	"pulls":  true,
-	"gist":   true,
-	"gists":  true,
-	"apps":   true,
+	"issues":       true,
+	"pulls":        true,
+	"pulse":        true,
+	"gist":         true,
+	"gists":        true,
+	"apps":         true,
+	"repositories": true,
+	"wiki":         true,
+
+	// System mounts. A user named api would break /api/v3; raw is the raw-file
+	// host's path root.
+	"api": true,
+	"raw": true,
+
+	// Marketing and site pages github.com reserves; Githome serves none of
+	// them, but a login must not be able to claim one.
+	"billing":          true,
+	"blog":             true,
+	"business":         true,
+	"careers":          true,
+	"cases":            true,
+	"contact":          true,
+	"customer-stories": true,
+	"developer":        true,
+	"enterprise":       true,
+	"features":         true,
+	"help":             true,
+	"mobile":           true,
+	"nonprofit":        true,
+	"open-source":      true,
+	"partners":         true,
+	"premium":          true,
+	"pricing":          true,
+	"privacy":          true,
+	"readme":           true,
+	"recommendations":  true,
+	"redeem":           true,
+	"regulations":      true,
+	"security":         true,
+	"shop":             true,
+	"site":             true,
+	"sitemap":          true,
+	"status":           true,
+	"stories":          true,
+	"styleguide":       true,
+	"support":          true,
+	"team":             true,
+	"terms":            true,
+	"training":         true,
+	"translations":     true,
+	"works-with":       true,
 
 	// The front's own static surface.
 	"assets": true,
 	"static": true,
 
-	// Well-known files requested at the site root.
+	// Well-known files and paths requested at the site root.
+	".well-known":          true,
 	"favicon.ico":          true,
 	"robots.txt":           true,
 	"sitemap.xml":          true,
