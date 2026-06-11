@@ -29,6 +29,27 @@ func (s *Store) CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*
 	return &r, nil
 }
 
+// CollaboratorsByRepo lists every collaborator grant on a repo, oldest grant
+// first, the order the collaborators listing renders.
+func (s *Store) CollaboratorsByRepo(ctx context.Context, repoPK int64) ([]*CollaboratorRow, error) {
+	q := s.rebind(`SELECT pk, repo_pk, user_pk, permission FROM collaborators
+		WHERE repo_pk = ? ORDER BY pk`)
+	rows, err := s.rdb.QueryContext(ctx, q, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*CollaboratorRow
+	for rows.Next() {
+		var r CollaboratorRow
+		if err := rows.Scan(&r.PK, &r.RepoPK, &r.UserPK, &r.Permission); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
 // UpsertCollaborator sets (or updates) a collaborator's permission on a repo.
 func (s *Store) UpsertCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error {
 	q := s.rebind(`INSERT INTO collaborators (repo_pk, user_pk, permission)

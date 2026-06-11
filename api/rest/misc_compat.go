@@ -35,18 +35,33 @@ func handleRepoContributors(d Deps) mizu.Handler {
 	}
 }
 
-// handleRepoCollaboratorsList serves GET /repos/{owner}/{repo}/collaborators.
+// handleRepoCollaboratorsList serves GET /repos/{owner}/{repo}/collaborators:
+// the owner first as the admin, then every stored grant oldest first, each
+// entry a user object extended with role_name and the permission booleans.
 func handleRepoCollaboratorsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
 		if repo == nil {
 			return err
 		}
-		// Return just the owner for now (teams/collaborators stored but listing
-		// collaborators from the table requires more store joins).
-		writeJSON(c.Writer(), http.StatusOK, []any{
-			d.URLs.SimpleUser(repo.Owner, d.NodeFormat),
-		})
+		page, perr := parsePageFor(c, "Repository")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		out := []collaboratorUser{collaboratorObject(d, repo.Owner, "admin")}
+		if d.Teams != nil {
+			grants, err := d.Teams.ListCollaborators(c.Request().Context(), repo.PK)
+			if err != nil {
+				return err
+			}
+			for _, g := range grants {
+				out = append(out, collaboratorObject(d, g.User, g.Permission))
+			}
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }

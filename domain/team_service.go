@@ -26,6 +26,7 @@ type TeamStore interface {
 	RepoByOwnerName(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	UpdateRepoTopics(ctx context.Context, repoPK int64, topicsJSON string) error
 	CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error)
+	CollaboratorsByRepo(ctx context.Context, repoPK int64) ([]*store.CollaboratorRow, error)
 	UpsertCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error
 	DeleteCollaborator(ctx context.Context, repoPK, userPK int64) error
 }
@@ -194,12 +195,54 @@ func (s *TeamService) GetCollaboratorPermission(ctx context.Context, repoPK, use
 	return c.Permission, nil
 }
 
-// AddCollaborator sets (or updates) a collaborator's permission.
-func (s *TeamService) AddCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error {
+// RepoCollaborator pairs a collaborator with the permission they hold.
+type RepoCollaborator struct {
+	User       *User
+	Permission string
+}
+
+// ListCollaborators returns a repo's collaborator grants with their users
+// resolved, oldest grant first. A grant whose user has vanished is skipped.
+func (s *TeamService) ListCollaborators(ctx context.Context, repoPK int64) ([]RepoCollaborator, error) {
+	rows, err := s.store.CollaboratorsByRepo(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RepoCollaborator, 0, len(rows))
+	for _, r := range rows {
+		u, err := s.store.UserByPK(ctx, r.UserPK)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, RepoCollaborator{User: userFromRow(u), Permission: r.Permission})
+	}
+	return out, nil
+}
+
+// AddCollaborator sets (or updates) a collaborator's permission. created
+// reports whether the grant is new, the bit that decides between GitHub's 201
+// invitation response and the 204 for an existing collaborator; id is the
+// grant's row id, which doubles as the invitation id.
+func (s *TeamService) AddCollaborator(ctx context.Context, repoPK, userPK int64, permission string) (id int64, created bool, err error) {
 	if permission == "" {
 		permission = "push"
 	}
-	return s.store.UpsertCollaborator(ctx, repoPK, userPK, permission)
+	_, err = s.store.CollaboratorByRepo(ctx, repoPK, userPK)
+	created = errors.Is(err, store.ErrNotFound)
+	if err != nil && !created {
+		return 0, false, err
+	}
+	if err := s.store.UpsertCollaborator(ctx, repoPK, userPK, permission); err != nil {
+		return 0, false, err
+	}
+	row, err := s.store.CollaboratorByRepo(ctx, repoPK, userPK)
+	if err != nil {
+		return 0, false, err
+	}
+	return row.PK, created, nil
 }
 
 // RemoveCollaborator removes a collaborator from a repo.
