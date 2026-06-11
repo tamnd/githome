@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -257,25 +258,93 @@ func TestServerErrorIs500(t *testing.T) {
 	mustContain(t, rec.Body.String(), "500")
 }
 
+// mustOcticon unwraps the helper for the tests; a malformed argument list is a
+// test bug, not a case under test.
+func mustOcticon(t *testing.T, name string, args ...any) string {
+	t.Helper()
+	got, err := octicon(name, args...)
+	if err != nil {
+		t.Fatalf("octicon(%q, %v): %v", name, args, err)
+	}
+	return string(got)
+}
+
 func TestOcticonKnownAndMissing(t *testing.T) {
-	known := string(octicon("mark-github", 16))
+	known := mustOcticon(t, "mark-github", 16)
 	if !strings.Contains(known, "<svg") || !strings.Contains(known, "viewBox=\"0 0 16 16\"") {
 		t.Errorf("known icon should render an svg: %q", known)
 	}
-	if !strings.Contains(known, assets.Icons["mark-github"]) {
+	if !strings.Contains(known, assets.Icons["mark-github"].Body) {
 		t.Error("known icon should embed its registered path body")
 	}
 
 	// An unknown icon renders a visible placeholder naming the miss, never an
 	// empty string or the raw input, so a typo is caught in review.
-	missing := string(octicon("no-such-icon", 16))
+	missing := mustOcticon(t, "no-such-icon", 16)
 	if !strings.Contains(missing, "octicon-missing") || !strings.Contains(missing, "no-such-icon") {
 		t.Errorf("missing icon should render a labeled placeholder: %q", missing)
 	}
 
-	// A zero size falls back to 16 rather than rendering a zero-sized glyph.
-	if !strings.Contains(string(octicon("repo", 0)), `width="16"`) {
+	// A zero size falls back to 16 rather than rendering a zero-sized glyph,
+	// and the size argument is optional outright.
+	if !strings.Contains(mustOcticon(t, "repo", 0), `width="16"`) {
 		t.Error("zero size should fall back to 16")
+	}
+	if !strings.Contains(mustOcticon(t, "repo"), `width="16"`) {
+		t.Error("omitted size should fall back to 16")
+	}
+}
+
+func TestOcticonGridsAndLabel(t *testing.T) {
+	// A 24px render uses the 24-grid drawing when the set has one, so big
+	// renders are not upscaled 16-grid glyphs.
+	big := mustOcticon(t, "mark-github", 24)
+	if !strings.Contains(big, `viewBox="0 0 24 24"`) {
+		t.Errorf("24px render should use the 24-grid drawing: %q", big)
+	}
+	if !strings.Contains(big, assets.Icons24["mark-github"].Body) {
+		t.Error("24px render should embed the 24-grid body")
+	}
+
+	// An icon that only exists on the 16 grid still renders at any size.
+	if _, ok := assets.Icons24["feed-issue-reopen"]; ok {
+		t.Fatal("test premise broken: feed-issue-reopen now has a 24-grid drawing, pick another icon")
+	}
+	only16 := mustOcticon(t, "feed-issue-reopen", 24)
+	if !strings.Contains(only16, `viewBox="0 0 17 16"`) {
+		t.Errorf("a 16-grid-only icon keeps its own viewBox at 24px: %q", only16)
+	}
+
+	// A non-square glyph keeps its aspect ratio: the pixel width scales with
+	// the grid width instead of assuming a square.
+	wordmark := mustOcticon(t, "logo-github", 16)
+	wm := assets.Icons["logo-github"]
+	if want := fmt.Sprintf(`width="%d" height="16" viewBox="0 0 %d %d"`, 16*wm.Width/wm.Height, wm.Width, wm.Height); !strings.Contains(wordmark, want) {
+		t.Errorf("wordmark glyph should scale by its own grid, want %s in %q", want, wordmark)
+	}
+
+	// A decorative icon is aria-hidden; a labeled one reads as an image.
+	if !strings.Contains(mustOcticon(t, "repo", 16), `aria-hidden="true"`) {
+		t.Error("unlabeled icon must be aria-hidden")
+	}
+	labeled := mustOcticon(t, "repo", 16, "Repository")
+	for _, want := range []string{`role="img"`, `aria-label="Repository"`, `<title>Repository</title>`} {
+		if !strings.Contains(labeled, want) {
+			t.Errorf("labeled icon is missing %s: %q", want, labeled)
+		}
+	}
+	if strings.Contains(labeled, "aria-hidden") {
+		t.Errorf("labeled icon must not be aria-hidden: %q", labeled)
+	}
+
+	// A label can also come before the size; argument order is free.
+	if got := mustOcticon(t, "repo", "Repository", 24); !strings.Contains(got, `height="24"`) {
+		t.Errorf("label-then-size order should still set the size: %q", got)
+	}
+
+	// A malformed argument fails the render instead of degrading silently.
+	if _, err := octicon("repo", 1.5); err == nil {
+		t.Error("a non-int, non-string argument must error")
 	}
 }
 
