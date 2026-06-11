@@ -32,6 +32,33 @@ func (s *Store) RepoByOwnerName(ctx context.Context, owner, name string) (*RepoR
 	return scanRepo(s.rdb.QueryRowContext(ctx, q, owner, name))
 }
 
+// UpsertRepoRedirect records that the repository at repoPK used to live at
+// oldOwner/oldName, so the old URL can 301 to the current one. The keys are
+// stored lowercased to match the case-insensitive lookup; rebinding an old
+// name that already redirects repoints it at repoPK, which keeps a rename
+// chain collapsing to wherever the repository currently lives.
+func (s *Store) UpsertRepoRedirect(ctx context.Context, oldOwner, oldName string, repoPK int64) error {
+	q := s.rebind(`INSERT INTO repo_redirects (old_owner, old_name, repo_pk)
+		VALUES (lower(?), lower(?), ?)
+		ON CONFLICT (old_owner, old_name) DO UPDATE SET repo_pk = excluded.repo_pk`)
+	_, err := s.db.ExecContext(ctx, q, oldOwner, oldName, repoPK)
+	return err
+}
+
+// RepoByRedirect resolves an old owner/name pair through the redirect table to
+// the repository it now points at. The caller runs the direct lookup first: a
+// new repository that claims an old name shadows the redirect, matching
+// GitHub. It returns ErrNotFound when no redirect matches or the target row is
+// gone.
+func (s *Store) RepoByRedirect(ctx context.Context, owner, name string) (*RepoRow, error) {
+	q := s.rebind(`SELECT ` + repoColumns + ` FROM repo_redirects rd
+		JOIN repositories r ON r.pk = rd.repo_pk
+		JOIN users u ON u.pk = r.owner_pk
+		WHERE rd.old_owner = lower(?) AND rd.old_name = lower(?)
+		  AND r.deleted_at IS NULL AND u.deleted_at IS NULL`)
+	return scanRepo(s.rdb.QueryRowContext(ctx, q, owner, name))
+}
+
 // RepoByPK loads a repository by primary key.
 func (s *Store) RepoByPK(ctx context.Context, pk int64) (*RepoRow, error) {
 	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r

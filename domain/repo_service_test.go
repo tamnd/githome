@@ -23,6 +23,7 @@ import (
 type fakeRepoStore struct {
 	repos      map[string]*store.RepoRow
 	users      map[int64]*store.UserRow
+	redirects  map[string]int64
 	pushedAt   map[int64]time.Time
 	jobs       []store.JobRow
 	events     []store.EventRow
@@ -59,6 +60,22 @@ func (f *fakeRepoStore) RepoByDBID(_ context.Context, dbID int64) (*store.RepoRo
 		}
 	}
 	return nil, store.ErrNotFound
+}
+
+func (f *fakeRepoStore) RepoByRedirect(ctx context.Context, owner, name string) (*store.RepoRow, error) {
+	pk, ok := f.redirects[strings.ToLower(owner)+"/"+strings.ToLower(name)]
+	if !ok {
+		return nil, store.ErrNotFound
+	}
+	return f.RepoByPK(ctx, pk)
+}
+
+func (f *fakeRepoStore) UpsertRepoRedirect(_ context.Context, oldOwner, oldName string, repoPK int64) error {
+	if f.redirects == nil {
+		f.redirects = map[string]int64{}
+	}
+	f.redirects[strings.ToLower(oldOwner)+"/"+strings.ToLower(oldName)] = repoPK
+	return nil
 }
 
 func (f *fakeRepoStore) ReposByOwner(_ context.Context, ownerPK int64) ([]*store.RepoRow, error) {
@@ -108,10 +125,16 @@ func (f *fakeRepoStore) InsertRepo(_ context.Context, r *store.RepoRow) error {
 }
 
 func (f *fakeRepoStore) UpdateRepo(_ context.Context, pk int64, p store.RepoPatch) (*store.RepoRow, error) {
-	for _, r := range f.repos {
+	for key, r := range f.repos {
 		if r.PK == pk {
 			if p.Name != nil {
 				r.Name = *p.Name
+				// Rekey the owner/name index the way the real store's
+				// case-insensitive lookup would re-resolve it.
+				if owner, ok := f.users[r.OwnerPK]; ok {
+					delete(f.repos, key)
+					f.repos[strings.ToLower(owner.Login)+"/"+strings.ToLower(r.Name)] = r
+				}
 			}
 			if p.Description != nil {
 				r.Description = p.Description
@@ -248,6 +271,53 @@ func TestGetRepoVisibility(t *testing.T) {
 	}
 	if _, err := svc.GetRepo(ctx, 10, "octocat", "secret"); err != nil {
 		t.Errorf("private repo (owner) err = %v, want visible", err)
+	}
+}
+
+func TestRenameLeavesRedirect(t *testing.T) {
+	svc, st := newFixture(t)
+	ctx := context.Background()
+
+	// The owner renames hello to greetings: the old name must keep resolving
+	// through RepoRedirect, pointing at the repository under its new name.
+	newName := "greetings"
+	if _, err := svc.UpdateRepo(ctx, 10, "octocat", "hello", RepoPatch{Name: &newName}); err != nil {
+		t.Fatalf("UpdateRepo rename: %v", err)
+	}
+	moved, err := svc.RepoRedirect(ctx, 0, "octocat", "hello")
+	if err != nil {
+		t.Fatalf("RepoRedirect: %v", err)
+	}
+	if moved.Name != "greetings" || moved.Owner.Login != "octocat" {
+		t.Fatalf("redirect resolved to %s/%s, want octocat/greetings", moved.Owner.Login, moved.Name)
+	}
+
+	// A case-only rename records nothing: the direct lookup still hits at any
+	// casing, so a redirect row would only shadow future name reuse.
+	cased := "Greetings"
+	if _, err := svc.UpdateRepo(ctx, 10, "octocat", "greetings", RepoPatch{Name: &cased}); err != nil {
+		t.Fatalf("UpdateRepo case-only rename: %v", err)
+	}
+	if _, ok := st.redirects["octocat/greetings"]; ok {
+		t.Error("case-only rename recorded a redirect")
+	}
+
+	// A redirect to a private repository stays invisible to other viewers:
+	// not found, never a confirming 301.
+	secretName := "classified"
+	if _, err := svc.UpdateRepo(ctx, 10, "octocat", "secret", RepoPatch{Name: &secretName}); err != nil {
+		t.Fatalf("UpdateRepo rename secret: %v", err)
+	}
+	if _, err := svc.RepoRedirect(ctx, 0, "octocat", "secret"); !errors.Is(err, ErrRepoNotFound) {
+		t.Errorf("private redirect (anon) err = %v, want ErrRepoNotFound", err)
+	}
+	if moved, err := svc.RepoRedirect(ctx, 10, "octocat", "secret"); err != nil || moved.Name != "classified" {
+		t.Errorf("private redirect (owner) = %v, %v, want classified", moved, err)
+	}
+
+	// An unknown old name is a plain miss.
+	if _, err := svc.RepoRedirect(ctx, 0, "octocat", "never-existed"); !errors.Is(err, ErrRepoNotFound) {
+		t.Errorf("unknown redirect err = %v, want ErrRepoNotFound", err)
 	}
 }
 

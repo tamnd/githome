@@ -43,6 +43,8 @@ var fixedWhen = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 // the seed produced so the assertions can address them.
 type fixture struct {
 	srv     *httptest.Server
+	repos   *domain.RepoService
+	ownerPK int64
 	owner   string
 	repo    string
 	private string
@@ -114,8 +116,9 @@ func newFixture(t *testing.T) fixture {
 		t.Fatalf("render.New: %v", err)
 	}
 
+	repoSvc := domain.NewRepoService(st, gitStore)
 	h := New(Deps{
-		Repos:  domain.NewRepoService(st, gitStore),
+		Repos:  repoSvc,
 		URLs:   presenter.NewURLBuilder(testURLs(t)),
 		Render: renderSet,
 		View:   view.NewBuilder("Githome"),
@@ -144,7 +147,8 @@ func newFixture(t *testing.T) fixture {
 	t.Cleanup(srv.Close)
 
 	return fixture{
-		srv: srv, owner: "octocat", repo: "hello", private: "secret", blank: "blank",
+		srv: srv, repos: repoSvc, ownerPK: u.PK,
+		owner: "octocat", repo: "hello", private: "secret", blank: "blank",
 		headSHA: head.Commit, branch: head.Name,
 	}
 }
@@ -556,6 +560,47 @@ func TestWrongCasePrivateRepoStays404(t *testing.T) {
 	resp, _ := get(t, fx.srv, "/Octocat/Secret")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("wrong-cased private repo status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestRenamedRepoRedirects renames a repository and checks the old URL 301s to
+// the new home, sub-path and query intact. A fresh repo claiming the old name
+// then shadows the redirect: the direct lookup always wins.
+func TestRenamedRepoRedirects(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	newName := "hi"
+	if _, err := fx.repos.UpdateRepo(ctx, fx.ownerPK, "octocat", "hello", domain.RepoPatch{Name: &newName}); err != nil {
+		t.Fatalf("UpdateRepo: %v", err)
+	}
+
+	cases := []struct{ path, want string }{
+		{"/octocat/hello", "/octocat/hi"},
+		{"/Octocat/Hello/tree/master/docs?x=1", "/octocat/hi/tree/master/docs?x=1"},
+	}
+	for _, tc := range cases {
+		resp, _ := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusMovedPermanently {
+			t.Fatalf("GET %s: status %d, want 301", tc.path, resp.StatusCode)
+		}
+		if loc := resp.Header.Get("Location"); loc != tc.want {
+			t.Errorf("GET %s: Location = %q, want %q", tc.path, loc, tc.want)
+		}
+	}
+
+	// The new name serves directly, no redirect hop.
+	resp, _ := get(t, fx.srv, "/octocat/hi")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /octocat/hi: status %d, want 200", resp.StatusCode)
+	}
+
+	// A new repo taking the vacated name shadows the redirect.
+	if _, err := fx.repos.CreateRepo(ctx, fx.ownerPK, "octocat", domain.RepoInput{Name: "hello"}); err != nil {
+		t.Fatalf("CreateRepo: %v", err)
+	}
+	resp, _ = get(t, fx.srv, "/octocat/hello")
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET /octocat/hello after reclaim: status %d, want 200", resp.StatusCode)
 	}
 }
 

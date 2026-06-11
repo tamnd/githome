@@ -85,6 +85,13 @@ func (h *Handlers) Resolve(next mizu.Handler) mizu.Handler {
 		viewerPK := webmw.ViewerID(ctx)
 		repo, err := h.repos.GetRepo(ctx, viewerPK, c.Param("owner"), c.Param("repo"))
 		if errors.Is(err, domain.ErrRepoNotFound) {
+			// The name may be a rename's old address: the redirect store keeps
+			// old owner/name pairs pointing at the repository they now name.
+			if moved, merr := h.repos.RepoRedirect(ctx, viewerPK, c.Param("owner"), c.Param("repo")); merr == nil {
+				if target, ok := route.CanonicalRepoTarget(c.Request(), c.Param("owner"), c.Param("repo"), repoOwnerLogin(moved), moved.Name); ok {
+					return c.Redirect(http.StatusMovedPermanently, target)
+				}
+			}
 			return h.notFound(c)
 		}
 		if err != nil {
