@@ -28,6 +28,7 @@ func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
 type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
+	CheckRun() CheckRunResolver
 	Commit() CommitResolver
 	Issue() IssueResolver
 	IssueComment() IssueCommentResolver
@@ -37,6 +38,7 @@ type ResolverRoot interface {
 	Query() QueryResolver
 	Repository() RepositoryResolver
 	StatusCheckRollup() StatusCheckRollupResolver
+	StatusContext() StatusContextResolver
 	User() UserResolver
 }
 
@@ -97,14 +99,20 @@ type ComplexityRoot struct {
 	}
 
 	CheckRun struct {
+		CheckSuite  func(childComplexity int) int
 		CompletedAt func(childComplexity int) int
 		Conclusion  func(childComplexity int) int
 		DetailsURL  func(childComplexity int) int
 		ID          func(childComplexity int) int
+		IsRequired  func(childComplexity int, pullRequestID *string) int
 		Name        func(childComplexity int) int
 		StartedAt   func(childComplexity int) int
 		Status      func(childComplexity int) int
 		URL         func(childComplexity int) int
+	}
+
+	CheckSuite struct {
+		WorkflowRun func(childComplexity int) int
 	}
 
 	CloseIssuePayload struct {
@@ -638,12 +646,16 @@ type ComplexityRoot struct {
 
 	StatusCheckRollupContextConnection struct {
 		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
 		TotalCount func(childComplexity int) int
 	}
 
 	StatusContext struct {
+		AvatarURL   func(childComplexity int, size *int32) int
 		Context     func(childComplexity int) int
+		CreatedAt   func(childComplexity int) int
 		Description func(childComplexity int) int
+		IsRequired  func(childComplexity int, pullRequestID *string) int
 		State       func(childComplexity int) int
 		TargetURL   func(childComplexity int) int
 	}
@@ -704,8 +716,21 @@ type ComplexityRoot struct {
 		Nodes      func(childComplexity int) int
 		TotalCount func(childComplexity int) int
 	}
+
+	Workflow struct {
+		Name func(childComplexity int) int
+	}
+
+	WorkflowRun struct {
+		Event    func(childComplexity int) int
+		Workflow func(childComplexity int) int
+	}
 }
 
+type CheckRunResolver interface {
+	CheckSuite(ctx context.Context, obj *gqlmodel.CheckRun) (*CheckSuite, error)
+	IsRequired(ctx context.Context, obj *gqlmodel.CheckRun, pullRequestID *string) (bool, error)
+}
 type CommitResolver interface {
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
@@ -806,6 +831,10 @@ type RepositoryResolver interface {
 }
 type StatusCheckRollupResolver interface {
 	Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*StatusCheckRollupContextConnection, error)
+}
+type StatusContextResolver interface {
+	AvatarURL(ctx context.Context, obj *gqlmodel.StatusContext, size *int32) (*gqlmodel.URI, error)
+	IsRequired(ctx context.Context, obj *gqlmodel.StatusContext, pullRequestID *string) (bool, error)
 }
 type UserResolver interface {
 	Repositories(ctx context.Context, obj *gqlmodel.User, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) (*gqlmodel.RepositoryConnection, error)
@@ -1018,6 +1047,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BranchProtectionRule.RestrictsReviewDismissals(childComplexity), true
 
+	case "CheckRun.checkSuite":
+		if e.ComplexityRoot.CheckRun.CheckSuite == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckRun.CheckSuite(childComplexity), true
 	case "CheckRun.completedAt":
 		if e.ComplexityRoot.CheckRun.CompletedAt == nil {
 			break
@@ -1042,6 +1077,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CheckRun.ID(childComplexity), true
+	case "CheckRun.isRequired":
+		if e.ComplexityRoot.CheckRun.IsRequired == nil {
+			break
+		}
+
+		args, err := ec.field_CheckRun_isRequired_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.CheckRun.IsRequired(childComplexity, args["pullRequestId"].(*string)), true
 	case "CheckRun.name":
 		if e.ComplexityRoot.CheckRun.Name == nil {
 			break
@@ -1066,6 +1112,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CheckRun.URL(childComplexity), true
+
+	case "CheckSuite.workflowRun":
+		if e.ComplexityRoot.CheckSuite.WorkflowRun == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckSuite.WorkflowRun(childComplexity), true
 
 	case "CloseIssuePayload.clientMutationId":
 		if e.ComplexityRoot.CloseIssuePayload.ClientMutationID == nil {
@@ -3396,6 +3449,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StatusCheckRollupContextConnection.Nodes(childComplexity), true
+	case "StatusCheckRollupContextConnection.pageInfo":
+		if e.ComplexityRoot.StatusCheckRollupContextConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StatusCheckRollupContextConnection.PageInfo(childComplexity), true
 	case "StatusCheckRollupContextConnection.totalCount":
 		if e.ComplexityRoot.StatusCheckRollupContextConnection.TotalCount == nil {
 			break
@@ -3403,18 +3462,46 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StatusCheckRollupContextConnection.TotalCount(childComplexity), true
 
+	case "StatusContext.avatarUrl":
+		if e.ComplexityRoot.StatusContext.AvatarURL == nil {
+			break
+		}
+
+		args, err := ec.field_StatusContext_avatarUrl_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.StatusContext.AvatarURL(childComplexity, args["size"].(*int32)), true
 	case "StatusContext.context":
 		if e.ComplexityRoot.StatusContext.Context == nil {
 			break
 		}
 
 		return e.ComplexityRoot.StatusContext.Context(childComplexity), true
+	case "StatusContext.createdAt":
+		if e.ComplexityRoot.StatusContext.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StatusContext.CreatedAt(childComplexity), true
 	case "StatusContext.description":
 		if e.ComplexityRoot.StatusContext.Description == nil {
 			break
 		}
 
 		return e.ComplexityRoot.StatusContext.Description(childComplexity), true
+	case "StatusContext.isRequired":
+		if e.ComplexityRoot.StatusContext.IsRequired == nil {
+			break
+		}
+
+		args, err := ec.field_StatusContext_isRequired_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.StatusContext.IsRequired(childComplexity, args["pullRequestId"].(*string)), true
 	case "StatusContext.state":
 		if e.ComplexityRoot.StatusContext.State == nil {
 			break
@@ -3621,6 +3708,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.UserConnection.TotalCount(childComplexity), true
+
+	case "Workflow.name":
+		if e.ComplexityRoot.Workflow.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Workflow.Name(childComplexity), true
+
+	case "WorkflowRun.event":
+		if e.ComplexityRoot.WorkflowRun.Event == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowRun.Event(childComplexity), true
+	case "WorkflowRun.workflow":
+		if e.ComplexityRoot.WorkflowRun.Workflow == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowRun.Workflow(childComplexity), true
 
 	}
 	return 0, false
@@ -4802,6 +4909,7 @@ type StatusCheckRollup {
 # StatusCheckRollupContextConnection is the connection over check/status contexts.
 type StatusCheckRollupContextConnection {
   nodes: [StatusCheckRollupContext]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
@@ -4819,6 +4927,34 @@ type CheckRun implements Node {
   completedAt: DateTime
   url: URI!
   detailsUrl: URI
+  # checkSuite is the suite grouping this run, carrying the workflow chain
+  # gh pr checks selects. Githome's check runs are not workflow-backed yet,
+  # so it resolves to null.
+  checkSuite: CheckSuite
+  # isRequired is whether branch protection requires this check to pass for
+  # the given pull request. Githome does not model required checks, so it is
+  # always false.
+  isRequired(pullRequestId: ID): Boolean!
+}
+
+# CheckSuite groups the check runs created by one push. The workflow chain
+# exists so gh pr checks' checkSuite { workflowRun { workflow { name } } }
+# selection validates; Githome resolves checkSuite to null until check runs
+# are workflow-backed.
+type CheckSuite {
+  workflowRun: WorkflowRun
+}
+
+# WorkflowRun is one execution of a workflow.
+type WorkflowRun {
+  # event is the webhook event that triggered the run.
+  event: String!
+  workflow: Workflow!
+}
+
+# Workflow is a named automation a repository runs.
+type Workflow {
+  name: String!
 }
 
 # CheckStatusState is the status of a check run.
@@ -4850,6 +4986,13 @@ type StatusContext {
   state: StatusState!
   targetUrl: URI
   description: String
+  createdAt: DateTime!
+  # avatarUrl is the creator's avatar, null when the creator is unknown.
+  avatarUrl(size: Int): URI
+  # isRequired is whether branch protection requires this status for the given
+  # pull request. Githome does not model required statuses, so it is always
+  # false.
+  isRequired(pullRequestId: ID): Boolean!
 }
 
 # PullRequestReviewEvent is the action a submitted review carries.
@@ -5358,6 +5501,14 @@ func (ec *executionContext) childFields_BranchProtectionRule(ctx context.Context
 		return ec.fieldContext_BranchProtectionRule_allowsDeletions(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BranchProtectionRule", field.Name)
+}
+
+func (ec *executionContext) childFields_CheckSuite(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "workflowRun":
+		return ec.fieldContext_CheckSuite_workflowRun(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CheckSuite", field.Name)
 }
 
 func (ec *executionContext) childFields_CloseIssuePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -6328,6 +6479,8 @@ func (ec *executionContext) childFields_StatusCheckRollupContextConnection(ctx c
 	switch field.Name {
 	case "nodes":
 		return ec.fieldContext_StatusCheckRollupContextConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_StatusCheckRollupContextConnection_pageInfo(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_StatusCheckRollupContextConnection_totalCount(ctx, field)
 	}
@@ -6432,6 +6585,24 @@ func (ec *executionContext) childFields_UserConnection(ctx context.Context, fiel
 		return ec.fieldContext_UserConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UserConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_Workflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "name":
+		return ec.fieldContext_Workflow_name(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Workflow", field.Name)
+}
+
+func (ec *executionContext) childFields_WorkflowRun(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "event":
+		return ec.fieldContext_WorkflowRun_event(ctx, field)
+	case "workflow":
+		return ec.fieldContext_WorkflowRun_workflow(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WorkflowRun", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -6549,6 +6720,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_CheckRun_isRequired_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "pullRequestId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["pullRequestId"] = arg0
+	return args, nil
+}
 
 func (ec *executionContext) field_Issue_assignees_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -7778,6 +7963,34 @@ func (ec *executionContext) field_StatusCheckRollup_contexts_args(ctx context.Co
 	return args, nil
 }
 
+func (ec *executionContext) field_StatusContext_avatarUrl_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "size",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["size"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_StatusContext_isRequired_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "pullRequestId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["pullRequestId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_User_repositories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -8853,6 +9066,114 @@ func (ec *executionContext) _CheckRun_detailsUrl(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_CheckRun_detailsUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CheckRun", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _CheckRun_checkSuite(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.CheckRun) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckRun_checkSuite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.CheckRun().CheckSuite(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CheckSuite) graphql.Marshaler {
+			return ec.marshalOCheckSuite2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCheckSuite(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CheckRun_checkSuite(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckRun",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CheckSuite(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckRun_isRequired(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.CheckRun) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckRun_isRequired(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.CheckRun().IsRequired(ctx, obj, fc.Args["pullRequestId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckRun_isRequired(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckRun",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_CheckRun_isRequired_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckSuite_workflowRun(ctx context.Context, field graphql.CollectedField, obj *CheckSuite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckSuite_workflowRun(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WorkflowRun, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowRun) graphql.Marshaler {
+			return ec.marshalOWorkflowRun2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐWorkflowRun(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CheckSuite_workflowRun(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckSuite",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowRun(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _CloseIssuePayload_issue(ctx context.Context, field graphql.CollectedField, obj *CloseIssuePayload) (ret graphql.Marshaler) {
@@ -18421,6 +18742,38 @@ func (ec *executionContext) fieldContext_StatusCheckRollupContextConnection_node
 	return graphql.NewScalarFieldContext("StatusCheckRollupContextConnection", field, false, false, errors.New("field of type StatusCheckRollupContext does not have child fields"))
 }
 
+func (ec *executionContext) _StatusCheckRollupContextConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *StatusCheckRollupContextConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StatusCheckRollupContextConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StatusCheckRollupContextConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusCheckRollupContextConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _StatusCheckRollupContextConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *StatusCheckRollupContextConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -18534,6 +18887,117 @@ func (ec *executionContext) _StatusContext_description(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_StatusContext_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("StatusContext", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _StatusContext_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.StatusContext) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StatusContext_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StatusContext_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StatusContext", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _StatusContext_avatarUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.StatusContext) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StatusContext_avatarUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.StatusContext().AvatarURL(ctx, obj, fc.Args["size"].(*int32))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalOURI2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_StatusContext_avatarUrl(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusContext",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type URI does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_StatusContext_avatarUrl_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StatusContext_isRequired(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.StatusContext) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StatusContext_isRequired(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.StatusContext().IsRequired(ctx, obj, fc.Args["pullRequestId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StatusContext_isRequired(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StatusContext",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_StatusContext_isRequired_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _SubmitPullRequestReviewPayload_pullRequestReview(ctx context.Context, field graphql.CollectedField, obj *SubmitPullRequestReviewPayload) (ret graphql.Marshaler) {
@@ -19317,6 +19781,84 @@ func (ec *executionContext) _UserConnection_totalCount(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_UserConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UserConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Workflow_name(ctx context.Context, field graphql.CollectedField, obj *Workflow) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Workflow_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Workflow_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Workflow", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _WorkflowRun_event(ctx context.Context, field graphql.CollectedField, obj *WorkflowRun) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowRun_event(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Event, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowRun_event(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowRun", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _WorkflowRun_workflow(ctx context.Context, field graphql.CollectedField, obj *WorkflowRun) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowRun_workflow(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Workflow, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Workflow) graphql.Marshaler {
+			return ec.marshalNWorkflow2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐWorkflow(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowRun_workflow(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowRun",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Workflow(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -23217,17 +23759,17 @@ func (ec *executionContext) _CheckRun(ctx context.Context, sel ast.SelectionSet,
 		case "id":
 			out.Values[i] = ec._CheckRun_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._CheckRun_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "status":
 			out.Values[i] = ec._CheckRun_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "conclusion":
 			out.Values[i] = ec._CheckRun_conclusion(ctx, field, obj)
@@ -23238,10 +23780,115 @@ func (ec *executionContext) _CheckRun(ctx context.Context, sel ast.SelectionSet,
 		case "url":
 			out.Values[i] = ec._CheckRun_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "detailsUrl":
 			out.Values[i] = ec._CheckRun_detailsUrl(ctx, field, obj)
+		case "checkSuite":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CheckRun_checkSuite(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "isRequired":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CheckRun_isRequired(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var checkSuiteImplementors = []string{"CheckSuite"}
+
+func (ec *executionContext) _CheckSuite(ctx context.Context, sel ast.SelectionSet, obj *CheckSuite) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkSuiteImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckSuite")
+		case "workflowRun":
+			out.Values[i] = ec._CheckSuite_workflowRun(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -28107,6 +28754,11 @@ func (ec *executionContext) _StatusCheckRollupContextConnection(ctx context.Cont
 			out.Values[i] = graphql.MarshalString("StatusCheckRollupContextConnection")
 		case "nodes":
 			out.Values[i] = ec._StatusCheckRollupContextConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._StatusCheckRollupContextConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "totalCount":
 			out.Values[i] = ec._StatusCheckRollupContextConnection_totalCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -28149,17 +28801,91 @@ func (ec *executionContext) _StatusContext(ctx context.Context, sel ast.Selectio
 		case "context":
 			out.Values[i] = ec._StatusContext_context(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "state":
 			out.Values[i] = ec._StatusContext_state(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "targetUrl":
 			out.Values[i] = ec._StatusContext_targetUrl(ctx, field, obj)
 		case "description":
 			out.Values[i] = ec._StatusContext_description(ctx, field, obj)
+		case "createdAt":
+			out.Values[i] = ec._StatusContext_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "avatarUrl":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._StatusContext_avatarUrl(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "isRequired":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._StatusContext_isRequired(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -28593,6 +29319,89 @@ func (ec *executionContext) _UserConnection(ctx context.Context, sel ast.Selecti
 			out.Values[i] = ec._UserConnection_nodes(ctx, field, obj)
 		case "totalCount":
 			out.Values[i] = ec._UserConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var workflowImplementors = []string{"Workflow"}
+
+func (ec *executionContext) _Workflow(ctx context.Context, sel ast.SelectionSet, obj *Workflow) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, workflowImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Workflow")
+		case "name":
+			out.Values[i] = ec._Workflow_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var workflowRunImplementors = []string{"WorkflowRun"}
+
+func (ec *executionContext) _WorkflowRun(ctx context.Context, sel ast.SelectionSet, obj *WorkflowRun) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, workflowRunImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WorkflowRun")
+		case "event":
+			out.Values[i] = ec._WorkflowRun_event(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "workflow":
+			out.Values[i] = ec._WorkflowRun_workflow(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29820,6 +30629,16 @@ func (ec *executionContext) marshalNUserConnection2ᚖgithubᚗcomᚋtamndᚋgit
 	return ec._UserConnection(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNWorkflow2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐWorkflow(ctx context.Context, sel ast.SelectionSet, v *Workflow) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Workflow(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
 	return ec.___Directive(ctx, sel, &v)
 }
@@ -30089,6 +30908,13 @@ func (ec *executionContext) marshalOCheckConclusionState2ᚖgithubᚗcomᚋtamnd
 	_ = ctx
 	res := graphql.MarshalString(string(*v))
 	return res
+}
+
+func (ec *executionContext) marshalOCheckSuite2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCheckSuite(ctx context.Context, sel ast.SelectionSet, v *CheckSuite) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CheckSuite(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOCloseIssuePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCloseIssuePayload(ctx context.Context, sel ast.SelectionSet, v *CloseIssuePayload) graphql.Marshaler {
@@ -31259,6 +32085,13 @@ func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpre
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOWorkflowRun2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐWorkflowRun(ctx context.Context, sel ast.SelectionSet, v *WorkflowRun) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._WorkflowRun(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

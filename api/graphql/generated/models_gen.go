@@ -136,6 +136,10 @@ type BranchProtectionRuleInput struct {
 	AllowsDeletions              *bool  `json:"allowsDeletions,omitempty"`
 }
 
+type CheckSuite struct {
+	WorkflowRun *WorkflowRun `json:"workflowRun,omitempty"`
+}
+
 type CloseIssueInput struct {
 	IssueID          string                  `json:"issueId"`
 	StateReason      *IssueClosedStateReason `json:"stateReason,omitempty"`
@@ -520,6 +524,7 @@ type SearchResultItemConnection struct {
 
 type StatusCheckRollupContextConnection struct {
 	Nodes      []StatusCheckRollupContext `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo         `json:"pageInfo"`
 	TotalCount int32                      `json:"totalCount"`
 }
 
@@ -620,6 +625,15 @@ type UpdatePullRequestInput struct {
 type UpdatePullRequestPayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
+type Workflow struct {
+	Name string `json:"name"`
+}
+
+type WorkflowRun struct {
+	Event    string    `json:"event"`
+	Workflow *Workflow `json:"workflow"`
 }
 
 type IssueClosedStateReason string

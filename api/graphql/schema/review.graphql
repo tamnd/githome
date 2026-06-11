@@ -80,6 +80,7 @@ type StatusCheckRollup {
 # StatusCheckRollupContextConnection is the connection over check/status contexts.
 type StatusCheckRollupContextConnection {
   nodes: [StatusCheckRollupContext]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
@@ -97,6 +98,34 @@ type CheckRun implements Node {
   completedAt: DateTime
   url: URI!
   detailsUrl: URI
+  # checkSuite is the suite grouping this run, carrying the workflow chain
+  # gh pr checks selects. Githome's check runs are not workflow-backed yet,
+  # so it resolves to null.
+  checkSuite: CheckSuite
+  # isRequired is whether branch protection requires this check to pass for
+  # the given pull request. Githome does not model required checks, so it is
+  # always false.
+  isRequired(pullRequestId: ID): Boolean!
+}
+
+# CheckSuite groups the check runs created by one push. The workflow chain
+# exists so gh pr checks' checkSuite { workflowRun { workflow { name } } }
+# selection validates; Githome resolves checkSuite to null until check runs
+# are workflow-backed.
+type CheckSuite {
+  workflowRun: WorkflowRun
+}
+
+# WorkflowRun is one execution of a workflow.
+type WorkflowRun {
+  # event is the webhook event that triggered the run.
+  event: String!
+  workflow: Workflow!
+}
+
+# Workflow is a named automation a repository runs.
+type Workflow {
+  name: String!
 }
 
 # CheckStatusState is the status of a check run.
@@ -128,6 +157,13 @@ type StatusContext {
   state: StatusState!
   targetUrl: URI
   description: String
+  createdAt: DateTime!
+  # avatarUrl is the creator's avatar, null when the creator is unknown.
+  avatarUrl(size: Int): URI
+  # isRequired is whether branch protection requires this status for the given
+  # pull request. Githome does not model required statuses, so it is always
+  # false.
+  isRequired(pullRequestId: ID): Boolean!
 }
 
 # PullRequestReviewEvent is the action a submitted review carries.

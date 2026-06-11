@@ -122,6 +122,7 @@ type StatusContext struct {
 	State       StatusState // the status state
 	TargetURL   *URI
 	Description *string
+	CreatedAt   DateTime // when the status was first reported
 }
 
 // IsStatusCheckRollupContext marks StatusContext as a union member.

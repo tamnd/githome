@@ -48,16 +48,30 @@ func TestComplexityLimitRejection(t *testing.T) {
 	}
 }
 
-// depth11Query is a valid GraphQL document that nests 12 levels deep by
-// chaining five named fragment spreads on IssueComment. Fragment spread
+// overDepthQuery is a valid GraphQL document that nests 27 levels deep by
+// chaining twenty named fragment spreads on IssueComment. Fragment spread
 // pointers are resolved by the parser so selectionDepth follows them. The
 // path is:
 //
 //	query(0) > repository(1) > issues(2) > nodes(3) > comments(4) >
-//	nodes(5) > ...F1(6) > ...F2(7) > ...F3(8) > ...F4(9) > ...F5(10) >
-//	author(11) > login(12)
-const depth11Query = `
-fragment F5 on IssueComment { author { login } }
+//	nodes(5) > ...F1(6) > ... > ...F20(25) > author(26) > login(27)
+const overDepthQuery = `
+fragment F20 on IssueComment { author { login } }
+fragment F19 on IssueComment { ...F20 }
+fragment F18 on IssueComment { ...F19 }
+fragment F17 on IssueComment { ...F18 }
+fragment F16 on IssueComment { ...F17 }
+fragment F15 on IssueComment { ...F16 }
+fragment F14 on IssueComment { ...F15 }
+fragment F13 on IssueComment { ...F14 }
+fragment F12 on IssueComment { ...F13 }
+fragment F11 on IssueComment { ...F12 }
+fragment F10 on IssueComment { ...F11 }
+fragment F9 on IssueComment { ...F10 }
+fragment F8 on IssueComment { ...F9 }
+fragment F7 on IssueComment { ...F8 }
+fragment F6 on IssueComment { ...F7 }
+fragment F5 on IssueComment { ...F6 }
 fragment F4 on IssueComment { ...F5 }
 fragment F3 on IssueComment { ...F4 }
 fragment F2 on IssueComment { ...F3 }
@@ -79,7 +93,7 @@ fragment F1 on IssueComment { ...F2 }
 
 func TestDepthLimitRejection(t *testing.T) {
 	h := graphql.NewHandler(graphql.Deps{})
-	resp := doGQL(t, h, depth11Query)
+	resp := doGQL(t, h, overDepthQuery)
 	if len(resp.Errors) == 0 {
 		t.Fatal("expected depth error, got none")
 	}
@@ -95,9 +109,9 @@ func TestDepthLimitRejection(t *testing.T) {
 }
 
 func TestDepthWithinLimitPasses(t *testing.T) {
-	// A 7-level query that does not exceed the 10-level limit should not
-	// produce a depth error (it may produce a resolution error since there is
-	// no data, but not a depth error).
+	// A shallow query well under the 25-level limit should not produce a
+	// depth error (it may produce a resolution error since there is no data,
+	// but not a depth error).
 	h := graphql.NewHandler(graphql.Deps{})
 	query := `{ repository(owner:"o",name:"r") { issues { nodes { id title } } } }`
 	resp := doGQL(t, h, query)
