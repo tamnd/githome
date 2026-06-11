@@ -220,8 +220,8 @@ func entryKindIcon(e git.PathEntry) (kind, icon string) {
 // subprocess, not an in-process walk); a path with no history (or an empty repo)
 // yields an absent summary the template hides. F1 reads this synchronously; the
 // lazy per-row cells are a later optimization (implementation/07 section 4.1).
-func (h *Handlers) latestCommit(ctx context.Context, r *domain.Repo, ref, p string) view.CommitSummary {
-	c, ok, err := h.repos.LatestCommit(ctx, r, ref, p)
+func (h *Handlers) latestCommit(ctx context.Context, r *domain.Repo, rev, p string) view.CommitSummary {
+	c, ok, err := h.repos.LatestCommit(ctx, r, rev, p)
 	if err != nil || !ok {
 		return view.CommitSummary{}
 	}
@@ -239,15 +239,17 @@ func (h *Handlers) latestCommit(ctx context.Context, r *domain.Repo, ref, p stri
 // its view model. When a markdown README renders through the markup package, Body
 // carries the trusted GFM HTML and the template shows it; the decoded Source rides
 // along as the escaped fallback for the template (a non-markdown README, or markup
-// unconfigured). A directory with no README, or a README that fails to read, yields
-// nil so the template shows nothing.
-func (h *Handlers) readme(ctx context.Context, r *domain.Repo, ref string, listing []git.PathEntry) *view.ReadmeVM {
+// unconfigured). The content reads at rev, the unambiguous revision; ref is the
+// short name the markup pipeline rewrites relative links against. A directory with
+// no README, or a README that fails to read, yields nil so the template shows
+// nothing.
+func (h *Handlers) readme(ctx context.Context, r *domain.Repo, ref, rev string, listing []git.PathEntry) *view.ReadmeVM {
 	name := preferredReadme(listing)
 	if name == "" {
 		return nil
 	}
 	path := joinPath(currentDir(listing), name)
-	res, err := h.repos.Contents(r, path, ref)
+	res, err := h.repos.Contents(r, path, rev)
 	if err != nil || res.IsDir || res.File == nil {
 		return nil
 	}

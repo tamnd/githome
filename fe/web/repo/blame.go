@@ -21,13 +21,13 @@ func (h *Handlers) Blame(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
-	ref, path, ok := h.resolveRef(repo, h.loadRefs(repo), c.Param("rest"))
+	ref, rev, path, ok := h.resolveRef(repo, h.loadRefs(repo), c.Param("rest"))
 	if !ok || path == "" {
 		return h.notFound(c)
 	}
 	_ = webmw.ViewerID(ctx)
 
-	lines, err := h.repos.Blame(repo, ref, path)
+	lines, err := h.repos.Blame(repo, rev, path)
 	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) || errors.Is(err, domain.ErrBlobTooLarge) {
 		return h.notFound(c)
 	}

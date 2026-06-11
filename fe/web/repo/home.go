@@ -41,7 +41,7 @@ func (h *Handlers) Home(c *mizu.Ctx) error {
 	if err != nil {
 		return err
 	}
-	tree := h.buildTreeFromDir(ctx, repo, h.loadRefs(repo), ref, "", res.Dir, true)
+	tree := h.buildTreeFromDir(ctx, repo, h.loadRefs(repo), ref, "refs/heads/"+head.Name, "", res.Dir, true)
 
 	vm := view.RepoHomeVM{
 		Chrome: h.chrome(c, repo.Name),
@@ -91,9 +91,11 @@ func (h *Handlers) about(repo *domain.Repo) view.AboutVM {
 // listing: the breadcrumb, the ref picker, the latest-commit bar, the sorted
 // entries, and the README if the directory has one. The handler reads Contents
 // once (to tell a tree from a blob) and hands the listing here, so a tree page is
-// one Contents read plus the latest-commit walk. embedded marks the model as
-// rendered inside the home page so the home and tree pages share it.
-func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, refs *refSet, ref view.Ref, p string, dir []git.PathEntry, embedded bool) view.TreeVM {
+// one Contents read plus the latest-commit walk. rev is the unambiguous revision
+// the remaining git reads (latest commit, README) take, while ref.Name stays the
+// short form every link and label shows. embedded marks the model as rendered
+// inside the home page so the home and tree pages share it.
+func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, refs *refSet, ref view.Ref, rev, p string, dir []git.PathEntry, embedded bool) view.TreeVM {
 	return view.TreeVM{
 		Header:    h.header(repo, "code"),
 		Nav:       h.nav(repo, ref.Name),
@@ -102,9 +104,9 @@ func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, refs
 		Path:      p,
 		Crumbs:    breadcrumbs(repo, ref.Name, p, false),
 		RefPicker: h.refPicker(repo, refs, ref.Name, route.KindTree, p),
-		Latest:    h.latestCommit(ctx, repo, ref.Name, p),
+		Latest:    h.latestCommit(ctx, repo, rev, p),
 		Entries:   treeEntries(repo, ref.Name, dir),
-		Readme:    h.readme(ctx, repo, ref.Name, dir),
+		Readme:    h.readme(ctx, repo, ref.Name, rev, dir),
 		Clone:     h.clone(repo),
 		Embedded:  embedded,
 	}

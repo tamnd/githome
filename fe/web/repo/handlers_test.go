@@ -16,6 +16,7 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/go-git/go-billy/v5/util"
@@ -201,7 +202,8 @@ func buildGitFixture(t *testing.T, dir string) {
 	if _, err := wt.Add("big.txt"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig}); err != nil {
+	second, err := wt.Commit("add the guide", &gogit.CommitOptions{Author: sig, Committer: sig})
+	if err != nil {
 		t.Fatalf("second commit: %v", err)
 	}
 	if _, err := r.CreateTag("v0.1.0", first, nil); err != nil {
@@ -209,6 +211,15 @@ func buildGitFixture(t *testing.T, dir string) {
 	}
 	if _, err := r.CreateTag("v1.0.0", first, &gogit.CreateTagOptions{Tagger: sig, Message: "release one"}); err != nil {
 		t.Fatalf("annotated tag: %v", err)
+	}
+	// "dual" is both a branch and a tag, deliberately at different commits: the
+	// branch stays on the first commit (no docs, no big.txt) while the tag sits
+	// on the second, so a test can tell which one a page resolved.
+	if err := r.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName("dual"), first)); err != nil {
+		t.Fatalf("dual branch: %v", err)
+	}
+	if _, err := r.CreateTag("dual", second, nil); err != nil {
+		t.Fatalf("dual tag: %v", err)
 	}
 }
 
@@ -601,6 +612,79 @@ func TestRenamedRepoRedirects(t *testing.T) {
 	resp, _ = get(t, fx.srv, "/octocat/hello")
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("GET /octocat/hello after reclaim: status %d, want 200", resp.StatusCode)
+	}
+}
+
+// TestQualifiedRefsResolve covers the refs/heads, refs/tags, and HEAD forms of
+// a ref-path tail: each must serve the same content the short form does, and a
+// name qualified into the wrong namespace must stay a 404.
+func TestQualifiedRefsResolve(t *testing.T) {
+	fx := newFixture(t)
+	base := "/" + fx.owner + "/" + fx.repo
+
+	ok := []struct{ path, contains string }{
+		{base + "/tree/refs/heads/master", "big.txt"},
+		{base + "/tree/refs/heads/master/docs", "guide.md"},
+		{base + "/blob/refs/heads/master/README.md", "welcome aboard"},
+		{base + "/tree/refs/tags/v1.0.0", "main.go"},
+		{base + "/tree/HEAD", "big.txt"},
+		{base + "/blob/HEAD/docs/guide.md", "guide body"},
+		{base + "/commits/refs/heads/master", "add the guide"},
+	}
+	for _, tc := range ok {
+		resp, body := get(t, fx.srv, tc.path)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: status %d, want 200", tc.path, resp.StatusCode)
+			continue
+		}
+		if !strings.Contains(body, tc.contains) {
+			t.Errorf("GET %s: body is missing %q", tc.path, tc.contains)
+		}
+	}
+
+	for _, path := range []string{
+		base + "/tree/refs/tags/master",  // a branch is not a tag
+		base + "/tree/refs/heads/v1.0.0", // a tag is not a branch
+	} {
+		resp, _ := get(t, fx.srv, path)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s: status %d, want 404", path, resp.StatusCode)
+		}
+	}
+}
+
+// TestBranchBeatsTag pins the precedence for a name that is both a branch and
+// a tag: the bare name serves the branch (github.com's documented order, the
+// opposite of git rev-parse's), and the qualified tag form is how the tag half
+// stays reachable. The fixture's "dual" branch sits on the first commit, which
+// has no docs directory; the "dual" tag sits on the second, which does.
+func TestBranchBeatsTag(t *testing.T) {
+	fx := newFixture(t)
+	base := "/" + fx.owner + "/" + fx.repo
+
+	resp, body := get(t, fx.srv, base+"/tree/dual")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET tree/dual: status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "main.go") {
+		t.Error("tree/dual is missing main.go")
+	}
+	if strings.Contains(body, "guide.md") || strings.Contains(body, "big.txt") {
+		t.Error("tree/dual served the tag's commit, want the branch's")
+	}
+
+	// The second commit's files exist only on the tag, so a blob read through
+	// the bare name must miss while the qualified tag form hits.
+	resp, _ = get(t, fx.srv, base+"/blob/dual/docs/guide.md")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("blob/dual/docs/guide.md: status %d, want 404 (branch has no docs)", resp.StatusCode)
+	}
+	resp, body = get(t, fx.srv, base+"/blob/refs/tags/dual/docs/guide.md")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("blob/refs/tags/dual/docs/guide.md: status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(body, "guide body") {
+		t.Error("qualified tag blob is missing the file body")
 	}
 }
 

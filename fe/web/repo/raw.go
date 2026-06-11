@@ -22,12 +22,12 @@ func (h *Handlers) Raw(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
-	ref, path, ok := h.resolveRef(repo, h.loadRefs(repo), c.Param("rest"))
+	_, rev, path, ok := h.resolveRef(repo, h.loadRefs(repo), c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}
 
-	res, err := h.repos.Contents(repo, path, ref)
+	res, err := h.repos.Contents(repo, path, rev)
 	switch {
 	case errors.Is(err, domain.ErrBlobTooLarge):
 		// The raw view is exactly how a viewer fetches a file too large to render

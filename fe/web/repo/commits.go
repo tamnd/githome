@@ -28,14 +28,14 @@ func (h *Handlers) Commits(c *mizu.Ctx) error {
 		return h.notFound(c)
 	}
 
-	ref, path := h.commitsRef(repo, c.Param("rest"))
+	ref, rev, path := h.commitsRef(repo, c.Param("rest"))
 	if ref == "" {
 		// Empty repo or unknown ref: redirect to the repo home which shows the
 		// quick-setup guide when there are no commits.
 		return c.Redirect(303, route.Repo(ownerLogin(repo), repo.Name))
 	}
 
-	commits, err := h.repos.ListCommits(repo, git.LogOpts{From: ref, Path: path, Max: commitsPerPage})
+	commits, err := h.repos.ListCommits(repo, git.LogOpts{From: rev, Path: path, Max: commitsPerPage})
 	if errors.Is(err, domain.ErrEmptyRepo) || errors.Is(err, domain.ErrGitNotFound) {
 		return h.notFound(c)
 	}
@@ -55,23 +55,24 @@ func (h *Handlers) Commits(c *mizu.Ctx) error {
 	return h.render.Page(c, "repo/commits", vm)
 }
 
-// commitsRef resolves the commits tail into a ref and an optional path. An empty
-// tail defaults to the repository's head branch. A non-empty tail must name a
-// ref; the remainder is the path history filter and need not exist as a current
-// path. A tail that names no ref yields an empty ref, a soft 404.
-func (h *Handlers) commitsRef(repo *domain.Repo, rest string) (ref, path string) {
+// commitsRef resolves the commits tail into a ref, the revision the log walk
+// starts from, and an optional path. An empty tail defaults to the repository's
+// head branch. A non-empty tail must name a ref; the remainder is the path
+// history filter and need not exist as a current path. A tail that names no ref
+// yields an empty ref, a soft 404.
+func (h *Handlers) commitsRef(repo *domain.Repo, rest string) (ref, rev, path string) {
 	if rest == "" {
 		head, err := h.repos.DefaultBranchRef(repo)
 		if err != nil {
-			return "", ""
+			return "", "", ""
 		}
-		return head.Name, ""
+		return head.Name, "refs/heads/" + head.Name, ""
 	}
-	ref, path, ok := route.SplitRefPath(rest, h.refExists(repo, h.loadRefs(repo)))
+	ref, rev, path, ok := h.resolveRef(repo, h.loadRefs(repo), rest)
 	if !ok {
-		return "", ""
+		return "", "", ""
 	}
-	return ref, path
+	return ref, rev, path
 }
 
 // groupCommitsByDate projects a flat commit list into date-headed groups in the

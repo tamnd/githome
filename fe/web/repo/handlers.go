@@ -130,10 +130,17 @@ func (h *Handlers) chrome(c *mizu.Ctx, title string) view.Chrome {
 
 // resolveRef reads the greedy {rest} tail of a tree/blob/raw URL and splits it
 // into a ref and a path, preferring the longest leading segment sequence that
-// names a real ref (a branch named feature/x beats the branch feature). The split
-// is backed by the request's shared ref set through refExists. A tail that names
-// no ref returns ok false, which the caller renders as the soft 404. See
-// implementation/07 section 2.
-func (h *Handlers) resolveRef(repo *domain.Repo, refs *refSet, rest string) (ref, path string, ok bool) {
-	return route.SplitRefPath(rest, h.refExists(repo, refs))
+// names a real ref (a branch named feature/x beats the branch feature), with
+// the branch winning a name that is both a branch and a tag. The split is
+// backed by the request's shared ref set through refLookup, and it accepts
+// the qualified forms (refs/heads/..., refs/tags/...) and HEAD. ref is the
+// short name for display and links; rev is the unambiguous revision the git
+// reads take. A tail that names no ref returns ok false, which the caller
+// renders as the soft 404. See implementation/07 section 2.
+func (h *Handlers) resolveRef(repo *domain.Repo, refs *refSet, rest string) (ref, rev, path string, ok bool) {
+	ref, kind, path, ok := route.SplitRefPath(rest, refLookup{h: h, repo: repo, refs: refs})
+	if !ok {
+		return "", "", "", false
+	}
+	return ref, gitRev(ref, kind), path, true
 }
