@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/tamnd/githome/store"
@@ -36,6 +37,7 @@ type Runtime struct {
 	log      *slog.Logger
 	handlers map[string]Handler
 	idle     time.Duration
+	workers  int
 }
 
 // NewRuntime builds a Runtime over the store. idle is how long Run waits before
@@ -57,10 +59,45 @@ func (r *Runtime) Register(kind string, h Handler) {
 	r.handlers[kind] = h
 }
 
+// SetWorkers sets how many claim loops Run drives. One slow handler (a webhook
+// delivery waiting out a dead endpoint) used to head-of-line-block every other
+// job; with n loops the queue keeps moving around it. Values below one are
+// treated as one. Jobs may run concurrently and so may two deliveries to the
+// same hook, which matches the at-least-once, unordered contract the retry
+// path already imposes on consumers.
+func (r *Runtime) SetWorkers(n int) {
+	if n < 1 {
+		n = 1
+	}
+	r.workers = n
+}
+
 // Run drains the queue until ctx is canceled, sleeping idle between polls when
 // it finds nothing to do. It returns ctx.Err() on cancellation, the normal way
-// a graceful shutdown ends it.
+// a graceful shutdown ends it. With SetWorkers above one it drives that many
+// claim loops; the store's atomic claim keeps them off each other's jobs.
 func (r *Runtime) Run(ctx context.Context) error {
+	n := r.workers
+	if n < 1 {
+		n = 1
+	}
+	if n == 1 {
+		return r.runLoop(ctx)
+	}
+	var wg sync.WaitGroup
+	for range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = r.runLoop(ctx)
+		}()
+	}
+	wg.Wait()
+	return ctx.Err()
+}
+
+// runLoop is one claim-run-settle loop, the body Run fans out.
+func (r *Runtime) runLoop(ctx context.Context) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
