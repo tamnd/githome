@@ -190,6 +190,10 @@ func (f *fakeRepoStore) UpdateRepo(_ context.Context, pk int64, p store.RepoPatc
 	return nil, store.ErrNotFound
 }
 
+func (f *fakeRepoStore) CollaboratorByRepo(_ context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error) {
+	return nil, store.ErrNotFound
+}
+
 func (f *fakeRepoStore) CountForks(_ context.Context, pk int64) (int64, error) {
 	var n int64
 	for _, r := range f.repos {

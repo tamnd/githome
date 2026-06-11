@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -25,12 +26,17 @@ func handleRepoGet(d Deps) mizu.Handler {
 		if repo == nil {
 			return err
 		}
-		actor := auth.ActorFrom(c.Request().Context())
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
 		det, err := repoDetail(d, c, repo)
 		if err != nil {
 			return err
 		}
-		body := d.URLs.RepositoryFull(repo, d.NodeFormat, repoPermissions(actor, repo), det)
+		perm, err := repoPermissions(ctx, d, actor, repo)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.RepositoryFull(repo, d.NodeFormat, perm, det)
 		tag := etag.Version("repo", repo.ID, repo.UpdatedAt.UnixNano())
 		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, body, tag)
 		return nil
@@ -499,17 +505,45 @@ func loadRepo(d Deps, c *mizu.Ctx) (*domain.Repo, error) {
 	return repo, nil
 }
 
-// repoPermissions returns the actor's effective permission block: all-true for
-// the owner, pull-only for any other authenticated user, and nil (omitted) for
-// an anonymous caller.
-func repoPermissions(actor *auth.Actor, repo *domain.Repo) *restmodel.RepoPermissions {
+// repoPermissions resolves the actor's effective permission block through the
+// owner and collaborator grants: all-true for the owner, the granted role
+// expanded for a collaborator, pull-only for any other authenticated viewer,
+// and nil (omitted) for an anonymous caller.
+func repoPermissions(ctx context.Context, d Deps, actor *auth.Actor, repo *domain.Repo) (*restmodel.RepoPermissions, error) {
 	if actor == nil || !actor.IsUser() {
+		return nil, nil
+	}
+	role, err := d.Repos.RepoPermission(ctx, actor.UserID, repo)
+	if err != nil {
+		return nil, err
+	}
+	return permissionBlock(role), nil
+}
+
+// permissionBlock expands a role name into GitHub's permission booleans; each
+// role implies everything below it (admin > maintain > push > triage > pull).
+// An empty or unknown role yields nil, omitting the block.
+func permissionBlock(role string) *restmodel.RepoPermissions {
+	p := &restmodel.RepoPermissions{}
+	switch role {
+	case "admin":
+		p.Admin = true
+		fallthrough
+	case "maintain":
+		p.Maintain = true
+		fallthrough
+	case "push":
+		p.Push = true
+		fallthrough
+	case "triage":
+		p.Triage = true
+		fallthrough
+	case "pull":
+		p.Pull = true
+	default:
 		return nil
 	}
-	if actor.UserID == repo.OwnerPK {
-		return presenter.OwnerPermissions()
-	}
-	return presenter.ReadPermissions()
+	return p
 }
 
 // gitNotFound reports whether err is a git lookup that should surface as a 404:

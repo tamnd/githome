@@ -59,6 +59,7 @@ type RepoStore interface {
 	SoftDeleteRepo(ctx context.Context, pk int64) error
 	CountForks(ctx context.Context, pk int64) (int64, error)
 	ForksOf(ctx context.Context, pk int64) ([]*store.RepoRow, error)
+	CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
 	InsertEvent(ctx context.Context, e *store.EventRow) error
@@ -94,7 +95,11 @@ func (s *RepoService) GetRepo(ctx context.Context, viewerPK int64, owner, name s
 	if err != nil {
 		return nil, err
 	}
-	if !canSee(row, viewerPK) {
+	visible, err := s.viewerCanSee(ctx, row, viewerPK)
+	if err != nil {
+		return nil, err
+	}
+	if !visible {
 		return nil, ErrRepoNotFound
 	}
 	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
@@ -120,7 +125,11 @@ func (s *RepoService) GetRepoByID(ctx context.Context, viewerPK, dbID int64) (*R
 	if err != nil {
 		return nil, err
 	}
-	if !canSee(row, viewerPK) {
+	visible, err := s.viewerCanSee(ctx, row, viewerPK)
+	if err != nil {
+		return nil, err
+	}
+	if !visible {
 		return nil, ErrRepoNotFound
 	}
 	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
@@ -144,7 +153,11 @@ func (s *RepoService) GetRepoByPK(ctx context.Context, viewerPK, repoPK int64) (
 	if err != nil {
 		return nil, err
 	}
-	if !canSee(row, viewerPK) {
+	visible, err := s.viewerCanSee(ctx, row, viewerPK)
+	if err != nil {
+		return nil, err
+	}
+	if !visible {
 		return nil, ErrRepoNotFound
 	}
 	ownerRow, err := s.store.UserByPK(ctx, row.OwnerPK)
@@ -806,12 +819,63 @@ func (s *RepoService) open(repo *Repo) (*git.Repo, error) {
 	return gr, nil
 }
 
-// canSee reports whether the viewer may see the repository. Public repositories
-// are visible to everyone; a private repository is visible only to its owner.
-// Finer-grained collaborator and organization access arrives with its
-// milestone.
+// canSee reports whether the viewer may see the repository on ownership
+// alone. Public repositories are visible to everyone; a private repository is
+// visible to its owner. The point lookups go through viewerCanSee, which also
+// admits collaborators; this cheap check keeps the list filters query-free.
 func canSee(row *store.RepoRow, viewerPK int64) bool {
 	return !row.Private || (viewerPK != 0 && viewerPK == row.OwnerPK)
+}
+
+// viewerCanSee is canSee plus the collaborator grants: a private repository
+// is visible to anyone with a collaborator row, whatever the permission
+// level.
+func (s *RepoService) viewerCanSee(ctx context.Context, row *store.RepoRow, viewerPK int64) (bool, error) {
+	if canSee(row, viewerPK) {
+		return true, nil
+	}
+	if viewerPK == 0 {
+		return false, nil
+	}
+	_, err := s.store.CollaboratorByRepo(ctx, row.PK, viewerPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// RepoPermission resolves the viewer's effective role on repo: "admin" for
+// the owner, the collaborator grant otherwise (the legacy "read"/"write"
+// names normalize to pull/push), and "pull" for any other viewer the
+// repository is visible to. An empty role means no access.
+func (s *RepoService) RepoPermission(ctx context.Context, viewerPK int64, repo *Repo) (string, error) {
+	if viewerPK == 0 {
+		return "", nil
+	}
+	if viewerPK == repo.OwnerPK {
+		return "admin", nil
+	}
+	c, err := s.store.CollaboratorByRepo(ctx, repo.PK, viewerPK)
+	if err == nil {
+		switch c.Permission {
+		case "read":
+			return "pull", nil
+		case "write":
+			return "push", nil
+		default:
+			return c.Permission, nil
+		}
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return "", err
+	}
+	if repo.Private {
+		return "", nil
+	}
+	return "pull", nil
 }
 
 // gitErr maps the git layer's sentinels to the domain's. A never-initialized or

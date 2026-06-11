@@ -81,7 +81,11 @@ func handlePublicUserRepos(d Deps) mizu.Handler {
 		repos = paginateSlice(&page, repos)
 		out := make([]any, 0, len(repos))
 		for _, r := range repos {
-			out = append(out, d.URLs.Repository(r, d.NodeFormat, repoPermissions(actor, r)))
+			perm, err := repoPermissions(ctx, d, actor, r)
+			if err != nil {
+				return err
+			}
+			out = append(out, d.URLs.Repository(r, d.NodeFormat, perm))
 		}
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
@@ -282,7 +286,11 @@ func handleOrgReposList(d Deps) mizu.Handler {
 		repos = paginateSlice(&page, repos)
 		out := make([]any, 0, len(repos))
 		for _, r := range repos {
-			out = append(out, d.URLs.Repository(r, d.NodeFormat, repoPermissions(actor, r)))
+			perm, err := repoPermissions(ctx, d, actor, r)
+			if err != nil {
+				return err
+			}
+			out = append(out, d.URLs.Repository(r, d.NodeFormat, perm))
 		}
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
