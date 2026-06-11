@@ -188,6 +188,69 @@
   border: 0;
 }
 
+/* The keycap element the sanitizer lets through: a small raised chip with the
+   keyboard shadow, GitHub's rendering of <kbd>Enter</kbd>. */
+.markdown-body kbd {
+  display: inline-block;
+  padding: var(--base-size-4);
+  font-family: var(--fontStack-monospace);
+  font-size: 11px;
+  line-height: 10px;
+  color: var(--fgColor-default);
+  vertical-align: middle;
+  background-color: var(--bgColor-muted);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  box-shadow: inset 0 -1px 0 var(--borderColor-default);
+}
+
+/* Collapsible sections. The summary reads as the clickable affordance and the
+   open state separates the revealed body from the next block. */
+.markdown-body details {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body details summary {
+  cursor: pointer;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown-body details[open] summary {
+  margin-bottom: var(--base-size-16);
+}
+
+.markdown-body del {
+  color: var(--fgColor-muted);
+}
+
+/* Definition lists, the GFM-adjacent element the sanitizer admits. */
+.markdown-body dl {
+  padding: 0;
+}
+
+.markdown-body dl dt {
+  padding: var(--base-size-16) 0 var(--base-size-8);
+  font-size: 1em;
+  font-style: italic;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+.markdown-body dl dd {
+  padding: 0 var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+  margin-left: 0;
+}
+
+/* Custom emoji arrive as images; they must sit on the text line at glyph size
+   with no background, the same as a unicode emoji would. */
+.markdown-body img.emoji {
+  width: 20px;
+  height: 20px;
+  vertical-align: text-bottom;
+  background-color: transparent;
+  box-sizing: border-box;
+}
+
 /* Task lists: the renderer marks the list and each checkbox item so the bullet
    is dropped and the checkbox aligns with the text. */
 .markdown-body .contains-task-list {
