@@ -173,7 +173,9 @@
   box-shadow: 0 0 0 1px var(--bgColor-neutral-muted);
 }
 
-/* Buttons. */
+/* Buttons. The default button reads the control ramp so rest, hover, and
+   active are three visibly distinct steps in every theme; bgColor-subtle is
+   the same value as the muted rest face and hid the hover entirely. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -184,14 +186,18 @@
   line-height: 20px;
   color: var(--fgColor-default);
   cursor: pointer;
-  background-color: var(--bgColor-muted);
+  background-color: var(--control-bgColor-rest);
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
 }
 
 .btn:hover {
   text-decoration: none;
-  background-color: var(--bgColor-subtle);
+  background-color: var(--control-bgColor-hover);
+}
+
+.btn:active {
+  background-color: var(--control-bgColor-active);
 }
 
 .btn-sm {
@@ -200,15 +206,22 @@
   line-height: 18px;
 }
 
+/* The primary button has its own component tokens: the green follows the
+   theme's success role (the color vision themes move it off green), and the
+   border is a translucent ink wash instead of the gray hairline that read as
+   a dirty edge on the green face. */
 .btn-primary {
-  color: var(--fgColor-onEmphasis);
-  background-color: var(--bgColor-success-emphasis);
-  border-color: var(--borderColor-default);
+  color: var(--button-primary-fgColor-rest);
+  background-color: var(--button-primary-bgColor-rest);
+  border-color: var(--button-primary-borderColor-rest);
 }
 
 .btn-primary:hover {
-  background-color: var(--bgColor-success-emphasis);
-  filter: brightness(0.96);
+  background-color: var(--button-primary-bgColor-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--button-primary-bgColor-active);
 }
 
 .btn-danger {

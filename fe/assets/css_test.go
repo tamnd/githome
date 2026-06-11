@@ -87,6 +87,37 @@ func TestUnderlineNavReadsItsTokens(t *testing.T) {
 	}
 }
 
+// TestButtonsReadControlTokens guards review 02 tasks R02-15 and R02-16. The
+// default button hover was a no-op (bgColor-subtle equals the muted rest
+// face) and the primary button faked its hover with a brightness filter over
+// a role token. Both must read their control and button component tokens so
+// every theme gets distinct rest, hover, and active steps.
+func TestButtonsReadControlTokens(t *testing.T) {
+	src, err := os.ReadFile("src/css/components.css")
+	if err != nil {
+		t.Fatalf("read components.css: %v", err)
+	}
+	checks := map[string]string{
+		".btn":                "var(--control-bgColor-rest)",
+		".btn:hover":          "var(--control-bgColor-hover)",
+		".btn:active":         "var(--control-bgColor-active)",
+		".btn-primary":        "var(--button-primary-bgColor-rest)",
+		".btn-primary:hover":  "var(--button-primary-bgColor-hover)",
+		".btn-primary:active": "var(--button-primary-bgColor-active)",
+	}
+	for sel, want := range checks {
+		if body := ruleBody(t, string(src), sel); !strings.Contains(body, want) {
+			t.Errorf("%s must read %s:\n%s", sel, want, body)
+		}
+	}
+	if body := ruleBody(t, string(src), ".btn-primary"); !strings.Contains(body, "var(--button-primary-borderColor-rest)") {
+		t.Errorf(".btn-primary must use the translucent component border:\n%s", body)
+	}
+	if body := ruleBody(t, string(src), ".btn-primary:hover"); strings.Contains(body, "filter") {
+		t.Errorf(".btn-primary:hover must not fake the hover with a filter:\n%s", body)
+	}
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string
