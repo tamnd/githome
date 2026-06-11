@@ -242,6 +242,12 @@ extend type Mutation {
   enablePullRequestAutoMerge(input: EnablePullRequestAutoMergeInput!): EnablePullRequestAutoMergePayload
   # updatePullRequest edits a pull request's metadata.
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  # closePullRequest closes a pull request without merging. gh pr close sends
+  # this with no REST fallback.
+  closePullRequest(input: ClosePullRequestInput!): ClosePullRequestPayload
+  # reopenPullRequest reopens a closed, unmerged pull request. gh pr reopen
+  # sends this with no REST fallback.
+  reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   # requestReviews adds or removes review requests on a pull request.
   requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
   # convertPullRequestToDraft converts a pull request to a draft.
@@ -312,6 +318,26 @@ input UpdatePullRequestInput {
 }
 
 type UpdatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ClosePullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ClosePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ReopenPullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ReopenPullRequestPayload {
   pullRequest: PullRequest
   clientMutationId: String
 }

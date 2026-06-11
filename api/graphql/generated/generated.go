@@ -112,6 +112,11 @@ type ComplexityRoot struct {
 		Issue            func(childComplexity int) int
 	}
 
+	ClosePullRequestPayload struct {
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
+	}
+
 	Commit struct {
 		Message           func(childComplexity int) int
 		MessageHeadline   func(childComplexity int) int
@@ -292,6 +297,7 @@ type ComplexityRoot struct {
 		AddPullRequestReview          func(childComplexity int, input AddPullRequestReviewInput) int
 		AddPullRequestReviewComment   func(childComplexity int, input AddPullRequestReviewCommentInput) int
 		CloseIssue                    func(childComplexity int, input CloseIssueInput) int
+		ClosePullRequest              func(childComplexity int, input ClosePullRequestInput) int
 		ConvertPullRequestToDraft     func(childComplexity int, input ConvertPullRequestToDraftInput) int
 		CreateBranchProtectionRule    func(childComplexity int, input CreateBranchProtectionRuleInput) int
 		CreateIssue                   func(childComplexity int, input CreateIssueInput) int
@@ -309,6 +315,7 @@ type ComplexityRoot struct {
 		RemoveAssigneesFromAssignable func(childComplexity int, input RemoveAssigneesFromAssignableInput) int
 		RemoveLabelsFromLabelable     func(childComplexity int, input RemoveLabelsFromLabelableInput) int
 		ReopenIssue                   func(childComplexity int, input ReopenIssueInput) int
+		ReopenPullRequest             func(childComplexity int, input ReopenPullRequestInput) int
 		RequestReviews                func(childComplexity int, input RequestReviewsInput) int
 		ResolveReviewThread           func(childComplexity int, input ResolveReviewThreadInput) int
 		SubmitPullRequestReview       func(childComplexity int, input SubmitPullRequestReviewInput) int
@@ -546,6 +553,11 @@ type ComplexityRoot struct {
 		Issue            func(childComplexity int) int
 	}
 
+	ReopenPullRequestPayload struct {
+		ClientMutationID func(childComplexity int) int
+		PullRequest      func(childComplexity int) int
+	}
+
 	Repository struct {
 		AutoMergeAllowed   func(childComplexity int) int
 		CreatedAt          func(childComplexity int) int
@@ -727,6 +739,8 @@ type MutationResolver interface {
 	MergePullRequest(ctx context.Context, input MergePullRequestInput) (*MergePullRequestPayload, error)
 	EnablePullRequestAutoMerge(ctx context.Context, input EnablePullRequestAutoMergeInput) (*EnablePullRequestAutoMergePayload, error)
 	UpdatePullRequest(ctx context.Context, input UpdatePullRequestInput) (*UpdatePullRequestPayload, error)
+	ClosePullRequest(ctx context.Context, input ClosePullRequestInput) (*ClosePullRequestPayload, error)
+	ReopenPullRequest(ctx context.Context, input ReopenPullRequestInput) (*ReopenPullRequestPayload, error)
 	RequestReviews(ctx context.Context, input RequestReviewsInput) (*RequestReviewsPayload, error)
 	ConvertPullRequestToDraft(ctx context.Context, input ConvertPullRequestToDraftInput) (*ConvertPullRequestToDraftPayload, error)
 	MarkPullRequestReadyForReview(ctx context.Context, input MarkPullRequestReadyForReviewInput) (*MarkPullRequestReadyForReviewPayload, error)
@@ -1065,6 +1079,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CloseIssuePayload.Issue(childComplexity), true
+
+	case "ClosePullRequestPayload.clientMutationId":
+		if e.ComplexityRoot.ClosePullRequestPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ClosePullRequestPayload.ClientMutationID(childComplexity), true
+	case "ClosePullRequestPayload.pullRequest":
+		if e.ComplexityRoot.ClosePullRequestPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ClosePullRequestPayload.PullRequest(childComplexity), true
 
 	case "Commit.message":
 		if e.ComplexityRoot.Commit.Message == nil {
@@ -1731,6 +1758,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CloseIssue(childComplexity, args["input"].(CloseIssueInput)), true
+	case "Mutation.closePullRequest":
+		if e.ComplexityRoot.Mutation.ClosePullRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_closePullRequest_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ClosePullRequest(childComplexity, args["input"].(ClosePullRequestInput)), true
 	case "Mutation.convertPullRequestToDraft":
 		if e.ComplexityRoot.Mutation.ConvertPullRequestToDraft == nil {
 			break
@@ -1918,6 +1956,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ReopenIssue(childComplexity, args["input"].(ReopenIssueInput)), true
+	case "Mutation.reopenPullRequest":
+		if e.ComplexityRoot.Mutation.ReopenPullRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_reopenPullRequest_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ReopenPullRequest(childComplexity, args["input"].(ReopenPullRequestInput)), true
 	case "Mutation.requestReviews":
 		if e.ComplexityRoot.Mutation.RequestReviews == nil {
 			break
@@ -2961,6 +3010,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ReopenIssuePayload.Issue(childComplexity), true
 
+	case "ReopenPullRequestPayload.clientMutationId":
+		if e.ComplexityRoot.ReopenPullRequestPayload.ClientMutationID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReopenPullRequestPayload.ClientMutationID(childComplexity), true
+	case "ReopenPullRequestPayload.pullRequest":
+		if e.ComplexityRoot.ReopenPullRequestPayload.PullRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReopenPullRequestPayload.PullRequest(childComplexity), true
+
 	case "Repository.autoMergeAllowed":
 		if e.ComplexityRoot.Repository.AutoMergeAllowed == nil {
 			break
@@ -3575,6 +3637,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputAddPullRequestReviewInput,
 		ec.unmarshalInputBranchProtectionRuleInput,
 		ec.unmarshalInputCloseIssueInput,
+		ec.unmarshalInputClosePullRequestInput,
 		ec.unmarshalInputConvertPullRequestToDraftInput,
 		ec.unmarshalInputCreateBranchProtectionRuleInput,
 		ec.unmarshalInputCreateIssueInput,
@@ -3596,6 +3659,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputRemoveAssigneesFromAssignableInput,
 		ec.unmarshalInputRemoveLabelsFromLabelableInput,
 		ec.unmarshalInputReopenIssueInput,
+		ec.unmarshalInputReopenPullRequestInput,
 		ec.unmarshalInputRepositoryOrder,
 		ec.unmarshalInputRequestReviewsInput,
 		ec.unmarshalInputResolveReviewThreadInput,
@@ -3965,6 +4029,11 @@ input CreateIssueInput {
   repositoryId: ID!
   title: String!
   body: String
+  # assigneeIds, labelIds, and milestoneId attach metadata at creation; gh
+  # issue create --assignee/--label/--milestone sends them in this input.
+  assigneeIds: [ID!]
+  labelIds: [ID!]
+  milestoneId: ID
   clientMutationId: String
 }
 
@@ -4384,6 +4453,12 @@ extend type Mutation {
   enablePullRequestAutoMerge(input: EnablePullRequestAutoMergeInput!): EnablePullRequestAutoMergePayload
   # updatePullRequest edits a pull request's metadata.
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  # closePullRequest closes a pull request without merging. gh pr close sends
+  # this with no REST fallback.
+  closePullRequest(input: ClosePullRequestInput!): ClosePullRequestPayload
+  # reopenPullRequest reopens a closed, unmerged pull request. gh pr reopen
+  # sends this with no REST fallback.
+  reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   # requestReviews adds or removes review requests on a pull request.
   requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
   # convertPullRequestToDraft converts a pull request to a draft.
@@ -4454,6 +4529,26 @@ input UpdatePullRequestInput {
 }
 
 type UpdatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ClosePullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ClosePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ReopenPullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ReopenPullRequestPayload {
   pullRequest: PullRequest
   clientMutationId: String
 }
@@ -5275,6 +5370,16 @@ func (ec *executionContext) childFields_CloseIssuePayload(ctx context.Context, f
 	return nil, fmt.Errorf("no field named %q was found under type CloseIssuePayload", field.Name)
 }
 
+func (ec *executionContext) childFields_ClosePullRequestPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_ClosePullRequestPayload_pullRequest(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_ClosePullRequestPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ClosePullRequestPayload", field.Name)
+}
+
 func (ec *executionContext) childFields_Commit(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "oid":
@@ -6053,6 +6158,16 @@ func (ec *executionContext) childFields_ReopenIssuePayload(ctx context.Context, 
 	return nil, fmt.Errorf("no field named %q was found under type ReopenIssuePayload", field.Name)
 }
 
+func (ec *executionContext) childFields_ReopenPullRequestPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "pullRequest":
+		return ec.fieldContext_ReopenPullRequestPayload_pullRequest(ctx, field)
+	case "clientMutationId":
+		return ec.fieldContext_ReopenPullRequestPayload_clientMutationId(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ReopenPullRequestPayload", field.Name)
+}
+
 func (ec *executionContext) childFields_Repository(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -6623,6 +6738,20 @@ func (ec *executionContext) field_Mutation_closeIssue_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_closePullRequest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (ClosePullRequestInput, error) {
+			return ec.unmarshalNClosePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐClosePullRequestInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_convertPullRequestToDraft_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -6853,6 +6982,20 @@ func (ec *executionContext) field_Mutation_reopenIssue_args(ctx context.Context,
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (ReopenIssueInput, error) {
 			return ec.unmarshalNReopenIssueInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenIssueInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_reopenPullRequest_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (ReopenPullRequestInput, error) {
+			return ec.unmarshalNReopenPullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenPullRequestInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -8765,6 +8908,61 @@ func (ec *executionContext) _CloseIssuePayload_clientMutationId(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_CloseIssuePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CloseIssuePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ClosePullRequestPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *ClosePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ClosePullRequestPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ClosePullRequestPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClosePullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClosePullRequestPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *ClosePullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ClosePullRequestPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ClosePullRequestPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ClosePullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Commit_oid(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
@@ -11917,6 +12115,94 @@ func (ec *executionContext) fieldContext_Mutation_updatePullRequest(ctx context.
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_updatePullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_closePullRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_closePullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ClosePullRequest(ctx, fc.Args["input"].(ClosePullRequestInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ClosePullRequestPayload) graphql.Marshaler {
+			return ec.marshalOClosePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐClosePullRequestPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_closePullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ClosePullRequestPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_closePullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_reopenPullRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_reopenPullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ReopenPullRequest(ctx, fc.Args["input"].(ReopenPullRequestInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ReopenPullRequestPayload) graphql.Marshaler {
+			return ec.marshalOReopenPullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenPullRequestPayload(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_reopenPullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ReopenPullRequestPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_reopenPullRequest_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -16569,6 +16855,61 @@ func (ec *executionContext) fieldContext_ReopenIssuePayload_clientMutationId(_ c
 	return graphql.NewScalarFieldContext("ReopenIssuePayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _ReopenPullRequestPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *ReopenPullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReopenPullRequestPayload_pullRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PullRequest) graphql.Marshaler {
+			return ec.marshalOPullRequest2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPullRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ReopenPullRequestPayload_pullRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ReopenPullRequestPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PullRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ReopenPullRequestPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *ReopenPullRequestPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReopenPullRequestPayload_clientMutationId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ClientMutationID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ReopenPullRequestPayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ReopenPullRequestPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Repository_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Repository) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20492,6 +20833,43 @@ func (ec *executionContext) unmarshalInputCloseIssueInput(ctx context.Context, o
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputClosePullRequestInput(ctx context.Context, obj any) (ClosePullRequestInput, error) {
+	var it ClosePullRequestInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputConvertPullRequestToDraftInput(ctx context.Context, obj any) (ConvertPullRequestToDraftInput, error) {
 	var it ConvertPullRequestToDraftInput
 	if obj == nil {
@@ -20661,7 +21039,7 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"repositoryId", "title", "body", "clientMutationId"}
+	fieldsInOrder := [...]string{"repositoryId", "title", "body", "assigneeIds", "labelIds", "milestoneId", "clientMutationId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -20689,6 +21067,27 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.Body = data
+		case "assigneeIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assigneeIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AssigneeIds = data
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = data
+		case "milestoneId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestoneId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MilestoneID = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -21593,6 +21992,43 @@ func (ec *executionContext) unmarshalInputReopenIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.IssueID = data
+		case "clientMutationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ClientMutationID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputReopenPullRequestInput(ctx context.Context, obj any) (ReopenPullRequestInput, error) {
+	var it ReopenPullRequestInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"pullRequestId", "clientMutationId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "pullRequestId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pullRequestId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PullRequestID = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -22844,6 +23280,44 @@ func (ec *executionContext) _CloseIssuePayload(ctx context.Context, sel ast.Sele
 			out.Values[i] = ec._CloseIssuePayload_issue(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._CloseIssuePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var closePullRequestPayloadImplementors = []string{"ClosePullRequestPayload"}
+
+func (ec *executionContext) _ClosePullRequestPayload(ctx context.Context, sel ast.SelectionSet, obj *ClosePullRequestPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, closePullRequestPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ClosePullRequestPayload")
+		case "pullRequest":
+			out.Values[i] = ec._ClosePullRequestPayload_pullRequest(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._ClosePullRequestPayload_clientMutationId(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -24471,6 +24945,14 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "updatePullRequest":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updatePullRequest(ctx, field)
+			})
+		case "closePullRequest":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_closePullRequest(ctx, field)
+			})
+		case "reopenPullRequest":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_reopenPullRequest(ctx, field)
 			})
 		case "requestReviews":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -26751,6 +27233,44 @@ func (ec *executionContext) _ReopenIssuePayload(ctx context.Context, sel ast.Sel
 	return out
 }
 
+var reopenPullRequestPayloadImplementors = []string{"ReopenPullRequestPayload"}
+
+func (ec *executionContext) _ReopenPullRequestPayload(ctx context.Context, sel ast.SelectionSet, obj *ReopenPullRequestPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, reopenPullRequestPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ReopenPullRequestPayload")
+		case "pullRequest":
+			out.Values[i] = ec._ReopenPullRequestPayload_pullRequest(ctx, field, obj)
+		case "clientMutationId":
+			out.Values[i] = ec._ReopenPullRequestPayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var repositoryImplementors = []string{"Repository", "Node", "SearchResultItem"}
 
 func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Repository) graphql.Marshaler {
@@ -28497,6 +29017,11 @@ func (ec *executionContext) unmarshalNCloseIssueInput2githubᚗcomᚋtamndᚋgit
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNClosePullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐClosePullRequestInput(ctx context.Context, v any) (ClosePullRequestInput, error) {
+	res, err := ec.unmarshalInputClosePullRequestInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCommentAuthorAssociation2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommentAuthorAssociation(ctx context.Context, v any) (gqlmodel.CommentAuthorAssociation, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := gqlmodel.CommentAuthorAssociation(tmp)
@@ -29083,6 +29608,11 @@ func (ec *executionContext) unmarshalNReopenIssueInput2githubᚗcomᚋtamndᚋgi
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNReopenPullRequestInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenPullRequestInput(ctx context.Context, v any) (ReopenPullRequestInput, error) {
+	res, err := ec.unmarshalInputReopenPullRequestInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNRepositoryAffiliation2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryAffiliation(ctx context.Context, v any) (RepositoryAffiliation, error) {
 	var res RepositoryAffiliation
 	err := res.UnmarshalGQL(v)
@@ -29566,6 +30096,13 @@ func (ec *executionContext) marshalOCloseIssuePayload2ᚖgithubᚗcomᚋtamndᚋ
 		return graphql.Null
 	}
 	return ec._CloseIssuePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOClosePullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐClosePullRequestPayload(ctx context.Context, sel ast.SelectionSet, v *ClosePullRequestPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._ClosePullRequestPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Commit) graphql.Marshaler {
@@ -30388,6 +30925,13 @@ func (ec *executionContext) marshalOReopenIssuePayload2ᚖgithubᚗcomᚋtamnd�
 		return graphql.Null
 	}
 	return ec._ReopenIssuePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOReopenPullRequestPayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐReopenPullRequestPayload(ctx context.Context, sel ast.SelectionSet, v *ReopenPullRequestPayload) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._ReopenPullRequestPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalORepository2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.Repository) graphql.Marshaler {

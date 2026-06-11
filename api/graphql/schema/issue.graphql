@@ -283,6 +283,11 @@ input CreateIssueInput {
   repositoryId: ID!
   title: String!
   body: String
+  # assigneeIds, labelIds, and milestoneId attach metadata at creation; gh
+  # issue create --assignee/--label/--milestone sends them in this input.
+  assigneeIds: [ID!]
+  labelIds: [ID!]
+  milestoneId: ID
   clientMutationId: String
 }
 

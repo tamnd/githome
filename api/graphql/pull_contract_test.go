@@ -65,6 +65,26 @@ const pullMergeableQuery = `query Mergeable($owner: String!, $name: String!, $nu
   }
 }`
 
+// The close and reopen documents gh pr close and gh pr reopen send
+// (cli/cli api/queries_pr.go PullRequestClose / PullRequestReopen).
+const pullCloseMutation = `mutation PullRequestClose($id: ID!) {
+  closePullRequest(input: {pullRequestId: $id}) {
+    pullRequest { id state }
+  }
+}`
+
+const pullReopenMutation = `mutation PullRequestReopen($id: ID!) {
+  reopenPullRequest(input: {pullRequestId: $id}) {
+    pullRequest { id state }
+  }
+}`
+
+const pullIDQuery = `query ID($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) { id }
+  }
+}`
+
 type pullFixture struct {
 	srv     *httptest.Server
 	token   string
@@ -235,6 +255,54 @@ func TestMergeabilityPolling(t *testing.T) {
 	if got := mergeableField(t, after); got != "MERGEABLE" {
 		t.Fatalf("resolved mergeable = %q, want MERGEABLE", got)
 	}
+}
+
+// TestClosePullRequestRoundTrip confirms gh pr close and gh pr reopen flip the
+// pull request state through the close and reopen mutations.
+func TestClosePullRequestRoundTrip(t *testing.T) {
+	fx := pullServer(t)
+	idBody := post(t, fx.srv, fx.token, pullIDQuery, map[string]any{"owner": "octocat", "name": "hello", "number": 1})
+	var idEnv struct {
+		Data struct {
+			Repository struct {
+				PullRequest struct {
+					ID string `json:"id"`
+				} `json:"pullRequest"`
+			} `json:"repository"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(idBody, &idEnv); err != nil {
+		t.Fatalf("unmarshal id: %v, body %s", err, idBody)
+	}
+	prID := idEnv.Data.Repository.PullRequest.ID
+	if prID == "" {
+		t.Fatalf("empty pull request id, body %s", idBody)
+	}
+
+	got := post(t, fx.srv, fx.token, pullCloseMutation, map[string]any{"id": prID})
+	if state := mutatedPullState(t, got, "closePullRequest"); state != "CLOSED" {
+		t.Fatalf("close left state %q, body %s", state, got)
+	}
+	got = post(t, fx.srv, fx.token, pullReopenMutation, map[string]any{"id": prID})
+	if state := mutatedPullState(t, got, "reopenPullRequest"); state != "OPEN" {
+		t.Fatalf("reopen left state %q, body %s", state, got)
+	}
+}
+
+// mutatedPullState pulls the pull request state out of a close or reopen payload.
+func mutatedPullState(t *testing.T, body []byte, field string) string {
+	t.Helper()
+	var env struct {
+		Data map[string]struct {
+			PullRequest struct {
+				State string `json:"state"`
+			} `json:"pullRequest"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		t.Fatalf("unmarshal %s: %v, body %s", field, err, body)
+	}
+	return env.Data[field].PullRequest.State
 }
 
 // mergeableField pulls repository.pullRequest.mergeable out of a GraphQL response.

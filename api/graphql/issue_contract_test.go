@@ -75,6 +75,20 @@ const createIssueMutation = `mutation CreateIssue($repo: ID!, $title: String!, $
   }
 }`
 
+// The create document gh issue create sends when --assignee or --label is
+// given (cli/cli api/queries_issue.go IssueCreate): the metadata travels as
+// node-id lists in the input.
+const createIssueWithMetadataMutation = `mutation CreateIssue($repo: ID!, $title: String!, $body: String, $assigneeIds: [ID!], $labelIds: [ID!], $milestoneId: ID) {
+  createIssue(input: {repositoryId: $repo, title: $title, body: $body, assigneeIds: $assigneeIds, labelIds: $labelIds, milestoneId: $milestoneId}) {
+    issue {
+      number
+      title
+      labels(first: 10) { nodes { name } }
+      assignees(first: 10) { nodes { login } }
+    }
+  }
+}`
+
 const closeIssueMutation = `mutation CloseIssue($id: ID!) {
   closeIssue(input: {issueId: $id, stateReason: COMPLETED}) {
     issue { number state stateReason closed }
@@ -298,6 +312,57 @@ func TestCreateIssue(t *testing.T) {
 	id := repoNodeID(t, srv, token)
 	got := post(t, srv, token, createIssueMutation, map[string]any{"repo": id, "title": "a new issue", "body": "from graphql"})
 	assertGolden(t, "issue_create.golden.json", got)
+}
+
+// TestCreateIssueWithMetadata confirms the assigneeIds and labelIds in the
+// create input land on the new issue, the path gh issue create --assignee
+// --label takes.
+func TestCreateIssueWithMetadata(t *testing.T) {
+	srv, token := issueServer(t)
+	repoID := repoNodeID(t, srv, token)
+
+	seed := post(t, srv, token, `query Seed($owner: String!, $name: String!) {
+	  repository(owner: $owner, name: $name) {
+	    issue(number: 1) { author { ... on User { id } } }
+	    labels(first: 10) { nodes { id name } }
+	  }
+	}`, map[string]any{"owner": "octocat", "name": "hello"})
+	var env struct {
+		Data struct {
+			Repository struct {
+				Issue struct {
+					Author struct {
+						ID string `json:"id"`
+					} `json:"author"`
+				} `json:"issue"`
+				Labels struct {
+					Nodes []struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"nodes"`
+				} `json:"labels"`
+			} `json:"repository"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(seed, &env); err != nil {
+		t.Fatalf("unmarshal seed: %v, body %s", err, seed)
+	}
+	var bugID string
+	for _, l := range env.Data.Repository.Labels.Nodes {
+		if l.Name == "bug" {
+			bugID = l.ID
+		}
+	}
+	octocatID := env.Data.Repository.Issue.Author.ID
+	if bugID == "" || octocatID == "" {
+		t.Fatalf("missing seed ids, body %s", seed)
+	}
+
+	got := post(t, srv, token, createIssueWithMetadataMutation, map[string]any{
+		"repo": repoID, "title": "a labeled issue", "body": "with metadata",
+		"assigneeIds": []string{octocatID}, "labelIds": []string{bugID},
+	})
+	assertGolden(t, "issue_create_metadata.golden.json", got)
 }
 
 // TestCloseIssue confirms the closeIssue mutation closes an issue with a reason.

@@ -148,6 +148,42 @@ func (r *mutationResolver) UpdatePullRequest(ctx context.Context, input generate
 	}, nil
 }
 
+// ClosePullRequest is the resolver for the closePullRequest field. It closes
+// the pull request without merging, the mutation gh pr close sends.
+func (r *mutationResolver) ClosePullRequest(ctx context.Context, input generated.ClosePullRequestInput) (*generated.ClosePullRequestPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	state := "closed"
+	pr, err := r.Pulls.UpdatePR(ctx, viewerID(ctx), owner, name, number, domain.PRPatch{State: &state})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.ClosePullRequestPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// ReopenPullRequest is the resolver for the reopenPullRequest field. It reopens
+// a closed, unmerged pull request, the mutation gh pr reopen sends.
+func (r *mutationResolver) ReopenPullRequest(ctx context.Context, input generated.ReopenPullRequestInput) (*generated.ReopenPullRequestPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	state := "open"
+	pr, err := r.Pulls.UpdatePR(ctx, viewerID(ctx), owner, name, number, domain.PRPatch{State: &state})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.ReopenPullRequestPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
 // RequestReviews is the resolver for the requestReviews field. Githome does not
 // yet track review requests; this stub succeeds and returns the pull request
 // unchanged so gh pr edit --reviewer does not hard-fail.

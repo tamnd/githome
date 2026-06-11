@@ -147,6 +147,16 @@ type CloseIssuePayload struct {
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
+type ClosePullRequestInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ClosePullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
 type ConvertPullRequestToDraftInput struct {
 	PullRequestID    string  `json:"pullRequestId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -180,10 +190,13 @@ type CreateBranchProtectionRulePayload struct {
 }
 
 type CreateIssueInput struct {
-	RepositoryID     string  `json:"repositoryId"`
-	Title            string  `json:"title"`
-	Body             *string `json:"body,omitempty"`
-	ClientMutationID *string `json:"clientMutationId,omitempty"`
+	RepositoryID     string   `json:"repositoryId"`
+	Title            string   `json:"title"`
+	Body             *string  `json:"body,omitempty"`
+	AssigneeIds      []string `json:"assigneeIds,omitempty"`
+	LabelIds         []string `json:"labelIds,omitempty"`
+	MilestoneID      *string  `json:"milestoneId,omitempty"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
 }
 
 type CreateIssuePayload struct {
@@ -446,6 +459,16 @@ type ReopenIssueInput struct {
 type ReopenIssuePayload struct {
 	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type ReopenPullRequestInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ReopenPullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type RepositoryOrder struct {

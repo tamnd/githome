@@ -1,0 +1,1 @@
+{"data":{"createIssue":{"issue":{"number":3,"title":"a labeled issue","labels":{"nodes":[{"name":"bug"}]},"assignees":{"nodes":[{"login":"octocat"}]}}}}}

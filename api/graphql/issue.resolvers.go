@@ -122,17 +122,38 @@ func (r *issueCommentResolver) ViewerDidAuthor(ctx context.Context, obj *gqlmode
 }
 
 // CreateIssue is the resolver for the createIssue field. It opens an issue on the
-// repository named by the input's node ID.
+// repository named by the input's node ID, attaching the assignees, labels, and
+// milestone the input names the way gh issue create sends them.
 func (r *mutationResolver) CreateIssue(ctx context.Context, input generated.CreateIssueInput) (*generated.CreateIssuePayload, error) {
 	repo, err := r.repoFromID(ctx, input.RepositoryID)
 	if err != nil {
 		return nil, err
 	}
 	owner, name := repo.Owner.Login, repo.Name
-	iss, err := r.Issues.CreateIssue(ctx, viewerID(ctx), owner, name, domain.IssueInput{
+	in := domain.IssueInput{
 		Title: input.Title,
 		Body:  input.Body,
-	})
+	}
+	if len(input.LabelIds) > 0 {
+		names, lErr := r.labelNamesFromIDs(ctx, input.LabelIds)
+		if lErr != nil {
+			return nil, lErr
+		}
+		in.Labels = names
+	}
+	if len(input.AssigneeIds) > 0 {
+		logins, aErr := r.userLoginsFromIDs(ctx, input.AssigneeIds)
+		if aErr != nil {
+			return nil, aErr
+		}
+		in.AssigneeLogins = logins
+	}
+	if input.MilestoneID != nil {
+		if _, msNum, dErr := nodeid.Decode(*input.MilestoneID); dErr == nil {
+			in.MilestoneNumber = &msNum
+		}
+	}
+	iss, err := r.Issues.CreateIssue(ctx, viewerID(ctx), owner, name, in)
 	if err != nil {
 		return nil, mapErr(err)
 	}
