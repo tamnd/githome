@@ -207,3 +207,60 @@ type NewIssueVM struct {
 	CanSubmit bool
 	FormError string
 }
+
+// LabelsVM is the repository label list page: every label with its color chip,
+// description, and the issues-index URL that filters to it.
+type LabelsVM struct {
+	Chrome Chrome
+	Header RepoHeaderVM
+	Nav    TreeNav
+	Repo   RepoRef
+	Labels []LabelVM
+	Count  int
+}
+
+// MilestoneRowVM is one milestone in the list and the header block of the
+// milestone page: the title, the due and closed lines, the rendered progress,
+// and the open/closed issue counts.
+type MilestoneRowVM struct {
+	Number       int64
+	Title        string
+	URL          string
+	State        string // open | closed
+	Description  string
+	DueOn        string // formatted; empty when the milestone has no due date
+	DueISO       string
+	Overdue      bool
+	ClosedAt     string // formatted; set when the milestone is closed
+	OpenIssues   int
+	ClosedIssues int
+	Percent      int // completeness, 0-100
+}
+
+// MilestonesVM is the milestone list page with its open/closed state tabs.
+type MilestonesVM struct {
+	Chrome    Chrome
+	Header    RepoHeaderVM
+	Nav       TreeNav
+	Repo      RepoRef
+	OpenTab   FilterTab
+	ClosedTab FilterTab
+	Items     []MilestoneRowVM
+	NewURL    string // left empty until a milestone create form exists
+}
+
+// MilestoneDetailVM is one milestone's page: the header block plus its issues,
+// the same bounded rows the issues index renders, tabbed open/closed.
+type MilestoneDetailVM struct {
+	Chrome      Chrome
+	Header      RepoHeaderVM
+	Nav         TreeNav
+	Repo        RepoRef
+	Milestone   MilestoneRowVM
+	OpenTab     FilterTab
+	ClosedTab   FilterTab
+	Rows        []IssueRow
+	Pager       Pager
+	Empty       bool
+	EmptyReason string
+}

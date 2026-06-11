@@ -721,3 +721,150 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* labels-head: the bar above the label and milestone lists, holding the count
+   or the state tabs on the left and the cross-link on the right. */
+.labels-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--base-size-16);
+}
+
+.labels-count {
+  font-size: var(--text-body-size-large);
+  font-weight: 600;
+}
+
+.labels-cross-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.labels-cross-link:hover {
+  color: var(--fgColor-accent);
+}
+
+/* labels-list: the label rows, one chip plus description per line. */
+.labels-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.labels-row {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-16);
+  padding: var(--base-size-12) var(--base-size-16);
+}
+
+.labels-row + .labels-row {
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.labels-description {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+/* milestones-list: the milestone rows with their progress column. */
+.milestones-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.milestones-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--base-size-16);
+  padding: var(--base-size-12) var(--base-size-16);
+}
+
+.milestones-row + .milestones-row {
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.milestones-title {
+  font-size: var(--text-body-size-large);
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.milestones-title:hover {
+  color: var(--fgColor-accent);
+}
+
+.milestones-meta {
+  margin: var(--base-size-4) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.milestones-overdue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--base-size-4);
+  color: var(--fgColor-danger);
+}
+
+.milestones-description {
+  margin: var(--base-size-8) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.milestones-progress {
+  min-width: 240px;
+}
+
+.milestones-counts {
+  display: flex;
+  gap: var(--base-size-8);
+  margin: var(--base-size-8) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.milestones-percent {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+/* progress-bar: the completeness bar a milestone carries. */
+.progress-bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-neutral-muted);
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--bgColor-success-emphasis);
+}
+
+/* milestone-head: the header block on one milestone's page. */
+.milestone-head {
+  margin-bottom: var(--base-size-16);
+}
+
+.milestone-head .milestones-progress {
+  max-width: 420px;
+  margin-top: var(--base-size-8);
+}
+
+.milestone-title {
+  font-size: var(--text-title-size-medium);
+  font-weight: 600;
+}

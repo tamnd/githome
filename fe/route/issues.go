@@ -50,6 +50,31 @@ func IssuesQuery(owner, name, q string) string {
 	return Issues(owner, name, url.Values{"q": {q}}.Encode())
 }
 
+// Labels is the repository's label list, /{owner}/{repo}/labels.
+func Labels(owner, name string) string {
+	return Repo(owner, name) + "/labels"
+}
+
+// Milestones is the milestone list, /{owner}/{repo}/milestones. state selects
+// the closed tab; empty or "open" yields the bare URL the default tab uses.
+func Milestones(owner, name, state string) string {
+	u := Repo(owner, name) + "/milestones"
+	if state != "" && state != "open" {
+		u += "?state=" + url.QueryEscape(state)
+	}
+	return u
+}
+
+// Milestone is one milestone's page, /{owner}/{repo}/milestone/{number},
+// github.com's singular form. closed selects the closed-issues tab.
+func Milestone(owner, name string, number int64, closed bool) string {
+	u := Repo(owner, name) + "/milestone/" + strconv.FormatInt(number, 10)
+	if closed {
+		u += "?closed=1"
+	}
+	return u
+}
+
 // The form-target builders below name the POST endpoints the no-JS forms submit
 // to. Every primary mutation has a plain HTML form whose action is one of these,
 // so the page works with JavaScript disabled; the htmx path posts to the same

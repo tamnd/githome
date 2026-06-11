@@ -1,0 +1,86 @@
+{{define "content" -}}
+{{/* The data is MilestoneDetailVM. The header block carries the milestone's
+     title, due/closed line, description, and progress; below it the
+     milestone's issues render as the same rows the issues index uses, with
+     plain-link open/closed tabs and pagination. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="milestone-head">
+    <h2 class="milestone-title">{{.Milestone.Title}}</h2>
+    <p class="milestones-meta">
+      {{if .Milestone.DueOn -}}
+      {{if .Milestone.Overdue}}<span class="milestones-overdue">{{octicon "alert" 16}} Past due</span> {{end -}}
+      Due by <time datetime="{{.Milestone.DueISO}}">{{.Milestone.DueOn}}</time>
+      {{- else if .Milestone.ClosedAt -}}
+      Closed on {{.Milestone.ClosedAt}}
+      {{- else -}}
+      No due date
+      {{- end}}
+    </p>
+    {{if .Milestone.Description}}<p class="milestones-description">{{.Milestone.Description}}</p>{{end}}
+    <div class="milestones-progress">
+      <div class="progress-bar" role="progressbar" aria-valuenow="{{.Milestone.Percent}}" aria-valuemin="0" aria-valuemax="100">
+        <span class="progress-fill" style="width:{{.Milestone.Percent}}%"></span>
+      </div>
+      <p class="milestones-counts">
+        <span class="milestones-percent">{{.Milestone.Percent}}% complete</span>
+        <span>{{.Milestone.OpenIssues}} open</span>
+        <span>{{.Milestone.ClosedIssues}} closed</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="issues-list">
+    <div class="issues-list-head">
+      <nav class="issues-tabs" aria-label="Issue state">
+        <a class="issues-tab{{if .OpenTab.IsActive}} is-current{{end}}" href="{{.OpenTab.URL}}"
+           {{if .OpenTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "issue-opened" 16}} {{.OpenTab.Count}} Open</a>
+        <a class="issues-tab{{if .ClosedTab.IsActive}} is-current{{end}}" href="{{.ClosedTab.URL}}"
+           {{if .ClosedTab.IsActive}}aria-current="page"{{end}}>
+          {{octicon "check" 16}} {{.ClosedTab.Count}} Closed</a>
+      </nav>
+    </div>
+
+    {{if .Rows -}}
+    <ul class="issues-rows">
+      {{range .Rows -}}
+      <li class="issue-row">
+        <span class="issue-row-icon issue-state-{{.State.Modifier}}" aria-label="{{.State.Label}}">
+          {{octicon .State.Icon 16}}
+        </span>
+        <div class="issue-row-main">
+          <a class="issue-row-title" href="{{.URL}}">{{.Title}}</a>
+          {{range .Labels -}}
+          <a class="issue-label" href="{{.URL}}" style="--label-r:{{.R}};--label-g:{{.G}};--label-b:{{.B}}"
+             {{if .Description}}title="{{.Description}}"{{end}}>{{.Name}}</a>
+          {{- end}}
+          <p class="issue-row-meta">
+            #{{.Number}} opened <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+            by <a class="issue-row-author" href="{{.Author.URL}}">{{.Author.Login}}</a>
+          </p>
+        </div>
+        <div class="issue-row-aside">
+          {{range .Assignees -}}
+          <a href="{{.URL}}" aria-label="Assigned to {{.Login}}"><img class="avatar" src="{{.AvatarURL}}" width="20" height="20" alt="" loading="lazy"></a>
+          {{- end}}
+          {{if gt .CommentCount 0}}<a class="issue-row-comments" href="{{.URL}}" aria-label="{{.CommentCount}} comments">{{octicon "comment" 16}} {{.CommentCount}}</a>{{end}}
+        </div>
+      </li>
+      {{- end}}
+    </ul>
+    {{- else -}}
+    <div class="blankslate">
+      <p class="blankslate-text">{{.EmptyReason}}</p>
+    </div>
+    {{- end}}
+  </div>
+
+  {{if or .Pager.PrevURL .Pager.NextURL -}}
+  <nav class="paginate" aria-label="Pagination">
+    {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+    {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+  </nav>
+  {{- end}}
+</div>
+{{- end}}

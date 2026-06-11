@@ -1,0 +1,27 @@
+{{define "content" -}}
+{{/* The data is LabelsVM. Each row is the label chip (the same color-channel
+     styling the issue rows use), the description, and nothing else: management
+     lives in the API and the issue sidebar. The chip links to the issues index
+     filtered to the label. An empty list renders a blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="labels-head">
+    <h2 class="labels-count">{{.Count}} label{{if ne .Count 1}}s{{end}}</h2>
+    <a class="labels-cross-link" href="{{.Repo.URL}}/milestones">{{octicon "milestone" 16}} Milestones</a>
+  </div>
+  {{if .Labels -}}
+  <ul class="labels-list" aria-label="Labels">
+    {{range .Labels -}}
+    <li class="labels-row">
+      <a class="issue-label" href="{{.URL}}" style="--label-r:{{.R}};--label-g:{{.G}};--label-b:{{.B}}">{{.Name}}</a>
+      {{if .Description}}<span class="labels-description">{{.Description}}</span>{{end}}
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">This repository has no labels yet.</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}
