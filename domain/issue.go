@@ -20,6 +20,10 @@ type Issue struct {
 	State       string
 	StateReason *string
 	Locked      bool
+	// IsPull marks the row as a pull request. Issues and pull requests share
+	// one number sequence per repository; cross-type listings (search) use it
+	// to tell the two apart.
+	IsPull bool
 
 	User          *User
 	UserPK        int64 // internal PK for the author; zero for a ghost

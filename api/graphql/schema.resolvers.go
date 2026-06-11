@@ -162,10 +162,26 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 		}
 		nodes := make([]generated.SearchResultItem, 0, len(hits))
 		for _, h := range hits {
-			nodes = append(nodes, r.URLs.GQLIssue(h.Repo.Owner.Login, h.Repo.Name, h.Issue, r.NodeFormat))
+			owner, name := h.Repo.Owner.Login, h.Repo.Name
+			// An ISSUE search spans issues and pull requests; an is:pr hit
+			// must come back as a PullRequest node or gh pr status's
+			// ... on PullRequest fragments select nothing.
+			if h.Issue.IsPull {
+				pr, pErr := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, h.Issue.Number)
+				if pErr != nil {
+					continue
+				}
+				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat))
+				continue
+			}
+			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.NodeFormat))
 		}
 		conn.Nodes = nodes
 		conn.IssueCount = int32(total)
+	}
+	conn.Edges = make([]*generated.SearchResultItemEdge, 0, len(conn.Nodes))
+	for i, node := range conn.Nodes {
+		conn.Edges = append(conn.Edges, &generated.SearchResultItemEdge{Cursor: encodeCursor(i + 1), Node: node})
 	}
 	return conn, nil
 }

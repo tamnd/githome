@@ -85,6 +85,22 @@ const pullIDQuery = `query ID($owner: String!, $name: String!, $number: Int!) {
   }
 }`
 
+// The search shape gh pr status reads its created and review-requested buckets
+// with (cli/cli api/queries_pr.go PullRequestStatus): an ISSUE-typed search
+// whose is:pr results must come back as PullRequest nodes under edges { node }.
+const prStatusSearchQuery = `query PullRequestStatus($q: String!) {
+  search(query: $q, type: ISSUE, first: 10) {
+    issueCount
+    edges {
+      node {
+        __typename
+        ... on PullRequest { number title state headRefName isDraft }
+        ... on Issue { number title }
+      }
+    }
+  }
+}`
+
 type pullFixture struct {
 	srv     *httptest.Server
 	token   string
@@ -140,12 +156,19 @@ func pullServer(t *testing.T) pullFixture {
 	repoSvc := domain.NewRepoService(st, gitStore)
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
+	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
 
 	body := "It adds a feature."
 	if _, err := pullSvc.CreatePR(ctx, u.PK, "octocat", "hello", domain.PRInput{
 		Title: "Add a feature", Body: &body, Base: "main", Head: "feature",
 	}); err != nil {
 		t.Fatalf("seed pull: %v", err)
+	}
+	issueBody := "Something is off."
+	if _, err := issueSvc.CreateIssue(ctx, u.PK, "octocat", "hello", domain.IssueInput{
+		Title: "A plain issue", Body: &issueBody,
+	}); err != nil {
+		t.Fatalf("seed issue: %v", err)
 	}
 
 	authSvc := auth.NewService(st, "https://git.test.internal")
@@ -156,6 +179,7 @@ func pullServer(t *testing.T) pullFixture {
 		Repos:      repoSvc,
 		Issues:     issueSvc,
 		Pulls:      pullSvc,
+		Search:     searchSvc,
 		URLs:       presenter.NewURLBuilder(graphqlURLs(t)),
 		NodeFormat: nodeid.FormatNew,
 	})
@@ -255,6 +279,58 @@ func TestMergeabilityPolling(t *testing.T) {
 	if got := mergeableField(t, after); got != "MERGEABLE" {
 		t.Fatalf("resolved mergeable = %q, want MERGEABLE", got)
 	}
+}
+
+// TestSearchIsPRReturnsPullRequests confirms an ISSUE search carrying is:pr
+// resolves PullRequest nodes and is:issue keeps them out, the split gh pr
+// status depends on.
+func TestSearchIsPRReturnsPullRequests(t *testing.T) {
+	fx := pullServer(t)
+
+	got := post(t, fx.srv, fx.token, prStatusSearchQuery, map[string]any{"q": "is:pr is:open author:octocat"})
+	count, typename, number := searchFirstEdge(t, got)
+	if count != 1 || typename != "PullRequest" || number != 1 {
+		t.Fatalf("is:pr search = count %d, %s #%d, want 1 PullRequest #1, body %s", count, typename, number, got)
+	}
+
+	got = post(t, fx.srv, fx.token, prStatusSearchQuery, map[string]any{"q": "is:issue is:open author:octocat"})
+	count, typename, number = searchFirstEdge(t, got)
+	if count != 1 || typename != "Issue" || number != 2 {
+		t.Fatalf("is:issue search = count %d, %s #%d, want 1 Issue #2, body %s", count, typename, number, got)
+	}
+}
+
+// searchFirstEdge pulls the issueCount and the first edge's typename and number
+// out of a search response.
+func searchFirstEdge(t *testing.T, body []byte) (int, string, int) {
+	t.Helper()
+	var env struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+		Data struct {
+			Search struct {
+				IssueCount int `json:"issueCount"`
+				Edges      []struct {
+					Node struct {
+						Typename string `json:"__typename"`
+						Number   int    `json:"number"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"search"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		t.Fatalf("unmarshal search: %v, body %s", err, body)
+	}
+	if len(env.Errors) > 0 {
+		t.Fatalf("search errors: %v", env.Errors)
+	}
+	if len(env.Data.Search.Edges) == 0 {
+		t.Fatalf("no search edges, body %s", body)
+	}
+	first := env.Data.Search.Edges[0].Node
+	return env.Data.Search.IssueCount, first.Typename, first.Number
 }
 
 // TestClosePullRequestRoundTrip confirms gh pr close and gh pr reopen flip the

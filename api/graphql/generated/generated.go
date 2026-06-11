@@ -631,12 +631,18 @@ type ComplexityRoot struct {
 	}
 
 	SearchResultItemConnection struct {
+		Edges           func(childComplexity int) int
 		IssueCount      func(childComplexity int) int
 		Nodes           func(childComplexity int) int
 		PageInfo        func(childComplexity int) int
 		RepositoryCount func(childComplexity int) int
 		UserCount       func(childComplexity int) int
 		WikiCount       func(childComplexity int) int
+	}
+
+	SearchResultItemEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	StatusCheckRollup struct {
@@ -3388,6 +3394,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ReviewRequestConnection.TotalCount(childComplexity), true
 
+	case "SearchResultItemConnection.edges":
+		if e.ComplexityRoot.SearchResultItemConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResultItemConnection.Edges(childComplexity), true
 	case "SearchResultItemConnection.issueCount":
 		if e.ComplexityRoot.SearchResultItemConnection.IssueCount == nil {
 			break
@@ -3424,6 +3436,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SearchResultItemConnection.WikiCount(childComplexity), true
+
+	case "SearchResultItemEdge.cursor":
+		if e.ComplexityRoot.SearchResultItemEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResultItemEdge.Cursor(childComplexity), true
+	case "SearchResultItemEdge.node":
+		if e.ComplexityRoot.SearchResultItemEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SearchResultItemEdge.Node(childComplexity), true
 
 	case "StatusCheckRollup.contexts":
 		if e.ComplexityRoot.StatusCheckRollup.Contexts == nil {
@@ -5385,11 +5410,20 @@ union SearchResultItem = Repository | Issue | PullRequest | User
 # SearchResultItemConnection is the Relay connection over search results.
 type SearchResultItemConnection {
   nodes: [SearchResultItem]
+  # edges pairs each result with its cursor; gh pr status reads search results
+  # through edges { node }.
+  edges: [SearchResultItemEdge]
   pageInfo: PageInfo!
   issueCount: Int!
   repositoryCount: Int!
   userCount: Int!
   wikiCount: Int!
+}
+
+# SearchResultItemEdge is one search result with its cursor.
+type SearchResultItemEdge {
+  cursor: String!
+  node: SearchResultItem
 }
 `, BuiltIn: false},
 }
@@ -6451,6 +6485,8 @@ func (ec *executionContext) childFields_SearchResultItemConnection(ctx context.C
 	switch field.Name {
 	case "nodes":
 		return ec.fieldContext_SearchResultItemConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_SearchResultItemConnection_edges(ctx, field)
 	case "pageInfo":
 		return ec.fieldContext_SearchResultItemConnection_pageInfo(ctx, field)
 	case "issueCount":
@@ -6463,6 +6499,16 @@ func (ec *executionContext) childFields_SearchResultItemConnection(ctx context.C
 		return ec.fieldContext_SearchResultItemConnection_wikiCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type SearchResultItemConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_SearchResultItemEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_SearchResultItemEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_SearchResultItemEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SearchResultItemEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_StatusCheckRollup(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -18528,6 +18574,38 @@ func (ec *executionContext) fieldContext_SearchResultItemConnection_nodes(_ cont
 	return graphql.NewScalarFieldContext("SearchResultItemConnection", field, false, false, errors.New("field of type SearchResultItem does not have child fields"))
 }
 
+func (ec *executionContext) _SearchResultItemConnection_edges(ctx context.Context, field graphql.CollectedField, obj *SearchResultItemConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResultItemConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*SearchResultItemEdge) graphql.Marshaler {
+			return ec.marshalOSearchResultItemEdge2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSearchResultItemEdge(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResultItemConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SearchResultItemConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SearchResultItemEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _SearchResultItemConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *SearchResultItemConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -18650,6 +18728,52 @@ func (ec *executionContext) _SearchResultItemConnection_wikiCount(ctx context.Co
 }
 func (ec *executionContext) fieldContext_SearchResultItemConnection_wikiCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("SearchResultItemConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResultItemEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *SearchResultItemEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResultItemEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResultItemEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResultItemEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SearchResultItemEdge_node(ctx context.Context, field graphql.CollectedField, obj *SearchResultItemEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SearchResultItemEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v SearchResultItem) graphql.Marshaler {
+			return ec.marshalOSearchResultItem2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSearchResultItem(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SearchResultItemEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SearchResultItemEdge", field, false, false, errors.New("field of type SearchResultItem does not have child fields"))
 }
 
 func (ec *executionContext) _StatusCheckRollup_state(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.StatusCheckRollup) (ret graphql.Marshaler) {
@@ -28618,6 +28742,8 @@ func (ec *executionContext) _SearchResultItemConnection(ctx context.Context, sel
 			out.Values[i] = graphql.MarshalString("SearchResultItemConnection")
 		case "nodes":
 			out.Values[i] = ec._SearchResultItemConnection_nodes(ctx, field, obj)
+		case "edges":
+			out.Values[i] = ec._SearchResultItemConnection_edges(ctx, field, obj)
 		case "pageInfo":
 			out.Values[i] = ec._SearchResultItemConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -28643,6 +28769,47 @@ func (ec *executionContext) _SearchResultItemConnection(ctx context.Context, sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var searchResultItemEdgeImplementors = []string{"SearchResultItemEdge"}
+
+func (ec *executionContext) _SearchResultItemEdge(ctx context.Context, sel ast.SelectionSet, obj *SearchResultItemEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, searchResultItemEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SearchResultItemEdge")
+		case "cursor":
+			out.Values[i] = ec._SearchResultItemEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._SearchResultItemEdge_node(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -31926,6 +32093,26 @@ func (ec *executionContext) marshalOSearchResultItem2ᚕgithubᚗcomᚋtamndᚋg
 	})
 
 	return ret
+}
+
+func (ec *executionContext) marshalOSearchResultItemEdge2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSearchResultItemEdge(ctx context.Context, sel ast.SelectionSet, v []*SearchResultItemEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalOSearchResultItemEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSearchResultItemEdge(ctx, sel, v[i])
+	})
+
+	return ret
+}
+
+func (ec *executionContext) marshalOSearchResultItemEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐSearchResultItemEdge(ctx context.Context, sel ast.SelectionSet, v *SearchResultItemEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SearchResultItemEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOStatusCheckRollup2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐStatusCheckRollup(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.StatusCheckRollup) graphql.Marshaler {

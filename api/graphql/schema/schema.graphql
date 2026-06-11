@@ -230,9 +230,18 @@ union SearchResultItem = Repository | Issue | PullRequest | User
 # SearchResultItemConnection is the Relay connection over search results.
 type SearchResultItemConnection {
   nodes: [SearchResultItem]
+  # edges pairs each result with its cursor; gh pr status reads search results
+  # through edges { node }.
+  edges: [SearchResultItemEdge]
   pageInfo: PageInfo!
   issueCount: Int!
   repositoryCount: Int!
   userCount: Int!
   wikiCount: Int!
+}
+
+# SearchResultItemEdge is one search result with its cursor.
+type SearchResultItemEdge {
+  cursor: String!
+  node: SearchResultItem
 }

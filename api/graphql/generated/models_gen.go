@@ -514,12 +514,18 @@ type ReviewRequestConnection struct {
 }
 
 type SearchResultItemConnection struct {
-	Nodes           []SearchResultItem `json:"nodes,omitempty"`
-	PageInfo        *gqlmodel.PageInfo `json:"pageInfo"`
-	IssueCount      int32              `json:"issueCount"`
-	RepositoryCount int32              `json:"repositoryCount"`
-	UserCount       int32              `json:"userCount"`
-	WikiCount       int32              `json:"wikiCount"`
+	Nodes           []SearchResultItem      `json:"nodes,omitempty"`
+	Edges           []*SearchResultItemEdge `json:"edges,omitempty"`
+	PageInfo        *gqlmodel.PageInfo      `json:"pageInfo"`
+	IssueCount      int32                   `json:"issueCount"`
+	RepositoryCount int32                   `json:"repositoryCount"`
+	UserCount       int32                   `json:"userCount"`
+	WikiCount       int32                   `json:"wikiCount"`
+}
+
+type SearchResultItemEdge struct {
+	Cursor string           `json:"cursor"`
+	Node   SearchResultItem `json:"node,omitempty"`
 }
 
 type StatusCheckRollupContextConnection struct {
