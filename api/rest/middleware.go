@@ -56,14 +56,22 @@ func apiVersion(next mizu.Handler) mizu.Handler {
 	}
 }
 
-// mediaType advertises the served media type on X-GitHub-Media-Type. The full
-// Accept negotiation (diff/patch/raw branches) arrives with the endpoints that
-// need it; for now the API always serves JSON.
+// mediaType advertises the served media type on X-GitHub-Media-Type. The
+// middleware stamps the JSON default; a handler that negotiates a raw
+// representation from the Accept header overrides it through
+// negotiatedMediaType before writing the body.
 func mediaType(next mizu.Handler) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		c.Header().Set("X-GitHub-Media-Type", "github.v3; format=json")
 		return next(c)
 	}
+}
+
+// negotiatedMediaType replaces the default X-GitHub-Media-Type once a handler
+// has negotiated a non-JSON representation, the way GitHub reports format=diff,
+// format=patch, or format=raw for the vendor media types.
+func negotiatedMediaType(w http.ResponseWriter, format string) {
+	w.Header().Set("X-GitHub-Media-Type", "github.v3; format="+format)
 }
 
 // enterpriseVersion stamps every /api/v3/ response with the

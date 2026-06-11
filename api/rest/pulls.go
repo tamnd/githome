@@ -179,6 +179,7 @@ func handlePullGet(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
+			negotiatedMediaType(c.Writer(), "diff")
 			writePullText(c.Writer(), "application/vnd.github.diff; charset=utf-8", raw)
 			return nil
 		case mediaPatch:
@@ -189,6 +190,7 @@ func handlePullGet(d Deps) mizu.Handler {
 			if err != nil {
 				return err
 			}
+			negotiatedMediaType(c.Writer(), "patch")
 			writePullText(c.Writer(), "application/vnd.github.patch; charset=utf-8", raw)
 			return nil
 		default:

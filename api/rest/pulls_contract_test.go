@@ -208,10 +208,19 @@ func TestPullDiffMediaType(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "diff") {
 		t.Errorf("content-type %q, want a diff media type", ct)
 	}
+	if mt := resp.Header.Get("X-GitHub-Media-Type"); mt != "github.v3; format=diff" {
+		t.Errorf("X-GitHub-Media-Type %q, want github.v3; format=diff", mt)
+	}
 	buf := make([]byte, 4096)
 	n, _ := resp.Body.Read(buf)
 	if got := string(buf[:n]); !strings.Contains(got, "diff --git") || !strings.Contains(got, "feature.txt") {
 		t.Errorf("diff body unexpected:\n%s", got)
+	}
+
+	// The default JSON body keeps the json format marker.
+	resp2, _ := get(t, fx.srv, "/repos/octocat/hello/pulls/1")
+	if mt := resp2.Header.Get("X-GitHub-Media-Type"); mt != "github.v3; format=json" {
+		t.Errorf("JSON X-GitHub-Media-Type %q, want github.v3; format=json", mt)
 	}
 }
 
