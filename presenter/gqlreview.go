@@ -132,8 +132,9 @@ func gqlCheckRun(cr *domain.CheckRun, format nodeid.Format) gqlmodel.CheckRun {
 // gqlStatusContext converts a domain CommitStatus into the GraphQL rollup context shape.
 func gqlStatusContext(s *domain.CommitStatus) gqlmodel.StatusContext {
 	out := gqlmodel.StatusContext{
-		Context: s.Context,
-		State:   rollupStatusState(s.State),
+		Context:   s.Context,
+		State:     rollupStatusState(s.State),
+		CreatedAt: gqlmodel.NewDateTime(s.CreatedAt),
 	}
 	if s.TargetURL != nil {
 		u := gqlmodel.URI(*s.TargetURL)

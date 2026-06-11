@@ -19,7 +19,7 @@ import (
 // Author is the resolver for the author field. It loads the issue author
 // through the per-request user dataloader so that concurrent nested field
 // resolutions batch into one user query per request.
-func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmodel.Actor, error) {
+func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (gqlmodel.Actor, error) {
 	if obj.UserPK == 0 {
 		return nil, nil // ghost author
 	}
@@ -27,7 +27,11 @@ func (r *issueResolver) Author(ctx context.Context, obj *gqlmodel.Issue) (*gqlmo
 	if l == nil {
 		return obj.Author, nil // fallback: loaders not wired (tests)
 	}
-	return l.Users.Load(ctx, obj.UserPK)
+	u, err := l.Users.Load(ctx, obj.UserPK)
+	if err != nil || u == nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 // Labels is the resolver for the labels field. It loads the issue's labels
@@ -42,7 +46,7 @@ func (r *issueResolver) Labels(ctx context.Context, obj *gqlmodel.Issue, first *
 	if err != nil {
 		return nil, err
 	}
-	return &gqlmodel.LabelConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
+	return &gqlmodel.LabelConnection{Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}, nil
 }
 
 // Assignees is the resolver for the assignees field. GQLIssue fills the slice
@@ -62,12 +66,24 @@ func (r *issueResolver) Milestone(ctx context.Context, obj *gqlmodel.Issue) (*gq
 
 // Comments is the resolver for the comments field. It pages the issue's comments
 // through the domain on demand, the way gh issue view selects them.
-func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
+func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string, last *int32, before *string) (*gqlmodel.IssueCommentConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
-	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	total := int32(0)
+	if obj.Comments != nil {
+		total = obj.Comments.TotalCount
+	}
+	var comments []*domain.Comment
+	start := page.offset
+	if page.backward {
+		var end int
+		start, end = page.window(int(total))
+		comments, err = r.commentsWindow(ctx, obj.RepoOwner, obj.RepoName, int64(obj.Number), start, end)
+	} else {
+		comments, err = r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
+	}
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -75,11 +91,14 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	for _, cm := range comments {
 		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
 	}
-	total := int32(len(nodes))
-	if obj.Comments != nil {
-		total = obj.Comments.TotalCount
+	if total < int32(len(nodes)) {
+		total = int32(len(nodes))
 	}
-	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
+	return &gqlmodel.IssueCommentConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, len(nodes), int(total)),
+		TotalCount: total,
+	}, nil
 }
 
 // ReactionGroups is the resolver for the reactionGroups field. Githome does not
@@ -88,18 +107,53 @@ func (r *issueResolver) ReactionGroups(ctx context.Context, obj *gqlmodel.Issue)
 	return []*gqlmodel.ReactionGroup{}, nil
 }
 
+// ProjectCards is the resolver for the projectCards field. Githome does not
+// implement classic projects; the connection is always empty.
+func (r *issueResolver) ProjectCards(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*generated.ProjectCardConnection, error) {
+	return emptyProjectCardConnection(), nil
+}
+
+// ViewerDidAuthor is the resolver for the viewerDidAuthor field. It compares
+// the comment author's database key, which the presenter carries off-schema,
+// with the request's viewer. An anonymous viewer authored nothing.
+func (r *issueCommentResolver) ViewerDidAuthor(ctx context.Context, obj *gqlmodel.IssueComment) (bool, error) {
+	v := viewerID(ctx)
+	return v != 0 && v == obj.AuthorPK, nil
+}
+
 // CreateIssue is the resolver for the createIssue field. It opens an issue on the
-// repository named by the input's node ID.
+// repository named by the input's node ID, attaching the assignees, labels, and
+// milestone the input names the way gh issue create sends them.
 func (r *mutationResolver) CreateIssue(ctx context.Context, input generated.CreateIssueInput) (*generated.CreateIssuePayload, error) {
 	repo, err := r.repoFromID(ctx, input.RepositoryID)
 	if err != nil {
 		return nil, err
 	}
 	owner, name := repo.Owner.Login, repo.Name
-	iss, err := r.Issues.CreateIssue(ctx, viewerID(ctx), owner, name, domain.IssueInput{
+	in := domain.IssueInput{
 		Title: input.Title,
 		Body:  input.Body,
-	})
+	}
+	if len(input.LabelIds) > 0 {
+		names, lErr := r.labelNamesFromIDs(ctx, input.LabelIds)
+		if lErr != nil {
+			return nil, lErr
+		}
+		in.Labels = names
+	}
+	if len(input.AssigneeIds) > 0 {
+		logins, aErr := r.userLoginsFromIDs(ctx, input.AssigneeIds)
+		if aErr != nil {
+			return nil, aErr
+		}
+		in.AssigneeLogins = logins
+	}
+	if input.MilestoneID != nil {
+		if _, msNum, dErr := nodeid.Decode(*input.MilestoneID); dErr == nil {
+			in.MilestoneNumber = &msNum
+		}
+	}
+	iss, err := r.Issues.CreateIssue(ctx, viewerID(ctx), owner, name, in)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -241,21 +295,59 @@ func (r *repositoryResolver) Issue(ctx context.Context, obj *gqlmodel.Repository
 	return r.URLs.GQLIssue(owner, name, iss, r.NodeFormat), nil
 }
 
-// Issues is the resolver for the issues field. A repository the actor cannot see
-// resolves to an empty connection, never an error, so its existence does not leak.
-func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState) (*gqlmodel.IssueConnection, error) {
+// Labels is the resolver for the labels field. The store hands back the whole
+// label set in name order, so filtering, reordering, and windowing all happen
+// here; label sets are small enough that this stays cheap. A repository the
+// actor cannot see resolves to an empty connection, never an error.
+func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, orderBy *generated.LabelOrder, query *string) (*gqlmodel.LabelConnection, error) {
 	page, err := issuePageArgs(first, after, last, before)
 	if err != nil {
 		return nil, err
 	}
 	owner, name := splitNWO(obj.NameWithOwner)
-	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, domain.IssueQuery{
-		State:     stateFilter(states),
-		Sort:      "created",
-		Direction: "desc",
-		Page:      page.page(),
-		PerPage:   page.limit,
-	})
+	labels, err := r.Resolver.Issues.ListLabels(ctx, viewerID(ctx), owner, name)
+	if errors.Is(err, domain.ErrRepoNotFound) {
+		return &gqlmodel.LabelConnection{Nodes: []*gqlmodel.Label{}, PageInfo: &gqlmodel.PageInfo{}}, nil
+	}
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	if query != nil && *query != "" {
+		q := strings.ToLower(*query)
+		kept := labels[:0]
+		for _, l := range labels {
+			if strings.Contains(strings.ToLower(l.Name), q) {
+				kept = append(kept, l)
+			}
+		}
+		labels = kept
+	}
+	sortLabels(labels, orderBy)
+	total := len(labels)
+	start, end := page.window(total)
+	nodes := make([]*gqlmodel.Label, 0, end-start)
+	for _, l := range labels[start:end] {
+		nodes = append(nodes, r.URLs.GQLLabel(l, r.NodeFormat))
+	}
+	return &gqlmodel.LabelConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}, nil
+}
+
+// Issues is the resolver for the issues field. A repository the actor cannot see
+// resolves to an empty connection, never an error, so its existence does not leak.
+func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string) (*gqlmodel.IssueConnection, error) {
+	page, err := issuePageArgs(first, after, last, before)
+	if err != nil {
+		return nil, err
+	}
+	if page.backward {
+		return nil, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
+	}
+	owner, name := splitNWO(obj.NameWithOwner)
+	issues, total, err := r.Resolver.Issues.ListIssues(ctx, viewerID(ctx), owner, name, issueListQuery(states, filterBy, orderBy, labels, page))
 	if errors.Is(err, domain.ErrRepoNotFound) {
 		return emptyIssueConnection(), nil
 	}
@@ -268,8 +360,12 @@ func (r *repositoryResolver) Issues(ctx context.Context, obj *gqlmodel.Repositor
 // Issue returns generated.IssueResolver implementation.
 func (r *Resolver) Issue() generated.IssueResolver { return &issueResolver{r} }
 
+// IssueComment returns generated.IssueCommentResolver implementation.
+func (r *Resolver) IssueComment() generated.IssueCommentResolver { return &issueCommentResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
 type issueResolver struct{ *Resolver }
+type issueCommentResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }

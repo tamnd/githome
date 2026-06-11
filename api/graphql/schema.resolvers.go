@@ -8,7 +8,6 @@ package graphql
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -76,7 +75,7 @@ func (r *queryResolver) User(ctx context.Context, login string) (*gqlmodel.User,
 // RepositoryOwner is the resolver for the repositoryOwner field. It looks up
 // the user by login and returns a RepositoryOwner view, or null when the login
 // does not exist (matching GitHub's behavior).
-func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (*gqlmodel.RepositoryOwner, error) {
+func (r *queryResolver) RepositoryOwner(ctx context.Context, login string) (gqlmodel.RepositoryOwner, error) {
 	u, err := r.Users.ByLogin(ctx, login)
 	if errors.Is(err, domain.ErrUserNotFound) {
 		return nil, nil
@@ -163,17 +162,35 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 		}
 		nodes := make([]generated.SearchResultItem, 0, len(hits))
 		for _, h := range hits {
-			nodes = append(nodes, r.URLs.GQLIssue(h.Repo.Owner.Login, h.Repo.Name, h.Issue, r.NodeFormat))
+			owner, name := h.Repo.Owner.Login, h.Repo.Name
+			// An ISSUE search spans issues and pull requests; an is:pr hit
+			// must come back as a PullRequest node or gh pr status's
+			// ... on PullRequest fragments select nothing.
+			if h.Issue.IsPull {
+				pr, pErr := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, h.Issue.Number)
+				if pErr != nil {
+					continue
+				}
+				nodes = append(nodes, r.URLs.GQLPullRequest(owner, name, pr, r.NodeFormat))
+				continue
+			}
+			nodes = append(nodes, r.URLs.GQLIssue(owner, name, h.Issue, r.NodeFormat))
 		}
 		conn.Nodes = nodes
 		conn.IssueCount = int32(total)
 	}
+	conn.Edges = make([]*generated.SearchResultItemEdge, 0, len(conn.Nodes))
+	for i, node := range conn.Nodes {
+		conn.Edges = append(conn.Edges, &generated.SearchResultItemEdge{Cursor: encodeCursor(i + 1), Node: node})
+	}
 	return conn, nil
 }
 
-// ViewerPermission is the resolver for the viewerPermission field.
+// ViewerPermission is the resolver for the viewerPermission field. The presenter
+// computes the permission when it renders the repository; return it as-is. It is
+// null for an anonymous viewer.
 func (r *repositoryResolver) ViewerPermission(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryPermission, error) {
-	panic(fmt.Errorf("not implemented: ViewerPermission - viewerPermission"))
+	return obj.ViewerPermission, nil
 }
 
 // Ref resolves a single reference in the repository by its fully qualified name
@@ -210,18 +227,12 @@ func (r *repositoryResolver) LicenseInfo(ctx context.Context, obj *gqlmodel.Repo
 
 // Owner returns the repository owner. It looks up the owner's full profile so
 // the URL and avatar are present; on any error it falls back to just the login.
-func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.RepositoryOwner, error) {
+func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository) (gqlmodel.RepositoryOwner, error) {
 	u, err := r.Users.ByLogin(ctx, obj.RepoOwner)
 	if err != nil {
-		return &gqlmodel.RepositoryOwner{Login: obj.RepoOwner}, nil
+		return &gqlmodel.User{Login: obj.RepoOwner}, nil
 	}
 	return r.URLs.GQLRepositoryOwner(u, r.NodeFormat), nil
-}
-
-// Repositories is the resolver for the repositories field on RepositoryOwner.
-// It lists all visible repositories for the owner's login.
-func (r *repositoryOwnerResolver) Repositories(ctx context.Context, obj *gqlmodel.RepositoryOwner, first *int32, after *string, ownerAffiliations []generated.RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *generated.RepositoryPrivacy, orderBy *generated.RepositoryOrder) (*gqlmodel.RepositoryConnection, error) {
-	return r.listReposForLogin(ctx, obj.Login, first)
 }
 
 // Repositories is the resolver for the repositories field on User.
@@ -236,15 +247,9 @@ func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 // Repository returns generated.RepositoryResolver implementation.
 func (r *Resolver) Repository() generated.RepositoryResolver { return &repositoryResolver{r} }
 
-// RepositoryOwner returns generated.RepositoryOwnerResolver implementation.
-func (r *Resolver) RepositoryOwner() generated.RepositoryOwnerResolver {
-	return &repositoryOwnerResolver{r}
-}
-
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type queryResolver struct{ *Resolver }
 type repositoryResolver struct{ *Resolver }
-type repositoryOwnerResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }

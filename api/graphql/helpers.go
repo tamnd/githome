@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -445,16 +446,21 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 	reviewID := strconv.FormatInt(rv.ID, 10)
 	htmlURL := urls.RepoHTML(owner, repo) + "/pull/" + pullNum + "#pullrequestreview-" + reviewID
 	r := &generated.PullRequestReview{
-		ID:    nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
-		State: generated.PullRequestReviewState(rv.State),
-		Body:  rv.Body,
-		URL:   gqlmodel.URI(htmlURL),
+		ID:                nodeid.Encode(nodeid.KindPullRequestReview, rv.ID, format),
+		State:             generated.PullRequestReviewState(rv.State),
+		Body:              rv.Body,
+		URL:               gqlmodel.URI(htmlURL),
+		AuthorAssociation: presenter.GQLAuthorAssociation(owner, rv.User),
+		ReactionGroups:    []*gqlmodel.ReactionGroup{}, // Githome does not store reactions
 	}
 	if rv.User != nil {
-		r.Author = &gqlmodel.Actor{
-			Login:     rv.User.Login,
-			URL:       gqlmodel.URI(urls.UserHTML(rv.User.Login)),
-			AvatarURL: gqlmodel.URI(urls.HTML("avatars", "u", strconv.FormatInt(rv.User.ID, 10))),
+		r.Author = urls.GQLUser(rv.User, format)
+	}
+	if rv.CommitID != "" {
+		r.Commit = &gqlmodel.Commit{
+			Oid:       gqlmodel.GitObjectID(rv.CommitID),
+			RepoOwner: owner,
+			RepoName:  repo,
 		}
 	}
 	if rv.SubmittedAt != nil {
@@ -462,4 +468,281 @@ func gqlReview(rv *domain.Review, urls *presenter.URLBuilder, owner, repo string
 		r.SubmittedAt = &dt
 	}
 	return r
+}
+
+// buildReviewConnection windows a review listing and renders it into the
+// GraphQL connection with Relay page info.
+func (r *Resolver) buildReviewConnection(revs []*domain.Review, page issuePage, owner, repo string) *generated.PullRequestReviewConnection {
+	total := len(revs)
+	start, end := page.window(total)
+	nodes := make([]*generated.PullRequestReview, 0, end-start)
+	for _, rv := range revs[start:end] {
+		nodes = append(nodes, gqlReview(rv, r.URLs, owner, repo, r.NodeFormat))
+	}
+	return &generated.PullRequestReviewConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, end-start, total),
+		TotalCount: int32(total),
+	}
+}
+
+// emptyProjectCardConnection is the always-empty classic-projects connection
+// the issue and pull request projectCards fields resolve to.
+func emptyProjectCardConnection() *generated.ProjectCardConnection {
+	return &generated.ProjectCardConnection{
+		Nodes:      []*generated.ProjectCard{},
+		PageInfo:   &gqlmodel.PageInfo{},
+		TotalCount: 0,
+	}
+}
+
+// latestReviewsOf keeps the most recent submitted review per reviewer, in the
+// order the underlying listing returned them (oldest first). Pending drafts are
+// not part of the latest set, matching GitHub's latestReviews.
+func latestReviewsOf(revs []*domain.Review) []*domain.Review {
+	out := make([]*domain.Review, 0, len(revs))
+	seen := map[string]int{}
+	for _, rv := range revs {
+		if rv.State == domain.ReviewPending {
+			continue
+		}
+		login := ""
+		if rv.User != nil {
+			login = rv.User.Login
+		}
+		if i, ok := seen[login]; ok {
+			out[i] = rv
+			continue
+		}
+		seen[login] = len(out)
+		out = append(out, rv)
+	}
+	return out
+}
+
+// commentsWindow reads the absolute comment window [start, end) for an issue
+// or pull request through the offset-paged listing. The listing is page
+// aligned, so it reads the aligned page (or the two pages) covering the window
+// and trims to it. gh sends comments(last: 1) for the issueCommentLast
+// fragment, which lands here as the window [total-1, total).
+func (r *Resolver) commentsWindow(ctx context.Context, owner, name string, number int64, start, end int) ([]*domain.Comment, error) {
+	if end <= start {
+		return nil, nil
+	}
+	size := end - start
+	pageIdx := start / size // zero-based index of the aligned page
+	rows, err := r.Issues.ListComments(ctx, viewerID(ctx), owner, name, number, int64(pageIdx+1), int64(size))
+	if err != nil {
+		return nil, err
+	}
+	skip := start - pageIdx*size
+	if skip > 0 {
+		next, err := r.Issues.ListComments(ctx, viewerID(ctx), owner, name, number, int64(pageIdx+2), int64(size))
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, next...)
+	}
+	lo, hi := skip, skip+size
+	if lo > len(rows) {
+		lo = len(rows)
+	}
+	if hi > len(rows) {
+		hi = len(rows)
+	}
+	return rows[lo:hi], nil
+}
+
+// issueListQuery maps the GraphQL issue list arguments onto the domain query.
+// gh issue list sends its assignee, author, label, and milestone filters
+// through filterBy; the labels argument is the older spelling some clients
+// still send. mentioned, since, and viewerSubscribed are not modeled, so they
+// narrow nothing rather than erroring.
+func issueListQuery(states []gqlmodel.IssueState, filterBy *generated.IssueFilters, orderBy *generated.IssueOrder, labels []string, page issuePage) domain.IssueQuery {
+	q := domain.IssueQuery{
+		State:     stateFilter(states),
+		Sort:      "created",
+		Direction: "desc",
+		Labels:    labels,
+		Page:      page.page(),
+		PerPage:   page.limit,
+	}
+	if filterBy != nil {
+		if filterBy.Assignee != nil {
+			q.AssigneeLogin = *filterBy.Assignee
+		}
+		if filterBy.CreatedBy != nil {
+			q.CreatorLogin = *filterBy.CreatedBy
+		}
+		if len(filterBy.Labels) > 0 {
+			q.Labels = append(append([]string{}, q.Labels...), filterBy.Labels...)
+		}
+		if len(filterBy.States) > 0 {
+			q.State = stateFilter(filterBy.States)
+		}
+		// GitHub's filter carries the milestone number as a string in either
+		// field; a title that does not parse as a number matches nothing here.
+		for _, ms := range []*string{filterBy.MilestoneNumber, filterBy.Milestone} {
+			if ms == nil {
+				continue
+			}
+			if n, err := strconv.ParseInt(*ms, 10, 64); err == nil {
+				q.MilestoneNumber = &n
+				break
+			}
+		}
+	}
+	if orderBy != nil {
+		switch orderBy.Field {
+		case generated.IssueOrderFieldUpdatedAt:
+			q.Sort = "updated"
+		case generated.IssueOrderFieldComments:
+			q.Sort = "comments"
+		}
+		if orderBy.Direction == generated.OrderDirectionAsc {
+			q.Direction = "asc"
+		}
+	}
+	return q
+}
+
+// defaultPROrder reports whether the requested order is the listing's native
+// newest-first order, which needs no in-memory sort.
+func defaultPROrder(o *generated.IssueOrder) bool {
+	return o == nil || (o.Field == generated.IssueOrderFieldCreatedAt && o.Direction == generated.OrderDirectionDesc)
+}
+
+// prScanCap bounds the filtered pull request scan so a head/base/label filter
+// on a huge repository stays a few page reads rather than a table walk.
+const prScanCap = 1000
+
+// scanPullRequests reads the repository's pull requests newest first, page by
+// page, and keeps the ones matching the list filters. gh's filtered listings
+// (pr view <branch>, pr list --label) want the newest matches, which the scan
+// reads first; matches past the cap are not found.
+func (r *Resolver) scanPullRequests(ctx context.Context, owner, name string, states []gqlmodel.PullRequestState, head, base *string, labels []string) ([]*domain.PullRequest, error) {
+	var matched []*domain.PullRequest
+	for pageN, seen := 1, 0; seen < prScanCap; pageN++ {
+		prs, total, err := r.Pulls.ListPRs(ctx, viewerID(ctx), owner, name, domain.PRQuery{
+			State:   pullStateFilter(states),
+			Page:    pageN,
+			PerPage: maxPageSize,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, pr := range prs {
+			if prMatches(pr, states, head, base, labels) {
+				matched = append(matched, pr)
+			}
+		}
+		seen += len(prs)
+		if len(prs) < maxPageSize || seen >= total {
+			break
+		}
+	}
+	return matched, nil
+}
+
+// prMatches reports whether a pull request passes the list filters: the exact
+// requested states (MERGED vs CLOSED, which the coarse store filter folds
+// together), the head and base branch names, and every requested label.
+func prMatches(pr *domain.PullRequest, states []gqlmodel.PullRequestState, head, base *string, labels []string) bool {
+	if !prStateMatches(pr, states) {
+		return false
+	}
+	if head != nil && pr.Head.Ref != *head {
+		return false
+	}
+	if base != nil && pr.Base.Ref != *base {
+		return false
+	}
+	for _, want := range labels {
+		found := false
+		for _, l := range pr.Labels {
+			if strings.EqualFold(l.Name, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+// prStateMatches reports whether the pull request is in one of the requested
+// GraphQL states. An empty list matches everything.
+func prStateMatches(pr *domain.PullRequest, states []gqlmodel.PullRequestState) bool {
+	if len(states) == 0 {
+		return true
+	}
+	for _, s := range states {
+		switch s {
+		case gqlmodel.PullRequestStateOpen:
+			if pr.State == "open" {
+				return true
+			}
+		case gqlmodel.PullRequestStateClosed:
+			if pr.State == "closed" && !pr.Merged {
+				return true
+			}
+		case gqlmodel.PullRequestStateMerged:
+			if pr.Merged {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sortPullRequests orders the scanned set by the requested field in place. The
+// scan reads newest first, so the native CREATED_AT DESC order needs nothing.
+func sortPullRequests(prs []*domain.PullRequest, orderBy *generated.IssueOrder) {
+	if defaultPROrder(orderBy) {
+		return
+	}
+	asc := orderBy.Direction == generated.OrderDirectionAsc
+	cmp := func(i, j int) int {
+		switch orderBy.Field {
+		case generated.IssueOrderFieldUpdatedAt:
+			return prs[i].UpdatedAt.Compare(prs[j].UpdatedAt)
+		case generated.IssueOrderFieldComments:
+			return prs[i].CommentsCount - prs[j].CommentsCount
+		default:
+			return prs[i].CreatedAt.Compare(prs[j].CreatedAt)
+		}
+	}
+	sort.SliceStable(prs, func(i, j int) bool {
+		if asc {
+			return cmp(i, j) < 0
+		}
+		return cmp(i, j) > 0
+	})
+}
+
+// sortLabels orders a label listing in place. The store hands labels back in
+// name order, which is also GitHub's default, so absent or NAME ASC ordering
+// needs nothing.
+func sortLabels(ls []*domain.Label, orderBy *generated.LabelOrder) {
+	if orderBy == nil {
+		return
+	}
+	asc := orderBy.Direction == generated.OrderDirectionAsc
+	if orderBy.Field == generated.LabelOrderFieldName && asc {
+		return
+	}
+	cmp := func(i, j int) int {
+		if orderBy.Field == generated.LabelOrderFieldCreatedAt {
+			return ls[i].CreatedAt.Compare(ls[j].CreatedAt)
+		}
+		return strings.Compare(ls[i].Name, ls[j].Name)
+	}
+	sort.SliceStable(ls, func(i, j int) bool {
+		if asc {
+			return cmp(i, j) < 0
+		}
+		return cmp(i, j) > 0
+	})
 }

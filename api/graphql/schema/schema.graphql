@@ -5,6 +5,9 @@
 scalar DateTime
 scalar URI
 scalar GitObjectID
+# BigInt carries an integer too wide for Int as a string, the way GitHub types
+# fullDatabaseId.
+scalar BigInt
 
 # Node is the interface every object with a node ID implements. Clients use
 # node(id:) and nodes(ids:) to look up objects by their opaque IDs.
@@ -60,6 +63,9 @@ type Repository implements Node {
   httpsCloneUrl: URI!
   # viewerPermission is the viewer's effective permission on the repository.
   viewerPermission: RepositoryPermission
+  # hasIssuesEnabled is whether the repository accepts issues. gh issue list
+  # checks it before listing.
+  hasIssuesEnabled: Boolean!
   # autoMergeAllowed is whether auto-merge can be enabled on pull requests in
   # this repository. Githome always returns true.
   autoMergeAllowed: Boolean!
@@ -76,18 +82,6 @@ type Repository implements Node {
   primaryLanguage: Language
   licenseInfo: License
   owner: RepositoryOwner!
-  # viewerPermission is the authenticated viewer's access level on this repository.
-  # Null for an anonymous viewer.
-  viewerPermission: RepositoryPermission
-  # autoMergeAllowed is whether auto-merge is enabled on this repository.
-  # Githome does not implement auto-merge; always false.
-  autoMergeAllowed: Boolean!
-  # mergeCommitAllowed is whether merge commits are allowed.
-  mergeCommitAllowed: Boolean!
-  # squashMergeAllowed is whether squash merges are allowed.
-  squashMergeAllowed: Boolean!
-  # rebaseMergeAllowed is whether rebase merges are allowed.
-  rebaseMergeAllowed: Boolean!
 }
 
 # RepositoryPermission is the viewer's access level on a repository.
@@ -99,21 +93,15 @@ enum RepositoryPermission {
   READ
 }
 
-# RepositoryPermission is the viewer's access level on a repository.
-enum RepositoryPermission {
-  ADMIN
-  MAINTAIN
-  WRITE
-  TRIAGE
-  READ
-}
-
-# RepositoryOwner is the owner of a repository, either a User or Organization.
-type RepositoryOwner implements Node {
+# RepositoryOwner is the owner of a repository. It is an interface so gh's
+# `... on User` and `... on Organization` inline fragments validate; User is
+# the only implementer until organizations arrive.
+interface RepositoryOwner {
   id: ID!
   login: String!
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   # repositories lists the repositories owned by this owner.
   repositories(
     first: Int
@@ -179,14 +167,17 @@ type License {
 }
 
 # User is a GitHub user account.
-type User implements Node {
+type User implements Node & Actor & RepositoryOwner {
   id: ID!
   login: String!
   name: String
   email: String
   bio: String
+  # databaseId is the user's integer database id, the value the REST API calls id.
+  databaseId: Int
   url: URI!
   avatarUrl: URI!
+  resourcePath: URI!
   createdAt: DateTime!
   updatedAt: DateTime!
   # repositories lists the repositories owned by this user.
@@ -239,9 +230,18 @@ union SearchResultItem = Repository | Issue | PullRequest | User
 # SearchResultItemConnection is the Relay connection over search results.
 type SearchResultItemConnection {
   nodes: [SearchResultItem]
+  # edges pairs each result with its cursor; gh pr status reads search results
+  # through edges { node }.
+  edges: [SearchResultItemEdge]
   pageInfo: PageInfo!
   issueCount: Int!
   repositoryCount: Int!
   userCount: Int!
   wikiCount: Int!
+}
+
+# SearchResultItemEdge is one search result with its cursor.
+type SearchResultItemEdge {
+  cursor: String!
+  node: SearchResultItem
 }

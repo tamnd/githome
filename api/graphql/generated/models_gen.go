@@ -24,6 +24,10 @@ type Node interface {
 	GetID() string
 }
 
+type RequestedReviewer interface {
+	IsRequestedReviewer()
+}
+
 type SearchResultItem interface {
 	IsSearchResultItem()
 }
@@ -132,6 +136,10 @@ type BranchProtectionRuleInput struct {
 	AllowsDeletions              *bool  `json:"allowsDeletions,omitempty"`
 }
 
+type CheckSuite struct {
+	WorkflowRun *WorkflowRun `json:"workflowRun,omitempty"`
+}
+
 type CloseIssueInput struct {
 	IssueID          string                  `json:"issueId"`
 	StateReason      *IssueClosedStateReason `json:"stateReason,omitempty"`
@@ -141,6 +149,16 @@ type CloseIssueInput struct {
 type CloseIssuePayload struct {
 	Issue            *gqlmodel.Issue `json:"issue,omitempty"`
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
+}
+
+type ClosePullRequestInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ClosePullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type ConvertPullRequestToDraftInput struct {
@@ -176,10 +194,13 @@ type CreateBranchProtectionRulePayload struct {
 }
 
 type CreateIssueInput struct {
-	RepositoryID     string  `json:"repositoryId"`
-	Title            string  `json:"title"`
-	Body             *string `json:"body,omitempty"`
-	ClientMutationID *string `json:"clientMutationId,omitempty"`
+	RepositoryID     string   `json:"repositoryId"`
+	Title            string   `json:"title"`
+	Body             *string  `json:"body,omitempty"`
+	AssigneeIds      []string `json:"assigneeIds,omitempty"`
+	LabelIds         []string `json:"labelIds,omitempty"`
+	MilestoneID      *string  `json:"milestoneId,omitempty"`
+	ClientMutationID *string  `json:"clientMutationId,omitempty"`
 }
 
 type CreateIssuePayload struct {
@@ -296,13 +317,35 @@ type EnablePullRequestAutoMergeInput struct {
 
 type EnablePullRequestAutoMergePayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
-	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type IssueCommentEdge struct {
 	Cursor string                 `json:"cursor"`
 	Node   *gqlmodel.IssueComment `json:"node,omitempty"`
+}
+
+type IssueFilters struct {
+	Assignee         *string               `json:"assignee,omitempty"`
+	CreatedBy        *string               `json:"createdBy,omitempty"`
+	Labels           []string              `json:"labels,omitempty"`
+	Mentioned        *string               `json:"mentioned,omitempty"`
+	Milestone        *string               `json:"milestone,omitempty"`
+	MilestoneNumber  *string               `json:"milestoneNumber,omitempty"`
+	Since            *gqlmodel.DateTime    `json:"since,omitempty"`
+	States           []gqlmodel.IssueState `json:"states,omitempty"`
+	ViewerSubscribed *bool                 `json:"viewerSubscribed,omitempty"`
+}
+
+type IssueOrder struct {
+	Field     IssueOrderField `json:"field"`
+	Direction OrderDirection  `json:"direction"`
+}
+
+type LabelOrder struct {
+	Field     LabelOrderField `json:"field"`
+	Direction OrderDirection  `json:"direction"`
 }
 
 type MarkPullRequestReadyForReviewInput struct {
@@ -327,20 +370,48 @@ type MergePullRequestInput struct {
 
 type MergePullRequestPayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
-	Actor            *gqlmodel.Actor       `json:"actor,omitempty"`
+	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
 type Mutation struct {
 }
 
+type Organization struct {
+	ID    string  `json:"id"`
+	Login string  `json:"login"`
+	Name  *string `json:"name,omitempty"`
+}
+
+type Project struct {
+	Name string `json:"name"`
+}
+
+type ProjectCard struct {
+	Project *Project       `json:"project"`
+	Column  *ProjectColumn `json:"column,omitempty"`
+}
+
+type ProjectCardConnection struct {
+	Nodes      []*ProjectCard     `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
+}
+
+type ProjectColumn struct {
+	Name string `json:"name"`
+}
+
 type PullRequestReview struct {
-	ID          string                 `json:"id"`
-	State       PullRequestReviewState `json:"state"`
-	Body        string                 `json:"body"`
-	Author      *gqlmodel.Actor        `json:"author,omitempty"`
-	SubmittedAt *gqlmodel.DateTime     `json:"submittedAt,omitempty"`
-	URL         gqlmodel.URI           `json:"url"`
+	ID                string                            `json:"id"`
+	State             PullRequestReviewState            `json:"state"`
+	Body              string                            `json:"body"`
+	Author            gqlmodel.Actor                    `json:"author,omitempty"`
+	AuthorAssociation gqlmodel.CommentAuthorAssociation `json:"authorAssociation"`
+	Commit            *gqlmodel.Commit                  `json:"commit,omitempty"`
+	ReactionGroups    []*gqlmodel.ReactionGroup         `json:"reactionGroups"`
+	SubmittedAt       *gqlmodel.DateTime                `json:"submittedAt,omitempty"`
+	URL               gqlmodel.URI                      `json:"url"`
 }
 
 type PullRequestReviewCommentEdge struct {
@@ -350,6 +421,7 @@ type PullRequestReviewCommentEdge struct {
 
 type PullRequestReviewConnection struct {
 	Nodes      []*PullRequestReview `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo   `json:"pageInfo"`
 	TotalCount int32                `json:"totalCount"`
 }
 
@@ -393,6 +465,16 @@ type ReopenIssuePayload struct {
 	ClientMutationID *string         `json:"clientMutationId,omitempty"`
 }
 
+type ReopenPullRequestInput struct {
+	PullRequestID    string  `json:"pullRequestId"`
+	ClientMutationID *string `json:"clientMutationId,omitempty"`
+}
+
+type ReopenPullRequestPayload struct {
+	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
 type RepositoryOrder struct {
 	Field     RepositoryOrderField `json:"field"`
 	Direction OrderDirection       `json:"direction"`
@@ -422,25 +504,33 @@ type ResolveReviewThreadPayload struct {
 }
 
 type ReviewRequest struct {
-	RequestedReviewer *gqlmodel.User `json:"requestedReviewer,omitempty"`
+	RequestedReviewer RequestedReviewer `json:"requestedReviewer,omitempty"`
 }
 
 type ReviewRequestConnection struct {
-	Nodes      []*ReviewRequest `json:"nodes,omitempty"`
-	TotalCount int32            `json:"totalCount"`
+	Nodes      []*ReviewRequest   `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
 }
 
 type SearchResultItemConnection struct {
-	Nodes           []SearchResultItem `json:"nodes,omitempty"`
-	PageInfo        *gqlmodel.PageInfo `json:"pageInfo"`
-	IssueCount      int32              `json:"issueCount"`
-	RepositoryCount int32              `json:"repositoryCount"`
-	UserCount       int32              `json:"userCount"`
-	WikiCount       int32              `json:"wikiCount"`
+	Nodes           []SearchResultItem      `json:"nodes,omitempty"`
+	Edges           []*SearchResultItemEdge `json:"edges,omitempty"`
+	PageInfo        *gqlmodel.PageInfo      `json:"pageInfo"`
+	IssueCount      int32                   `json:"issueCount"`
+	RepositoryCount int32                   `json:"repositoryCount"`
+	UserCount       int32                   `json:"userCount"`
+	WikiCount       int32                   `json:"wikiCount"`
+}
+
+type SearchResultItemEdge struct {
+	Cursor string           `json:"cursor"`
+	Node   SearchResultItem `json:"node,omitempty"`
 }
 
 type StatusCheckRollupContextConnection struct {
 	Nodes      []StatusCheckRollupContext `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo         `json:"pageInfo"`
 	TotalCount int32                      `json:"totalCount"`
 }
 
@@ -455,6 +545,15 @@ type SubmitPullRequestReviewPayload struct {
 	PullRequestReview *PullRequestReview `json:"pullRequestReview,omitempty"`
 	ClientMutationID  *string            `json:"clientMutationId,omitempty"`
 }
+
+type Team struct {
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Slug         string        `json:"slug"`
+	Organization *Organization `json:"organization"`
+}
+
+func (Team) IsRequestedReviewer() {}
 
 type UnresolveReviewThreadInput struct {
 	ThreadID         string  `json:"threadId"`
@@ -534,6 +633,15 @@ type UpdatePullRequestPayload struct {
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
+type Workflow struct {
+	Name string `json:"name"`
+}
+
+type WorkflowRun struct {
+	Event    string    `json:"event"`
+	Workflow *Workflow `json:"workflow"`
+}
+
 type IssueClosedStateReason string
 
 const (
@@ -584,6 +692,118 @@ func (e *IssueClosedStateReason) UnmarshalJSON(b []byte) error {
 }
 
 func (e IssueClosedStateReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type IssueOrderField string
+
+const (
+	IssueOrderFieldCreatedAt IssueOrderField = "CREATED_AT"
+	IssueOrderFieldUpdatedAt IssueOrderField = "UPDATED_AT"
+	IssueOrderFieldComments  IssueOrderField = "COMMENTS"
+)
+
+var AllIssueOrderField = []IssueOrderField{
+	IssueOrderFieldCreatedAt,
+	IssueOrderFieldUpdatedAt,
+	IssueOrderFieldComments,
+}
+
+func (e IssueOrderField) IsValid() bool {
+	switch e {
+	case IssueOrderFieldCreatedAt, IssueOrderFieldUpdatedAt, IssueOrderFieldComments:
+		return true
+	}
+	return false
+}
+
+func (e IssueOrderField) String() string {
+	return string(e)
+}
+
+func (e *IssueOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IssueOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IssueOrderField", str)
+	}
+	return nil
+}
+
+func (e IssueOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IssueOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IssueOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type LabelOrderField string
+
+const (
+	LabelOrderFieldName      LabelOrderField = "NAME"
+	LabelOrderFieldCreatedAt LabelOrderField = "CREATED_AT"
+)
+
+var AllLabelOrderField = []LabelOrderField{
+	LabelOrderFieldName,
+	LabelOrderFieldCreatedAt,
+}
+
+func (e LabelOrderField) IsValid() bool {
+	switch e {
+	case LabelOrderFieldName, LabelOrderFieldCreatedAt:
+		return true
+	}
+	return false
+}
+
+func (e LabelOrderField) String() string {
+	return string(e)
+}
+
+func (e *LabelOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LabelOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LabelOrderField", str)
+	}
+	return nil
+}
+
+func (e LabelOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *LabelOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e LabelOrderField) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

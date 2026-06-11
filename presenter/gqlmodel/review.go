@@ -54,7 +54,7 @@ type PullRequestReviewComment struct {
 	ID        string // the PullRequestReviewComment node ID
 	Body      string // the comment body
 	Path      string // the file the comment anchors to
-	Author    *Actor // null for a ghost author
+	Author    Actor  // null for a ghost author
 	Outdated  bool   // whether the anchored line left the diff
 	URL       URI    // the comment's HTML URL
 	CreatedAt DateTime
@@ -84,22 +84,22 @@ type CheckConclusionState string
 
 // The CheckConclusionState values.
 const (
-	CheckConclusionStateActionRequired  CheckConclusionState = "ACTION_REQUIRED"
-	CheckConclusionStateTimedOut        CheckConclusionState = "TIMED_OUT"
-	CheckConclusionStateCancelled       CheckConclusionState = "CANCELLED"
-	CheckConclusionStateFailure         CheckConclusionState = "FAILURE"
-	CheckConclusionStateSuccess         CheckConclusionState = "SUCCESS"
-	CheckConclusionStateNeutral         CheckConclusionState = "NEUTRAL"
-	CheckConclusionStateSkipped         CheckConclusionState = "SKIPPED"
-	CheckConclusionStateStartupFailure  CheckConclusionState = "STARTUP_FAILURE"
-	CheckConclusionStateStale           CheckConclusionState = "STALE"
+	CheckConclusionStateActionRequired CheckConclusionState = "ACTION_REQUIRED"
+	CheckConclusionStateTimedOut       CheckConclusionState = "TIMED_OUT"
+	CheckConclusionStateCancelled      CheckConclusionState = "CANCELLED"
+	CheckConclusionStateFailure        CheckConclusionState = "FAILURE"
+	CheckConclusionStateSuccess        CheckConclusionState = "SUCCESS"
+	CheckConclusionStateNeutral        CheckConclusionState = "NEUTRAL"
+	CheckConclusionStateSkipped        CheckConclusionState = "SKIPPED"
+	CheckConclusionStateStartupFailure CheckConclusionState = "STARTUP_FAILURE"
+	CheckConclusionStateStale          CheckConclusionState = "STALE"
 )
 
 // CheckRun is the GraphQL CheckRun type as a status check rollup context.
 type CheckRun struct {
-	ID          string               // the CheckRun node ID
-	Name        string               // the check run name
-	Status      CheckStatusState     // the current status
+	ID          string                // the CheckRun node ID
+	Name        string                // the check run name
+	Status      CheckStatusState      // the current status
 	Conclusion  *CheckConclusionState // null until completed
 	StartedAt   *DateTime
 	CompletedAt *DateTime
@@ -122,6 +122,7 @@ type StatusContext struct {
 	State       StatusState // the status state
 	TargetURL   *URI
 	Description *string
+	CreatedAt   DateTime // when the status was first reported
 }
 
 // IsStatusCheckRollupContext marks StatusContext as a union member.

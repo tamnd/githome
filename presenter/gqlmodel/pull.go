@@ -69,37 +69,45 @@ const (
 // merge view; until the recompute runs mergeable is UNKNOWN and mergeStateStatus
 // is UNKNOWN.
 type PullRequest struct {
-	ID               string           // the PullRequest node ID
-	Number           int32            // the per-repository pull request number
-	Title            string           // the pull request title
-	Body             string           // the body, empty string when unset
-	State            PullRequestState // OPEN, CLOSED, or MERGED
-	URL              URI              // the pull request's HTML URL
-	Locked           bool             // whether the conversation is locked
-	Closed           bool             // whether the pull request is closed or merged
-	IsDraft          bool             // whether the pull request is a draft
-	Merged           bool             // whether the pull request has merged
-	MergedAt         *DateTime        // null while unmerged
-	Mergeable        MergeableState   // the tri-state mergeable
-	MergeStateStatus MergeStateStatus // the richer merge state
-	Author           *Actor           // null for a ghost author
-	BaseRefName      string           // the base branch name
-	HeadRefName      string           // the head branch name
-	BaseRefOid       GitObjectID      // the recorded base tip
-	HeadRefOid       GitObjectID      // the recorded head tip
-	Additions        int32            // lines added across the diff
-	Deletions        int32            // lines removed across the diff
-	ChangedFiles     int32            // files touched by the diff
-	CreatedAt        DateTime         // creation instant
-	UpdatedAt        DateTime         // last-update instant
-	ClosedAt         *DateTime        // null while open
-	Labels           *LabelConnection // resolved on demand
-	Assignees        *UserConnection  // resolved on demand
-	Milestone        *Milestone       // resolved on demand
-	BaseRef          *Ref             // resolved on demand (carries the Ref node ID)
-	HeadRef          *Ref             // resolved on demand (carries the Ref node ID)
-	AutoMergeRequest *AutoMergeRequest // null unless auto-merge is enabled
-	IsInMergeQueue   bool             // always false; Githome has no merge queue
+	ID                  string                   // the PullRequest node ID
+	Number              int32                    // the per-repository pull request number
+	Title               string                   // the pull request title
+	Body                string                   // the body, empty string when unset
+	State               PullRequestState         // OPEN, CLOSED, or MERGED
+	URL                 URI                      // the pull request's HTML URL
+	Locked              bool                     // whether the conversation is locked
+	Closed              bool                     // whether the pull request is closed or merged
+	IsDraft             bool                     // whether the pull request is a draft
+	Merged              bool                     // whether the pull request has merged
+	MergedAt            *DateTime                // null while unmerged
+	Mergeable           MergeableState           // the tri-state mergeable
+	MergeStateStatus    MergeStateStatus         // the richer merge state
+	Author              Actor                    // null for a ghost author
+	AuthorAssociation   CommentAuthorAssociation // the author's repository association
+	BaseRefName         string                   // the base branch name
+	HeadRefName         string                   // the head branch name
+	BaseRefOid          GitObjectID              // the recorded base tip
+	HeadRefOid          GitObjectID              // the recorded head tip
+	IsCrossRepository   bool                     // whether the head lives in another repository
+	MaintainerCanModify bool                     // whether maintainers can push the head branch
+	HeadRepository      *Repository              // the head repository; null when the fork is gone
+	HeadRepositoryOwner RepositoryOwner          // the head repository's owner
+	FullDatabaseID      *string                  // the BigInt twin of the REST id
+	MergedBy            Actor                    // who merged the pull request; null while unmerged
+	Additions           int32                    // lines added across the diff
+	Deletions           int32                    // lines removed across the diff
+	ChangedFiles        int32                    // files touched by the diff
+	CreatedAt           DateTime                 // creation instant
+	UpdatedAt           DateTime                 // last-update instant
+	ClosedAt            *DateTime                // null while open
+	Labels              *LabelConnection         // resolved on demand
+	Assignees           *UserConnection          // resolved on demand
+	Milestone           *Milestone               // resolved on demand
+	BaseRef             *Ref                     // resolved on demand (carries the Ref node ID)
+	HeadRef             *Ref                     // resolved on demand (carries the Ref node ID)
+	AutoMergeRequest    *AutoMergeRequest        // null unless auto-merge is enabled
+	IsInMergeQueue      bool                     // always false; Githome has no merge queue
+	ReactionGroups      []ReactionGroup          // emoji reaction counts; always non-nil (empty when none)
 
 	// RepoOwner and RepoName carry the repository coordinates so the files and
 	// commits field resolvers can read them through the domain. They are not part
@@ -121,7 +129,12 @@ type PullRequest struct {
 // sets it when auto-merge is enabled; Githome always returns null because it
 // does not implement auto-merge queuing.
 type AutoMergeRequest struct {
-	MergeMethod PullRequestMergeMethod
+	AuthorEmail    *string
+	CommitBody     *string
+	CommitHeadline *string
+	EnabledAt      *DateTime
+	EnabledBy      Actor
+	MergeMethod    PullRequestMergeMethod
 }
 
 // IsNode marks PullRequest as implementing the Node interface.
@@ -197,6 +210,7 @@ type PullRequestChangedFile struct {
 // changed files.
 type PullRequestChangedFileConnection struct {
 	Nodes      []*PullRequestChangedFile
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 
@@ -225,5 +239,6 @@ type Commit struct {
 // PullRequestCommitConnection is the connection over a pull request's commits.
 type PullRequestCommitConnection struct {
 	Nodes      []*PullRequestCommit
+	PageInfo   *PageInfo
 	TotalCount int32
 }

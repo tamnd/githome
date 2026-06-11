@@ -7,19 +7,24 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
-// The issues connection pages forward over the domain's offset-based listing.
-// first is the page size (default 30, capped at 100); after carries the absolute
-// offset already consumed. Backward pagination (last/before) is not yet served.
+// The connections page over the domain's offset-based listings. first/last is
+// the page size (default 30, capped at 100); after/before carry the absolute
+// offset already consumed. A backward window (last/before, the way gh selects
+// comments(last: 1) and commits(last: 1)) resolves against the total once the
+// caller knows it, via window.
 const (
 	defaultPageSize = 30
 	maxPageSize     = 100
 )
 
-// issuePage is the resolved forward window: how many rows to read and the
-// absolute offset to start at.
+// issuePage is the resolved page window. Forward windows carry the limit and
+// the absolute offset to start at. Backward windows set backward and anchor at
+// the end of the list, optionally bounded by a before cursor.
 type issuePage struct {
-	limit  int
-	offset int
+	limit    int
+	offset   int
+	backward bool
+	before   int // exclusive end offset from a before: cursor, -1 when absent
 }
 
 // page is the one-based page number for the domain's page/per-page listing. The
@@ -27,13 +32,36 @@ type issuePage struct {
 // a constant first, so the division is exact on the common path.
 func (p issuePage) page() int { return p.offset/p.limit + 1 }
 
-// issuePageArgs validates the Relay page arguments and resolves the forward
-// window. It mirrors GitHub's wording for the over-limit and unsupported cases.
-func issuePageArgs(first *int32, after *string, last *int32, before *string) (issuePage, error) {
-	if last != nil || before != nil {
-		return issuePage{}, gqlError{"backward pagination with `last`/`before` is not supported on this connection."}
+// window resolves the absolute row range [start, end) against a known total.
+// Forward windows start at the offset; backward windows take the last rows
+// before the before cursor (or the end of the list).
+func (p issuePage) window(total int) (start, end int) {
+	if p.backward {
+		end = total
+		if p.before >= 0 && p.before < end {
+			end = p.before
+		}
+		start = end - p.limit
+		if start < 0 {
+			start = 0
+		}
+		return start, end
 	}
-	p := issuePage{limit: defaultPageSize}
+	start = p.offset
+	if start > total {
+		start = total
+	}
+	end = start + p.limit
+	if end > total {
+		end = total
+	}
+	return start, end
+}
+
+// issuePageArgs validates the Relay page arguments and resolves the window. It
+// mirrors GitHub's wording for the over-limit cases.
+func issuePageArgs(first *int32, after *string, last *int32, before *string) (issuePage, error) {
+	p := issuePage{limit: defaultPageSize, before: -1}
 	if first != nil {
 		n := int(*first)
 		if n < 0 {
@@ -44,12 +72,33 @@ func issuePageArgs(first *int32, after *string, last *int32, before *string) (is
 		}
 		p.limit = n
 	}
+	if last != nil {
+		n := int(*last)
+		if n < 0 {
+			return p, gqlError{"`last` must be a non-negative integer."}
+		}
+		if n > maxPageSize {
+			return p, gqlError{fmt.Sprintf("Requesting %d records on this connection exceeds the `last` limit of %d records.", n, maxPageSize)}
+		}
+		p.backward = true
+		if first == nil {
+			p.limit = n
+		}
+	}
 	if after != nil {
 		off, err := decodeCursor(*after)
 		if err != nil {
 			return p, err
 		}
 		p.offset = off
+	}
+	if before != nil {
+		off, err := decodeCursor(*before)
+		if err != nil {
+			return p, err
+		}
+		p.before = off
+		p.backward = true
 	}
 	return p, nil
 }
@@ -99,4 +148,20 @@ func emptyPullRequestConnection() *gqlmodel.PullRequestConnection {
 		Nodes:    []*gqlmodel.PullRequest{},
 		PageInfo: &gqlmodel.PageInfo{},
 	}
+}
+
+// pageInfoFor builds the Relay page info for a window of count rows starting
+// at the absolute offset start, out of total rows. The cursors are the same
+// absolute-offset cursors the edges carry.
+func pageInfoFor(start, count, total int) *gqlmodel.PageInfo {
+	info := &gqlmodel.PageInfo{
+		HasNextPage:     start+count < total,
+		HasPreviousPage: start > 0,
+	}
+	if count > 0 {
+		s, e := encodeCursor(start+1), encodeCursor(start+count)
+		info.StartCursor = &s
+		info.EndCursor = &e
+	}
+	return info
 }

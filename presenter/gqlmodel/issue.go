@@ -26,14 +26,11 @@ const (
 	IssueStateReasonReopened   IssueStateReason = "REOPENED"
 )
 
-// Actor is the GraphQL Actor: the login and URLs gh selects for an issue or
-// comment author. Githome models it as a concrete object carrying the fields the
-// issue documents read; the full Actor interface with the User and Organization
-// implementers arrives with the GraphQL parity milestone.
-type Actor struct {
-	Login     string // the actor's login
-	URL       URI    // the actor's HTML URL
-	AvatarURL URI    // the actor's avatar URL
+// Actor is the GraphQL Actor interface: an entity that can author issues,
+// comments, and reviews. User is the only implementer today; gh's
+// `... on User` inline fragments dispatch on the concrete type.
+type Actor interface {
+	IsActor()
 }
 
 // ReactionContent is the GraphQL ReactionContent enum.
@@ -74,7 +71,7 @@ type Issue struct {
 	URL            URI               // the issue's HTML URL
 	Locked         bool              // whether the conversation is locked
 	Closed         bool              // whether the issue is closed
-	Author         *Actor            // null for a ghost author (resolved by dataloader)
+	Author         Actor             // null for a ghost author (resolved by dataloader)
 	CreatedAt      DateTime          // creation instant
 	UpdatedAt      DateTime          // last-update instant
 	ClosedAt       *DateTime         // null while open
@@ -121,10 +118,11 @@ type PageInfo struct {
 
 // Label is the GraphQL Label object.
 type Label struct {
-	ID          string  // the Label node ID
-	Name        string  // the label name
-	Color       string  // the six-hex color, no leading hash
-	Description *string // null when unset
+	ID          string   // the Label node ID
+	Name        string   // the label name
+	Color       string   // the six-hex color, no leading hash
+	Description *string  // null when unset
+	CreatedAt   DateTime // creation instant
 }
 
 // IsNode marks Label as implementing the Node interface.
@@ -133,27 +131,53 @@ func (Label) IsNode() {}
 // GetID satisfies the Node interface getter gqlgen requires.
 func (l Label) GetID() string { return l.ID }
 
-// LabelConnection is the connection over an issue's or repository's labels. The
-// issue documents read it as nodes plus totalCount, so the page-info and edges a
-// full connection carries are added when a paginated label query needs them.
+// LabelConnection is the connection over an issue's or repository's labels.
 type LabelConnection struct {
 	Nodes      []*Label
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 
+// CommentAuthorAssociation is the GraphQL CommentAuthorAssociation enum: the
+// comment author's relationship to the repository.
+type CommentAuthorAssociation string
+
+// The CommentAuthorAssociation values.
+const (
+	CommentAuthorAssociationMember               CommentAuthorAssociation = "MEMBER"
+	CommentAuthorAssociationOwner                CommentAuthorAssociation = "OWNER"
+	CommentAuthorAssociationMannequin            CommentAuthorAssociation = "MANNEQUIN"
+	CommentAuthorAssociationCollaborator         CommentAuthorAssociation = "COLLABORATOR"
+	CommentAuthorAssociationContributor          CommentAuthorAssociation = "CONTRIBUTOR"
+	CommentAuthorAssociationFirstTimeContributor CommentAuthorAssociation = "FIRST_TIME_CONTRIBUTOR"
+	CommentAuthorAssociationFirstTimer           CommentAuthorAssociation = "FIRST_TIMER"
+	CommentAuthorAssociationNone                 CommentAuthorAssociation = "NONE"
+)
+
 // IssueComment is the GraphQL IssueComment object.
 type IssueComment struct {
-	ID        string   // the IssueComment node ID
-	Body      string   // the comment body
-	Author    *Actor   // null for a ghost author
-	URL       URI      // the comment's HTML URL
-	CreatedAt DateTime // creation instant
-	UpdatedAt DateTime // last-update instant
+	ID                  string                   // the IssueComment node ID
+	Body                string                   // the comment body
+	Author              Actor                    // null for a ghost author
+	AuthorAssociation   CommentAuthorAssociation // the author's repository association
+	IncludesCreatedEdit bool                     // whether the body has been edited
+	IsMinimized         bool                     // always false; Githome does not minimize
+	MinimizedReason     *string                  // always null
+	ReactionGroups      []ReactionGroup          // emoji reaction counts; non-nil
+	URL                 URI                      // the comment's HTML URL
+	CreatedAt           DateTime                 // creation instant
+	UpdatedAt           DateTime                 // last-update instant
+
+	// AuthorPK is not part of the GraphQL schema. It carries the author's
+	// database key so the viewerDidAuthor resolver can compare it with the
+	// request's viewer.
+	AuthorPK int64
 }
 
 // IssueCommentConnection is the connection over an issue's comments.
 type IssueCommentConnection struct {
 	Nodes      []*IssueComment
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 

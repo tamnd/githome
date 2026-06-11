@@ -50,9 +50,42 @@ const issueListQuery = `query IssueList($owner: String!, $name: String!) {
   }
 }`
 
+// labelListQuery is the literal document gh label list sends.
+// gh source: pkg/cmd/label/http.go (listLabels), gh v2.63.0, with the default
+// field set color,description,name interpolated into the label fragment.
+const labelListQuery = `fragment label on Label{color,description,name}
+	query LabelList($owner: String!, $repo: String!, $limit: Int!, $endCursor: String, $query: String, $orderBy: LabelOrder) {
+		repository(owner: $owner, name: $repo) {
+			labels(first: $limit, after: $endCursor, query: $query, orderBy: $orderBy) {
+				totalCount,
+				nodes {
+					...label
+				}
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
+			}
+		}
+	}`
+
 const createIssueMutation = `mutation CreateIssue($repo: ID!, $title: String!, $body: String) {
   createIssue(input: {repositoryId: $repo, title: $title, body: $body}) {
     issue { number title body state author { login } }
+  }
+}`
+
+// The create document gh issue create sends when --assignee or --label is
+// given (cli/cli api/queries_issue.go IssueCreate): the metadata travels as
+// node-id lists in the input.
+const createIssueWithMetadataMutation = `mutation CreateIssue($repo: ID!, $title: String!, $body: String, $assigneeIds: [ID!], $labelIds: [ID!], $milestoneId: ID) {
+  createIssue(input: {repositoryId: $repo, title: $title, body: $body, assigneeIds: $assigneeIds, labelIds: $labelIds, milestoneId: $milestoneId}) {
+    issue {
+      number
+      title
+      labels(first: 10) { nodes { name } }
+      assignees(first: 10) { nodes { login } }
+    }
   }
 }`
 
@@ -129,6 +162,13 @@ func issueServer(t *testing.T) (*httptest.Server, string) {
 	body2 := "the second issue body"
 	if _, err := issueSvc.CreateIssue(ctx, u.PK, "octocat", "hello", domain.IssueInput{Title: "second issue", Body: &body2}); err != nil {
 		t.Fatalf("seed issue 2: %v", err)
+	}
+	bugDesc := "something is broken"
+	if _, err := issueSvc.CreateLabel(ctx, u.PK, "octocat", "hello", domain.LabelInput{Name: "bug", Color: "d73a4a", Description: &bugDesc}); err != nil {
+		t.Fatalf("seed label bug: %v", err)
+	}
+	if _, err := issueSvc.CreateLabel(ctx, u.PK, "octocat", "hello", domain.LabelInput{Name: "enhancement", Color: "a2eeef"}); err != nil {
+		t.Fatalf("seed label enhancement: %v", err)
 	}
 
 	authSvc := auth.NewService(st, "https://git.test.internal")
@@ -224,12 +264,105 @@ func TestIssueList(t *testing.T) {
 	assertGolden(t, "issue_list.golden.json", got)
 }
 
+// TestLabelList confirms gh label list's literal document resolves the
+// repository's labels with gh's default created-at ascending order.
+func TestLabelList(t *testing.T) {
+	srv, token := issueServer(t)
+	got := post(t, srv, token, labelListQuery, map[string]any{
+		"owner": "octocat", "repo": "hello", "limit": 100, "query": "",
+		"orderBy": map[string]any{"direction": "ASC", "field": "CREATED_AT"},
+	})
+	assertGolden(t, "label_list.golden.json", got)
+}
+
+// TestLabelListQueryFilter confirms the query argument narrows the listing by
+// case-insensitive name match, the way gh label list --search filters.
+func TestLabelListQueryFilter(t *testing.T) {
+	srv, token := issueServer(t)
+	got := post(t, srv, token, labelListQuery, map[string]any{
+		"owner": "octocat", "repo": "hello", "limit": 100, "query": "BUG",
+		"orderBy": map[string]any{"direction": "ASC", "field": "NAME"},
+	})
+	var env struct {
+		Data struct {
+			Repository struct {
+				Labels struct {
+					TotalCount int
+					Nodes      []struct{ Name string }
+				}
+			}
+		} `json:"data"`
+		Errors []struct{ Message string } `json:"errors"`
+	}
+	if err := json.Unmarshal(got, &env); err != nil {
+		t.Fatalf("unmarshal: %v, body %s", err, got)
+	}
+	if len(env.Errors) > 0 {
+		t.Fatalf("unexpected errors: %v", env.Errors)
+	}
+	ls := env.Data.Repository.Labels
+	if ls.TotalCount != 1 || len(ls.Nodes) != 1 || ls.Nodes[0].Name != "bug" {
+		t.Fatalf("want only the bug label, got %s", got)
+	}
+}
+
 // TestCreateIssue confirms the createIssue mutation opens an issue and returns it.
 func TestCreateIssue(t *testing.T) {
 	srv, token := issueServer(t)
 	id := repoNodeID(t, srv, token)
 	got := post(t, srv, token, createIssueMutation, map[string]any{"repo": id, "title": "a new issue", "body": "from graphql"})
 	assertGolden(t, "issue_create.golden.json", got)
+}
+
+// TestCreateIssueWithMetadata confirms the assigneeIds and labelIds in the
+// create input land on the new issue, the path gh issue create --assignee
+// --label takes.
+func TestCreateIssueWithMetadata(t *testing.T) {
+	srv, token := issueServer(t)
+	repoID := repoNodeID(t, srv, token)
+
+	seed := post(t, srv, token, `query Seed($owner: String!, $name: String!) {
+	  repository(owner: $owner, name: $name) {
+	    issue(number: 1) { author { ... on User { id } } }
+	    labels(first: 10) { nodes { id name } }
+	  }
+	}`, map[string]any{"owner": "octocat", "name": "hello"})
+	var env struct {
+		Data struct {
+			Repository struct {
+				Issue struct {
+					Author struct {
+						ID string `json:"id"`
+					} `json:"author"`
+				} `json:"issue"`
+				Labels struct {
+					Nodes []struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"nodes"`
+				} `json:"labels"`
+			} `json:"repository"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(seed, &env); err != nil {
+		t.Fatalf("unmarshal seed: %v, body %s", err, seed)
+	}
+	var bugID string
+	for _, l := range env.Data.Repository.Labels.Nodes {
+		if l.Name == "bug" {
+			bugID = l.ID
+		}
+	}
+	octocatID := env.Data.Repository.Issue.Author.ID
+	if bugID == "" || octocatID == "" {
+		t.Fatalf("missing seed ids, body %s", seed)
+	}
+
+	got := post(t, srv, token, createIssueWithMetadataMutation, map[string]any{
+		"repo": repoID, "title": "a labeled issue", "body": "with metadata",
+		"assigneeIds": []string{octocatID}, "labelIds": []string{bugID},
+	})
+	assertGolden(t, "issue_create_metadata.golden.json", got)
 }
 
 // TestCloseIssue confirms the closeIssue mutation closes an issue with a reason.

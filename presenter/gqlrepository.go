@@ -16,30 +16,31 @@ import (
 func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format nodeid.Format) gqlmodel.Repository {
 	perm := gqlmodel.RepositoryPermissionAdmin
 	repo := gqlmodel.Repository{
-		ID:               nodeid.Encode(nodeid.KindRepository, r.ID, format),
-		Name:             r.Name,
-		NameWithOwner:    r.FullName(),
-		Description:      r.Description,
-		IsPrivate:        r.Private,
-		IsFork:           r.Fork,
-		IsArchived:       r.Archived,
-		IsEmpty:          r.PushedAt == nil,
-		IsInOrganization: false, // Githome does not yet model organizations
-		ForkCount:        0,     // not stored
-		StargazerCount:   0,     // not stored
-		HomepageURL:      gqlHomepageURL(r.Homepage),
-		CreatedAt:        gqlmodel.NewDateTime(r.CreatedAt),
-		UpdatedAt:        gqlmodel.NewDateTime(r.UpdatedAt),
-		URL:              gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
-		SSHURL:           gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
-		HTTPSCloneURL:    gqlmodel.URI(b.RepoGitHTTP(r.Owner.Login, r.Name)),
-		ViewerPermission: &perm, // all authenticated users get ADMIN on their own repos
-		AutoMergeAllowed: true,
+		ID:                 nodeid.Encode(nodeid.KindRepository, r.ID, format),
+		Name:               r.Name,
+		NameWithOwner:      r.FullName(),
+		Description:        r.Description,
+		IsPrivate:          r.Private,
+		IsFork:             r.Fork,
+		IsArchived:         r.Archived,
+		IsEmpty:            r.PushedAt == nil,
+		IsInOrganization:   false, // Githome does not yet model organizations
+		ForkCount:          0,     // not stored
+		StargazerCount:     0,     // not stored
+		HomepageURL:        gqlHomepageURL(r.Homepage),
+		CreatedAt:          gqlmodel.NewDateTime(r.CreatedAt),
+		UpdatedAt:          gqlmodel.NewDateTime(r.UpdatedAt),
+		URL:                gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
+		SSHURL:             gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
+		HTTPSCloneURL:      gqlmodel.URI(b.RepoGitHTTP(r.Owner.Login, r.Name)),
+		ViewerPermission:   &perm, // all authenticated users get ADMIN on their own repos
+		HasIssuesEnabled:   r.HasIssues,
+		AutoMergeAllowed:   true,
 		MergeCommitAllowed: true,
 		SquashMergeAllowed: true,
 		RebaseMergeAllowed: true,
-		RepoOwner:        r.Owner.Login,
-		RepoName:         r.Name,
+		RepoOwner:          r.Owner.Login,
+		RepoName:           r.Name,
 	}
 	if r.PushedAt != nil {
 		pushed := gqlmodel.NewDateTime(*r.PushedAt)
@@ -73,16 +74,19 @@ func (b *URLBuilder) GQLUser(u *domain.User, format nodeid.Format) *gqlmodel.Use
 	if u == nil {
 		return nil
 	}
+	dbID := int32(u.ID)
 	out := &gqlmodel.User{
-		ID:        nodeid.Encode(nodeid.KindUser, u.ID, format),
-		Login:     u.Login,
-		Name:      u.Name,
-		Email:     u.Email,
-		Bio:       u.Bio,
-		URL:       gqlmodel.URI(b.UserHTML(u.Login)),
-		AvatarURL: gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
-		CreatedAt: gqlmodel.NewDateTime(u.CreatedAt),
-		UpdatedAt: gqlmodel.NewDateTime(u.UpdatedAt),
+		ID:           nodeid.Encode(nodeid.KindUser, u.ID, format),
+		Login:        u.Login,
+		Name:         u.Name,
+		Email:        u.Email,
+		Bio:          u.Bio,
+		DatabaseID:   &dbID,
+		URL:          gqlmodel.URI(b.UserHTML(u.Login)),
+		AvatarURL:    gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
+		ResourcePath: gqlmodel.URI("/" + u.Login),
+		CreatedAt:    gqlmodel.NewDateTime(u.CreatedAt),
+		UpdatedAt:    gqlmodel.NewDateTime(u.UpdatedAt),
 	}
 	return out
 }
@@ -103,27 +107,29 @@ func (b *URLBuilder) GQLMilestone(owner, repo string, m *domain.Milestone, forma
 	if m == nil {
 		return nil
 	}
-	return &gqlmodel.Milestone{
-		ID:     nodeid.Encode(nodeid.KindMilestone, m.ID, format),
-		Number: int32(m.Number),
-		Title:  m.Title,
-		State:  m.State,
-		URL:    gqlmodel.URI(b.RepoHTML(owner, repo) + "/milestone/" + int64str(m.Number)),
+	out := &gqlmodel.Milestone{
+		ID:          nodeid.Encode(nodeid.KindMilestone, m.ID, format),
+		Number:      int32(m.Number),
+		Title:       m.Title,
+		Description: m.Description,
+		State:       m.State,
+		URL:         gqlmodel.URI(b.RepoHTML(owner, repo) + "/milestone/" + int64str(m.Number)),
 	}
+	if m.DueOn != nil {
+		due := gqlmodel.NewDateTime(*m.DueOn)
+		out.DueOn = &due
+	}
+	return out
 }
 
 // GQLRepositoryOwner renders a repository's owner into the GraphQL
-// RepositoryOwner shape.
-func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, format nodeid.Format) *gqlmodel.RepositoryOwner {
+// RepositoryOwner shape. The concrete value is always a *gqlmodel.User so
+// inline fragments dispatch; a nil user renders to null.
+func (b *URLBuilder) GQLRepositoryOwner(u *domain.User, format nodeid.Format) gqlmodel.RepositoryOwner {
 	if u == nil {
-		return &gqlmodel.RepositoryOwner{}
+		return nil
 	}
-	return &gqlmodel.RepositoryOwner{
-		ID:        nodeid.Encode(nodeid.KindUser, u.ID, format),
-		Login:     u.Login,
-		URL:       gqlmodel.URI(b.UserHTML(u.Login)),
-		AvatarURL: gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
-	}
+	return b.GQLUser(u, format)
 }
 
 // gqlHomepageURL converts a nullable homepage string into a nullable URI.

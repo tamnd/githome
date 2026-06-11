@@ -676,6 +676,7 @@ func (s *IssueService) assembleIssues(ctx context.Context, repo *Repo, rows []st
 			State:         row.State,
 			StateReason:   row.StateReason,
 			Locked:        row.Locked,
+			IsPull:        row.IsPull,
 			User:          author,
 			UserPK:        row.UserPK,
 			Assignees:     assignees,
@@ -750,6 +751,7 @@ func (s *IssueService) assembleIssue(ctx context.Context, repo *Repo, row *store
 		State:         row.State,
 		StateReason:   row.StateReason,
 		Locked:        row.Locked,
+		IsPull:        row.IsPull,
 		User:          author,
 		UserPK:        row.UserPK,
 		Assignees:     assignees,
@@ -895,6 +897,7 @@ func (s *IssueService) assembleIssueSearch(ctx context.Context, repoMap map[int6
 			State:         row.State,
 			StateReason:   row.StateReason,
 			Locked:        row.Locked,
+			IsPull:        row.IsPull,
 			User:          author,
 			UserPK:        row.UserPK,
 			Assignees:     assignees,
@@ -996,6 +999,7 @@ func labelFromRow(r *store.LabelRow) *Label {
 		Color:       r.Color,
 		Description: r.Description,
 		Default:     r.IsDefault,
+		CreatedAt:   r.CreatedAt,
 	}
 }
 

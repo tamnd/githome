@@ -10,13 +10,18 @@ extend type Repository {
   # null when no such pull request exists.
   pullRequest(number: Int!): PullRequest
   # pullRequests is the Relay connection over the repository's pull requests,
-  # newest first.
+  # newest first. headRefName is how gh pr view <branch> finds the pull request
+  # for a branch; labels and baseRefName narrow listings the same way.
   pullRequests(
     first: Int
     after: String
     last: Int
     before: String
     states: [PullRequestState!]
+    headRefName: String
+    baseRefName: String
+    labels: [String!]
+    orderBy: IssueOrder
   ): PullRequestConnection!
 }
 
@@ -36,12 +41,30 @@ type PullRequest implements Node {
   mergeable: MergeableState!
   mergeStateStatus: MergeStateStatus!
   author: Actor
+  # authorAssociation is the author's association with the repository.
+  authorAssociation: CommentAuthorAssociation!
   baseRefName: String!
   headRefName: String!
   baseRefOid: GitObjectID!
   headRefOid: GitObjectID!
   baseRef: Ref
   headRef: Ref
+  # isCrossRepository is whether the head ref lives in a different repository
+  # than the base, the fork case.
+  isCrossRepository: Boolean!
+  # maintainerCanModify is whether maintainers of the base repository can push
+  # to the head branch.
+  maintainerCanModify: Boolean!
+  # headRepository is the repository the head ref lives in. It is null when the
+  # source fork has been deleted.
+  headRepository: Repository
+  # headRepositoryOwner is the owner of the head repository.
+  headRepositoryOwner: RepositoryOwner
+  # fullDatabaseId is the pull request's integer database id, the BigInt twin
+  # of the REST id.
+  fullDatabaseId: BigInt
+  # mergedBy is the actor who merged the pull request, null while unmerged.
+  mergedBy: Actor
   additions: Int!
   deletions: Int!
   changedFiles: Int!
@@ -57,19 +80,35 @@ type PullRequest implements Node {
   # not implement a merge queue, so this is always false.
   isInMergeQueue: Boolean!
   # commits is the connection over the pull request's own commits, oldest first.
-  commits(first: Int, after: String): PullRequestCommitConnection!
+  commits(first: Int, after: String, last: Int, before: String): PullRequestCommitConnection!
   # files is the connection over the pull request's changed files.
   files(first: Int, after: String): PullRequestChangedFileConnection!
   # reviews is the connection over submitted reviews on the pull request.
   reviews(first: Int, after: String): PullRequestReviewConnection!
+  # latestReviews keeps the most recent submitted review per reviewer, the set
+  # gh pr view folds into its review summary.
+  latestReviews(first: Int, after: String): PullRequestReviewConnection
   # reviewRequests is the connection over requested reviewers.
   reviewRequests(first: Int, after: String): ReviewRequestConnection!
   # comments is the connection over issue-level (non-inline) comments.
-  comments(first: Int, after: String): IssueCommentConnection!
+  comments(first: Int, after: String, last: Int, before: String): IssueCommentConnection!
+  # reactionGroups summarises the emoji reactions on the pull request, grouped
+  # by content. An empty slice means no reactions have been posted.
+  reactionGroups: [ReactionGroup!]!
+  # projectCards is the connection over classic project cards. Githome does not
+  # implement classic projects, so it is always empty; the field exists because
+  # gh pr view selects it unconditionally.
+  projectCards(first: Int, after: String): ProjectCardConnection!
 }
 
 # AutoMergeRequest is the auto-merge configuration attached to a pull request.
+# gh pr view selects the commit shape and who enabled it.
 type AutoMergeRequest {
+  authorEmail: String
+  commitBody: String
+  commitHeadline: String
+  enabledAt: DateTime
+  enabledBy: Actor
   mergeMethod: PullRequestMergeMethod!
 }
 
@@ -132,6 +171,7 @@ type PullRequestChangedFile {
 
 type PullRequestChangedFileConnection {
   nodes: [PullRequestChangedFile]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
@@ -150,18 +190,40 @@ type Commit {
 
 type PullRequestCommitConnection {
   nodes: [PullRequestCommit]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
 # ReviewRequestConnection is the connection over a pull request's requested reviewers.
 type ReviewRequestConnection {
   nodes: [ReviewRequest]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
+# RequestedReviewer is who a review request names: a user or a team.
+union RequestedReviewer = User | Team
+
 # ReviewRequest is one requested reviewer on a pull request.
 type ReviewRequest {
-  requestedReviewer: User
+  requestedReviewer: RequestedReviewer
+}
+
+# Team is a group of users in an organization. Githome does not model teams
+# yet; the type exists so gh's `... on Team` inline fragments validate.
+type Team {
+  id: ID!
+  name: String!
+  slug: String!
+  organization: Organization!
+}
+
+# Organization is an account that owns repositories and teams. Githome does not
+# model organizations yet; the type exists so team fragments resolve.
+type Organization {
+  id: ID!
+  login: String!
+  name: String
 }
 
 # PullRequestMergeMethod is the strategy to use when merging a pull request.
@@ -180,6 +242,12 @@ extend type Mutation {
   enablePullRequestAutoMerge(input: EnablePullRequestAutoMergeInput!): EnablePullRequestAutoMergePayload
   # updatePullRequest edits a pull request's metadata.
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
+  # closePullRequest closes a pull request without merging. gh pr close sends
+  # this with no REST fallback.
+  closePullRequest(input: ClosePullRequestInput!): ClosePullRequestPayload
+  # reopenPullRequest reopens a closed, unmerged pull request. gh pr reopen
+  # sends this with no REST fallback.
+  reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   # requestReviews adds or removes review requests on a pull request.
   requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
   # convertPullRequestToDraft converts a pull request to a draft.
@@ -250,6 +318,26 @@ input UpdatePullRequestInput {
 }
 
 type UpdatePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ClosePullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ClosePullRequestPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
+}
+
+input ReopenPullRequestInput {
+  pullRequestId: ID!
+  clientMutationId: String
+}
+
+type ReopenPullRequestPayload {
   pullRequest: PullRequest
   clientMutationId: String
 }

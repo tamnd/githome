@@ -14,6 +14,19 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+// CheckSuite is the resolver for the checkSuite field. Githome's check runs
+// are not workflow-backed yet, so the suite and its workflow chain resolve to
+// null; gh pr checks treats a null suite as a check without a workflow name.
+func (r *checkRunResolver) CheckSuite(ctx context.Context, obj *gqlmodel.CheckRun) (*generated.CheckSuite, error) {
+	return nil, nil
+}
+
+// IsRequired is the resolver for the isRequired field. Githome does not model
+// required checks, so no check is ever required.
+func (r *checkRunResolver) IsRequired(ctx context.Context, obj *gqlmodel.CheckRun, pullRequestID *string) (bool, error) {
+	return false, nil
+}
+
 // StatusCheckRollup is the resolver for the statusCheckRollup field. It folds the
 // commit's statuses and check runs through the checks service. A commit with no
 // reported status or check has no rollup, so it resolves to null the way GitHub
@@ -279,11 +292,28 @@ func (r *statusCheckRollupResolver) Contexts(ctx context.Context, obj *gqlmodel.
 		sc := presenter.GQLStatusContext(s)
 		nodes = append(nodes, sc)
 	}
+	total := len(rollup.CheckRuns) + len(rollup.Statuses)
 	return &generated.StatusCheckRollupContextConnection{
 		Nodes:      nodes,
-		TotalCount: int32(len(rollup.CheckRuns) + len(rollup.Statuses)),
+		PageInfo:   pageInfoFor(0, len(nodes), total),
+		TotalCount: int32(total),
 	}, nil
 }
+
+// AvatarURL is the resolver for the avatarUrl field. The status creator's
+// avatar is not carried on the rollup context, so it resolves to null.
+func (r *statusContextResolver) AvatarURL(ctx context.Context, obj *gqlmodel.StatusContext, size *int32) (*gqlmodel.URI, error) {
+	return nil, nil
+}
+
+// IsRequired is the resolver for the isRequired field. Githome does not model
+// required statuses, so no status is ever required.
+func (r *statusContextResolver) IsRequired(ctx context.Context, obj *gqlmodel.StatusContext, pullRequestID *string) (bool, error) {
+	return false, nil
+}
+
+// CheckRun returns generated.CheckRunResolver implementation.
+func (r *Resolver) CheckRun() generated.CheckRunResolver { return &checkRunResolver{r} }
 
 // PullRequestReviewThread returns generated.PullRequestReviewThreadResolver implementation.
 func (r *Resolver) PullRequestReviewThread() generated.PullRequestReviewThreadResolver {
@@ -295,53 +325,10 @@ func (r *Resolver) StatusCheckRollup() generated.StatusCheckRollupResolver {
 	return &statusCheckRollupResolver{r}
 }
 
+// StatusContext returns generated.StatusContextResolver implementation.
+func (r *Resolver) StatusContext() generated.StatusContextResolver { return &statusContextResolver{r} }
+
+type checkRunResolver struct{ *Resolver }
 type pullRequestReviewThreadResolver struct{ *Resolver }
 type statusCheckRollupResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *pullRequestResolver) Reviews(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.PullRequestReviewConnection, error) {
-	if _, err := issuePageArgs(first, after, nil, nil); err != nil {
-		return nil, err
-	}
-	revs, err := r.Resolver.Reviews.ListReviews(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	nodes := make([]*generated.PullRequestReview, 0, len(revs))
-	for _, rv := range revs {
-		nodes = append(nodes, gqlReview(rv, r.URLs, obj.RepoOwner, obj.RepoName, r.NodeFormat))
-	}
-	return &generated.PullRequestReviewConnection{Nodes: nodes, TotalCount: int32(len(nodes))}, nil
-}
-func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
-	return &generated.ReviewRequestConnection{Nodes: []*generated.ReviewRequest{}, TotalCount: 0}, nil
-}
-func (r *pullRequestResolver) AutoMergeRequest(ctx context.Context, obj *gqlmodel.PullRequest) (*generated.PullRequestAutoMergeRequest, error) {
-	return nil, nil
-}
-func (r *pullRequestResolver) Comments(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.IssueCommentConnection, error) {
-	page, err := issuePageArgs(first, after, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	comments, err := r.Issues.ListComments(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), int64(page.page()), int64(page.limit))
-	if err != nil {
-		return nil, mapErr(err)
-	}
-	nodes := make([]*gqlmodel.IssueComment, 0, len(comments))
-	for _, cm := range comments {
-		nodes = append(nodes, r.URLs.GQLIssueComment(obj.RepoOwner, obj.RepoName, cm, r.NodeFormat))
-	}
-	total := obj.CommentsCount
-	if total < int32(len(nodes)) {
-		total = int32(len(nodes))
-	}
-	return &gqlmodel.IssueCommentConnection{Nodes: nodes, TotalCount: total}, nil
-}
-*/
+type statusContextResolver struct{ *Resolver }

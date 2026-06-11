@@ -17,31 +17,32 @@ const (
 // Nullable GraphQL fields use Go pointers so gqlgen renders null rather than a
 // zero value.
 type Repository struct {
-	ID               string               // the Repository node ID
-	Name             string               // the short repository name
-	NameWithOwner    string               // owner login + "/" + name
-	Description      *string              // null when unset
-	IsPrivate        bool                 // visibility
-	IsFork           bool                 // whether this is a fork
-	IsArchived       bool                 // whether this is archived
-	IsEmpty          bool                 // true when the repository has no commits
-	IsInOrganization bool                 // true when owner is an org
-	ForkCount        int32                // number of forks
-	StargazerCount   int32                // number of stars
-	DiskUsage        *int32               // disk usage in KB, null when unavailable
-	HomepageURL      *URI                 // null when unset
-	CreatedAt        DateTime             // creation instant
-	UpdatedAt        DateTime             // last metadata update
-	PushedAt         *DateTime            // last push, null for a repository with no commits
-	URL              URI                  // the repository's HTML URL
-	SSHURL           URI                  // the SSH clone URL
-	HTTPSCloneURL    URI                  // the HTTPS clone URL
-	ViewerPermission *RepositoryPermission // viewer's permission, null for anonymous
-	AutoMergeAllowed bool                 // whether auto-merge can be enabled (always true)
-	MergeCommitAllowed bool               // whether merge commits are allowed (always true)
-	SquashMergeAllowed bool               // whether squash merges are allowed (always true)
-	RebaseMergeAllowed bool               // whether rebase merges are allowed (always true)
-	DefaultBranchRef *Ref                 // the head branch, null for an empty repository
+	ID                 string                // the Repository node ID
+	Name               string                // the short repository name
+	NameWithOwner      string                // owner login + "/" + name
+	Description        *string               // null when unset
+	IsPrivate          bool                  // visibility
+	IsFork             bool                  // whether this is a fork
+	IsArchived         bool                  // whether this is archived
+	IsEmpty            bool                  // true when the repository has no commits
+	IsInOrganization   bool                  // true when owner is an org
+	ForkCount          int32                 // number of forks
+	StargazerCount     int32                 // number of stars
+	DiskUsage          *int32                // disk usage in KB, null when unavailable
+	HomepageURL        *URI                  // null when unset
+	CreatedAt          DateTime              // creation instant
+	UpdatedAt          DateTime              // last metadata update
+	PushedAt           *DateTime             // last push, null for a repository with no commits
+	URL                URI                   // the repository's HTML URL
+	SSHURL             URI                   // the SSH clone URL
+	HTTPSCloneURL      URI                   // the HTTPS clone URL
+	ViewerPermission   *RepositoryPermission // viewer's permission, null for anonymous
+	HasIssuesEnabled   bool                  // whether the repository accepts issues
+	AutoMergeAllowed   bool                  // whether auto-merge can be enabled (always true)
+	MergeCommitAllowed bool                  // whether merge commits are allowed (always true)
+	SquashMergeAllowed bool                  // whether squash merges are allowed (always true)
+	RebaseMergeAllowed bool                  // whether rebase merges are allowed (always true)
+	DefaultBranchRef   *Ref                  // the head branch, null for an empty repository
 
 	// RepoOwner and RepoName carry the repository coordinates for resolvers that
 	// need to look up ref or language data on demand. They are not part of the

@@ -40,8 +40,9 @@ type Deps struct {
 const maxQueryComplexity = 5000
 
 // maxQueryDepth is the maximum nesting depth allowed before the server rejects
-// the document. GitHub enforces 10 levels.
-const maxQueryDepth = 10
+// the document. gh's statusCheckRollup expansion nests 13 levels deep, so the
+// cap sits well above the deepest document a real client sends.
+const maxQueryDepth = 25
 
 // NewHandler builds the GraphQL HTTP handler: the gqlgen executable schema over
 // the root resolver, the POST and GET transports gh and octokit use, a parsed
