@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -169,9 +170,25 @@ func handleTags(d Deps) mizu.Handler {
 	}
 }
 
+// timeQuery reads an ISO 8601 timestamp query parameter. A missing or empty
+// parameter is nil; one that does not parse is the structured 422 GitHub
+// sends for a malformed since or until.
+func timeQuery(c *mizu.Ctx, name string) (*time.Time, *apiError) {
+	v := c.Query(name)
+	if v == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return nil, errValidation(FieldError{Resource: "Commit", Field: name, Code: "invalid"})
+	}
+	return &t, nil
+}
+
 // handleCommits serves GET /repos/{owner}/{repo}/commits. The optional sha and
-// path queries scope the walk; per_page caps it. A repository with no commits
-// is a 409, matching GitHub.
+// path queries scope the walk; author and committer filter by name or email;
+// since and until bound it by commit time; per_page caps it. A repository
+// with no commits is a 409, matching GitHub.
 func handleCommits(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
@@ -183,10 +200,25 @@ func handleCommits(d Deps) mizu.Handler {
 			writeError(c.Writer(), perr)
 			return nil
 		}
+		since, perr := timeQuery(c, "since")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		until, perr := timeQuery(c, "until")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		// Skip straight to the requested window and walk one commit past it:
 		// the window itself is the page, and the extra commit is the existence
 		// proof for rel="next" without counting the whole history.
-		opts := git.LogOpts{From: c.Query("sha"), Path: c.Query("path"), Skip: page.Offset(), Max: page.PerPage + 1}
+		opts := git.LogOpts{
+			From: c.Query("sha"), Path: c.Query("path"),
+			Author: c.Query("author"), Committer: c.Query("committer"),
+			Since: since, Until: until,
+			Skip: page.Offset(), Max: page.PerPage + 1,
+		}
 		commits, err := d.Repos.ListCommits(repo, opts)
 		if errors.Is(err, domain.ErrEmptyRepo) {
 			writeError(c.Writer(), errConflict("Git Repository is empty."))

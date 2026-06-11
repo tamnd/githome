@@ -2,8 +2,10 @@ package git
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The ref listings used to classify every tag with a per-ref object lookup
@@ -93,6 +95,22 @@ func (r *Repo) logBatch(opts LogOpts, limit int) ([]Commit, bool) {
 	args := []string{"log", "--pretty=format:" + logRecordFormat, "-n", strconv.Itoa(limit)}
 	if opts.Skip > 0 {
 		args = append(args, "--skip="+strconv.Itoa(opts.Skip))
+	}
+	// The author and committer values are quoted so they match literally: git
+	// reads the pattern as a regex, and the dot in an email must not match any
+	// byte. -i keeps the match case-insensitive, the same contract the go-git
+	// fallback below implements.
+	if opts.Author != "" {
+		args = append(args, "-i", "--author="+regexp.QuoteMeta(opts.Author))
+	}
+	if opts.Committer != "" {
+		args = append(args, "-i", "--committer="+regexp.QuoteMeta(opts.Committer))
+	}
+	if opts.Since != nil {
+		args = append(args, "--since="+opts.Since.Format(time.RFC3339))
+	}
+	if opts.Until != nil {
+		args = append(args, "--until="+opts.Until.Format(time.RFC3339))
 	}
 	args = append(args, "--end-of-options", string(opts.From))
 	if opts.Path != "" {

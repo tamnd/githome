@@ -298,7 +298,7 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 	if err != nil {
 		return nil, ErrObjectNotFound
 	}
-	lo := &gogit.LogOptions{From: *h}
+	lo := &gogit.LogOptions{From: *h, Since: opts.Since, Until: opts.Until}
 	if opts.Path != "" {
 		p := opts.Path
 		lo.PathFilter = func(s string) bool { return s == p || strings.HasPrefix(s, p+"/") }
@@ -311,6 +311,9 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 	skip := opts.Skip
 	var out []Commit
 	err = iter.ForEach(func(c *object.Commit) error {
+		if !matchIdent(c.Author, opts.Author) || !matchIdent(c.Committer, opts.Committer) {
+			return nil
+		}
 		if skip > 0 {
 			skip--
 			return nil
@@ -325,6 +328,19 @@ func (r *Repo) Log(opts LogOpts) ([]Commit, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// matchIdent reports whether the signature's name or email contains the
+// filter, case-insensitively. An empty filter matches everything, so the
+// unfiltered walk pays nothing. It mirrors the -i --author/--committer match
+// the subprocess path runs.
+func matchIdent(sig object.Signature, filter string) bool {
+	if filter == "" {
+		return true
+	}
+	f := strings.ToLower(filter)
+	return strings.Contains(strings.ToLower(sig.Name), f) ||
+		strings.Contains(strings.ToLower(sig.Email), f)
 }
 
 // resolveHash resolves a revision to an object hash. A full 40-hex id is taken
