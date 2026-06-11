@@ -118,15 +118,38 @@ func TestButtonsReadControlTokens(t *testing.T) {
 	}
 }
 
+// TestHeaderCollapsesBelowMd guards review 02 task R02-40: the global header
+// must collapse below the 768px breakpoint instead of squeezing the logo,
+// search, and nav onto one phone-width row. The collapse is a pure CSS wrap
+// (search drops to a full-width second row), so it works with scripting off.
+func TestHeaderCollapsesBelowMd(t *testing.T) {
+	src, err := os.ReadFile("src/css/components.css")
+	if err != nil {
+		t.Fatalf("read components.css: %v", err)
+	}
+	at := strings.Index(string(src), "@media (max-width: 767.98px)")
+	if at < 0 {
+		t.Fatal("components.css has no md-down media query for the header collapse")
+	}
+	block := string(src)[at:]
+	for _, want := range []string{"flex-wrap: wrap", "flex-basis: 100%", "max-width: none", "order:"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("header md-down block is missing %q", want)
+		}
+	}
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string
 	body     string
 }
 
-// cssRules splits a flat sheet (no nesting, no at-rules in components.css)
-// into its rules. Comments are stripped first so a token name in prose does
-// not trip an assertion.
+// cssRules splits a flat sheet into its rules. Comments are stripped first so
+// a token name in prose does not trip an assertion. The parser does not
+// understand at-rules: a media query yields garbage selectors for itself and
+// the rule after it, so components.css keeps its single responsive block at
+// the end of the sheet where nothing follows.
 func cssRules(src string) []cssRule {
 	for {
 		start := strings.Index(src, "/*")

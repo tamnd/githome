@@ -653,3 +653,26 @@
   vertical-align: text-bottom;
   fill: currentColor;
 }
+
+/* Below the md breakpoint (doc 16 section 8.3) the header collapses from one
+   squeezed row into two: the logo and the nav icons share the top row and the
+   search field drops to a full-width second row. Pure CSS order and wrap, so
+   the collapse works with scripting off. This block stays at the end of the
+   sheet: the test helper in css_test.go parses flat rules and tolerates a
+   trailing at-rule but not one mid-sheet. */
+@media (max-width: 767.98px) {
+  .AppHeader-inner {
+    flex-wrap: wrap;
+    row-gap: var(--base-size-8);
+  }
+
+  .AppHeader-nav {
+    order: 2;
+  }
+
+  .AppHeader-search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
