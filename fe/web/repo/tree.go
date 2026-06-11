@@ -21,7 +21,8 @@ func (h *Handlers) Tree(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
-	ref, path, ok := h.resolveRef(repo, c.Param("rest"))
+	refs := h.loadRefs(repo)
+	ref, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}
@@ -39,7 +40,7 @@ func (h *Handlers) Tree(c *mizu.Ctx) error {
 	}
 
 	r := view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch}
-	vm := h.buildTreeFromDir(ctx, repo, r, path, res.Dir, false)
+	vm := h.buildTreeFromDir(ctx, repo, refs, r, path, res.Dir, false)
 	vm.Chrome = h.chrome(c, treeTitle(repo, path))
 	return h.render.Page(c, "repo/tree", vm)
 }

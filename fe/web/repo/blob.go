@@ -30,7 +30,8 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
-	ref, path, ok := h.resolveRef(repo, c.Param("rest"))
+	refs := h.loadRefs(repo)
+	ref, path, ok := h.resolveRef(repo, refs, c.Param("rest"))
 	if !ok {
 		return h.notFound(c)
 	}
@@ -38,7 +39,7 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 	res, err := h.repos.Contents(repo, path, ref)
 	switch {
 	case errors.Is(err, domain.ErrBlobTooLarge):
-		return h.renderTooLarge(c, repo, ref, path)
+		return h.renderTooLarge(c, repo, refs, ref, path)
 	case errors.Is(err, domain.ErrGitNotFound), errors.Is(err, domain.ErrEmptyRepo):
 		return h.notFound(c)
 	case err != nil:
@@ -48,7 +49,7 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 		return c.Redirect(http.StatusFound, route.Tree(ownerLogin(repo), repo.Name, ref, path))
 	}
 
-	vm := h.buildBlob(ctx, repo, ref, path, res.Entry, res.File, c.Query("plain") == "1")
+	vm := h.buildBlob(ctx, repo, refs, ref, path, res.Entry, res.File, c.Query("plain") == "1")
 	vm.Chrome = h.chrome(c, blobTitle(repo, path))
 	return h.render.Page(c, "repo/blob", vm)
 }
@@ -57,7 +58,7 @@ func (h *Handlers) Blob(c *mizu.Ctx) error {
 // so the view carries only the raw URL and the View raw path; the handler logs
 // the event so an operator sees the cap was hit rather than it failing silently
 // (implementation/07 section 5.3).
-func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, ref, path string) error {
+func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, refs *refSet, ref, path string) error {
 	h.log.WarnContext(c.Context(), "blob too large to render in the web view",
 		"repo", repo.FullName(), "ref", ref, "path", path)
 	vm := view.BlobVM{
@@ -67,7 +68,7 @@ func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, ref, path stri
 		Ref:       view.Ref{Name: ref},
 		Path:      path,
 		Crumbs:    breadcrumbs(repo, ref, path, true),
-		RefPicker: h.refPicker(repo, ref, route.KindBlob, parentDir(path)),
+		RefPicker: h.refPicker(repo, refs, ref, route.KindBlob, parentDir(path)),
 		Name:      baseName(path),
 		Kind:      "toolarge",
 		Truncated: true,
@@ -90,7 +91,7 @@ const maxBlobDisplayBytes = 512 << 10
 // viewed without ?plain=1 renders as GFM; a text or svg blob is highlighted per
 // line; the other kinds carry just the size and the raw URL. A text-like blob
 // past maxBlobDisplayBytes renders the too-large notice instead of its content.
-func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, ref, path string, entry git.PathEntry, blob *git.Blob, plain bool) view.BlobVM {
+func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, refs *refSet, ref, path string, entry git.PathEntry, blob *git.Blob, plain bool) view.BlobVM {
 	content := blob.Content
 	size := entry.Size
 	if size == 0 {
@@ -104,7 +105,7 @@ func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, ref, path s
 		Ref:       view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch},
 		Path:      path,
 		Crumbs:    breadcrumbs(repo, ref, path, true),
-		RefPicker: h.refPicker(repo, ref, route.KindBlob, parentDir(path)),
+		RefPicker: h.refPicker(repo, refs, ref, route.KindBlob, parentDir(path)),
 		Name:      baseName(path),
 		Size:      size,
 		SizeLabel: humanizeBytes(size),

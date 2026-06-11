@@ -3,12 +3,14 @@ package repo
 import (
 	"bytes"
 	"context"
+	"github.com/tamnd/githome/fe/route"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -492,5 +494,43 @@ func TestCommitPagePatchBounded(t *testing.T) {
 	}
 	if strings.Contains(body, "too large to show in full") {
 		t.Fatal("small page carried the truncation note")
+	}
+}
+
+// TestRefPickerCapped feeds the picker more refs than it inlines: each group
+// stops at the cap with a view-all link, and the current-tag detection still
+// works when the current ref sits past the cap.
+func TestRefPickerCapped(t *testing.T) {
+	h := &Handlers{}
+	repo := &domain.Repo{Name: "hello", Owner: &domain.User{Login: "octocat"}}
+	refs := &refSet{}
+	for i := range maxRefPickerEntries + 5 {
+		refs.branches = append(refs.branches, git.Branch{Name: "branch-" + strconv.Itoa(i)})
+		refs.tags = append(refs.tags, git.Tag{Name: "tag-" + strconv.Itoa(i)})
+	}
+	current := "tag-" + strconv.Itoa(maxRefPickerEntries+2) // past the cap
+
+	vm := h.refPicker(repo, refs, current, route.KindTree, "")
+	if len(vm.Branches) != maxRefPickerEntries {
+		t.Fatalf("branches shown = %d, want %d", len(vm.Branches), maxRefPickerEntries)
+	}
+	if len(vm.Tags) != maxRefPickerEntries {
+		t.Fatalf("tags shown = %d, want %d", len(vm.Tags), maxRefPickerEntries)
+	}
+	if vm.MoreBranchesURL == "" || vm.MoreTagsURL == "" {
+		t.Fatalf("capped picker must link the full lists: branches=%q tags=%q", vm.MoreBranchesURL, vm.MoreTagsURL)
+	}
+	if !vm.IsTag {
+		t.Fatal("current tag past the cap must still flag IsTag")
+	}
+
+	// Under the cap nothing is cut and no view-all links appear.
+	small := &refSet{branches: refs.branches[:3], tags: refs.tags[:3]}
+	vm = h.refPicker(repo, small, "branch-1", route.KindTree, "")
+	if len(vm.Branches) != 3 || len(vm.Tags) != 3 {
+		t.Fatalf("small picker shows %d/%d, want 3/3", len(vm.Branches), len(vm.Tags))
+	}
+	if vm.MoreBranchesURL != "" || vm.MoreTagsURL != "" {
+		t.Fatal("small picker must not link the full lists")
 	}
 }

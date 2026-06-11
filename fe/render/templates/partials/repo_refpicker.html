@@ -18,6 +18,7 @@
         <li><a class="ref-picker-item{{if .IsCurrent}} is-current{{end}}" href="{{.URL}}">{{.Name}}</a></li>
         {{- end}}
       </ul>
+      {{if .MoreBranchesURL}}<a class="ref-picker-more" href="{{.MoreBranchesURL}}">View all branches</a>{{end}}
     </div>
     {{- end}}
     {{if .Tags -}}
@@ -28,6 +29,7 @@
         <li><a class="ref-picker-item{{if .IsCurrent}} is-current{{end}}" href="{{.URL}}">{{.Name}}</a></li>
         {{- end}}
       </ul>
+      {{if .MoreTagsURL}}<a class="ref-picker-more" href="{{.MoreTagsURL}}">View all tags</a>{{end}}
     </div>
     {{- end}}
   </div>

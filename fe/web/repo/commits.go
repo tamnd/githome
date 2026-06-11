@@ -67,7 +67,7 @@ func (h *Handlers) commitsRef(repo *domain.Repo, rest string) (ref, path string)
 		}
 		return head.Name, ""
 	}
-	ref, path, ok := route.SplitRefPath(rest, h.refExists(repo))
+	ref, path, ok := route.SplitRefPath(rest, h.refExists(repo, h.loadRefs(repo)))
 	if !ok {
 		return "", ""
 	}
