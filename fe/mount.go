@@ -237,6 +237,13 @@ func mountRepo(page *mizu.Router, d Deps) {
 		Markup: d.Markup,
 		Logger: d.Logger,
 	})
+	// The create-repository form lives at the reserved top-level /new, outside
+	// the Resolve chain: there is no repository to resolve yet. The handler
+	// gates on the signed-in viewer itself and bounces an anonymous request to
+	// the sign-in form, the settings rule.
+	page.Get("/new", rh.NewForm)
+	page.Post("/new", rh.CreateRepo)
+
 	rg := page.With(rh.Resolve)
 	rg.Get("/{owner}/{repo}", rh.Home)
 	rg.Get("/{owner}/{repo}/tree/{rest...}", rh.Tree)

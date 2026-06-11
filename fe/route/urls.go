@@ -30,6 +30,14 @@ const (
 // URLs (api, .git); these own the human-facing HTML routes. See implementation/02
 // section 5 and implementation/07 section 11.
 
+// NewRepo is the create-repository form, /new. The name is reserved at the top
+// level (fe/route reserved.go), so it can never be read as an owner login.
+func NewRepo() string { return "/new" }
+
+// Dashboard is the signed-in home, /dashboard. The root renders the same page
+// for a signed-in viewer; this is the explicit alias the route map keeps.
+func Dashboard() string { return "/dashboard" }
+
 // Repo is the repository home, /{owner}/{repo}.
 func Repo(owner, name string) string {
 	return "/" + esc(owner) + "/" + esc(name)
