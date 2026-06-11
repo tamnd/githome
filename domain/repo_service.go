@@ -728,6 +728,19 @@ const MaxCompareCommits = 250
 // list is capped at MaxCompareCommits; when the cap bites, one extra rev-list
 // --count establishes the honest TotalCommits.
 func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
+	return s.compare(ctx, repo, base, head, false)
+}
+
+// CompareDirect is Compare over the two-dot form: the files are the diff
+// between the two trees themselves rather than between head and the merge
+// base, so changes only on the base side show up reversed. The commit list is
+// the same base..head walk both forms share. Unrelated histories still
+// produce the direct diff; only the merge base is absent.
+func (s *RepoService) CompareDirect(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
+	return s.compare(ctx, repo, base, head, true)
+}
+
+func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string, direct bool) (*CompareResult, error) {
 	baseBranch, err := s.GetBranch(repo, base)
 	if err != nil {
 		return nil, ErrGitNotFound
@@ -740,7 +753,10 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
+	if !ok && !direct {
+		// The three-dot diff is against the merge base; with no common history
+		// there is nothing to diff. The direct form needs no ancestor, so it
+		// proceeds without one.
 		return &CompareResult{Base: baseBranch, Head: headBranch}, nil
 	}
 
@@ -759,7 +775,11 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 	}()
 	go func() {
 		defer wg.Done()
-		files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		if direct {
+			files, fdErr = s.gitStore.ChangedFilesDirect(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		} else {
+			files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+		}
 	}()
 	wg.Wait()
 	if commitsErr != nil {

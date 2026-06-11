@@ -95,20 +95,85 @@ func FirstSegment(p string) (head, rest string) {
 	return head, rest
 }
 
-// ParseBaseHead splits the basehead parameter of a compare URL into the base
-// and head branch names. The canonical form is "base...head"; when there is no
-// "...", the whole string is returned as the head with an empty base so the
-// caller can substitute the repository's default branch.
-func ParseBaseHead(s string) (base, head string, ok bool) {
+// CompareSide is one side of a compare range. Owner and Repo are the optional
+// qualifiers of the owner:ref and owner:repo:ref forms; both empty means the
+// ref lives in the repository the URL names.
+type CompareSide struct {
+	Owner string
+	Repo  string
+	Ref   string
+}
+
+// CompareSpec is a parsed compare range. TwoDot marks the "base..head" form,
+// the direct diff between the two ends; the canonical "base...head" form
+// diffs head against the merge base.
+type CompareSpec struct {
+	Base   CompareSide
+	Head   CompareSide
+	TwoDot bool
+}
+
+// ParseBaseHead parses the basehead parameter of a compare URL. The canonical
+// form is "base...head"; "base..head" selects the two-dot direct diff. Each
+// side is a ref, an owner-qualified "owner:ref", or a fully qualified
+// "owner:repo:ref" (github.com's cross-fork grammar). With no separator the
+// whole string is the head with an empty base, so the caller can substitute
+// the repository's default branch. ok is false when the string cannot parse:
+// an empty side, or a side with more than two colons.
+func ParseBaseHead(s string) (CompareSpec, bool) {
 	if s == "" {
-		return "", "", false
+		return CompareSpec{}, false
 	}
-	if i := strings.Index(s, "..."); i >= 0 {
-		b, h := s[:i], s[i+3:]
-		if b == "" || h == "" {
-			return "", "", false
+	var spec CompareSpec
+	var rawBase, rawHead string
+	switch {
+	case strings.Contains(s, "..."):
+		rawBase, rawHead, _ = strings.Cut(s, "...")
+	case strings.Contains(s, ".."):
+		rawBase, rawHead, _ = strings.Cut(s, "..")
+		spec.TwoDot = true
+	default:
+		side, ok := parseCompareSide(s)
+		if !ok {
+			return CompareSpec{}, false
 		}
-		return b, h, true
+		spec.Head = side
+		return spec, true
 	}
-	return "", s, true
+	if rawBase == "" || rawHead == "" {
+		return CompareSpec{}, false
+	}
+	base, ok := parseCompareSide(rawBase)
+	if !ok {
+		return CompareSpec{}, false
+	}
+	head, ok := parseCompareSide(rawHead)
+	if !ok {
+		return CompareSpec{}, false
+	}
+	spec.Base, spec.Head = base, head
+	return spec, true
+}
+
+// parseCompareSide parses one side of a compare range: "ref", "owner:ref", or
+// "owner:repo:ref". A ref may itself contain a colon only in the unqualified
+// form's absence, so the split is from the left: the first colon ends the
+// owner, the second ends the repo. Empty components do not parse.
+func parseCompareSide(s string) (CompareSide, bool) {
+	parts := strings.Split(s, ":")
+	for _, p := range parts {
+		if p == "" {
+			return CompareSide{}, false
+		}
+	}
+	switch len(parts) {
+	case 1:
+		return CompareSide{Ref: parts[0]}, true
+	case 2:
+		return CompareSide{Owner: parts[0], Ref: parts[1]}, true
+	case 3:
+		return CompareSide{Owner: parts[0], Repo: parts[1], Ref: parts[2]}, true
+	default:
+		return CompareSide{}, false
+	}
 }

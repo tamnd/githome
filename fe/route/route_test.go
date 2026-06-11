@@ -169,6 +169,40 @@ func TestSplitRefPathPrefersLongestRef(t *testing.T) {
 	}
 }
 
+func TestParseBaseHead(t *testing.T) {
+	cases := []struct {
+		in     string
+		want   CompareSpec
+		wantOK bool
+	}{
+		{"main...feature", CompareSpec{Base: CompareSide{Ref: "main"}, Head: CompareSide{Ref: "feature"}}, true},
+		{"main..feature", CompareSpec{Base: CompareSide{Ref: "main"}, Head: CompareSide{Ref: "feature"}, TwoDot: true}, true},
+		// No separator: the whole string is the head, the caller substitutes
+		// the default branch as base.
+		{"feature", CompareSpec{Head: CompareSide{Ref: "feature"}}, true},
+		// Dots inside a ref survive; only the separator splits.
+		{"release-1.2...main", CompareSpec{Base: CompareSide{Ref: "release-1.2"}, Head: CompareSide{Ref: "main"}}, true},
+		// The qualified sides: owner:ref and owner:repo:ref.
+		{"main...octocat:feature", CompareSpec{Base: CompareSide{Ref: "main"}, Head: CompareSide{Owner: "octocat", Ref: "feature"}}, true},
+		{"octocat:hello:main...feature", CompareSpec{Base: CompareSide{Owner: "octocat", Repo: "hello", Ref: "main"}, Head: CompareSide{Ref: "feature"}}, true},
+		{"a:b:c...d:e:f", CompareSpec{Base: CompareSide{Owner: "a", Repo: "b", Ref: "c"}, Head: CompareSide{Owner: "d", Repo: "e", Ref: "f"}}, true},
+		// Malformed: empty sides, empty components, too many colons.
+		{"", CompareSpec{}, false},
+		{"...feature", CompareSpec{}, false},
+		{"main...", CompareSpec{}, false},
+		{"main..", CompareSpec{}, false},
+		{"main...:feature", CompareSpec{}, false},
+		{"a:b:c:d...main", CompareSpec{}, false},
+		{"octocat:...main", CompareSpec{}, false},
+	}
+	for _, tc := range cases {
+		got, ok := ParseBaseHead(tc.in)
+		if got != tc.want || ok != tc.wantOK {
+			t.Errorf("ParseBaseHead(%q) = (%+v, %v), want (%+v, %v)", tc.in, got, ok, tc.want, tc.wantOK)
+		}
+	}
+}
+
 func TestFirstSegment(t *testing.T) {
 	cases := []struct{ in, head, rest string }{
 		{"/octocat/hello-world/tree/main", "octocat", "hello-world/tree/main"},
