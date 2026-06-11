@@ -25,6 +25,10 @@ type Store struct {
 	pool  *catFilePool
 	cache *objCache
 
+	// diffs caches parsed diffs by (pk, base, head) for ChangedFiles. The key
+	// is content-addressed (two full object ids), so an entry never goes stale.
+	diffs *diffCache
+
 	// overrides maps pk to an explicit filesystem path, bypassing the normal
 	// root/{shard}/{pk}.git layout. Used by browse mode to point at an
 	// arbitrary local repository without a managed tree.
@@ -41,6 +45,7 @@ func NewStore(dir string) *Store {
 	s := &Store{root: dir, maxBlobBytes: defaultMaxBlobBytes}
 	s.pool = newCatFilePool("git", 64)
 	s.cache = newObjCache(objCacheMaxEntries)
+	s.diffs = newDiffCache(diffCacheMaxBytes)
 	return s
 }
 

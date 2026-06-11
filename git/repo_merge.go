@@ -167,8 +167,19 @@ func (s *Store) DiffStat(ctx context.Context, pk int64, base, head SHA) (additio
 
 // ChangedFiles returns the per-file diff between base and head over the
 // three-dot range, parsed from a single full-index patch so each file carries
-// its status, blob id, line counts, and hunk text in one pass.
+// its status, blob id, line counts, and hunk text in one pass. When both ends
+// are full object ids the parsed diff is served from a content-addressed LRU,
+// so the second ask for a range (the review-thread indexer right after the
+// Files page, or a compare reload) skips the git subprocess entirely.
 func (s *Store) ChangedFiles(ctx context.Context, pk int64, base, head SHA) ([]FileChange, error) {
+	cacheable := s.diffs != nil && isFullSHA(base) && isFullSHA(head)
+	key := ""
+	if cacheable {
+		key = diffKey(pk, base, head)
+		if files := s.diffs.get(key); files != nil {
+			return files, nil
+		}
+	}
 	args := []string{"diff", "--no-color", "--full-index", "--find-renames", base + "..." + head}
 	r, err := s.run(ctx, pk, nil, args...)
 	if err != nil {
@@ -177,7 +188,11 @@ func (s *Store) ChangedFiles(ctx context.Context, pk int64, base, head SHA) ([]F
 	if r.code != 0 {
 		return nil, fail(args, r)
 	}
-	return parseDiff(string(r.stdout)), nil
+	files := parseDiff(string(r.stdout))
+	if cacheable && files != nil {
+		s.diffs.put(key, files)
+	}
+	return files, nil
 }
 
 // DiffRaw returns the unified diff between base and head over the three-dot
