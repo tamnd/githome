@@ -141,6 +141,74 @@
   flex: 1 1 auto;
 }
 
+/* The PR Checks tab. The list reuses the check-row layout above; a row whose run
+   is open in the detail pane is tinted and its name link marked current. */
+.check-row.is-selected {
+  background-color: var(--bgColor-accent-muted);
+}
+
+.check-row-link {
+  color: inherit;
+}
+
+/* The selected run's detail pane under the list: the run header line, the timing
+   sentence, and the reported markdown output. */
+.check-detail {
+  margin-bottom: var(--base-size-24);
+  padding: var(--base-size-12);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.check-detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.check-detail-name {
+  font-size: var(--text-body-size-medium);
+  font-weight: 600;
+  margin: 0;
+}
+
+.check-detail-app {
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.check-detail-when {
+  margin: var(--base-size-4) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.check-detail-output {
+  margin-top: var(--base-size-12);
+  padding-top: var(--base-size-12);
+  border-top: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.check-detail-title {
+  font-size: var(--text-body-size-medium);
+  font-weight: 600;
+  margin-bottom: var(--base-size-8);
+}
+
+.check-detail-text {
+  padding: var(--base-size-8);
+  overflow: auto;
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-small-size);
+  background-color: var(--bgColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.check-detail-empty {
+  margin: var(--base-size-12) 0 0;
+  color: var(--fgColor-muted);
+}
+
 /* The merge box's checks line, between the merge state and the reviews line. It
    reuses the shared check-state color on its icon. */
 .merge-box-checks {

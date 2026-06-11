@@ -1,6 +1,7 @@
 package pulls
 
 import (
+	"context"
 	"net/url"
 	"strconv"
 	"strings"
@@ -59,6 +60,12 @@ func (h *Handlers) Checks(c *mizu.Ctx) error {
 
 	title := pr.Title + " #" + strconv.FormatInt(pr.Number, 10)
 	shell := h.shell(c, repo, pr, h.viewer(c).pk, "checks", title)
+
+	// ?check_run_id= selects a run into the detail pane. The id is matched
+	// against the runs already loaded at this head, so an id from another
+	// repo, another sha, or thin air falls back to the plain list.
+	selectedID, _ := strconv.ParseInt(c.Query("check_run_id"), 10, 64)
+
 	rtok := view.RollupToken(rollup.State)
 	vm := view.PRChecksVM{
 		Chrome:      shell.Chrome,
@@ -68,9 +75,12 @@ func (h *Handlers) Checks(c *mizu.Ctx) error {
 		Rollup:      rtok,
 		RollupTitle: rtok.Title,
 		Total:       rollup.TotalCount,
-		Suites:      checkSuiteGroups(suites),
+		Suites:      checkSuiteGroups(suites, shell.ChecksURL, selectedID),
 		Statuses:    commitStatusRows(rollup.Statuses),
 		Empty:       rollup.TotalCount == 0,
+	}
+	if run, app := findCheckRun(suites, selectedID); run != nil {
+		vm.Detail = h.checkDetail(ctx, repo, run, app)
 	}
 	return h.render.Page(c, "pulls/checks", vm)
 }
@@ -91,8 +101,9 @@ func (h *Handlers) checkCount(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullReq
 
 // checkSuiteGroups maps the head's check suites into the tab's groups, skipping
 // a suite that carries no runs so an empty container never renders a bare
-// heading.
-func checkSuiteGroups(suites []*domain.CheckSuite) []view.PRCheckSuiteVM {
+// heading. checksURL is the bare tab URL each row's select link appends its
+// ?check_run_id= to, and selectedID marks the open run's row.
+func checkSuiteGroups(suites []*domain.CheckSuite, checksURL string, selectedID int64) []view.PRCheckSuiteVM {
 	out := make([]view.PRCheckSuiteVM, 0, len(suites))
 	for _, s := range suites {
 		if len(s.Runs) == 0 {
@@ -100,23 +111,67 @@ func checkSuiteGroups(suites []*domain.CheckSuite) []view.PRCheckSuiteVM {
 		}
 		g := view.PRCheckSuiteVM{App: s.AppSlug, Runs: make([]view.PRCheckRunRowVM, 0, len(s.Runs))}
 		for _, r := range s.Runs {
-			g.Runs = append(g.Runs, checkRunRow(r))
+			g.Runs = append(g.Runs, checkRunRow(r, checksURL, selectedID))
 		}
 		out = append(out, g)
 	}
 	return out
 }
 
-// checkRunRow maps one check run into its tab row, precomputing the shared
-// status token, the one-line summary, the duration, the sanitized details link,
-// and the time line.
-func checkRunRow(r *domain.CheckRun) view.PRCheckRunRowVM {
-	row := view.PRCheckRunRowVM{
+// findCheckRun returns the run with the public id among the head's suites, and
+// the owning suite's app slug, or nil when the id matches nothing.
+func findCheckRun(suites []*domain.CheckSuite, id int64) (*domain.CheckRun, string) {
+	if id == 0 {
+		return nil, ""
+	}
+	for _, s := range suites {
+		for _, r := range s.Runs {
+			if r.ID == id {
+				return r, s.AppSlug
+			}
+		}
+	}
+	return nil, ""
+}
+
+// checkDetail builds the selected run's detail pane. The output summary and text
+// are markdown by contract (the same dialect a comment body speaks), so they
+// render through the shared markup pipeline; the raw strings ride along for the
+// escaped fallback when markup is unconfigured.
+func (h *Handlers) checkDetail(ctx context.Context, repo *domain.Repo, r *domain.CheckRun, app string) *view.PRCheckDetailVM {
+	d := &view.PRCheckDetailVM{
 		ID:       r.ID,
 		Name:     r.Name,
+		App:      app,
 		Token:    view.CheckRunToken(r.Status, strDeref(r.Conclusion)),
-		Summary:  checkRunSummary(r),
 		Duration: checkRunDuration(r),
+		Title:    strDeref(r.OutputTitle),
+		Summary:  strDeref(r.OutputSummary),
+		Text:     strDeref(r.OutputText),
+	}
+	if u := safeExternalURL(strDeref(r.DetailsURL)); u != "" {
+		d.DetailsURL = u
+		d.HasDetails = true
+	}
+	d.WhenVerb, d.WhenISO, d.WhenHuman = checkRunTiming(r)
+	d.SummaryHTML = h.renderBody(ctx, repo, d.Summary)
+	d.TextHTML = h.renderBody(ctx, repo, d.Text)
+	d.HasOutput = d.Title != "" || d.Summary != "" || d.Text != ""
+	return d
+}
+
+// checkRunRow maps one check run into its tab row, precomputing the shared
+// status token, the one-line summary, the duration, the sanitized details link,
+// the time line, and the detail-pane select link.
+func checkRunRow(r *domain.CheckRun, checksURL string, selectedID int64) view.PRCheckRunRowVM {
+	row := view.PRCheckRunRowVM{
+		ID:        r.ID,
+		Name:      r.Name,
+		Token:     view.CheckRunToken(r.Status, strDeref(r.Conclusion)),
+		Summary:   checkRunSummary(r),
+		Duration:  checkRunDuration(r),
+		SelectURL: checksURL + "?check_run_id=" + strconv.FormatInt(r.ID, 10),
+		Selected:  r.ID == selectedID,
 	}
 	if u := safeExternalURL(strDeref(r.DetailsURL)); u != "" {
 		row.DetailsURL = u

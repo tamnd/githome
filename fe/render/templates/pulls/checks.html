@@ -26,10 +26,10 @@
       <h2 class="checks-section-heading">{{if .App}}{{.App}}{{else}}Check runs{{end}}</h2>
       <ul class="checks-list">
         {{range .Runs -}}
-        <li class="check-row">
+        <li class="check-row{{if .Selected}} is-selected{{end}}">
           <span class="check-state-icon check-state {{.Token.ColorClass}}{{if .Token.Spin}} check-state-spin{{end}}" title="{{.Token.Title}}" aria-label="{{.Token.Title}}">{{octicon .Token.Icon 16}}</span>
           <div class="check-row-main">
-            <span class="check-row-name">{{.Name}}</span>
+            <a class="check-row-name check-row-link" href="{{.SelectURL}}"{{if .Selected}} aria-current="true"{{end}}>{{.Name}}</a>
             {{if .Summary}}<span class="check-row-summary">{{.Summary}}</span>{{end}}
             {{if .WhenISO}}<span class="check-row-when">{{.WhenVerb}} <relative-time datetime="{{.WhenISO}}">{{.WhenHuman}}</relative-time>{{if .Duration}} in {{.Duration}}{{end}}</span>{{end}}
           </div>
@@ -38,6 +38,29 @@
         {{- end}}
       </ul>
     </section>
+    {{- end}}
+
+    {{if .Detail -}}
+    {{with .Detail -}}
+    <section class="check-detail" aria-label="Check run detail">
+      <header class="check-detail-header">
+        <span class="check-state-icon check-state {{.Token.ColorClass}}{{if .Token.Spin}} check-state-spin{{end}}" title="{{.Token.Title}}" aria-label="{{.Token.Title}}">{{octicon .Token.Icon 16}}</span>
+        <h2 class="check-detail-name">{{.Name}}</h2>
+        {{if .App}}<span class="check-detail-app">{{.App}}</span>{{end}}
+        {{if .HasDetails}}<a class="check-row-details" href="{{.DetailsURL}}" rel="nofollow noopener" target="_blank">Details {{octicon "link-external" 16}}</a>{{end}}
+      </header>
+      {{if .WhenISO}}<p class="check-detail-when">{{.Token.Title}}. {{.WhenVerb}} <relative-time datetime="{{.WhenISO}}">{{.WhenHuman}}</relative-time>{{if .Duration}} in {{.Duration}}{{end}}.</p>{{end}}
+      {{if .HasOutput -}}
+      <div class="check-detail-output">
+        {{if .Title}}<h3 class="check-detail-title">{{.Title}}</h3>{{end}}
+        {{if .SummaryHTML}}<div class="markdown-body">{{.SummaryHTML}}</div>{{else if .Summary}}<p>{{.Summary}}</p>{{end}}
+        {{if .TextHTML}}<div class="markdown-body">{{.TextHTML}}</div>{{else if .Text}}<pre class="check-detail-text">{{.Text}}</pre>{{end}}
+      </div>
+      {{- else -}}
+      <p class="check-detail-empty">This check reported no output.</p>
+      {{- end}}
+    </section>
+    {{- end}}
     {{- end}}
 
     {{if .Statuses -}}

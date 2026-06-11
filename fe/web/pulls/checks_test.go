@@ -107,6 +107,58 @@ func TestChecksTabShowsInShellOnOtherTabs(t *testing.T) {
 	}
 }
 
+func TestChecksTabDetailPane(t *testing.T) {
+	fx := newFixture(t)
+	seedCheck(t, fx, "build", "success", "Build passed")
+	seedCheck(t, fx, "lint", "failure", "Lint found problems")
+
+	// Find the build run's public id through the list page's select link is
+	// indirect; read it back through the service instead.
+	runs, _, err := fx.checks.ListCheckRuns(context.Background(), 0, fx.owner, fx.repo, fx.headSHA)
+	if err != nil {
+		t.Fatalf("list check runs: %v", err)
+	}
+	var buildID int64
+	for _, r := range runs {
+		if r.Name == "build" {
+			buildID = r.ID
+		}
+	}
+	if buildID == 0 {
+		t.Fatalf("build run not found among %d runs", len(runs))
+	}
+
+	base := "/octocat/hello/pull/" + itoa(fx.prNum) + "/checks"
+	resp, body := get(t, fx.srv, base+"?check_run_id="+itoa(buildID))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// The detail pane opens on the selected run, its row is marked, and the
+	// other run stays a plain row.
+	if !strings.Contains(body, "check-detail") {
+		t.Errorf("detail pane is missing:\n%s", body)
+	}
+	if !strings.Contains(body, "Build passed") {
+		t.Errorf("detail pane is missing the run's output title:\n%s", body)
+	}
+	if !strings.Contains(body, "is-selected") {
+		t.Errorf("selected run's row is not marked:\n%s", body)
+	}
+	// Every run row links to its own detail.
+	if !strings.Contains(body, "check_run_id=") {
+		t.Errorf("run rows are missing their select links:\n%s", body)
+	}
+
+	// An id that matches nothing at this head renders the plain list.
+	resp, body = get(t, fx.srv, base+"?check_run_id=999999")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("bogus id status %d, want 200", resp.StatusCode)
+	}
+	if strings.Contains(body, "check-detail") {
+		t.Errorf("bogus check_run_id opened a detail pane:\n%s", body)
+	}
+}
+
 func TestChecksTabMissingPullNotFound(t *testing.T) {
 	fx := newFixture(t)
 	resp, _ := get(t, fx.srv, "/octocat/hello/pull/9999/checks")

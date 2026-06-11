@@ -1,5 +1,7 @@
 package view
 
+import "html/template"
+
 // pr_checks.go holds the PR Checks tab view models: the tab at
 // /{owner}/{repo}/pull/{number}/checks that lists the check runs reported
 // against the pull request's head sha, grouped by their check suite, beside the
@@ -26,6 +28,11 @@ type PRChecksVM struct {
 
 	Suites   []PRCheckSuiteVM
 	Statuses []CommitStatusRowVM
+
+	// Detail is the selected run's pane, present when ?check_run_id= names a
+	// run reported against this head. An id that matches nothing renders the
+	// plain list, never an error.
+	Detail *PRCheckDetailVM
 
 	Empty bool
 }
@@ -55,4 +62,36 @@ type PRCheckRunRowVM struct {
 	WhenVerb  string
 	WhenISO   string
 	WhenHuman string
+
+	// SelectURL is the tab URL with ?check_run_id= naming this run, the no-JS
+	// link that opens the detail pane; Selected marks the open run's row.
+	SelectURL string
+	Selected  bool
+}
+
+// PRCheckDetailVM is the selected run's detail pane under the list: the run's
+// identity and status, its timing, and the reported output. The summary and the
+// text render through the shared markup pipeline (a check run's output is
+// markdown, the same dialect a comment body speaks); the raw strings ride along
+// so an unconfigured markup falls back to escaped text instead of nothing.
+type PRCheckDetailVM struct {
+	ID    int64
+	Name  string
+	App   string
+	Token StatusToken
+
+	Duration  string
+	WhenVerb  string
+	WhenISO   string
+	WhenHuman string
+
+	DetailsURL string
+	HasDetails bool
+
+	Title       string
+	Summary     string
+	SummaryHTML template.HTML
+	Text        string
+	TextHTML    template.HTML
+	HasOutput   bool
 }
