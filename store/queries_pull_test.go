@@ -91,7 +91,7 @@ func TestPullListAndCountFilters(t *testing.T) {
 		}
 
 		// The empty state lists open ones, newest number first.
-		openList, err := st.ListPulls(ctx, repo.PK, "", 30, 0)
+		openList, err := st.ListPulls(ctx, repo.PK, store.PullFilter{}, 30, 0)
 		if err != nil {
 			t.Fatalf("ListPulls open: %v", err)
 		}
@@ -101,15 +101,15 @@ func TestPullListAndCountFilters(t *testing.T) {
 		if openList[0].PK == open1.PK {
 			t.Errorf("open list not newest-first: %+v", openList)
 		}
-		closedList, _ := st.ListPulls(ctx, repo.PK, "closed", 30, 0)
+		closedList, _ := st.ListPulls(ctx, repo.PK, store.PullFilter{State: "closed"}, 30, 0)
 		if len(closedList) != 1 {
 			t.Fatalf("closed list = %d, want 1", len(closedList))
 		}
-		allList, _ := st.ListPulls(ctx, repo.PK, "all", 30, 0)
+		allList, _ := st.ListPulls(ctx, repo.PK, store.PullFilter{State: "all"}, 30, 0)
 		if len(allList) != 3 {
 			t.Fatalf("all list = %d, want 3", len(allList))
 		}
-		n, err := st.CountPulls(ctx, repo.PK, "open")
+		n, err := st.CountPulls(ctx, repo.PK, store.PullFilter{State: "open"})
 		if err != nil || n != 2 {
 			t.Fatalf("CountPulls open = %d (%v), want 2", n, err)
 		}
@@ -136,7 +136,7 @@ func TestListPullsPageKeysetWalk(t *testing.T) {
 		var cursor *store.PullCursor
 		var prevNumber int64 = 1 << 62
 		for pages := 0; pages < 20; pages++ {
-			rows, hasMore, err := st.ListPullsPage(ctx, repo.PK, "", cursor, 2)
+			rows, hasMore, err := st.ListPullsPage(ctx, repo.PK, store.PullFilter{}, cursor, 2)
 			if err != nil {
 				t.Fatalf("ListPullsPage: %v", err)
 			}

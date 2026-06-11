@@ -62,10 +62,10 @@ type PullStore interface {
 
 	GetPullByIssuePK(ctx context.Context, issuePK int64) (*store.PullRow, error)
 	GetPullByDBID(ctx context.Context, dbID int64) (*store.PullRow, error)
-	ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]store.PullRow, error)
-	ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
-	CountPulls(ctx context.Context, repoPK int64, state string) (int, error)
-	PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error)
+	ListPulls(ctx context.Context, repoPK int64, f store.PullFilter, limit, offset int) ([]store.PullRow, error)
+	ListPullsPage(ctx context.Context, repoPK int64, f store.PullFilter, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
+	CountPulls(ctx context.Context, repoPK int64, f store.PullFilter) (int, error)
+	PullListVersion(ctx context.Context, repoPK int64, f store.PullFilter) (int, string, error)
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
 	SetMergeability(ctx context.Context, issuePK int64, mergeable *bool, state string, rebaseable *bool, additions, deletions, changedFiles, commits int, checkedAt time.Time) error
@@ -109,13 +109,21 @@ type PRInput struct {
 }
 
 // PRQuery narrows the list endpoint to a state (open, closed, all) and a page.
+// Head filters on the head branch, either a bare branch name or GitHub's
+// "owner:branch" form; Base filters on the base branch. Sort is created (the
+// default), updated, popularity, or long-running, and Direction is asc or
+// desc, defaulting to desc.
 // Cursor, when set, is the opaque keyset token from the previous page's Link
 // header, which switches the list to a number seek instead of OFFSET.
 type PRQuery struct {
-	State   string
-	Page    int
-	PerPage int
-	Cursor  string
+	State     string
+	Head      string
+	Base      string
+	Sort      string
+	Direction string
+	Page      int
+	PerPage   int
+	Cursor    string
 	// AfterNumber is the number of the last pull request on the previous page,
 	// the seek key the GraphQL connection cursors carry. The list orders by
 	// number descending, so it seeds the keyset seek directly.
@@ -329,6 +337,25 @@ func (s *PRService) UpdatePR(ctx context.Context, actorPK int64, owner, name str
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }
 
+// pullFilter maps a PRQuery to the store filter, splitting the "owner:branch"
+// head form into the owner and the branch name.
+func pullFilter(q PRQuery) store.PullFilter {
+	f := store.PullFilter{
+		State:     q.State,
+		BaseRef:   q.Base,
+		Sort:      q.Sort,
+		Direction: q.Direction,
+	}
+	if q.Head != "" {
+		if owner, ref, ok := strings.Cut(q.Head, ":"); ok {
+			f.HeadOwner, f.HeadRef = owner, ref
+		} else {
+			f.HeadRef = q.Head
+		}
+	}
+	return f
+}
+
 // ListPRs returns a page of the repository's pull requests plus the total
 // matching the state filter, for the pagination headers.
 func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) ([]*PullRequest, int, error) {
@@ -336,11 +363,11 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	rows, err := s.store.ListPulls(ctx, repo.PK, pullFilter(q), q.PerPage, offsetFor(q.Page, q.PerPage))
 	if err != nil {
 		return nil, 0, err
 	}
-	total, err := s.store.CountPulls(ctx, repo.PK, q.State)
+	total, err := s.store.CountPulls(ctx, repo.PK, pullFilter(q))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -352,14 +379,14 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 }
 
 // ListPRsVersion returns the count and the latest updated_at marker of the
-// state-filtered window, the seed the REST pulls list hashes into a version
+// filtered window, the seed the REST pulls list hashes into a version
 // ETag, mirroring ListIssuesVersion.
-func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name, state string) (int, string, error) {
+func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) (int, string, error) {
 	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
 	if err != nil {
 		return 0, "", err
 	}
-	return s.store.PullListVersion(ctx, repo.PK, state)
+	return s.store.PullListVersion(ctx, repo.PK, pullFilter(q))
 }
 
 // ListPRsWindow returns a page of the repository's pull requests without the
@@ -370,7 +397,7 @@ func (s *PRService) ListPRsWindow(ctx context.Context, viewerPK int64, owner, na
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	rows, err := s.store.ListPulls(ctx, repo.PK, pullFilter(q), q.PerPage, offsetFor(q.Page, q.PerPage))
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +423,7 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 	if cursor == nil && q.AfterNumber > 0 {
 		cursor = &store.PullCursor{Number: q.AfterNumber}
 	}
-	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, q.State, cursor, q.PerPage)
+	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, pullFilter(q), cursor, q.PerPage)
 	if err != nil {
 		return nil, false, err
 	}
@@ -415,7 +442,7 @@ func (s *PRService) CountPRs(ctx context.Context, viewerPK int64, owner, name, s
 	if err != nil {
 		return 0, err
 	}
-	return s.store.CountPulls(ctx, repo.PK, state)
+	return s.store.CountPulls(ctx, repo.PK, store.PullFilter{State: state})
 }
 
 // Files returns the per-file diff of a pull request over the three-dot range

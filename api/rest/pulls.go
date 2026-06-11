@@ -27,7 +27,9 @@ type pullCreateBody struct {
 }
 
 // handlePullsList serves GET /repos/{owner}/{repo}/pulls. The state query selects
-// open, closed, or all, defaulting to open.
+// open, closed, or all, defaulting to open. head ("owner:branch" or a bare
+// branch name) and base narrow the list to one branch pair, and sort plus
+// direction reorder it (created, updated, popularity, long-running).
 func handlePullsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
@@ -37,17 +39,22 @@ func handlePullsList(d Deps) mizu.Handler {
 			return nil
 		}
 		q := domain.PRQuery{
-			State:   c.Query("state"),
-			Page:    page.Page,
-			PerPage: page.PerPage,
-			Cursor:  c.Query("cursor"),
+			State:     c.Query("state"),
+			Head:      c.Query("head"),
+			Base:      c.Query("base"),
+			Sort:      c.Query("sort"),
+			Direction: c.Query("direction"),
+			Page:      page.Page,
+			PerPage:   page.PerPage,
+			Cursor:    c.Query("cursor"),
 		}
 
 		// Flat read path: a cursor follow-up seeks on the per-repo number
-		// (newest first, the only order this list offers) and skips the COUNT
+		// (newest first, the order the seek key covers) and skips the COUNT
 		// that page-number navigation needs for rel="last". Only rel="next" is
 		// offered, so deep walks cost the page, not a count plus a deep OFFSET.
-		if q.Cursor != "" {
+		// Custom sorts and ascending direction fall back to OFFSET.
+		if q.Cursor != "" && pullCursorEligible(q) {
 			prs, hasMore, err := d.Pulls.ListPRsPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 			if pullError(c.Writer(), err) {
 				return nil
@@ -73,7 +80,7 @@ func handlePullsList(d Deps) mizu.Handler {
 		// assembling, or marshaling the page, the same shape as the issues
 		// list. The marker covers the pull row too, so head pushes and
 		// mergeability recomputes invalidate the tag.
-		total, marker, err := d.Pulls.ListPRsVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q.State)
+		total, marker, err := d.Pulls.ListPRsVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -108,6 +115,14 @@ func handlePullsList(d Deps) mizu.Handler {
 		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, out, tag)
 		return nil
 	}
+}
+
+// pullCursorEligible reports whether a pulls list query can be served by the
+// keyset seek: the seek key is the per-repo number, which only matches the
+// default newest-first creation order.
+func pullCursorEligible(q domain.PRQuery) bool {
+	return (q.Sort == "" || q.Sort == "created") &&
+		(q.Direction == "" || strings.EqualFold(q.Direction, "desc"))
 }
 
 // handlePullCreate serves POST /repos/{owner}/{repo}/pulls.
