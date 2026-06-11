@@ -169,13 +169,20 @@ func (d *Deliverer) buildRequest(ctx context.Context, hook *store.WebhookRow, p 
 			redelivery: true,
 		}, nil
 	}
-	ev, err := d.store.GetEventByPK(ctx, p.EventPK)
-	if err != nil {
-		return nil, err
-	}
-	rendered, err := d.renderer.Render(ctx, ev, p.Push, p.CreateDelete, p.Detail)
-	if err != nil {
-		return nil, err
+	var rendered *Rendered
+	if p.Ping {
+		// A ping has no event row: the body renders straight from the hook.
+		if rendered, err = d.renderer.RenderPing(ctx, hook, p.SenderPK); err != nil {
+			return nil, err
+		}
+	} else {
+		ev, err := d.store.GetEventByPK(ctx, p.EventPK)
+		if err != nil {
+			return nil, err
+		}
+		if rendered, err = d.renderer.Render(ctx, ev, p.Push, p.CreateDelete, p.Detail); err != nil {
+			return nil, err
+		}
 	}
 	body, contentType := encodeBody(hook.ContentType, rendered.Body)
 	headers := map[string]string{

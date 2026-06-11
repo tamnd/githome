@@ -79,7 +79,9 @@ type PushPayload struct {
 // push event has no table to reload from, propagated from the deliver_event job
 // so each hook's body renders the same push. CreateDelete carries ref detail
 // for create/delete events. RedeliverOf, when set, replays a recorded delivery
-// instead of rendering the event afresh.
+// instead of rendering the event afresh. Ping, when set, sends the ping body
+// instead of an event: there is no event row, so EventPK is zero and SenderPK
+// names the actor who triggered it.
 type DeliverWebhookPayload struct {
 	WebhookPK    int64                `json:"webhook_pk"`
 	EventPK      int64                `json:"event_pk"`
@@ -87,6 +89,8 @@ type DeliverWebhookPayload struct {
 	CreateDelete *CreateDeletePayload `json:"create_delete,omitempty"`
 	Detail       *EventDetail         `json:"detail,omitempty"`
 	RedeliverOf  int64                `json:"redeliver_of,omitempty"`
+	Ping         bool                 `json:"ping,omitempty"`
+	SenderPK     int64                `json:"sender_pk,omitempty"`
 }
 
 // eventRecorder is the slice of the store the event sink writes through: one

@@ -99,7 +99,32 @@ func (s *HookService) CreateHook(ctx context.Context, actorPK int64, owner, name
 	if err := s.store.InsertWebhook(ctx, row); err != nil {
 		return nil, err
 	}
+	// A new hook gets a ping right away, the way GitHub confirms a fresh
+	// endpoint can receive deliveries.
+	s.enqueuePing(ctx, row.PK, actorPK)
 	return hookFromRow(row), nil
+}
+
+// PingHook submits a ping delivery to the webhook: the {zen, hook_id, hook}
+// body GitHub sends so an endpoint can be exercised without waiting for a real
+// event. The same authorization as every other hook read applies.
+func (s *HookService) PingHook(ctx context.Context, actorPK int64, owner, name string, hookID int64) error {
+	_, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
+	if err != nil {
+		return err
+	}
+	s.enqueuePing(ctx, row.PK, actorPK)
+	return nil
+}
+
+// enqueuePing submits one ping delivery job. Like event fan-out it is
+// best-effort: a queue failure never fails the caller's write.
+func (s *HookService) enqueuePing(ctx context.Context, webhookPK, actorPK int64) {
+	body, err := json.Marshal(DeliverWebhookPayload{WebhookPK: webhookPK, Ping: true, SenderPK: actorPK})
+	if err != nil {
+		return
+	}
+	_, _ = s.enq.Enqueue(ctx, JobDeliverWebhook, string(body), "")
 }
 
 // ListHooks returns the repository's webhooks, secrets omitted.

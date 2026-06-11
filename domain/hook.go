@@ -64,6 +64,13 @@ type HookDeliveryHTTP struct {
 	Body    string
 }
 
+// HookForDelivery maps a stored webhook to its domain view for the delivery
+// worker, which renders the hook object a ping body embeds. It is the same
+// secret-free view every hook read returns.
+func HookForDelivery(w *store.WebhookRow) *Hook {
+	return hookFromRow(w)
+}
+
 // hookFromRow maps a stored webhook to its domain view, dropping the secret and
 // decoding the parsed last-response summary.
 func hookFromRow(w *store.WebhookRow) *Hook {

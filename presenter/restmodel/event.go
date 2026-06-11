@@ -157,6 +157,16 @@ type WebhookPusher struct {
 	Email string `json:"email"`
 }
 
+// WebhookPing is the body of a ping delivery: the zen line, the hook's id, the
+// hook object itself, and the repository and sender like every other delivery.
+type WebhookPing struct {
+	Zen        string     `json:"zen"`
+	HookID     int64      `json:"hook_id"`
+	Hook       Hook       `json:"hook"`
+	Repository Repository `json:"repository"`
+	Sender     SimpleUser `json:"sender"`
+}
+
 // WebhookIssues is the body of an issues delivery. label is set only on
 // labeled and unlabeled actions, naming the label the action moved.
 type WebhookIssues struct {

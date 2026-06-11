@@ -59,6 +59,20 @@ func (r *receiver) last() (capturedDelivery, bool) {
 	return r.deliveries[len(r.deliveries)-1], true
 }
 
+// count returns how many deliveries arrived with the given X-GitHub-Event,
+// letting tests that expect silence ignore the ping a hook gets on creation.
+func (r *receiver) count(event string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n := 0
+	for i := range r.deliveries {
+		if r.deliveries[i].headers.Get("X-GitHub-Event") == event {
+			n++
+		}
+	}
+	return n
+}
+
 // deliverFixture wires a real sqlite store, the domain services, and a deliverer
 // whose client is allowed to reach the loopback test receiver. It is the harness
 // the acceptance gate runs through: record an event, drain the queue, inspect
@@ -294,6 +308,76 @@ func TestPushEventSignedDelivery(t *testing.T) {
 	}
 }
 
+// TestPingDelivery covers the ping path: creating a hook delivers a signed ping
+// with the {zen, hook_id, hook} body, and PingHook sends another on demand.
+func TestPingDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	secret := "tell-no-one"
+	hook, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Secret: &secret,
+		Events: []string{"issues"},
+	})
+	if err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.last()
+	if !ok {
+		t.Fatal("creating a hook delivered no ping")
+	}
+	if ev := got.headers.Get("X-GitHub-Event"); ev != "ping" {
+		t.Fatalf("X-GitHub-Event = %q, want ping", ev)
+	}
+	if !Verify(secret, got.headers.Get("X-Hub-Signature-256"), got.body) {
+		t.Error("ping signature did not verify over the received body")
+	}
+	var body struct {
+		Zen    string `json:"zen"`
+		HookID int64  `json:"hook_id"`
+		Hook   struct {
+			Config struct {
+				URL string `json:"url"`
+			} `json:"config"`
+			Events []string `json:"events"`
+		} `json:"hook"`
+		Repository struct {
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+		Sender struct {
+			Login string `json:"login"`
+		} `json:"sender"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode ping body: %v", err)
+	}
+	if body.Zen == "" {
+		t.Error("ping zen is empty")
+	}
+	if body.HookID != hook.ID {
+		t.Errorf("ping hook_id = %d, want %d", body.HookID, hook.ID)
+	}
+	if body.Hook.Config.URL != f.srv.URL {
+		t.Errorf("ping hook.config.url = %q, want %q", body.Hook.Config.URL, f.srv.URL)
+	}
+	if len(body.Hook.Events) != 1 || body.Hook.Events[0] != "issues" {
+		t.Errorf("ping hook.events = %v, want [issues]", body.Hook.Events)
+	}
+	if body.Repository.FullName != "octocat/hello" || body.Sender.Login != "octocat" {
+		t.Errorf("ping repo/sender = %q/%q", body.Repository.FullName, body.Sender.Login)
+	}
+
+	// The pings endpoint triggers another delivery on demand.
+	if err := f.hooks.PingHook(f.ctx, f.ownerPK, "octocat", f.repoName, hook.ID); err != nil {
+		t.Fatalf("PingHook: %v", err)
+	}
+	f.drain(t)
+	if n := f.rcv.count("ping"); n != 2 {
+		t.Errorf("ping deliveries = %d, want 2", n)
+	}
+}
+
 func TestInactiveHookIsNotDelivered(t *testing.T) {
 	f := newDeliverFixture(t)
 	inactive := false
@@ -308,8 +392,8 @@ func TestInactiveHookIsNotDelivered(t *testing.T) {
 		t.Fatalf("CreateIssue: %v", err)
 	}
 	f.drain(t)
-	if _, ok := f.rcv.last(); ok {
-		t.Error("an inactive hook received a delivery")
+	if n := f.rcv.count("issues"); n != 0 {
+		t.Errorf("an inactive hook received %d issues deliveries", n)
 	}
 }
 
@@ -325,7 +409,7 @@ func TestUnsubscribedEventIsNotDelivered(t *testing.T) {
 		t.Fatalf("CreateIssue: %v", err)
 	}
 	f.drain(t)
-	if _, ok := f.rcv.last(); ok {
-		t.Error("a hook subscribed to push received an issues delivery")
+	if n := f.rcv.count("issues"); n != 0 {
+		t.Errorf("a hook subscribed to push received %d issues deliveries", n)
 	}
 }

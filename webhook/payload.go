@@ -112,6 +112,44 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 	return res, nil
 }
 
+// zenLines is the pool a ping body's zen line is drawn from, the small fixed
+// list standing in for GitHub's.
+var zenLines = []string{
+	"Keep it logically awesome.",
+	"Practicality beats purity.",
+	"Design for failure.",
+	"Responsive is better than fast.",
+	"Speak like a human.",
+	"Mind your words, they are important.",
+}
+
+// RenderPing builds the body of a ping delivery: {zen, hook_id, hook} plus the
+// repository and sender every delivery carries. A ping has no event row, so it
+// renders straight from the hook.
+func (r *Renderer) RenderPing(ctx context.Context, row *store.WebhookRow, senderPK int64) (*Rendered, error) {
+	repo, err := r.repos.RepoForEvent(ctx, row.RepoPK)
+	if err != nil {
+		return nil, err
+	}
+	sender, err := r.users.Viewer(ctx, senderPK)
+	if err != nil {
+		return nil, err
+	}
+	hook := domain.HookForDelivery(row)
+	body := restmodel.WebhookPing{
+		Zen:        zenLines[int(row.DBID)%len(zenLines)],
+		HookID:     hook.ID,
+		Hook:       r.urls.Hook(repo.Owner.Login, repo.Name, hook),
+		Repository: r.urls.Repository(repo, r.format, nil),
+		Sender:     r.urls.SimpleUser(sender, r.format),
+	}
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return &Rendered{Event: "ping", RepositoryID: repo.ID, Body: bodyJSON}, nil
+}
+
 // pushCommitLimit caps the commits a push body carries, matching GitHub: the
 // newest twenty, listed oldest first, with head_commit always the new tip.
 const pushCommitLimit = 20
