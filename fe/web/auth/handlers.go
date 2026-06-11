@@ -229,13 +229,21 @@ func (h *Handlers) LogoutSubmit(c *mizu.Ctx) error {
 }
 
 // safeReturn returns url if it is a safe same-origin return URL, otherwise "/".
-// It blocks open redirects by rejecting anything with a host or scheme.
+// It blocks open redirects by rejecting anything with a host or scheme. Browsers
+// treat a backslash after the authority cut like a forward slash, so "/\evil"
+// and the percent-encoded "%5C" spellings are protocol-relative escapes in
+// disguise; no Githome path ever contains a backslash, so any one of them, raw
+// or encoded, anywhere in the URL means we fall back to "/" instead of risking
+// a parser differential (spec 02 §5.9).
 func safeReturn(url string) string {
 	if url == "" {
 		return "/"
 	}
 	// Must start with / and not be //something (protocol-relative) or have a scheme.
 	if !strings.HasPrefix(url, "/") || strings.HasPrefix(url, "//") {
+		return "/"
+	}
+	if strings.ContainsRune(url, '\\') || strings.Contains(strings.ToLower(url), "%5c") {
 		return "/"
 	}
 	return url
