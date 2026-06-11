@@ -38,6 +38,11 @@ type (
 		ReviewForEvent(ctx context.Context, reviewPK int64) (*domain.Review, error)
 		ReviewCommentForEvent(ctx context.Context, commentPK int64) (*domain.ReviewComment, error)
 	}
+	// releaseLoader is the slice of the release service a release body renders
+	// through. Optional like the review loader, bound via BindReleases.
+	releaseLoader interface {
+		ReleaseForEvent(ctx context.Context, releasePK int64) (*domain.Release, error)
+	}
 	// gitLoader is the slice of the git layer a push body renders through. It
 	// is optional, bound via BindGit, so a renderer without a git store still
 	// renders every event; a push then carries empty commit lists, the shape
@@ -55,14 +60,15 @@ type (
 // stores on the event row. It lives here, not in domain, because it imports the
 // presenter to reach the exact wire shapes, and domain may not.
 type Renderer struct {
-	repos   repoLoader
-	issues  issueLoader
-	pulls   pullLoader
-	users   userLoader
-	urls    *presenter.URLBuilder
-	format  nodeid.Format
-	git     gitLoader
-	reviews reviewLoader
+	repos    repoLoader
+	issues   issueLoader
+	pulls    pullLoader
+	users    userLoader
+	urls     *presenter.URLBuilder
+	format   nodeid.Format
+	git      gitLoader
+	reviews  reviewLoader
+	releases releaseLoader
 }
 
 // NewRenderer wires a Renderer over the domain loaders and the presenter.
@@ -77,6 +83,9 @@ func (r *Renderer) BindGit(g gitLoader) { r.git = g }
 // BindReviews attaches the review loader the pull_request_review and
 // pull_request_review_comment bodies render their review and comment through.
 func (r *Renderer) BindReviews(rl reviewLoader) { r.reviews = rl }
+
+// BindReleases attaches the loader a release body renders its release through.
+func (r *Renderer) BindReleases(rl releaseLoader) { r.releases = rl }
 
 // Rendered is the result of rendering one event: the delivery body, the compact
 // feed payload to store, and the header coordinates a delivery carries.
@@ -118,6 +127,8 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 		res, err = r.renderPullReview(ctx, ev, repo, sender, detail)
 	case domain.EventPullRequestReviewComment:
 		res, err = r.renderReviewComment(ctx, ev, repo, sender, detail)
+	case domain.EventRelease:
+		res, err = r.renderRelease(ctx, ev, repo, sender, detail)
 	case domain.EventCreate:
 		res, err = r.renderCreate(ev, repo, sender, cd)
 	case domain.EventDelete:
@@ -454,6 +465,26 @@ func (r *Renderer) renderReviewComment(ctx context.Context, ev *store.EventRow, 
 		Sender:      r.urls.SimpleUser(sender, r.format),
 	}
 	feed := restmodel.PullRequestReviewCommentEventPayload{Action: ev.Action, Comment: renderedComment, PullRequest: renderedPull}
+	return marshalRendered(ev, body, feed)
+}
+
+// renderRelease builds a release body: the release object the detail names.
+func (r *Renderer) renderRelease(ctx context.Context, ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
+	if r.releases == nil || detail == nil || detail.ReleasePK == 0 {
+		return nil, fmt.Errorf("webhook: %s event has no release", ev.Event)
+	}
+	rel, err := r.releases.ReleaseForEvent(ctx, detail.ReleasePK)
+	if err != nil {
+		return nil, err
+	}
+	rendered := r.urls.Release(repo.Owner.Login, repo.Name, rel, r.format)
+	body := restmodel.WebhookRelease{
+		Action:     ev.Action,
+		Release:    rendered,
+		Repository: r.urls.Repository(repo, r.format, nil),
+		Sender:     r.urls.SimpleUser(sender, r.format),
+	}
+	feed := restmodel.ReleaseEventPayload{Action: ev.Action, Release: rendered}
 	return marshalRendered(ev, body, feed)
 }
 

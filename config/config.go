@@ -129,6 +129,9 @@ type Log struct {
 // RepoRoot is the directory that holds the bare git repositories.
 func (c Config) RepoRoot() string { return c.DataDir + "/repos" }
 
+// AssetRoot is the directory that holds uploaded release asset binaries.
+func (c Config) AssetRoot() string { return c.DataDir + "/assets" }
+
 func defaults() Config {
 	return Config{
 		Listen:          Listen{HTTP: ":3000", SSH: ":2222"},

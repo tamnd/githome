@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tamnd/githome/store"
+	"github.com/tamnd/githome/worker"
 )
 
 // ErrReleaseNotFound is returned when a release cannot be found.
@@ -25,7 +26,11 @@ type ReleaseStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	UsersByPKs(ctx context.Context, pks []int64) (map[int64]*store.UserRow, error)
 
+	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
+	InsertEvent(ctx context.Context, e *store.EventRow) error
+
 	GetReleaseByID(ctx context.Context, repoPK, dbID int64) (*store.ReleaseRow, error)
+	GetReleaseByPK(ctx context.Context, pk int64) (*store.ReleaseRow, error)
 	GetReleaseByTag(ctx context.Context, repoPK int64, tag string) (*store.ReleaseRow, error)
 	GetLatestRelease(ctx context.Context, repoPK int64) (*store.ReleaseRow, error)
 	ListReleases(ctx context.Context, repoPK int64, includeDrafts bool, limit, offset int) ([]store.ReleaseRow, error)
@@ -46,12 +51,13 @@ type ReleaseService struct {
 	store    ReleaseStore
 	repos    *RepoService
 	assetDir string // DataDir/assets; binary files live here as {pk}
+	enq      worker.Enqueuer
 }
 
 // NewReleaseService builds a ReleaseService. assetDir is the directory where
 // uploaded binary files are stored (one file per asset pk).
 func NewReleaseService(st ReleaseStore, repos *RepoService, assetDir string) *ReleaseService {
-	return &ReleaseService{store: st, repos: repos, assetDir: assetDir}
+	return &ReleaseService{store: st, repos: repos, assetDir: assetDir, enq: worker.NewStoreEnqueuer(st)}
 }
 
 // ReleaseInput is the create/update payload for a release.
@@ -162,6 +168,9 @@ func (s *ReleaseService) CreateRelease(ctx context.Context, actorPK int64, owner
 	if err := s.store.InsertRelease(ctx, row); err != nil {
 		return nil, err
 	}
+	if !in.Draft {
+		s.recordPublished(ctx, actorPK, repo, row.PK)
+	}
 	return s.hydrateRelease(ctx, row)
 }
 
@@ -201,6 +210,36 @@ func (s *ReleaseService) UpdateRelease(ctx context.Context, actorPK int64, owner
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, ErrReleaseNotFound
 		}
+		return nil, err
+	}
+	if wasDraft && !in.Draft {
+		s.recordPublished(ctx, actorPK, repo, row.PK)
+	}
+	return s.hydrateRelease(ctx, row)
+}
+
+// recordPublished records the release event a publish emits: creating a
+// release live and flipping a draft live both deliver action published, the
+// one release action Githome's release lifecycle produces. The release pk
+// rides the event detail so the delivery body can embed the release object.
+func (s *ReleaseService) recordPublished(ctx context.Context, actorPK int64, repo *Repo, releasePK int64) {
+	recordEventFull(ctx, s.store, s.enq, &store.EventRow{
+		Event:   EventRelease,
+		Action:  "published",
+		ActorPK: actorPK,
+		RepoPK:  repo.PK,
+		Public:  !repo.Private,
+	}, nil, nil, &EventDetail{ReleasePK: releasePK})
+}
+
+// ReleaseForEvent loads a release by pk for the webhook renderer, with no
+// visibility gate: the event was authorized when it was recorded.
+func (s *ReleaseService) ReleaseForEvent(ctx context.Context, releasePK int64) (*Release, error) {
+	row, err := s.store.GetReleaseByPK(ctx, releasePK)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrReleaseNotFound
+	}
+	if err != nil {
 		return nil, err
 	}
 	return s.hydrateRelease(ctx, row)

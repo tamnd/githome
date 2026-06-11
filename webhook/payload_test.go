@@ -635,6 +635,87 @@ func TestPullRequestReviewDeliveries(t *testing.T) {
 	}
 }
 
+// TestReleasePublishedDelivery covers the two ways a release goes live:
+// created live and a draft flipped live both deliver action published with the
+// release object, and the draft itself stays silent.
+func TestReleasePublishedDelivery(t *testing.T) {
+	f := newDeliverFixture(t)
+	if _, err := f.hooks.CreateHook(f.ctx, f.ownerPK, "octocat", f.repoName, domain.HookInput{
+		URL:    f.srv.URL,
+		Events: []string{"release"},
+	}); err != nil {
+		t.Fatalf("CreateHook: %v", err)
+	}
+
+	draft, err := f.releases.CreateRelease(f.ctx, f.ownerPK, "octocat", f.repoName, domain.ReleaseInput{
+		TagName: "v0.1.0", Draft: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateRelease draft: %v", err)
+	}
+	f.drain(t)
+	if n := f.rcv.count("release"); n != 0 {
+		t.Fatalf("draft release produced %d deliveries, want 0", n)
+	}
+
+	if _, err := f.releases.UpdateRelease(f.ctx, f.ownerPK, "octocat", f.repoName, draft.ID, domain.ReleaseInput{
+		Draft: false,
+	}); err != nil {
+		t.Fatalf("UpdateRelease publish: %v", err)
+	}
+	f.drain(t)
+
+	got, ok := f.rcv.lastByEvent("release")
+	if !ok {
+		t.Fatal("receiver got no release delivery")
+	}
+	var body struct {
+		Action  string `json:"action"`
+		Release struct {
+			ID          int64  `json:"id"`
+			TagName     string `json:"tag_name"`
+			Draft       bool   `json:"draft"`
+			PublishedAt string `json:"published_at"`
+			Author      struct {
+				Login string `json:"login"`
+			} `json:"author"`
+		} `json:"release"`
+		Repository struct {
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+	}
+	if err := json.Unmarshal(got.body, &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.Action != "published" {
+		t.Errorf("action = %q, want published", body.Action)
+	}
+	rel := body.Release
+	if rel.ID != draft.ID || rel.TagName != "v0.1.0" || rel.Draft {
+		t.Errorf("release = %+v, want id %d tag v0.1.0 draft false", rel, draft.ID)
+	}
+	if rel.PublishedAt == "" {
+		t.Error("release.published_at is empty")
+	}
+	if rel.Author.Login != "octocat" {
+		t.Errorf("release.author.login = %q, want octocat", rel.Author.Login)
+	}
+	if body.Repository.FullName != "octocat/hello" {
+		t.Errorf("repository.full_name = %q", body.Repository.FullName)
+	}
+
+	// A release created live delivers immediately.
+	if _, err := f.releases.CreateRelease(f.ctx, f.ownerPK, "octocat", f.repoName, domain.ReleaseInput{
+		TagName: "v0.2.0",
+	}); err != nil {
+		t.Fatalf("CreateRelease live: %v", err)
+	}
+	f.drain(t)
+	if n := f.rcv.count("release"); n != 2 {
+		t.Errorf("release deliveries = %d, want 2", n)
+	}
+}
+
 func whWriteFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {

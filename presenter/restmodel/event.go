@@ -221,6 +221,21 @@ type WebhookPullRequestReviewComment struct {
 	Sender      SimpleUser    `json:"sender"`
 }
 
+// WebhookRelease is the body of a release delivery: the release object that
+// went live alongside the repository and sender.
+type WebhookRelease struct {
+	Action     string     `json:"action"`
+	Release    Release    `json:"release"`
+	Repository Repository `json:"repository"`
+	Sender     SimpleUser `json:"sender"`
+}
+
+// ReleaseEventPayload is the Events-API payload object for a ReleaseEvent.
+type ReleaseEventPayload struct {
+	Action  string  `json:"action"`
+	Release Release `json:"release"`
+}
+
 // PushEventPayload is the Events-API payload object for a PushEvent. It mirrors
 // the push delivery's moved tips in the feed's compact form.
 type PushEventPayload struct {

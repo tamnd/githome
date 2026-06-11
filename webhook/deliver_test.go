@@ -96,6 +96,7 @@ type deliverFixture struct {
 	issues   *domain.IssueService
 	pulls    *domain.PRService
 	reviews  *domain.ReviewService
+	releases *domain.ReleaseService
 	hooks    *domain.HookService
 	enq      *worker.StoreEnqueuer
 	runtime  *worker.Runtime
@@ -133,6 +134,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	issueSvc := domain.NewIssueService(st, repoSvc)
 	pullSvc := domain.NewPRService(st, repoSvc, issueSvc, gitStore)
 	reviewSvc := domain.NewReviewService(st, repoSvc, pullSvc, issueSvc, gitStore)
+	releaseSvc := domain.NewReleaseService(st, repoSvc, t.TempDir())
 	userSvc := domain.NewUserService(st)
 	enq := worker.NewStoreEnqueuer(st)
 	hookSvc := domain.NewHookService(st, repoSvc, enq)
@@ -145,6 +147,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	renderer := NewRenderer(repoSvc, issueSvc, pullSvc, userSvc, urls, nodeid.FormatNew)
 	renderer.BindGit(gitStore)
 	renderer.BindReviews(reviewSvc)
+	renderer.BindReleases(releaseSvc)
 	// The receiver runs on loopback, which the guard blocks by default; the test
 	// client opts loopback in the way an operator would for an internal endpoint.
 	client := NewClient(ClientOptions{Allow: []netip.Prefix{
@@ -158,7 +161,7 @@ func newDeliverFixture(t *testing.T) *deliverFixture {
 	rt.Register(domain.JobDeliverWebhook, deliverer.DeliverWebhookHandler())
 
 	return &deliverFixture{
-		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, reviews: reviewSvc, hooks: hookSvc, enq: enq,
+		ctx: ctx, st: st, issues: issueSvc, pulls: pullSvc, reviews: reviewSvc, releases: releaseSvc, hooks: hookSvc, enq: enq,
 		runtime: rt, rcv: rcv, srv: srv, renderer: renderer, gs: gitStore,
 		ownerPK: owner.PK, repoPK: repo.PK, repoName: "hello",
 	}
