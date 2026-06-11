@@ -448,6 +448,19 @@ func (s *RepoService) ListCommits(repo *Repo, opts git.LogOpts) ([]git.Commit, e
 	return cs, nil
 }
 
+// LatestCommit returns the newest commit at rev touching path (the whole tree
+// when path is empty). ok is false when nothing matches: an unborn ref, a bad
+// revision, or a path with no history. It runs one bounded git log -1
+// subprocess instead of an in-process history walk, so a tree page asking for
+// its latest-commit bar does not pay for the repository's depth.
+func (s *RepoService) LatestCommit(ctx context.Context, repo *Repo, rev, path string) (git.Commit, bool, error) {
+	c, ok, err := s.gitStore.LastCommitForPath(ctx, repo.PK, rev, path)
+	if err != nil {
+		return git.Commit{}, false, gitErr(err)
+	}
+	return c, ok, nil
+}
+
 // GetTree loads a tree by any revision, optionally walking the whole subtree.
 func (s *RepoService) GetTree(repo *Repo, rev string, recursive bool) (git.Tree, error) {
 	gr, err := s.open(repo)

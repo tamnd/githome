@@ -199,16 +199,16 @@ func entryKindIcon(e git.PathEntry) (kind, icon string) {
 	}
 }
 
-// latestCommit builds the latest-commit bar over a tree path. It reads one commit
-// from the path-scoped history; a path with no history (or an empty repo) yields
-// an absent summary the template hides. F1 reads this synchronously; the lazy
-// per-row cells are a later optimization (implementation/07 section 4.1).
-func (h *Handlers) latestCommit(r *domain.Repo, ref, p string) view.CommitSummary {
-	commits, err := h.repos.ListCommits(r, git.LogOpts{From: ref, Path: p, Max: 1})
-	if err != nil || len(commits) == 0 {
+// latestCommit builds the latest-commit bar over a tree path. It asks the domain
+// for the single newest commit in the path-scoped history (one git log -1
+// subprocess, not an in-process walk); a path with no history (or an empty repo)
+// yields an absent summary the template hides. F1 reads this synchronously; the
+// lazy per-row cells are a later optimization (implementation/07 section 4.1).
+func (h *Handlers) latestCommit(ctx context.Context, r *domain.Repo, ref, p string) view.CommitSummary {
+	c, ok, err := h.repos.LatestCommit(ctx, r, ref, p)
+	if err != nil || !ok {
 		return view.CommitSummary{}
 	}
-	c := commits[0]
 	return view.CommitSummary{
 		SHA:        c.SHA,
 		ShortSHA:   shortSHA(c.SHA),

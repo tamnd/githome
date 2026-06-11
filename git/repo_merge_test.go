@@ -227,3 +227,48 @@ func TestCommitsBetweenN(t *testing.T) {
 		t.Fatalf("capped list should keep the newest commit: got %s want %s", one[0].SHA, all[1].SHA)
 	}
 }
+
+func TestLastCommitForPath(t *testing.T) {
+	ctx := context.Background()
+	store := git.NewStore(t.TempDir())
+	_, feature, _ := mergeRepo(t, store, 15)
+
+	// Empty path is the branch tip: feature's newest commit is "feature two".
+	tip, ok, err := store.LastCommitForPath(ctx, 15, "feature", "")
+	if err != nil || !ok {
+		t.Fatalf("tip: ok=%v err=%v", ok, err)
+	}
+	if tip.SHA != feature {
+		t.Fatalf("tip = %s, want feature head %s", tip.SHA, feature)
+	}
+	if tip.Message != "feature two" {
+		t.Fatalf("tip message = %q, want %q", tip.Message, "feature two")
+	}
+
+	// a.txt was last touched on feature by the shared first commit, two commits
+	// behind the tip.
+	c, ok, err := store.LastCommitForPath(ctx, 15, "feature", "a.txt")
+	if err != nil || !ok {
+		t.Fatalf("a.txt: ok=%v err=%v", ok, err)
+	}
+	if c.Message != "first" {
+		t.Fatalf("a.txt message = %q, want %q", c.Message, "first")
+	}
+
+	// b.txt landed in "feature one", one behind the tip.
+	c, ok, err = store.LastCommitForPath(ctx, 15, "feature", "b.txt")
+	if err != nil || !ok {
+		t.Fatalf("b.txt: ok=%v err=%v", ok, err)
+	}
+	if c.Message != "feature one" {
+		t.Fatalf("b.txt message = %q, want %q", c.Message, "feature one")
+	}
+
+	// A path with no history and a bad revision are absent answers, not errors.
+	if _, ok, err := store.LastCommitForPath(ctx, 15, "feature", "no-such-file.txt"); err != nil || ok {
+		t.Fatalf("missing path: ok=%v err=%v, want absent and no error", ok, err)
+	}
+	if _, ok, err := store.LastCommitForPath(ctx, 15, "no-such-branch", ""); err != nil || ok {
+		t.Fatalf("bad rev: ok=%v err=%v, want absent and no error", ok, err)
+	}
+}

@@ -100,14 +100,7 @@ func (s *Store) CommitsBetween(ctx context.Context, pk int64, base, head SHA) ([
 // max of the range, still returned oldest first), so a compare across thousands
 // of commits never loads the whole range into memory. max <= 0 is unbounded.
 func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, max int) ([]Commit, error) {
-	const recSep = "\x1e"
-	const fieldSep = "\x00"
-	// Use git's %x00 / %x1e placeholders so the separators land in the output
-	// without putting NUL bytes in argv, which exec rejects.
-	format := strings.Join([]string{
-		"%H", "%T", "%P", "%an", "%ae", "%aI", "%cn", "%ce", "%cI", "%B",
-	}, "%x00") + "%x1e"
-	args := []string{"log", "--reverse", "--pretty=format:" + format}
+	args := []string{"log", "--reverse", "--pretty=format:" + logRecordFormat}
 	if max > 0 {
 		args = append(args, "-n", strconv.Itoa(max))
 	}
@@ -119,8 +112,23 @@ func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, m
 	if r.code != 0 {
 		return nil, fail(args, r)
 	}
-	var out []Commit
-	for rec := range strings.SplitSeq(string(r.stdout), recSep) {
+	return parseLogRecords(string(r.stdout)), nil
+}
+
+// logRecordFormat is the machine-readable git log pretty format the subprocess
+// log readers share: NUL-separated fields, \x1e-terminated records, via git's
+// %x00 / %x1e placeholders so the separators land in the output without putting
+// NUL bytes in argv, which exec rejects.
+var logRecordFormat = strings.Join([]string{
+	"%H", "%T", "%P", "%an", "%ae", "%aI", "%cn", "%ce", "%cI", "%B",
+}, "%x00") + "%x1e"
+
+// parseLogRecords parses logRecordFormat output into commits, in output order.
+func parseLogRecords(out string) []Commit {
+	const recSep = "\x1e"
+	const fieldSep = "\x00"
+	var commits []Commit
+	for rec := range strings.SplitSeq(out, recSep) {
 		rec = strings.Trim(rec, "\n")
 		if rec == "" {
 			continue
@@ -139,9 +147,36 @@ func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, m
 		if p := strings.Fields(f[2]); len(p) > 0 {
 			c.Parents = p
 		}
-		out = append(out, c)
+		commits = append(commits, c)
 	}
-	return out, nil
+	return commits
+}
+
+// LastCommitForPath returns the newest commit at rev touching path (the whole
+// tree when path is empty). ok is false when nothing matches: an unborn ref, a
+// bad revision, or a path with no history. It is one bounded git log -1
+// subprocess; unlike a go-git PathFilter walk it rides the commit-graph and
+// pathspec machinery, so a path last touched far in the past does not walk the
+// whole history in process.
+func (s *Store) LastCommitForPath(ctx context.Context, pk int64, rev, path string) (c Commit, ok bool, err error) {
+	args := []string{"log", "-1", "--pretty=format:" + logRecordFormat, "--end-of-options", rev}
+	if path != "" {
+		args = append(args, "--", path)
+	}
+	r, err := s.run(ctx, pk, nil, args...)
+	if err != nil {
+		return Commit{}, false, err
+	}
+	if r.code != 0 {
+		// A missing rev (or an empty repository) is an absent answer for the
+		// latest-commit bar, not an infrastructure failure.
+		return Commit{}, false, nil
+	}
+	commits := parseLogRecords(string(r.stdout))
+	if len(commits) == 0 {
+		return Commit{}, false, nil
+	}
+	return commits[0], true, nil
 }
 
 // DiffStat totals the additions, deletions, and changed file count between base

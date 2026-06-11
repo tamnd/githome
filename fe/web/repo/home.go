@@ -93,7 +93,7 @@ func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, ref 
 		Path:      p,
 		Crumbs:    breadcrumbs(repo, ref.Name, p, false),
 		RefPicker: h.refPicker(repo, ref.Name, route.KindTree, p),
-		Latest:    h.latestCommit(repo, ref.Name, p),
+		Latest:    h.latestCommit(ctx, repo, ref.Name, p),
 		Entries:   treeEntries(repo, ref.Name, dir),
 		Readme:    h.readme(ctx, repo, ref.Name, dir),
 		Clone:     h.clone(repo),
