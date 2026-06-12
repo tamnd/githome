@@ -16,6 +16,17 @@
     <label class="issue-new-label" for="issue-body">Description</label>
     <textarea class="issue-new-body" id="issue-body" name="body" rows="10"
               placeholder="Leave a comment">{{.Body}}</textarea>
+    {{/* The prefill metadata rides hidden fields through the POST and shows as a
+         plain note, so the viewer sees what the submit will apply. */ -}}
+    {{range .Labels}}<input type="hidden" name="labels" value="{{.}}">{{end -}}
+    {{range .Assignees}}<input type="hidden" name="assignees" value="{{.}}">{{end -}}
+    {{if .Milestone}}<input type="hidden" name="milestone" value="{{.Milestone}}">{{end -}}
+    {{if or .Labels .Assignees .Milestone}}
+    <p class="issue-new-meta">This issue will be created with
+      {{- if .Labels}} labels: {{range $i, $l := .Labels}}{{if $i}}, {{end}}{{$l}}{{end}}.{{end}}
+      {{- if .Assignees}} assignees: {{range $i, $a := .Assignees}}{{if $i}}, {{end}}{{$a}}{{end}}.{{end}}
+      {{- if .Milestone}} milestone: {{.Milestone}}.{{end}}</p>
+    {{end}}
     <div class="issue-new-actions">
       <button class="btn btn-primary" type="submit"{{if not .CanSubmit}} disabled{{end}}>Submit new issue</button>
     </div>

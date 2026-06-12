@@ -138,9 +138,11 @@ func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, i
 	return vm
 }
 
-// New renders the blank new-issue form. A viewer who cannot write still sees the
-// form shell, and the create handler authorizes the submit, so the affordance and
-// the action stay consistent. See implementation/08 section 10.
+// New renders the new-issue form, seeded from the documented prefill query
+// (?title=&body=&labels=&assignees=&milestone=&template=). A viewer who cannot
+// write still sees the form shell, and the create handler authorizes the
+// submit, so the affordance and the action stay consistent. See
+// implementation/08 section 10.
 func (h *Handlers) New(c *mizu.Ctx) error {
 	ctx := c.Context()
 	repo, ok := repoFromContext(ctx)
@@ -157,6 +159,7 @@ func (h *Handlers) New(c *mizu.Ctx) error {
 		Action:    route.Issues(owner, repo.Name, ""),
 		CanSubmit: canComment(vc.pk) && canWrite(repo, vc.pk),
 	}
+	h.prefillNewIssue(c, repo, &vm)
 	return h.render.Page(c, "issues/new", vm)
 }
 
