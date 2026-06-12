@@ -1158,34 +1158,6 @@ func (s *RepoService) compareEnd(repo *Repo, rev string) (git.Branch, error) {
 	return git.Branch{Name: rev, Commit: c.SHA}, nil
 }
 
-// CompareDiff returns the raw unified diff of the three-dot comparison, the
-// body the application/vnd.github.diff media type serves on compare.
-func (s *RepoService) CompareDiff(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
-	baseBranch, err := s.compareEnd(repo, base)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	headBranch, err := s.compareEnd(repo, head)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	return s.gitStore.DiffRaw(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-}
-
-// ComparePatch returns the comparison's commits as an mbox patch series, the
-// body the application/vnd.github.patch media type serves on compare.
-func (s *RepoService) ComparePatch(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
-	baseBranch, err := s.compareEnd(repo, base)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	headBranch, err := s.compareEnd(repo, head)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	return s.gitStore.FormatPatch(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-}
-
 func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 	return &Repo{
 		PK:              r.PK,
