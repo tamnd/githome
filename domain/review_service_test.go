@@ -218,8 +218,8 @@ func TestCommentAnchorResolvesAndRejectsOffDiff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReplyComment: %v", err)
 	}
-	if reply.InReplyTo == nil || *reply.InReplyTo != c.PK {
-		t.Fatalf("reply in_reply_to = %v, want root pk %d", reply.InReplyTo, c.PK)
+	if reply.InReplyTo == nil || *reply.InReplyTo != c.ID {
+		t.Fatalf("reply in_reply_to = %v, want root id %d", reply.InReplyTo, c.ID)
 	}
 	if reply.Path != "b.txt" {
 		t.Errorf("reply path = %q, want b.txt", reply.Path)

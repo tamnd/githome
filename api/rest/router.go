@@ -240,6 +240,7 @@ func mountReviews(r *mizu.Router, d Deps) {
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/dismissals", handleReviewDismiss(d))
 
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/comments", handleReviewCommentCreate(d))
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies", handlePullCommentReply(d))
 	r.Post("/repos/{owner}/{repo}/pulls/comments/{comment_id}/replies", handleReviewCommentReply(d))
 }
 

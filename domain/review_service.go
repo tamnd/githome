@@ -857,13 +857,21 @@ func (s *ReviewService) assembleComment(ctx context.Context, row *store.ReviewCo
 	if rev, err := s.store.GetReviewByPK(ctx, row.ReviewPK); err == nil {
 		reviewID = rev.DBID
 	}
+	// in_reply_to_id is likewise the parent comment's public id; the row holds
+	// the thread root's internal pk.
+	var inReplyTo *int64
+	if row.InReplyToPK != nil {
+		if parent, err := s.store.GetReviewCommentByPK(ctx, *row.InReplyToPK); err == nil {
+			inReplyTo = &parent.DBID
+		}
+	}
 	return &ReviewComment{
 		PK: row.PK, ID: row.DBID, ReviewPK: row.ReviewPK, ReviewID: reviewID, PullPK: row.PullPK,
 		PullNumber: number, RepoPK: row.RepoPK, User: author, Path: row.Path,
 		Side: row.Side, Line: row.Line, StartLine: row.StartLine, StartSide: row.StartSide,
 		Position: row.Position, OriginalPosition: row.OriginalPosition,
 		CommitID: row.CommitID, OriginalCommitID: row.OriginalCommitID,
-		InReplyTo: row.InReplyToPK, DiffHunk: row.DiffHunk, SubjectType: row.SubjectType,
+		InReplyTo: inReplyTo, DiffHunk: row.DiffHunk, SubjectType: row.SubjectType,
 		Body: row.Body, Resolved: row.Resolved,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}, nil
@@ -1023,4 +1031,3 @@ func (s *ReviewService) ListAllReviewComments(ctx context.Context, viewerPK int6
 	}
 	return out, nil
 }
-
