@@ -339,6 +339,7 @@ func mountRepos(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/git/commits/{sha}", handleGitCommit(d))
 	r.Get("/repos/{owner}/{repo}/git/refs", handleRefs(d))
 	r.Get("/repos/{owner}/{repo}/git/ref/{ref...}", handleRef(d))
+	r.Get("/repos/{owner}/{repo}/git/matching-refs/{ref...}", handleMatchingRefs(d))
 	r.Post("/repos/{owner}/{repo}/git/refs", requireScope(handleCreateRef(d), "repo", "public_repo"))
 	r.Patch("/repos/{owner}/{repo}/git/refs/{ref...}", requireScope(handleUpdateRef(d), "repo", "public_repo"))
 	r.Delete("/repos/{owner}/{repo}/git/refs/{ref...}", requireScope(handleDeleteRef(d), "repo", "public_repo"))

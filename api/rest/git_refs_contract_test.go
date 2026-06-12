@@ -201,6 +201,32 @@ func TestUpdateRefContract(t *testing.T) {
 	assertWriteGolden(t, "git_ref_update.golden.json", body)
 }
 
+func TestMatchingRefsContract(t *testing.T) {
+	fx := writeServer(t)
+	// Seed two branches sharing the feature prefix alongside master.
+	for _, ref := range []string{"refs/heads/feature-a", "refs/heads/feature-b"} {
+		if resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/git/refs", fx.token,
+			`{"ref":"`+ref+`","sha":"`+fx.firstSHA+`"}`); resp.StatusCode != http.StatusCreated {
+			t.Fatalf("seed %s status %d, body %s", ref, resp.StatusCode, body)
+		}
+	}
+	resp, body := authedSend(t, fx.srv, http.MethodGet, "/repos/octocat/hello/git/matching-refs/heads/feature", fx.token, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	if got := strings.Count(string(body), `"ref":"refs/heads/feature`); got != 2 {
+		t.Errorf("matched %d feature refs, want 2: %s", got, body)
+	}
+	if strings.Contains(string(body), "master") {
+		t.Errorf("prefix match leaked master: %s", body)
+	}
+	// No match is an empty array, never a 404.
+	resp, body = authedSend(t, fx.srv, http.MethodGet, "/repos/octocat/hello/git/matching-refs/heads/nope", fx.token, "")
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "[]" {
+		t.Errorf("no-match status %d body %q, want 200 []", resp.StatusCode, body)
+	}
+}
+
 func TestRefWriteErrors(t *testing.T) {
 	fx := writeServer(t)
 
