@@ -439,8 +439,16 @@ type BranchProtectionRow struct {
 	RestrictionsEnabled     bool   // a restrictions object was supplied at all
 	AllowForcePushes        bool
 	AllowDeletions          bool
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+
+	RequiredLinearHistory          bool
+	BlockCreations                 bool
+	RequiredConversationResolution bool
+	LockBranch                     bool
+	AllowForkSyncing               bool
+	RequiredSignatures             bool
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // TeamRow is a row of the teams table.

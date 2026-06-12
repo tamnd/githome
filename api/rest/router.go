@@ -16,6 +16,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
+	"github.com/tamnd/githome/store"
 )
 
 // Deps are the dependencies the REST surface needs to mount. The auth, domain,
@@ -301,6 +302,44 @@ func mountKeys(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/branches/{branch}/protection", handleBranchProtectionGet(d))
 	r.Put("/repos/{owner}/{repo}/branches/{branch}/protection", requireScope(handleBranchProtectionPut(d), "repo"))
 	r.Delete("/repos/{owner}/{repo}/branches/{branch}/protection", requireScope(handleBranchProtectionDelete(d), "repo"))
+	// Protection sub-endpoints, the granular surface Terraform and Octokit
+	// drive instead of whole-object PUTs.
+	prot := "/repos/{owner}/{repo}/branches/{branch}/protection"
+	enforceAdmins := handleProtectionToggle(d, "enforce_admins",
+		func(p *store.BranchProtectionRow) bool { return p.EnforceAdmins },
+		func(p *store.BranchProtectionRow, v bool) { p.EnforceAdmins = v })
+	requiredSignatures := handleProtectionToggle(d, "required_signatures",
+		func(p *store.BranchProtectionRow) bool { return p.RequiredSignatures },
+		func(p *store.BranchProtectionRow, v bool) { p.RequiredSignatures = v })
+	for _, m := range []func(string, mizu.Handler){r.Get, r.Post, r.Delete} {
+		m(prot+"/enforce_admins", requireScope(enforceAdmins, "repo"))
+		m(prot+"/required_signatures", requireScope(requiredSignatures, "repo"))
+	}
+	statusChecks := handleRequiredStatusChecks(d)
+	for _, m := range []func(string, mizu.Handler){r.Get, r.Patch, r.Delete} {
+		m(prot+"/required_status_checks", requireScope(statusChecks, "repo"))
+	}
+	contexts := handleStatusCheckContexts(d)
+	reviews := handleRequiredPullRequestReviews(d)
+	for _, m := range []func(string, mizu.Handler){r.Get, r.Patch, r.Delete} {
+		m(prot+"/required_pull_request_reviews", requireScope(reviews, "repo"))
+	}
+	restrictions := handleRestrictions(d)
+	r.Get(prot+"/restrictions", requireScope(restrictions, "repo"))
+	r.Delete(prot+"/restrictions", requireScope(restrictions, "repo"))
+	restrUsers := handleRestrictionList(d, "users",
+		func(p *store.BranchProtectionRow) string { return p.RestrictionsUsers },
+		func(p *store.BranchProtectionRow, v string) { p.RestrictionsUsers = v })
+	restrTeams := handleRestrictionList(d, "teams",
+		func(p *store.BranchProtectionRow) string { return p.RestrictionsTeams },
+		func(p *store.BranchProtectionRow, v string) { p.RestrictionsTeams = v })
+	restrApps := handleRestrictionList(d, "apps", nil, nil)
+	for _, m := range []func(string, mizu.Handler){r.Get, r.Post, r.Put, r.Delete} {
+		m(prot+"/required_status_checks/contexts", requireScope(contexts, "repo"))
+		m(prot+"/restrictions/users", requireScope(restrUsers, "repo"))
+		m(prot+"/restrictions/teams", requireScope(restrTeams, "repo"))
+		m(prot+"/restrictions/apps", requireScope(restrApps, "repo"))
+	}
 }
 
 // mountApp registers the GitHub App meta and installation-token endpoints on r.

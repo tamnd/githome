@@ -772,3 +772,11 @@ CREATE TABLE check_run_annotations (
     created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX check_run_annotations_run_idx ON check_run_annotations (check_run_pk);
+
+-- 0032_protection_details
+ALTER TABLE branch_protections ADD COLUMN required_linear_history INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN block_creations INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN required_conversation_resolution INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN lock_branch INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN allow_fork_syncing INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN required_signatures INTEGER NOT NULL DEFAULT 0;
