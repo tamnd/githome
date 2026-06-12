@@ -39,6 +39,10 @@ var (
 	// ErrConflict is returned by a file write whose CurrentBlobSHA no longer
 	// matches the blob at the path. The REST layer maps it to GitHub's 409.
 	ErrConflict = errors.New("domain: current blob sha mismatch")
+
+	// ErrRepoExists is returned when a create or fork would claim a name the
+	// target account already uses for an unrelated repository.
+	ErrRepoExists = errors.New("domain: repository name already exists")
 )
 
 // RepoStore is the slice of the store the repo service needs. The write path
@@ -475,6 +479,100 @@ func (s *RepoService) RepoRedirect(ctx context.Context, viewerPK int64, owner, n
 	return repoFromRow(row, userFromRow(ownerRow)), nil
 }
 
+// ForkInput holds the caller-supplied options for forking a repository.
+// Organization names the target account when the fork should land under an
+// org the viewer administers; empty forks under the viewer. Name renames the
+// fork; empty keeps the source's name. DefaultBranchOnly copies just the
+// source's default branch instead of every ref.
+type ForkInput struct {
+	Organization      string
+	Name              string
+	DefaultBranchOnly bool
+}
+
+// ForkRepo forks src for the viewer: a new repository row marked as a fork of
+// src plus a git-level copy of its refs and objects. Forking a repository the
+// viewer already forked returns the existing fork rather than failing, the
+// way GitHub answers a repeat fork with the same 202. A name collision with
+// an unrelated repository is ErrRepoExists. The caller has already resolved
+// src through the visibility gate, so no second check runs here.
+func (s *RepoService) ForkRepo(ctx context.Context, viewerPK int64, src *Repo, inp ForkInput) (*Repo, error) {
+	var ownerRow *store.UserRow
+	var err error
+	if inp.Organization != "" {
+		ownerRow, err = s.store.UserByLogin(ctx, inp.Organization)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if ownerRow.PK != viewerPK && !ownerRow.SiteAdmin {
+			return nil, ErrForbidden
+		}
+	} else {
+		ownerRow, err = s.store.UserByPK(ctx, viewerPK)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	name := inp.Name
+	if name == "" {
+		name = src.Name
+	}
+	if existing, err := s.store.RepoByOwnerName(ctx, ownerRow.Login, name); err == nil {
+		if existing.ForkOfPK != nil && *existing.ForkOfPK == src.PK {
+			return repoFromRow(existing, userFromRow(ownerRow)), nil
+		}
+		return nil, ErrRepoExists
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	forkOf := src.PK
+	row := &store.RepoRow{
+		OwnerPK:       ownerRow.PK,
+		Name:          name,
+		Description:   src.Description,
+		Homepage:      src.Homepage,
+		Private:       src.Private,
+		Fork:          true,
+		DefaultBranch: src.DefaultBranch,
+		ForkOfPK:      &forkOf,
+		PushedAt:      src.PushedAt,
+	}
+	if err := s.store.InsertRepo(ctx, row); err != nil {
+		return nil, err
+	}
+	if err := s.gitStore.ForkFrom(ctx, src.PK, row.PK, src.DefaultBranch, inp.DefaultBranchOnly); err != nil {
+		return nil, err
+	}
+	return repoFromRow(row, userFromRow(ownerRow)), nil
+}
+
+// ListForks returns the live forks of repoPK the viewer can see, newest
+// first, the order the forks endpoint serves by default.
+func (s *RepoService) ListForks(ctx context.Context, viewerPK, repoPK int64) ([]*Repo, error) {
+	rows, err := s.store.ForksOf(ctx, repoPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		if !canSee(r, viewerPK) {
+			continue
+		}
+		ownerRow, err := s.store.UserByPK(ctx, r.OwnerPK)
+		if err != nil {
+			continue
+		}
+		out = append(out, repoFromRow(r, userFromRow(ownerRow)))
+	}
+	return out, nil
+}
+
 // ForksCount reports how many live repositories were forked from repoPK. It
 // backs network_count (and the fork counters) on the single-repository shape.
 func (s *RepoService) ForksCount(ctx context.Context, repoPK int64) (int, error) {
@@ -905,10 +1003,17 @@ type CompareResult struct {
 	MergeBase    git.SHA
 	Commits      []git.Commit
 	TotalCommits int
+	Behind       int
 	Files        []git.FileChange
 	Additions    int
 	Deletions    int
 	ChangedFiles int
+
+	// BaseCommit and MergeBaseCommit are the full commit objects the compare
+	// endpoint renders as base_commit and merge_base_commit. MergeBaseCommit
+	// is zero when the two ends share no history.
+	BaseCommit      git.Commit
+	MergeBaseCommit git.Commit
 }
 
 // MaxCompareCommits caps how many commits a comparison loads, GitHub's own
@@ -942,11 +1047,11 @@ func (s *RepoService) CompareDirect(ctx context.Context, repo *Repo, base, head 
 }
 
 func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string, direct bool) (*CompareResult, error) {
-	baseBranch, err := s.GetBranch(repo, base)
+	baseBranch, err := s.compareEnd(repo, base)
 	if err != nil {
 		return nil, ErrGitNotFound
 	}
-	headBranch, err := s.GetBranch(repo, head)
+	headBranch, err := s.compareEnd(repo, head)
 	if err != nil {
 		return nil, ErrGitNotFound
 	}
@@ -954,20 +1059,25 @@ func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string
 	if err != nil {
 		return nil, err
 	}
+	baseCommit, err := s.GetCommit(repo, baseBranch.Commit)
+	if err != nil {
+		return nil, err
+	}
 	if !ok && !direct {
 		// The three-dot diff is against the merge base; with no common history
 		// there is nothing to diff. The direct form needs no ancestor, so it
 		// proceeds without one.
-		return &CompareResult{Base: baseBranch, Head: headBranch}, nil
+		return &CompareResult{Base: baseBranch, Head: headBranch, BaseCommit: baseCommit}, nil
 	}
 
 	var (
-		commits           []git.Commit
-		files             []git.FileChange
-		commitsErr, fdErr error
-		wg                sync.WaitGroup
+		commits                     []git.Commit
+		files                       []git.FileChange
+		ahead, behind               int
+		commitsErr, fdErr, countErr error
+		wg                          sync.WaitGroup
 	)
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		// One past the cap so a result of exactly the cap is distinguishable
@@ -982,6 +1092,12 @@ func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string
 			files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
 		}
 	}()
+	go func() {
+		defer wg.Done()
+		// behind_by has no cheaper source than the symmetric count, and when
+		// the commit list is capped the honest ahead_by comes from here too.
+		ahead, behind, countErr = s.gitStore.AheadBehind(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+	}()
 	wg.Wait()
 	if commitsErr != nil {
 		return nil, commitsErr
@@ -989,12 +1105,20 @@ func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string
 	if fdErr != nil {
 		return nil, fdErr
 	}
+	if countErr != nil {
+		return nil, countErr
+	}
 
-	total := len(commits)
+	total := ahead
 	if len(commits) > MaxCompareCommits {
 		commits = commits[len(commits)-MaxCompareCommits:]
-		if ahead, _, err := s.gitStore.AheadBehind(ctx, repo.PK, baseBranch.Commit, headBranch.Commit); err == nil {
-			total = ahead
+	}
+
+	var mergeBaseCommit git.Commit
+	if ok {
+		mergeBaseCommit, err = s.GetCommit(repo, mb)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -1004,16 +1128,62 @@ func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string
 		del += files[i].Deletions
 	}
 	return &CompareResult{
-		Base:         baseBranch,
-		Head:         headBranch,
-		MergeBase:    mb,
-		Commits:      commits,
-		TotalCommits: total,
-		Files:        files,
-		Additions:    add,
-		Deletions:    del,
-		ChangedFiles: len(files),
+		Base:            baseBranch,
+		Head:            headBranch,
+		MergeBase:       mb,
+		Commits:         commits,
+		TotalCommits:    total,
+		Behind:          behind,
+		Files:           files,
+		Additions:       add,
+		Deletions:       del,
+		ChangedFiles:    len(files),
+		BaseCommit:      baseCommit,
+		MergeBaseCommit: mergeBaseCommit,
 	}, nil
+}
+
+// compareEnd resolves one end of a comparison. GitHub accepts a branch, a tag,
+// or a commit id on either side, so a name that is not a branch falls through
+// to general rev resolution; the Branch wrapper just carries the name and the
+// commit it landed on.
+func (s *RepoService) compareEnd(repo *Repo, rev string) (git.Branch, error) {
+	if b, err := s.GetBranch(repo, rev); err == nil {
+		return b, nil
+	}
+	c, err := s.GetCommit(repo, rev)
+	if err != nil {
+		return git.Branch{}, ErrGitNotFound
+	}
+	return git.Branch{Name: rev, Commit: c.SHA}, nil
+}
+
+// CompareDiff returns the raw unified diff of the three-dot comparison, the
+// body the application/vnd.github.diff media type serves on compare.
+func (s *RepoService) CompareDiff(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
+	baseBranch, err := s.compareEnd(repo, base)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	headBranch, err := s.compareEnd(repo, head)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	return s.gitStore.DiffRaw(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
+}
+
+// ComparePatch returns the comparison's commits as an mbox patch series, the
+// body the application/vnd.github.patch media type serves on compare.
+func (s *RepoService) ComparePatch(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
+	baseBranch, err := s.compareEnd(repo, base)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	headBranch, err := s.compareEnd(repo, head)
+	if err != nil {
+		return nil, ErrGitNotFound
+	}
+	return s.gitStore.FormatPatch(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
 }
 
 func repoFromRow(r *store.RepoRow, owner *User) *Repo {

@@ -125,4 +125,15 @@ type LogOpts struct {
 	Path string // when set, only commits touching this path
 	Skip int    // commits to skip before collecting, for page offsets
 	Max  int    // cap on returned commits; zero means a sensible default
+
+	// Author and Committer narrow the walk to commits whose author or
+	// committer line carries the value, matching name or email the way the
+	// commits endpoint's author and committer parameters filter.
+	Author    string
+	Committer string
+
+	// Since and Until bound the walk by commit time for the commits
+	// endpoint's since and until parameters.
+	Since *time.Time
+	Until *time.Time
 }

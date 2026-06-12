@@ -126,6 +126,7 @@ func repoServerCap(t *testing.T, blobCap int64) repoFixture {
 		Users:      domain.NewUserService(st),
 		Repos:      domain.NewRepoService(st, gitStore),
 		Keys:       domain.NewKeyService(st),
+		Teams:      domain.NewTeamService(st),
 		URLs:       presenter.NewURLBuilder(cfg.URLs),
 		NodeFormat: nodeid.FormatNew,
 	})

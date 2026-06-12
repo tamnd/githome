@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/presenter/restmodel"
 	"github.com/tamnd/githome/store"
 )
 
@@ -20,6 +22,7 @@ func mountTeams(r *mizu.Router, d Deps) {
 	r.Put("/repos/{owner}/{repo}/topics", handleTopicsPut(d))
 
 	// Collaborators.
+	r.Get("/repos/{owner}/{repo}/collaborators/{username}", handleCollaboratorCheck(d))
 	r.Put("/repos/{owner}/{repo}/collaborators/{username}", handleCollaboratorAdd(d))
 	r.Delete("/repos/{owner}/{repo}/collaborators/{username}", handleCollaboratorDelete(d))
 	r.Get("/repos/{owner}/{repo}/collaborators/{username}/permission", handleCollaboratorPermission(d))
@@ -96,7 +99,78 @@ func handleTopicsPut(d Deps) mizu.Handler {
 	}
 }
 
+// roleName maps a stored collaborator permission to GitHub's role_name
+// vocabulary: the legacy pull and push grants read back as read and write,
+// the granular roles read back as themselves.
+func roleName(permission string) string {
+	switch permission {
+	case "pull":
+		return "read"
+	case "push":
+		return "write"
+	default:
+		return permission
+	}
+}
+
+// collaboratorUser is a SimpleUser carrying the collaborator listing's extra
+// fields: the granular role and the expanded permission booleans.
+type collaboratorUser struct {
+	restmodel.SimpleUser
+	RoleName    string                     `json:"role_name"`
+	Permissions *restmodel.RepoPermissions `json:"permissions"`
+}
+
+// collaboratorObject renders one collaborator entry from a user and a stored
+// permission grant. A role with no expansion (none) still carries the
+// all-false booleans, never a null block.
+func collaboratorObject(d Deps, u *domain.User, permission string) collaboratorUser {
+	perms := permissionBlock(permission)
+	if perms == nil {
+		perms = &restmodel.RepoPermissions{}
+	}
+	return collaboratorUser{
+		SimpleUser:  d.URLs.SimpleUser(u, d.NodeFormat),
+		RoleName:    roleName(permission),
+		Permissions: perms,
+	}
+}
+
+// handleCollaboratorCheck serves GET /repos/{owner}/{repo}/collaborators/{username}:
+// 204 when the user is the owner or holds a grant, 404 otherwise.
+func handleCollaboratorCheck(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		targetPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if targetPK != repo.OwnerPK {
+			if _, err := d.Teams.GetCollaboratorPermission(ctx, repo.PK, targetPK); errors.Is(err, domain.ErrNotFound) {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
 // handleCollaboratorAdd serves PUT /repos/{owner}/{repo}/collaborators/{username}.
+// A new grant answers 201 with the invitation object GitHub sends, even though
+// the grant here is immediate rather than pending; updating an existing
+// collaborator (or naming the owner) is the 204 GitHub uses for someone who is
+// already a collaborator.
 func handleCollaboratorAdd(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
@@ -113,11 +187,15 @@ func handleCollaboratorAdd(d Deps) mizu.Handler {
 			writeError(c.Writer(), errForbidden("Must be repo admin to add collaborators"))
 			return nil
 		}
-		targetPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
+		target, err := d.Users.ByLogin(ctx, c.Param("username"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
+		if err != nil {
+			return err
+		}
+		targetPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
 		if err != nil {
 			return err
 		}
@@ -128,10 +206,48 @@ func handleCollaboratorAdd(d Deps) mizu.Handler {
 		if body.Permission == "" {
 			body.Permission = "push"
 		}
-		if err := d.Teams.AddCollaborator(ctx, repo.PK, targetPK, body.Permission); err != nil {
+		switch body.Permission {
+		case "pull", "push", "admin", "maintain", "triage":
+		default:
+			writeError(c.Writer(), errValidation(FieldError{
+				Resource: "Repository", Field: "permission", Code: "invalid",
+			}))
+			return nil
+		}
+		if targetPK == repo.OwnerPK {
+			// The owner already holds every permission; GitHub answers the
+			// already-a-collaborator 204 without writing anything.
+			c.Writer().WriteHeader(http.StatusNoContent)
+			return nil
+		}
+		id, created, err := d.Teams.AddCollaborator(ctx, repo.PK, targetPK, body.Permission)
+		if err != nil {
 			return err
 		}
-		c.Writer().WriteHeader(http.StatusNoContent)
+		if !created {
+			c.Writer().WriteHeader(http.StatusNoContent)
+			return nil
+		}
+		inviter, err := d.Users.Viewer(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		perm, err := repoPermissions(ctx, d, actor, repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, map[string]any{
+			"id":          id,
+			"node_id":     "",
+			"repository":  d.URLs.Repository(repo, d.NodeFormat, perm),
+			"invitee":     d.URLs.SimpleUser(target, d.NodeFormat),
+			"inviter":     d.URLs.SimpleUser(inviter, d.NodeFormat),
+			"permissions": roleName(body.Permission),
+			"created_at":  time.Now().UTC().Format(time.RFC3339),
+			"url":         d.URLs.API("repos", repo.Owner.Login, repo.Name, "invitations", strconv.FormatInt(id, 10)),
+			"html_url":    d.URLs.HTML(repo.Owner.Login, repo.Name, "invitations"),
+			"expired":     false,
+		})
 		return nil
 	}
 }
@@ -169,7 +285,28 @@ func handleCollaboratorDelete(d Deps) mizu.Handler {
 	}
 }
 
-// handleCollaboratorPermission serves GET /repos/{owner}/{repo}/collaborators/{username}/permission.
+// coarsePermission folds a granular role into the four-value permission field
+// the permission endpoint's top level carries: admin stays admin, maintain
+// and push fold to write, triage and pull fold to read.
+func coarsePermission(role string) string {
+	switch role {
+	case "admin":
+		return "admin"
+	case "maintain", "push":
+		return "write"
+	case "triage", "pull":
+		return "read"
+	default:
+		return "none"
+	}
+}
+
+// handleCollaboratorPermission serves
+// GET /repos/{owner}/{repo}/collaborators/{username}/permission. The top-level
+// permission field is GitHub's coarse admin/write/read/none vocabulary;
+// role_name and the nested user.permissions carry the granular role. The
+// owner reads as admin without a grant; an existing user with no grant is
+// none, never a 404, matching GitHub.
 func handleCollaboratorPermission(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
@@ -189,20 +326,18 @@ func handleCollaboratorPermission(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		perm, err := d.Teams.GetCollaboratorPermission(ctx, repo.PK, targetPK)
-		if errors.Is(err, domain.ErrNotFound) {
-			if target.ID == repo.ID {
-				perm = "admin"
-			} else {
-				writeError(c.Writer(), errNotFound())
-				return nil
-			}
-		} else if err != nil {
+		role := "none"
+		if targetPK == repo.OwnerPK {
+			role = "admin"
+		} else if granted, err := d.Teams.GetCollaboratorPermission(ctx, repo.PK, targetPK); err == nil {
+			role = granted
+		} else if !errors.Is(err, domain.ErrNotFound) {
 			return err
 		}
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"permission": perm,
-			"user":       d.URLs.SimpleUser(target, d.NodeFormat),
+			"permission": coarsePermission(role),
+			"role_name":  roleName(role),
+			"user":       collaboratorObject(d, target, role),
 		})
 		return nil
 	}
