@@ -143,16 +143,20 @@ func handleContentsCreate(d Deps) mizu.Handler {
 		if exists {
 			status = http.StatusOK
 		}
+		// Re-read what the write produced so the response carries the full
+		// content object and git commit, the shape octokit and GitOps writers
+		// consume instead of re-fetching.
+		stat, err := d.Repos.Contents(repo, path, branch)
+		if err != nil {
+			return err
+		}
+		commit, err := d.Repos.GetCommit(repo, res.CommitSHA)
+		if err != nil {
+			return err
+		}
 		writeJSON(c.Writer(), status, map[string]any{
-			"content": map[string]any{
-				"name": lastSegment(path),
-				"path": path,
-				"sha":  res.BlobSHA,
-			},
-			"commit": map[string]any{
-				"sha":     res.CommitSHA,
-				"message": body.Message,
-			},
+			"content": d.URLs.ContentEntry(repo.Owner.Login, repo.Name, branch, stat.Entry),
+			"commit":  d.URLs.GitCommit(repo.Owner.Login, repo.Name, repo.ID, commit),
 		})
 		return nil
 	}
@@ -254,21 +258,14 @@ func handleContentsDelete(d Deps) mizu.Handler {
 			return err
 		}
 
+		commit, err := d.Repos.GetCommit(repo, res.CommitSHA)
+		if err != nil {
+			return err
+		}
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
 			"content": nil,
-			"commit": map[string]any{
-				"sha":     res.CommitSHA,
-				"message": body.Message,
-			},
+			"commit":  d.URLs.GitCommit(repo.Owner.Login, repo.Name, repo.ID, commit),
 		})
 		return nil
 	}
-}
-
-func lastSegment(path string) string {
-	parts := strings.Split(strings.TrimRight(path, "/"), "/")
-	if len(parts) == 0 {
-		return path
-	}
-	return parts[len(parts)-1]
 }

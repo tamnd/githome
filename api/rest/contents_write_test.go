@@ -2,10 +2,25 @@ package rest
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 )
+
+// jsonStrIn reads body[outer][key] as a string.
+func jsonStrIn(t *testing.T, body []byte, outer, key string) string {
+	t.Helper()
+	var m map[string]map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		t.Fatalf("unmarshal %s: %v", body, err)
+	}
+	s, _ := m[outer][key].(string)
+	if s == "" {
+		t.Fatalf("%s.%s missing in %s", outer, key, body)
+	}
+	return s
+}
 
 // TestContentsPutShaSemantics covers GitHub's compare-and-swap contract on
 // PUT /repos/{owner}/{repo}/contents/{path}: a create is 201, updating an
@@ -51,6 +66,42 @@ func TestContentsPutShaSemantics(t *testing.T) {
 	}
 	if !strings.Contains(string(body), `"path":"README.md"`) {
 		t.Errorf("update body: %s", body)
+	}
+}
+
+// TestContentsPutResponseShape pins the PUT response to GitHub's full shape:
+// the content object carries the urls and _links of a contents GET, and the
+// commit is the full git commit with tree, parents, and verification.
+func TestContentsPutResponseShape(t *testing.T) {
+	fx := repoServer(t)
+	b64 := base64.StdEncoding.EncodeToString([]byte("shape body\n"))
+	resp, body := authedSend(t, fx.srv, http.MethodPut, "/repos/octocat/hello/contents/docs/shape.txt", fx.token,
+		`{"message":"add shape","content":"`+b64+`","committer":{"name":"Octo Cat","email":"octo@test.internal"}}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create status %d, body %s", resp.StatusCode, body)
+	}
+	for _, want := range []string{
+		`"name":"shape.txt"`, `"path":"docs/shape.txt"`, `"size":11`, `"type":"file"`,
+		`"html_url"`, `"git_url"`, `"download_url"`, `"_links"`,
+		`"tree":{`, `"parents":[`, `"verification":{`, `"node_id"`,
+		`"name":"Octo Cat"`,
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("put response missing %s: %s", want, body)
+		}
+	}
+
+	// DELETE answers the same full commit beside content: null.
+	sha := jsonStrIn(t, body, "content", "sha")
+	resp, body = authedSend(t, fx.srv, http.MethodDelete, "/repos/octocat/hello/contents/docs/shape.txt", fx.token,
+		`{"message":"drop shape","sha":"`+sha+`"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("delete status %d, body %s", resp.StatusCode, body)
+	}
+	for _, want := range []string{`"content":null`, `"tree":{`, `"verification":{`} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("delete response missing %s: %s", want, body)
+		}
 	}
 }
 
