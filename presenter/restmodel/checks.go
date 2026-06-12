@@ -55,22 +55,46 @@ type CheckRunList struct {
 // CheckRun is the body of a single check run and an element of the list. Status is
 // queued, in_progress, or completed; Conclusion is set once completed.
 type CheckRun struct {
-	ID           int64          `json:"id"`
-	NodeID       string         `json:"node_id"`
-	HeadSHA      string         `json:"head_sha"`
-	ExternalID   string         `json:"external_id"`
-	URL          string         `json:"url"`
-	HTMLURL      string         `json:"html_url"`
-	DetailsURL   string         `json:"details_url"`
-	Status       string         `json:"status"`
-	Conclusion   *string        `json:"conclusion"`
-	StartedAt    *Time          `json:"started_at"`
-	CompletedAt  *Time          `json:"completed_at"`
-	Output       CheckRunOutput `json:"output"`
-	Name         string         `json:"name"`
-	CheckSuite   CheckSuiteRef  `json:"check_suite"`
-	App          *any           `json:"app"`
-	PullRequests []any          `json:"pull_requests"`
+	ID           int64            `json:"id"`
+	NodeID       string           `json:"node_id"`
+	HeadSHA      string           `json:"head_sha"`
+	ExternalID   string           `json:"external_id"`
+	URL          string           `json:"url"`
+	HTMLURL      string           `json:"html_url"`
+	DetailsURL   string           `json:"details_url"`
+	Status       string           `json:"status"`
+	Conclusion   *string          `json:"conclusion"`
+	StartedAt    *Time            `json:"started_at"`
+	CompletedAt  *Time            `json:"completed_at"`
+	Output       CheckRunOutput   `json:"output"`
+	Name         string           `json:"name"`
+	CheckSuite   CheckSuiteRef    `json:"check_suite"`
+	App          *any             `json:"app"`
+	PullRequests []any            `json:"pull_requests"`
+	Actions      []CheckRunAction `json:"actions,omitempty"`
+}
+
+// CheckRunAction is one requested action button on a check run, echoed back as
+// the reporter wrote it.
+type CheckRunAction struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Identifier  string `json:"identifier"`
+}
+
+// CheckRunAnnotation is one element of GET
+// /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations.
+type CheckRunAnnotation struct {
+	Path            string  `json:"path"`
+	StartLine       int64   `json:"start_line"`
+	EndLine         int64   `json:"end_line"`
+	StartColumn     *int64  `json:"start_column"`
+	EndColumn       *int64  `json:"end_column"`
+	AnnotationLevel string  `json:"annotation_level"`
+	Title           *string `json:"title"`
+	Message         string  `json:"message"`
+	RawDetails      *string `json:"raw_details"`
+	BlobHRef        string  `json:"blob_href"`
 }
 
 // CheckRunOutput is the output block of a check run.

@@ -81,6 +81,12 @@ func (b *URLBuilder) CheckRun(owner, repo string, r *domain.CheckRun, format nod
 		details = *r.DetailsURL
 	}
 	self := b.RepoAPI(owner, repo) + "/check-runs/" + i64(r.ID)
+	actions := make([]restmodel.CheckRunAction, 0, len(r.Actions))
+	for _, a := range r.Actions {
+		actions = append(actions, restmodel.CheckRunAction{
+			Label: a.Label, Description: a.Description, Identifier: a.Identifier,
+		})
+	}
 	return restmodel.CheckRun{
 		ID:          r.ID,
 		NodeID:      nodeid.Encode(nodeid.KindCheckRun, r.ID, format),
@@ -94,14 +100,33 @@ func (b *URLBuilder) CheckRun(owner, repo string, r *domain.CheckRun, format nod
 		StartedAt:   timePtr(r.StartedAt),
 		CompletedAt: timePtr(r.CompletedAt),
 		Output: restmodel.CheckRunOutput{
-			Title:          r.OutputTitle,
-			Summary:        r.OutputSummary,
-			Text:           r.OutputText,
-			AnnotationsURL: self + "/annotations",
+			Title:            r.OutputTitle,
+			Summary:          r.OutputSummary,
+			Text:             r.OutputText,
+			AnnotationsCount: r.AnnotationsCount,
+			AnnotationsURL:   self + "/annotations",
 		},
 		Name:         r.Name,
 		CheckSuite:   restmodel.CheckSuiteRef{ID: r.SuitePK},
 		PullRequests: []any{},
+		Actions:      actions,
+	}
+}
+
+// CheckRunAnnotation renders one check run annotation for owner/repo. The blob
+// href addresses the annotated file at the run's head sha.
+func (b *URLBuilder) CheckRunAnnotation(owner, repo, headSHA string, a *domain.CheckRunAnnotation) restmodel.CheckRunAnnotation {
+	return restmodel.CheckRunAnnotation{
+		Path:            a.Path,
+		StartLine:       a.StartLine,
+		EndLine:         a.EndLine,
+		StartColumn:     a.StartColumn,
+		EndColumn:       a.EndColumn,
+		AnnotationLevel: a.AnnotationLevel,
+		Title:           a.Title,
+		Message:         a.Message,
+		RawDetails:      a.RawDetails,
+		BlobHRef:        b.RepoHTML(owner, repo) + "/blob/" + headSHA + "/" + a.Path,
 	}
 }
 
