@@ -219,6 +219,8 @@ type BlobLine struct {
 }
 
 // CommitsVM is the history list, grouped by calendar date in the viewer's view.
+// Pager carries the newer/older hops with the filters preserved; the Filter
+// fields echo the query back into the filter form.
 type CommitsVM struct {
 	Chrome Chrome
 	Header RepoHeaderVM
@@ -227,6 +229,12 @@ type CommitsVM struct {
 	Ref    Ref
 	Path   string
 	Groups []CommitDateGroup
+	Pager  Pager
+
+	FilterAction string // the GET form target, the page's own canonical URL
+	FilterAuthor string
+	FilterSince  string
+	FilterUntil  string
 }
 
 // CommitDateGroup is one day's heading and the commits authored that day.
