@@ -1158,34 +1158,6 @@ func (s *RepoService) compareEnd(repo *Repo, rev string) (git.Branch, error) {
 	return git.Branch{Name: rev, Commit: c.SHA}, nil
 }
 
-// CompareDiff returns the raw unified diff of the three-dot comparison, the
-// body the application/vnd.github.diff media type serves on compare.
-func (s *RepoService) CompareDiff(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
-	baseBranch, err := s.compareEnd(repo, base)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	headBranch, err := s.compareEnd(repo, head)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	return s.gitStore.DiffRaw(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-}
-
-// ComparePatch returns the comparison's commits as an mbox patch series, the
-// body the application/vnd.github.patch media type serves on compare.
-func (s *RepoService) ComparePatch(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
-	baseBranch, err := s.compareEnd(repo, base)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	headBranch, err := s.compareEnd(repo, head)
-	if err != nil {
-		return nil, ErrGitNotFound
-	}
-	return s.gitStore.FormatPatch(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-}
-
 func repoFromRow(r *store.RepoRow, owner *User) *Repo {
 	return &Repo{
 		PK:              r.PK,
@@ -1252,6 +1224,104 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 		return "", gitErr(err)
 	}
 	return patch, nil
+}
+
+// CommitDiff returns the commit's plain unified diff against its first parent,
+// or against the empty tree for a root commit: the body /commit/{sha}.diff
+// serves. Unlike CommitPatch it is one uncapped git diff subprocess, so the
+// text endpoint never hands out a silently shortened diff.
+func (s *RepoService) CommitDiff(ctx context.Context, repo *Repo, sha string) ([]byte, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	commit, err := gr.Commit(sha)
+	gr.Release()
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	base := git.EmptyTreeSHA
+	if len(commit.Parents) > 0 {
+		base = commit.Parents[0]
+	}
+	out, err := s.gitStore.DiffDirect(ctx, repo.PK, base, commit.SHA)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return out, nil
+}
+
+// CommitFormatPatch returns the commit as a format-patch mail, the body
+// /commit/{sha}.patch serves.
+func (s *RepoService) CommitFormatPatch(ctx context.Context, repo *Repo, sha string) ([]byte, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	full, err := gr.ResolveCommit(sha)
+	gr.Release()
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	out, err := s.gitStore.FormatPatchCommit(ctx, repo.PK, full)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return out, nil
+}
+
+// CompareDiff returns the raw unified diff of the compare range as text:
+// head against the merge base in the canonical form, or the direct two-point
+// diff when direct is set (the two-dot form). Both ends resolve as any
+// commit-ish; an unresolvable end is ErrGitNotFound.
+func (s *RepoService) CompareDiff(ctx context.Context, repo *Repo, base, head string, direct bool) ([]byte, error) {
+	bsha, hsha, err := s.resolveEnds(repo, base, head)
+	if err != nil {
+		return nil, err
+	}
+	var out []byte
+	if direct {
+		out, err = s.gitStore.DiffDirect(ctx, repo.PK, bsha, hsha)
+	} else {
+		out, err = s.gitStore.DiffRaw(ctx, repo.PK, bsha, hsha)
+	}
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return out, nil
+}
+
+// ComparePatch returns the compare range's own commits (base..head) as an
+// mbox patch series, the body /compare/{basehead}.patch serves.
+func (s *RepoService) ComparePatch(ctx context.Context, repo *Repo, base, head string) ([]byte, error) {
+	bsha, hsha, err := s.resolveEnds(repo, base, head)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.gitStore.FormatPatch(ctx, repo.PK, bsha, hsha)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return out, nil
+}
+
+// resolveEnds resolves the two ends of a compare range to commit ids in one
+// repository open.
+func (s *RepoService) resolveEnds(repo *Repo, base, head string) (git.SHA, git.SHA, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return "", "", gitErr(err)
+	}
+	defer gr.Release()
+	bsha, err := gr.ResolveCommit(base)
+	if err != nil {
+		return "", "", gitErr(err)
+	}
+	hsha, err := gr.ResolveCommit(head)
+	if err != nil {
+		return "", "", gitErr(err)
+	}
+	return bsha, hsha, nil
 }
 
 // Archive streams an archive of the tree at ref to w as one git archive

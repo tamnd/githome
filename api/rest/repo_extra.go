@@ -140,7 +140,7 @@ func handleCompare(d Deps) mizu.Handler {
 
 		switch pullMedia(c.Request().Header.Get("Accept")) {
 		case mediaDiff:
-			raw, err := d.Repos.CompareDiff(ctx, repo, base, head)
+			raw, err := d.Repos.CompareDiff(ctx, repo, base, head, false)
 			if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
 				writeError(c.Writer(), errNotFound())
 				return nil

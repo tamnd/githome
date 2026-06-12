@@ -1,0 +1,56 @@
+{{define "content" -}}
+{{/* The data is MilestonesVM. The open/closed tabs are plain links carrying
+     honest counts from one all-states read. Each row shows the title (linking
+     to the milestone page), the due or closed line, the progress bar, and the
+     open/closed counts. An empty tab renders a blankslate. */ -}}
+{{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
+<div class="repo-body">
+  <div class="labels-head">
+    <nav class="issues-tabs" aria-label="Milestone state">
+      <a class="issues-tab{{if .OpenTab.IsActive}} is-current{{end}}" href="{{.OpenTab.URL}}"
+         {{if .OpenTab.IsActive}}aria-current="page"{{end}}>
+        {{octicon "milestone" 16}} {{.OpenTab.Count}} Open</a>
+      <a class="issues-tab{{if .ClosedTab.IsActive}} is-current{{end}}" href="{{.ClosedTab.URL}}"
+         {{if .ClosedTab.IsActive}}aria-current="page"{{end}}>
+        {{octicon "check" 16}} {{.ClosedTab.Count}} Closed</a>
+    </nav>
+    <a class="labels-cross-link" href="{{.Repo.URL}}/labels">{{octicon "tag" 16}} Labels</a>
+  </div>
+  {{if .Items -}}
+  <ul class="milestones-list" aria-label="Milestones">
+    {{range .Items -}}
+    <li class="milestones-row">
+      <div class="milestones-main">
+        <a class="milestones-title" href="{{.URL}}">{{.Title}}</a>
+        <p class="milestones-meta">
+          {{if .DueOn -}}
+          {{if .Overdue}}<span class="milestones-overdue">{{octicon "alert" 16}} Past due</span> {{end -}}
+          Due by <time datetime="{{.DueISO}}">{{.DueOn}}</time>
+          {{- else if .ClosedAt -}}
+          Closed on {{.ClosedAt}}
+          {{- else -}}
+          No due date
+          {{- end}}
+        </p>
+        {{if .Description}}<p class="milestones-description">{{.Description}}</p>{{end}}
+      </div>
+      <div class="milestones-progress">
+        <div class="progress-bar" role="progressbar" aria-valuenow="{{.Percent}}" aria-valuemin="0" aria-valuemax="100">
+          <span class="progress-fill" style="width:{{.Percent}}%"></span>
+        </div>
+        <p class="milestones-counts">
+          <span class="milestones-percent">{{.Percent}}% complete</span>
+          <span>{{.OpenIssues}} open</span>
+          <span>{{.ClosedIssues}} closed</span>
+        </p>
+      </div>
+    </li>
+    {{- end}}
+  </ul>
+  {{- else -}}
+  <div class="blankslate">
+    <p class="blankslate-text">{{if .OpenTab.IsActive}}No open milestones.{{else}}No closed milestones.{{end}}</p>
+  </div>
+  {{- end}}
+</div>
+{{- end}}

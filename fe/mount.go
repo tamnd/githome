@@ -272,6 +272,7 @@ func mountRepo(page *mizu.Router, d Deps) {
 	rg.Get("/{owner}/{repo}/branches", rh.Branches)
 	rg.Get("/{owner}/{repo}/tags", rh.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", rh.FileFinder)
+	rg.Get("/{owner}/{repo}/archive/{rest...}", rh.Archive)
 }
 
 // mountCompare registers the branch-comparison routes under /{owner}/{repo}/compare.
@@ -345,6 +346,9 @@ func mountIssues(page *mizu.Router, d Deps) {
 	ig.Get("/{owner}/{repo}/issues", ih.Index)
 	ig.Get("/{owner}/{repo}/issues/new", ih.New)
 	ig.Get("/{owner}/{repo}/issues/{number}", ih.Show)
+	ig.Get("/{owner}/{repo}/labels", ih.Labels)
+	ig.Get("/{owner}/{repo}/milestones", ih.Milestones)
+	ig.Get("/{owner}/{repo}/milestone/{number}", ih.Milestone)
 
 	// The mutations all post and redirect, so a reload re-fetches with GET. The
 	// service re-authorizes every write, so an anonymous or read-only viewer who

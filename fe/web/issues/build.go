@@ -148,15 +148,16 @@ func quoteLabel(name string) string {
 	return name
 }
 
-// milestoneChip maps a milestone into its chip with the filter URL, or nil when
-// the issue has none.
+// milestoneChip maps a milestone into its chip, or nil when the issue has
+// none. The chip links to the milestone's own page, which lists everything in
+// it, the same place github.com sends the row chip.
 func milestoneChip(owner, name string, m *domain.Milestone) *view.MilestoneVM {
 	if m == nil {
 		return nil
 	}
 	return &view.MilestoneVM{
 		Title: m.Title,
-		URL:   route.IssuesQuery(owner, name, "is:issue is:open milestone:"+quoteLabel(m.Title)),
+		URL:   route.Milestone(owner, name, m.Number, false),
 	}
 }
 

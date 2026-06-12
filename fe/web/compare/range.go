@@ -32,7 +32,13 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 	}
 	owner := ownerLogin(repo)
 
-	spec, ok := route.ParseBaseHead(c.Param("basehead"))
+	basehead := c.Param("basehead")
+	// The .diff and .patch suffixes select the plain-text twin of this page.
+	if rest, format, ok := route.SplitPatchSuffix(basehead); ok {
+		return h.rangeText(c, repo, rest, format)
+	}
+
+	spec, ok := route.ParseBaseHead(basehead)
 	if !ok {
 		return h.notFound(c)
 	}
@@ -103,6 +109,50 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		ExpandURL:    route.CompareExpanded(owner, repo.Name, base, head),
 	}
 	return h.render.Page(c, "compare/range", vm)
+}
+
+// rangeText serves /{owner}/{repo}/compare/{basehead}.diff and .patch: the raw
+// diff of the range (merge-base form, or direct for two-dot), or the range's
+// own commits as an mbox patch series. The basehead grammar and the qualified-
+// side rules are the same as the HTML page's.
+func (h *Handlers) rangeText(c *mizu.Ctx, repo *domain.Repo, basehead, format string) error {
+	ctx := c.Context()
+	spec, ok := route.ParseBaseHead(basehead)
+	if !ok {
+		return h.notFound(c)
+	}
+	if !sideInRepo(repo, spec.Base) || !sideInRepo(repo, spec.Head) {
+		return h.notFound(c)
+	}
+	base, head := spec.Base.Ref, spec.Head.Ref
+	if base == "" {
+		db, err := h.repos.DefaultBranchRef(repo)
+		if errors.Is(err, domain.ErrEmptyRepo) || errors.Is(err, domain.ErrGitNotFound) {
+			return h.notFound(c)
+		}
+		if err != nil {
+			return err
+		}
+		base = db.Name
+	}
+
+	var body []byte
+	var err error
+	if format == "diff" {
+		body, err = h.repos.CompareDiff(ctx, repo, base, head, spec.TwoDot)
+	} else {
+		body, err = h.repos.ComparePatch(ctx, repo, base, head)
+	}
+	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
+		return h.notFound(c)
+	}
+	if err != nil {
+		return err
+	}
+	w := c.Writer()
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, err = w.Write(body)
+	return err
 }
 
 // sideInRepo reports whether a compare side resolves inside this repository.

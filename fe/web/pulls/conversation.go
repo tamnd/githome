@@ -11,6 +11,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 )
 
 // timelinePerPage is how many comments the Conversation tab loads. A very long
@@ -30,6 +31,10 @@ func (h *Handlers) Conversation(c *mizu.Ctx) error {
 	if !ok {
 		return h.notFound(c)
 	}
+	// The .diff and .patch suffixes select the plain-text twin of this page.
+	if rest, format, ok := route.SplitPatchSuffix(c.Param("number")); ok {
+		return h.pullText(c, repo, rest, format)
+	}
 	pr, ok := h.loadPR(c, repo)
 	if !ok {
 		return nil
@@ -41,6 +46,36 @@ func (h *Handlers) Conversation(c *mizu.Ctx) error {
 		return h.render.ServerError(c, err)
 	}
 	return h.render.Page(c, "pulls/conversation", vm)
+}
+
+// pullText serves /{owner}/{repo}/pull/{number}.diff and .patch: the raw
+// unified diff of the pull request's range, or its commits as an mbox patch
+// series, the same bodies the REST vendor media types and gh pr diff use. A
+// missing PR, or one the viewer cannot see, is the soft 404.
+func (h *Handlers) pullText(c *mizu.Ctx, repo *domain.Repo, numstr, format string) error {
+	ctx := c.Context()
+	number, ok := numberParam(numstr)
+	if !ok {
+		return h.notFound(c)
+	}
+	owner := ownerLogin(repo)
+	var body []byte
+	var err error
+	if format == "diff" {
+		body, err = h.pulls.Diff(ctx, webmw.ViewerID(ctx), owner, repo.Name, number)
+	} else {
+		body, err = h.pulls.Patch(ctx, webmw.ViewerID(ctx), owner, repo.Name, number)
+	}
+	if isNotFound(err) {
+		return h.notFound(c)
+	}
+	if err != nil {
+		return err
+	}
+	w := c.Writer()
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, err = w.Write(body)
+	return err
 }
 
 // conversation assembles the Conversation view model. formError, when non-empty,

@@ -143,6 +143,7 @@ func newFixture(t *testing.T) fixture {
 	rg.Get("/{owner}/{repo}/branches", h.Branches)
 	rg.Get("/{owner}/{repo}/tags", h.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", h.FileFinder)
+	rg.Get("/{owner}/{repo}/archive/{rest...}", h.Archive)
 
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)

@@ -12,6 +12,10 @@
       <a class="ref-list-name" href="{{.TreeURL}}">{{.Name}}</a>
       <span class="ref-list-sha">{{.ShortSHA}}</span>
       {{if .Message}}<span class="ref-list-message">{{.Message}}</span>{{end}}
+      <span class="ref-list-downloads">
+        <a class="ref-list-download" href="{{.ZipURL}}" rel="nofollow">{{octicon "file-zip" 16}} zip</a>
+        <a class="ref-list-download" href="{{.TarGzURL}}" rel="nofollow">{{octicon "file-zip" 16}} tar.gz</a>
+      </span>
     </li>
     {{- end}}
   </ul>

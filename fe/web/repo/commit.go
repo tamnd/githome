@@ -32,6 +32,10 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 	if sha == "" {
 		return h.notFound(c)
 	}
+	// The .diff and .patch suffixes select the plain-text twin of this page.
+	if rest, format, ok := route.SplitPatchSuffix(sha); ok {
+		return h.commitText(c, repo, rest, format)
+	}
 
 	commit, err := h.repos.GetCommit(repo, sha)
 	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
@@ -81,6 +85,31 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 		TreeURL:        route.Tree(owner, repo.Name, commit.SHA, ""),
 	}
 	return h.render.Page(c, "repo/commit", vm)
+}
+
+// commitText serves /{owner}/{repo}/commit/{sha}.diff and .patch: the plain
+// unified diff against the first parent (the whole tree for a root commit), or
+// the commit as a format-patch mail. Both are uncapped text bodies; the inline
+// cap belongs to the HTML page only.
+func (h *Handlers) commitText(c *mizu.Ctx, repo *domain.Repo, sha, format string) error {
+	ctx := c.Context()
+	var body []byte
+	var err error
+	if format == "diff" {
+		body, err = h.repos.CommitDiff(ctx, repo, sha)
+	} else {
+		body, err = h.repos.CommitFormatPatch(ctx, repo, sha)
+	}
+	if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
+		return h.notFound(c)
+	}
+	if err != nil {
+		return err
+	}
+	w := c.Writer()
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, err = w.Write(body)
+	return err
 }
 
 // truncatePatch bounds a patch for inline display, cutting on a line boundary

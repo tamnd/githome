@@ -146,6 +146,9 @@ func newFixture(t *testing.T) fixture {
 	ig.Get("/{owner}/{repo}/issues", h.Index)
 	ig.Get("/{owner}/{repo}/issues/new", h.New)
 	ig.Get("/{owner}/{repo}/issues/{number}", h.Show)
+	ig.Get("/{owner}/{repo}/labels", h.Labels)
+	ig.Get("/{owner}/{repo}/milestones", h.Milestones)
+	ig.Get("/{owner}/{repo}/milestone/{number}", h.Milestone)
 
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
