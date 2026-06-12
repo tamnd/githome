@@ -248,9 +248,12 @@ type CheckSuiteRow struct {
 // failure, neutral, cancelled, timed_out, action_required, skipped) is set when
 // the run completes.
 type CheckRunRow struct {
-	PK            int64
-	DBID          int64
-	SuitePK       int64
+	PK      int64
+	DBID    int64
+	SuitePK int64
+	// SuiteDBID is the public id of the run's suite, read alongside the run so
+	// the response's check_suite reference matches GET /check-suites/{id}.
+	SuiteDBID     int64
 	RepoPK        int64
 	HeadSHA       string
 	Name          string

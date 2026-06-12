@@ -3,7 +3,6 @@ package rest
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -303,36 +302,6 @@ func handleSearchLabels(d Deps) mizu.Handler {
 	}
 }
 
-// handleCheckSuiteGet serves GET /repos/{owner}/{repo}/check-suites/{suite_id}.
-func handleCheckSuiteGet(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		suiteID, ok := pathInt64(c, "suite_id")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		repo, err := loadRepo(d, c)
-		if repo == nil {
-			return err
-		}
-		// Scan the ref-level list to find the suite by DB ID.
-		ctx := c.Request().Context()
-		actor := auth.ActorFrom(ctx)
-		suites, _, err := d.Checks.ListCheckSuites(ctx, actor.UserID, repo.Owner.Login, repo.Name, "HEAD")
-		if err != nil {
-			return err
-		}
-		for _, s := range suites {
-			if s.ID == suiteID {
-				writeJSON(c.Writer(), http.StatusOK, d.URLs.CheckSuite(repo.Owner.Login, repo.Name, s, d.NodeFormat))
-				return nil
-			}
-		}
-		writeError(c.Writer(), errNotFound())
-		return nil
-	}
-}
-
 // handleOrgTeamsList serves GET /orgs/{org}/teams.
 func handleOrgTeamsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
@@ -461,24 +430,6 @@ func handleRepoInstallation(d Deps) mizu.Handler {
 	}
 }
 
-// handleCheckSuiteCreate serves POST /repos/{owner}/{repo}/check-suites
-// (GitHub auto-creates; we accept but return a synthetic 200).
-func handleCheckSuiteCreate(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		repo, err := loadRepo(d, c)
-		if repo == nil {
-			return err
-		}
-		writeJSON(c.Writer(), http.StatusCreated, map[string]any{
-			"id":         0,
-			"status":     "completed",
-			"created_at": time.Now().UTC().Format(time.RFC3339),
-			"updated_at": time.Now().UTC().Format(time.RFC3339),
-		})
-		return nil
-	}
-}
-
 // mountMiscCompat registers all the "compat gap" endpoints that don't belong
 // to a primary sub-system file.
 func mountMiscCompat(r *mizu.Router, d Deps) {
@@ -509,7 +460,6 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/search/labels", handleSearchLabels(d))
 		r.Get("/installation/repositories", handleInstallationRepos(d))
 		r.Get("/repos/{owner}/{repo}/installation", handleRepoInstallation(d))
-		r.Post("/repos/{owner}/{repo}/check-suites", handleCheckSuiteCreate(d))
 	}
 	if d.Issues != nil {
 		r.Get("/repos/{owner}/{repo}/issues/{number}/labels", handleIssueLabelsList(d))
@@ -528,9 +478,6 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/repos/{owner}/{repo}/pulls/comments", handleAllReviewCommentsList(d))
 		r.Patch("/repos/{owner}/{repo}/pulls/comments/{comment_id}", handleReviewCommentEdit(d))
 		r.Delete("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}", handlePullReviewDelete(d))
-	}
-	if d.Checks != nil {
-		r.Get("/repos/{owner}/{repo}/check-suites/{suite_id}", handleCheckSuiteGet(d))
 	}
 	if d.Hooks != nil {
 		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/pings", requireScope(handleWebhookPing(d), "repo", "write:repo_hook"))

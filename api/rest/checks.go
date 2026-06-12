@@ -82,6 +82,13 @@ func mountChecks(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/check-runs/{check_run_id}", handleCheckRunGet(d))
 	r.Patch("/repos/{owner}/{repo}/check-runs/{check_run_id}", handleCheckRunUpdate(d))
 	r.Get("/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations", handleCheckRunAnnotationsList(d))
+	r.Post("/repos/{owner}/{repo}/check-runs/{check_run_id}/rerequest", handleCheckRunRerequest(d))
+
+	r.Post("/repos/{owner}/{repo}/check-suites", handleCheckSuiteCreate(d))
+	r.Patch("/repos/{owner}/{repo}/check-suites/preferences", handleCheckSuitePreferences(d))
+	r.Get("/repos/{owner}/{repo}/check-suites/{check_suite_id}", handleCheckSuiteGet(d))
+	r.Get("/repos/{owner}/{repo}/check-suites/{check_suite_id}/check-runs", handleSuiteCheckRunsList(d))
+	r.Post("/repos/{owner}/{repo}/check-suites/{check_suite_id}/rerequest", handleCheckSuiteRerequest(d))
 }
 
 // handleStatusesList serves GET /repos/{owner}/{repo}/commits/{ref}/statuses,
@@ -124,7 +131,8 @@ func handleCombinedStatus(d Deps) mizu.Handler {
 }
 
 // handleCheckRunsList serves GET
-// /repos/{owner}/{repo}/commits/{ref}/check-runs.
+// /repos/{owner}/{repo}/commits/{ref}/check-runs with GitHub's check_name,
+// status, and filter query parameters and counted pagination.
 func handleCheckRunsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
@@ -136,13 +144,97 @@ func handleCheckRunsList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.CheckRunList(owner, repo, runs, d.NodeFormat))
+		writeCheckRunPage(c, d, owner, repo, runs)
 		return nil
 	}
 }
 
+// handleSuiteCheckRunsList serves GET
+// /repos/{owner}/{repo}/check-suites/{check_suite_id}/check-runs, the runs
+// inside one suite, with the same filters the per-ref list takes.
+func handleSuiteCheckRunsList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "check_suite_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		suite, err := d.Checks.GetCheckSuite(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeCheckRunPage(c, d, owner, repo, suite.Runs)
+		return nil
+	}
+}
+
+// writeCheckRunPage filters, paginates, and writes a check-runs collection,
+// the shared tail of the two check-run list endpoints. total_count counts the
+// filtered set, not the page, the way GitHub reports it.
+func writeCheckRunPage(c *mizu.Ctx, d Deps, owner, repo string, runs []*domain.CheckRun) {
+	runs = filterCheckRuns(c, runs)
+	page, perr := parsePageFor(c, "CheckRun")
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return
+	}
+	runs = paginateSlice(&page, runs)
+	out := d.URLs.CheckRunList(owner, repo, runs, d.NodeFormat)
+	out.TotalCount = page.Total
+	writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+	writeJSON(c.Writer(), http.StatusOK, out)
+}
+
+// filterCheckRuns applies the check_name, status, and filter query parameters.
+// filter defaults to latest, which keeps the newest run per name; filter=all
+// returns every attempt. app_id is accepted and ignored: every run here
+// belongs to the single built-in app.
+func filterCheckRuns(c *mizu.Ctx, runs []*domain.CheckRun) []*domain.CheckRun {
+	if name := c.Query("check_name"); name != "" {
+		kept := runs[:0:0]
+		for _, r := range runs {
+			if r.Name == name {
+				kept = append(kept, r)
+			}
+		}
+		runs = kept
+	}
+	if status := c.Query("status"); status != "" {
+		kept := runs[:0:0]
+		for _, r := range runs {
+			if r.Status == status {
+				kept = append(kept, r)
+			}
+		}
+		runs = kept
+	}
+	if c.Query("filter") != "all" {
+		latest := make(map[string]*domain.CheckRun, len(runs))
+		for _, r := range runs {
+			if prev, ok := latest[r.Name]; !ok || r.PK > prev.PK {
+				latest[r.Name] = r
+			}
+		}
+		kept := runs[:0:0]
+		for _, r := range runs {
+			if latest[r.Name] == r {
+				kept = append(kept, r)
+			}
+		}
+		runs = kept
+	}
+	return runs
+}
+
 // handleCheckSuitesList serves GET
-// /repos/{owner}/{repo}/commits/{ref}/check-suites.
+// /repos/{owner}/{repo}/commits/{ref}/check-suites with counted pagination.
+// app_id and check_name are accepted and ignored: every suite belongs to the
+// single built-in app and carries all the ref's runs.
 func handleCheckSuitesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
@@ -154,7 +246,158 @@ func handleCheckSuitesList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.CheckSuiteList(owner, repo, suites, d.NodeFormat))
+		page, perr := parsePageFor(c, "CheckSuite")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		suites = paginateSlice(&page, suites)
+		out := d.URLs.CheckSuiteList(owner, repo, suites, d.NodeFormat)
+		out.TotalCount = page.Total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
+// handleCheckSuiteGet serves GET
+// /repos/{owner}/{repo}/check-suites/{check_suite_id}, a direct lookup by the
+// suite's persisted id.
+func handleCheckSuiteGet(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "check_suite_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		suite, err := d.Checks.GetCheckSuite(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.CheckSuite(owner, repo, suite, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleCheckSuiteCreate serves POST /repos/{owner}/{repo}/check-suites. The
+// suite persists with a real id, so the response round-trips through
+// GET /check-suites/{id}; re-creating for the same head returns the existing
+// suite, the idempotency GitHub's auto-creation shows.
+func handleCheckSuiteCreate(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		var body struct {
+			HeadSHA string `json:"head_sha"`
+		}
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		if body.HeadSHA == "" {
+			writeError(c.Writer(), errValidation(FieldError{Resource: "CheckSuite", Field: "head_sha", Code: "missing_field"}))
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		suite, err := d.Checks.CreateCheckSuite(c.Request().Context(), actor.UserID, owner, repo, body.HeadSHA)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, d.URLs.CheckSuite(owner, repo, suite, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleCheckRunRerequest serves POST
+// /repos/{owner}/{repo}/check-runs/{check_run_id}/rerequest, answering 201
+// with an empty object the way GitHub does.
+func handleCheckRunRerequest(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "check_run_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		err := d.Checks.RerequestCheckRun(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, map[string]any{})
+		return nil
+	}
+}
+
+// handleCheckSuiteRerequest serves POST
+// /repos/{owner}/{repo}/check-suites/{check_suite_id}/rerequest.
+func handleCheckSuiteRerequest(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "check_suite_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		err := d.Checks.RerequestCheckSuite(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, map[string]any{})
+		return nil
+	}
+}
+
+// handleCheckSuitePreferences serves PATCH
+// /repos/{owner}/{repo}/check-suites/preferences. Auto-trigger has no effect
+// here — runs only exist when a reporter posts them — so the settings echo
+// back over the repository, the acknowledgement GitHub's response carries.
+func handleCheckSuitePreferences(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		var body struct {
+			AutoTriggerChecks []struct {
+				AppID   int64 `json:"app_id"`
+				Setting bool  `json:"setting"`
+			} `json:"auto_trigger_checks"`
+		}
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		owner, repo := c.Param("owner"), c.Param("repo")
+		r, err := d.Repos.AuthorizeWrite(ctx, actor.UserID, owner, repo)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		perm, err := repoPermissions(ctx, d, actor, r)
+		if err != nil {
+			return err
+		}
+		prefs := make([]map[string]any, 0, len(body.AutoTriggerChecks))
+		for _, t := range body.AutoTriggerChecks {
+			prefs = append(prefs, map[string]any{"app_id": t.AppID, "setting": t.Setting})
+		}
+		writeJSON(c.Writer(), http.StatusOK, map[string]any{
+			"preferences": map[string]any{"auto_trigger_checks": prefs},
+			"repository":  d.URLs.Repository(r, d.NodeFormat, perm),
+		})
 		return nil
 	}
 }

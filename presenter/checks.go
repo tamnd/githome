@@ -107,7 +107,7 @@ func (b *URLBuilder) CheckRun(owner, repo string, r *domain.CheckRun, format nod
 			AnnotationsURL:   self + "/annotations",
 		},
 		Name:         r.Name,
-		CheckSuite:   restmodel.CheckSuiteRef{ID: r.SuitePK},
+		CheckSuite:   restmodel.CheckSuiteRef{ID: r.SuiteID},
 		PullRequests: []any{},
 		Actions:      actions,
 	}
