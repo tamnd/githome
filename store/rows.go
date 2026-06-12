@@ -263,8 +263,29 @@ type CheckRunRow struct {
 	OutputText    *string
 	StartedAt     *time.Time
 	CompletedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// ActionsJSON is the requested actions block as the reporter sent it, a JSON
+	// array kept verbatim so the read path echoes what was written.
+	ActionsJSON      *string
+	AnnotationsCount int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// CheckRunAnnotationRow is a row of check_run_annotations, one line-anchored
+// note a check run attaches to a file. Annotations append across updates.
+type CheckRunAnnotationRow struct {
+	PK              int64
+	CheckRunPK      int64
+	Path            string
+	StartLine       int64
+	EndLine         int64
+	StartColumn     *int64
+	EndColumn       *int64
+	AnnotationLevel string
+	Message         string
+	Title           *string
+	RawDetails      *string
+	CreatedAt       time.Time
 }
 
 // PullCheckStateRow is the denormalized snapshot the recompute worker writes: a

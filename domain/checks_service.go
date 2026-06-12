@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
@@ -44,6 +45,8 @@ type checksStore interface {
 	InsertCheckRun(ctx context.Context, r *store.CheckRunRow) error
 	UpdateCheckRun(ctx context.Context, r *store.CheckRunRow) error
 	GetCheckRun(ctx context.Context, dbID int64) (*store.CheckRunRow, error)
+	InsertCheckRunAnnotations(ctx context.Context, checkRunPK int64, anns []store.CheckRunAnnotationRow) error
+	ListCheckRunAnnotations(ctx context.Context, checkRunPK int64) ([]store.CheckRunAnnotationRow, error)
 	ListCheckRunsForRef(ctx context.Context, repoPK int64, headSHA string) ([]store.CheckRunRow, error)
 	ListCheckRunsForSuite(ctx context.Context, suitePK int64) ([]store.CheckRunRow, error)
 	ListCheckRunsForSuites(ctx context.Context, suitePKs []int64) (map[int64][]store.CheckRunRow, error)
@@ -65,7 +68,10 @@ type StatusInput struct {
 	Description string
 }
 
-// CheckRunInput is the create or update payload for a check run.
+// CheckRunInput is the create or update payload for a check run. StartedAt and
+// CompletedAt override the stamped times when the reporter supplies its own;
+// Actions replaces the run's action set when non-nil; Annotations append to the
+// run's accumulated annotations.
 type CheckRunInput struct {
 	Name          string
 	HeadSHA       string
@@ -76,6 +82,10 @@ type CheckRunInput struct {
 	OutputTitle   string
 	OutputSummary string
 	OutputText    string
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	Actions       []CheckRunAction
+	Annotations   []CheckRunAnnotation
 }
 
 // CreateStatus reports a commit status against a sha. It needs write access,
@@ -173,15 +183,23 @@ func (s *ChecksService) CreateCheckRun(ctx context.Context, actorPK int64, owner
 	if err != nil {
 		return nil, err
 	}
+	if err := validAnnotations(in.Annotations); err != nil {
+		return nil, err
+	}
 	row := &store.CheckRunRow{
 		SuitePK: suite.PK, RepoPK: repo.PK, HeadSHA: sha, Name: strings.TrimSpace(in.Name),
 		Status: statusOrDefault(in.Status), Conclusion: optStr(in.Conclusion),
 		DetailsURL: optStr(in.DetailsURL), ExternalID: optStr(in.ExternalID),
 		OutputTitle: optStr(in.OutputTitle), OutputSummary: optStr(in.OutputSummary),
 		OutputText: optStr(in.OutputText),
+		StartedAt:  in.StartedAt, CompletedAt: in.CompletedAt,
+		ActionsJSON: actionsJSON(in.Actions),
 	}
 	stampRunTimes(row)
 	if err := s.store.InsertCheckRun(ctx, row); err != nil {
+		return nil, err
+	}
+	if err := s.appendAnnotations(ctx, row, in.Annotations); err != nil {
 		return nil, err
 	}
 	s.refreshSuite(ctx, suite.PK)
@@ -203,6 +221,9 @@ func (s *ChecksService) UpdateCheckRun(ctx context.Context, actorPK int64, owner
 	if err != nil {
 		return nil, err
 	}
+	if err := validAnnotations(in.Annotations); err != nil {
+		return nil, err
+	}
 	if in.Name != "" {
 		row.Name = strings.TrimSpace(in.Name)
 	}
@@ -221,13 +242,128 @@ func (s *ChecksService) UpdateCheckRun(ctx context.Context, actorPK int64, owner
 	if in.OutputSummary != "" {
 		row.OutputSummary = optStr(in.OutputSummary)
 	}
+	if in.OutputText != "" {
+		row.OutputText = optStr(in.OutputText)
+	}
+	if in.StartedAt != nil {
+		row.StartedAt = in.StartedAt
+	}
+	if in.CompletedAt != nil {
+		row.CompletedAt = in.CompletedAt
+	}
+	// A non-nil actions slice replaces the set; an empty one clears it.
+	if in.Actions != nil {
+		row.ActionsJSON = actionsJSON(in.Actions)
+	}
 	stampRunTimes(row)
 	if err := s.store.UpdateCheckRun(ctx, row); err != nil {
+		return nil, err
+	}
+	if err := s.appendAnnotations(ctx, row, in.Annotations); err != nil {
 		return nil, err
 	}
 	s.refreshSuite(ctx, row.SuitePK)
 	s.recomputeForSHA(ctx, repo.PK, row.HeadSHA)
 	return s.assembleRun(row), nil
+}
+
+// ListCheckRunAnnotations returns a check run's accumulated annotations for the
+// viewer, the body of GET /check-runs/{id}/annotations.
+func (s *ChecksService) ListCheckRunAnnotations(ctx context.Context, viewerPK int64, owner, name string, runDBID int64) ([]*CheckRunAnnotation, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetCheckRun(ctx, runDBID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && row.RepoPK != repo.PK) {
+		return nil, ErrCheckNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListCheckRunAnnotations(ctx, row.PK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*CheckRunAnnotation, 0, len(rows))
+	for i := range rows {
+		a := rows[i]
+		out = append(out, &CheckRunAnnotation{
+			PK: a.PK, CheckRunPK: a.CheckRunPK, Path: a.Path,
+			StartLine: a.StartLine, EndLine: a.EndLine,
+			StartColumn: a.StartColumn, EndColumn: a.EndColumn,
+			AnnotationLevel: a.AnnotationLevel, Message: a.Message,
+			Title: a.Title, RawDetails: a.RawDetails,
+		})
+	}
+	return out, nil
+}
+
+// appendAnnotations writes a report's annotation batch and rolls the run's
+// in-memory count forward so the response reflects the write.
+func (s *ChecksService) appendAnnotations(ctx context.Context, row *store.CheckRunRow, anns []CheckRunAnnotation) error {
+	if len(anns) == 0 {
+		return nil
+	}
+	rows := make([]store.CheckRunAnnotationRow, 0, len(anns))
+	for _, a := range anns {
+		rows = append(rows, store.CheckRunAnnotationRow{
+			Path: a.Path, StartLine: a.StartLine, EndLine: a.EndLine,
+			StartColumn: a.StartColumn, EndColumn: a.EndColumn,
+			AnnotationLevel: a.AnnotationLevel, Message: a.Message,
+			Title: a.Title, RawDetails: a.RawDetails,
+		})
+	}
+	if err := s.store.InsertCheckRunAnnotations(ctx, row.PK, rows); err != nil {
+		return err
+	}
+	row.AnnotationsCount += int64(len(rows))
+	return nil
+}
+
+// validAnnotations checks the required annotation fields and the level
+// vocabulary before anything is written.
+func validAnnotations(anns []CheckRunAnnotation) error {
+	for _, a := range anns {
+		if strings.TrimSpace(a.Path) == "" || strings.TrimSpace(a.Message) == "" {
+			return ErrValidation
+		}
+		if a.StartLine < 1 || a.EndLine < a.StartLine {
+			return ErrValidation
+		}
+		switch a.AnnotationLevel {
+		case "notice", "warning", "failure":
+		default:
+			return ErrValidation
+		}
+	}
+	return nil
+}
+
+// actionsJSON renders a run's requested actions to the JSON blob the row
+// stores, or nil when the reporter sent none.
+func actionsJSON(actions []CheckRunAction) *string {
+	if actions == nil {
+		return nil
+	}
+	b, err := json.Marshal(actions)
+	if err != nil {
+		return nil
+	}
+	s := string(b)
+	return &s
+}
+
+// runActions parses a row's stored actions blob back to the domain slice.
+func runActions(actionsJSON *string) []CheckRunAction {
+	if actionsJSON == nil {
+		return nil
+	}
+	var out []CheckRunAction
+	if err := json.Unmarshal([]byte(*actionsJSON), &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 // GetCheckRun resolves one check run by id for the viewer.
@@ -464,6 +600,7 @@ func (s *ChecksService) assembleRun(row *store.CheckRunRow) *CheckRun {
 		DetailsURL: row.DetailsURL, ExternalID: row.ExternalID,
 		OutputTitle: row.OutputTitle, OutputSummary: row.OutputSummary, OutputText: row.OutputText,
 		StartedAt: row.StartedAt, CompletedAt: row.CompletedAt,
+		Actions: runActions(row.ActionsJSON), AnnotationsCount: int(row.AnnotationsCount),
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

@@ -47,23 +47,49 @@ type CombinedStatus struct {
 // CheckRun is one named check against a head sha inside a suite. Status is queued,
 // in_progress, or completed; Conclusion is set once completed.
 type CheckRun struct {
-	PK            int64
-	ID            int64
-	SuitePK       int64
-	RepoPK        int64
-	HeadSHA       string
-	Name          string
-	Status        string
-	Conclusion    *string
-	DetailsURL    *string
-	ExternalID    *string
-	OutputTitle   *string
-	OutputSummary *string
-	OutputText    *string
-	StartedAt     *time.Time
-	CompletedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	PK               int64
+	ID               int64
+	SuitePK          int64
+	RepoPK           int64
+	HeadSHA          string
+	Name             string
+	Status           string
+	Conclusion       *string
+	DetailsURL       *string
+	ExternalID       *string
+	OutputTitle      *string
+	OutputSummary    *string
+	OutputText       *string
+	StartedAt        *time.Time
+	CompletedAt      *time.Time
+	Actions          []CheckRunAction
+	AnnotationsCount int
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// CheckRunAction is one requested action button a check run offers, echoed back
+// exactly as the reporter wrote it.
+type CheckRunAction struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Identifier  string `json:"identifier"`
+}
+
+// CheckRunAnnotation is one line-anchored note a check run attaches to a file.
+// Annotations accumulate across check run updates.
+type CheckRunAnnotation struct {
+	PK              int64
+	CheckRunPK      int64
+	Path            string
+	StartLine       int64
+	EndLine         int64
+	StartColumn     *int64
+	EndColumn       *int64
+	AnnotationLevel string
+	Message         string
+	Title           *string
+	RawDetails      *string
 }
 
 // CheckSuite is the per-app container for the check runs reported against a head

@@ -181,7 +181,8 @@ func scanCheckSuiteRows(row interface{ Scan(...any) error }) (*CheckSuiteRow, er
 
 const checkRunColumns = `pk, db_id, suite_pk, repo_pk, head_sha, name, status,
 	conclusion, details_url, external_id, output_title, output_summary,
-	output_text, started_at, completed_at, created_at, updated_at`
+	output_text, started_at, completed_at, actions, annotations_count,
+	created_at, updated_at`
 
 // InsertCheckRun writes a check run with a freshly allocated db_id.
 func (s *Store) InsertCheckRun(ctx context.Context, r *CheckRunRow) error {
@@ -196,15 +197,15 @@ func (s *Store) InsertCheckRun(ctx context.Context, r *CheckRunRow) error {
 		q := t.rebind(`INSERT INTO check_runs
 			(db_id, suite_pk, repo_pk, head_sha, name, status, conclusion,
 			 details_url, external_id, output_title, output_summary, output_text,
-			 started_at, completed_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 started_at, completed_at, actions)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING pk, db_id, created_at, updated_at`)
 		var created, upd nullTime
 		err = t.tx.QueryRowContext(ctx, q,
 			dbID, r.SuitePK, r.RepoPK, r.HeadSHA, r.Name, r.Status,
 			argStr(r.Conclusion), argStr(r.DetailsURL), argStr(r.ExternalID),
 			argStr(r.OutputTitle), argStr(r.OutputSummary), argStr(r.OutputText),
-			argTime(r.StartedAt), argTime(r.CompletedAt),
+			argTime(r.StartedAt), argTime(r.CompletedAt), argStr(r.ActionsJSON),
 		).Scan(&r.PK, &r.DBID, &created, &upd)
 		if err != nil {
 			return err
@@ -220,12 +221,12 @@ func (s *Store) UpdateCheckRun(ctx context.Context, r *CheckRunRow) error {
 	q := s.rebind(`UPDATE check_runs SET
 		status = ?, conclusion = ?, details_url = ?, external_id = ?,
 		output_title = ?, output_summary = ?, output_text = ?,
-		started_at = ?, completed_at = ?, updated_at = ?
+		started_at = ?, completed_at = ?, actions = ?, updated_at = ?
 		WHERE pk = ?`)
 	res, err := s.db.ExecContext(ctx, q,
 		r.Status, argStr(r.Conclusion), argStr(r.DetailsURL), argStr(r.ExternalID),
 		argStr(r.OutputTitle), argStr(r.OutputSummary), argStr(r.OutputText),
-		argTime(r.StartedAt), argTime(r.CompletedAt), nowUTC(), r.PK)
+		argTime(r.StartedAt), argTime(r.CompletedAt), argStr(r.ActionsJSON), nowUTC(), r.PK)
 	if err != nil {
 		return err
 	}
@@ -280,11 +281,13 @@ func scanCheckRunRows(row interface{ Scan(...any) error }) (*CheckRunRow, error)
 		r                                      CheckRunRow
 		conclusion, detailsURL, externalID     sql.NullString
 		outputTitle, outputSummary, outputText sql.NullString
+		actions                                sql.NullString
 		startedAt, completedAt, created, upd   nullTime
 	)
 	if err := row.Scan(&r.PK, &r.DBID, &r.SuitePK, &r.RepoPK, &r.HeadSHA, &r.Name,
 		&r.Status, &conclusion, &detailsURL, &externalID, &outputTitle,
-		&outputSummary, &outputText, &startedAt, &completedAt, &created, &upd); err != nil {
+		&outputSummary, &outputText, &startedAt, &completedAt, &actions,
+		&r.AnnotationsCount, &created, &upd); err != nil {
 		return nil, err
 	}
 	r.Conclusion = strPtr(conclusion)
@@ -293,10 +296,76 @@ func scanCheckRunRows(row interface{ Scan(...any) error }) (*CheckRunRow, error)
 	r.OutputTitle = strPtr(outputTitle)
 	r.OutputSummary = strPtr(outputSummary)
 	r.OutputText = strPtr(outputText)
+	r.ActionsJSON = strPtr(actions)
 	r.StartedAt = startedAt.ptr()
 	r.CompletedAt = completedAt.ptr()
 	r.CreatedAt, r.UpdatedAt = created.Time, upd.Time
 	return &r, nil
+}
+
+// InsertCheckRunAnnotations appends a batch of annotations to a check run and
+// refreshes the run's denormalized count, all inside one transaction.
+// Annotations accumulate across updates; GitHub never replaces earlier ones.
+func (s *Store) InsertCheckRunAnnotations(ctx context.Context, checkRunPK int64, anns []CheckRunAnnotationRow) error {
+	if len(anns) == 0 {
+		return nil
+	}
+	return s.WithTx(ctx, func(t *Tx) error {
+		q := t.rebind(`INSERT INTO check_run_annotations
+			(check_run_pk, path, start_line, end_line, start_column, end_column,
+			 annotation_level, message, title, raw_details)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		for i := range anns {
+			a := &anns[i]
+			if _, err := t.tx.ExecContext(ctx, q,
+				checkRunPK, a.Path, a.StartLine, a.EndLine,
+				argI64(a.StartColumn), argI64(a.EndColumn),
+				a.AnnotationLevel, a.Message, argStr(a.Title), argStr(a.RawDetails),
+			); err != nil {
+				return err
+			}
+		}
+		count := t.rebind(`UPDATE check_runs SET annotations_count =
+			(SELECT COUNT(*) FROM check_run_annotations WHERE check_run_pk = ?)
+			WHERE pk = ?`)
+		_, err := t.tx.ExecContext(ctx, count, checkRunPK, checkRunPK)
+		return err
+	})
+}
+
+// ListCheckRunAnnotations returns a check run's annotations in insertion order,
+// the body of the annotations endpoint.
+func (s *Store) ListCheckRunAnnotations(ctx context.Context, checkRunPK int64) ([]CheckRunAnnotationRow, error) {
+	q := s.rebind(`SELECT pk, check_run_pk, path, start_line, end_line,
+		start_column, end_column, annotation_level, message, title, raw_details,
+		created_at
+		FROM check_run_annotations WHERE check_run_pk = ? ORDER BY pk`)
+	rows, err := s.rdb.QueryContext(ctx, q, checkRunPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []CheckRunAnnotationRow
+	for rows.Next() {
+		var (
+			a                 CheckRunAnnotationRow
+			startCol, endCol  sql.NullInt64
+			title, rawDetails sql.NullString
+			created           nullTime
+		)
+		if err := rows.Scan(&a.PK, &a.CheckRunPK, &a.Path, &a.StartLine, &a.EndLine,
+			&startCol, &endCol, &a.AnnotationLevel, &a.Message, &title, &rawDetails,
+			&created); err != nil {
+			return nil, err
+		}
+		a.StartColumn = i64Ptr(startCol)
+		a.EndColumn = i64Ptr(endCol)
+		a.Title = strPtr(title)
+		a.RawDetails = strPtr(rawDetails)
+		a.CreatedAt = created.Time
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }
 
 // GetPullCheckState returns a pull request's cached review decision and rollup

@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-mizu/mizu"
@@ -221,6 +222,56 @@ func handlePullGet(d Deps) mizu.Handler {
 			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
 			return nil
 		}
+	}
+}
+
+// updateBranchBody is the PUT /pulls/{number}/update-branch request. The
+// expected head sha, when given, must match the pull request's current head.
+type updateBranchBody struct {
+	ExpectedHeadSHA string `json:"expected_head_sha"`
+}
+
+// handlePullUpdateBranch serves PUT
+// /repos/{owner}/{repo}/pulls/{number}/update-branch, merging the base branch
+// into the head branch. Success is a 202 with GitHub's acknowledgement body;
+// a conflict, a stale expected head, or a head already up to date are the 422s
+// GitHub reports, each with its message.
+func handlePullUpdateBranch(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body updateBranchBody
+		if !decodeJSONOpt(c, &body) {
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		err := d.Pulls.UpdateBranch(c.Request().Context(), actor.UserID, owner, repo, number, body.ExpectedHeadSHA)
+		switch {
+		case errors.Is(err, domain.ErrHeadMismatch):
+			writeError(c.Writer(), errUnprocessable("expected head sha didn't match current head ref."))
+			return nil
+		case errors.Is(err, domain.ErrNoBaseUpdates):
+			writeError(c.Writer(), errUnprocessable("There are no new commits on the base branch."))
+			return nil
+		case errors.Is(err, domain.ErrNotMergeable):
+			writeError(c.Writer(), errUnprocessable("merge conflict between base and head"))
+			return nil
+		}
+		if pullError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusAccepted, map[string]any{
+			"message": "Updating pull request branch.",
+			"url":     d.URLs.RepoAPI(owner, repo) + "/pulls/" + strconv.FormatInt(number, 10),
+		})
+		return nil
 	}
 }
 

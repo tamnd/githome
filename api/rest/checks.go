@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -25,20 +26,45 @@ type statusCreateBody struct {
 // create, name and head_sha are required; on update both are optional and only
 // the present fields move.
 type checkRunBody struct {
-	Name       string          `json:"name"`
-	HeadSHA    string          `json:"head_sha"`
-	Status     string          `json:"status"`
-	Conclusion string          `json:"conclusion"`
-	DetailsURL string          `json:"details_url"`
-	ExternalID string          `json:"external_id"`
-	Output     *checkRunOutput `json:"output"`
+	Name        string           `json:"name"`
+	HeadSHA     string           `json:"head_sha"`
+	Status      string           `json:"status"`
+	Conclusion  string           `json:"conclusion"`
+	DetailsURL  string           `json:"details_url"`
+	ExternalID  string           `json:"external_id"`
+	StartedAt   *time.Time       `json:"started_at"`
+	CompletedAt *time.Time       `json:"completed_at"`
+	Output      *checkRunOutput  `json:"output"`
+	Actions     []checkRunAction `json:"actions"`
 }
 
-// checkRunOutput is the output block of a check run create or update.
+// checkRunOutput is the output block of a check run create or update. The
+// annotations append to the run's accumulated set.
 type checkRunOutput struct {
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
-	Text    string `json:"text"`
+	Title       string                   `json:"title"`
+	Summary     string                   `json:"summary"`
+	Text        string                   `json:"text"`
+	Annotations []checkRunAnnotationBody `json:"annotations"`
+}
+
+// checkRunAction is one requested action in a check run report.
+type checkRunAction struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Identifier  string `json:"identifier"`
+}
+
+// checkRunAnnotationBody is one annotation in a check run report.
+type checkRunAnnotationBody struct {
+	Path            string  `json:"path"`
+	StartLine       int64   `json:"start_line"`
+	EndLine         int64   `json:"end_line"`
+	StartColumn     *int64  `json:"start_column"`
+	EndColumn       *int64  `json:"end_column"`
+	AnnotationLevel string  `json:"annotation_level"`
+	Message         string  `json:"message"`
+	Title           *string `json:"title"`
+	RawDetails      *string `json:"raw_details"`
 }
 
 // mountChecks registers the commit status and check run endpoints on r. The four
@@ -55,6 +81,7 @@ func mountChecks(r *mizu.Router, d Deps) {
 	r.Post("/repos/{owner}/{repo}/check-runs", handleCheckRunCreate(d))
 	r.Get("/repos/{owner}/{repo}/check-runs/{check_run_id}", handleCheckRunGet(d))
 	r.Patch("/repos/{owner}/{repo}/check-runs/{check_run_id}", handleCheckRunUpdate(d))
+	r.Get("/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations", handleCheckRunAnnotationsList(d))
 }
 
 // handleStatusesList serves GET /repos/{owner}/{repo}/commits/{ref}/statuses,
@@ -240,21 +267,81 @@ func handleCheckRunUpdate(d Deps) mizu.Handler {
 	}
 }
 
+// handleCheckRunAnnotationsList serves GET
+// /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations, the accumulated
+// annotations a reporter wrote, in the order they were written.
+func handleCheckRunAnnotationsList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		id, ok := pathInt64(c, "check_run_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		run, err := d.Checks.GetCheckRun(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		anns, err := d.Checks.ListCheckRunAnnotations(c.Request().Context(), actor.UserID, owner, repo, id)
+		if checksError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		page, perr := parsePageFor(c, "CheckRun")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		anns = paginateSlice(&page, anns)
+		out := make([]restmodel.CheckRunAnnotation, 0, len(anns))
+		for _, a := range anns {
+			out = append(out, d.URLs.CheckRunAnnotation(owner, repo, run.HeadSHA, a))
+		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
 // checkRunInput maps the wire check run body to the domain input, flattening the
 // optional output block.
 func checkRunInput(body checkRunBody) domain.CheckRunInput {
 	in := domain.CheckRunInput{
-		Name:       body.Name,
-		HeadSHA:    body.HeadSHA,
-		Status:     body.Status,
-		Conclusion: body.Conclusion,
-		DetailsURL: body.DetailsURL,
-		ExternalID: body.ExternalID,
+		Name:        body.Name,
+		HeadSHA:     body.HeadSHA,
+		Status:      body.Status,
+		Conclusion:  body.Conclusion,
+		DetailsURL:  body.DetailsURL,
+		ExternalID:  body.ExternalID,
+		StartedAt:   body.StartedAt,
+		CompletedAt: body.CompletedAt,
+	}
+	if body.Actions != nil {
+		in.Actions = make([]domain.CheckRunAction, 0, len(body.Actions))
+		for _, a := range body.Actions {
+			in.Actions = append(in.Actions, domain.CheckRunAction{
+				Label: a.Label, Description: a.Description, Identifier: a.Identifier,
+			})
+		}
 	}
 	if body.Output != nil {
 		in.OutputTitle = body.Output.Title
 		in.OutputSummary = body.Output.Summary
 		in.OutputText = body.Output.Text
+		for _, a := range body.Output.Annotations {
+			in.Annotations = append(in.Annotations, domain.CheckRunAnnotation{
+				Path: a.Path, StartLine: a.StartLine, EndLine: a.EndLine,
+				StartColumn: a.StartColumn, EndColumn: a.EndColumn,
+				AnnotationLevel: a.AnnotationLevel, Message: a.Message,
+				Title: a.Title, RawDetails: a.RawDetails,
+			})
+		}
 	}
 	return in
 }

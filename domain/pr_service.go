@@ -42,6 +42,10 @@ var (
 	// resolve to a user.
 	ErrReviewerNotFound = errors.New("domain: requested reviewer not found")
 
+	// ErrNoBaseUpdates is returned by UpdateBranch when the head branch already
+	// contains the base branch's tip, so there is nothing to merge down.
+	ErrNoBaseUpdates = errors.New("domain: no new commits on the base branch")
+
 	// ErrReviewerIsAuthor is returned when a review is requested from the pull
 	// request's own author.
 	ErrReviewerIsAuthor = errors.New("domain: review cannot be requested from the author")
@@ -572,6 +576,68 @@ func (s *PRService) Merge(ctx context.Context, actorPK int64, owner, name string
 	}
 	s.recordPullEvent(ctx, actorPK, "closed", repo, issueRow.PK)
 	return &MergeResult{SHA: sha, Merged: true, Message: message}, nil
+}
+
+// UpdateBranch merges the base branch's tip into a pull request's head branch,
+// the body of PUT /pulls/{number}/update-branch. It needs write access, refuses
+// a closed or merged pull request, guards the expected head sha when the caller
+// pins one, and reports ErrNoBaseUpdates when the head already contains the
+// base tip and ErrNotMergeable when the two sides conflict. On success the head
+// branch advances to the merge commit and the usual head-push refresh runs, so
+// the pull request's recorded head, synthetic refs, and mergeability follow.
+func (s *PRService) UpdateBranch(ctx context.Context, actorPK int64, owner, name string, number int64, expectedHeadSHA string) error {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return err
+	}
+	issueRow, pullRow, err := s.load(ctx, repo.PK, number)
+	if err != nil {
+		return err
+	}
+	if pullRow.Merged || issueRow.State != "open" {
+		return ErrNotMergeable
+	}
+	if expectedHeadSHA != "" && expectedHeadSHA != pullRow.HeadSHA {
+		return ErrHeadMismatch
+	}
+
+	baseTip, err := s.gitStore.RefSHA(ctx, repo.PK, "refs/heads/"+pullRow.BaseRef)
+	if err != nil {
+		return ErrNotMergeable
+	}
+	headTip, err := s.gitStore.RefSHA(ctx, repo.PK, "refs/heads/"+pullRow.HeadRef)
+	if err != nil {
+		return ErrNotMergeable
+	}
+	_, behind, err := s.gitStore.AheadBehind(ctx, repo.PK, baseTip, headTip)
+	if err != nil {
+		return err
+	}
+	if behind == 0 {
+		return ErrNoBaseUpdates
+	}
+
+	updater, err := s.issues.userByPK(ctx, actorPK)
+	if err != nil {
+		return err
+	}
+	who := prSignature(updater)
+	// The merge runs head-first so the head branch's own history stays the
+	// first-parent line, the orientation a manual "git merge base" has.
+	message := "Merge branch '" + pullRow.BaseRef + "' into " + pullRow.HeadRef
+	sha, ok, err := s.gitStore.Merge(ctx, repo.PK, git.MergeCommit, headTip, baseTip, message, who, who)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotMergeable
+	}
+	if err := s.gitStore.UpdateRef(ctx, repo.PK, "refs/heads/"+pullRow.HeadRef, sha, true); err != nil {
+		return err
+	}
+	// The head branch moved like any push: repoint the recorded heads, emit the
+	// synchronize events, and re-check mergeability for every pull it touches.
+	return s.OnHeadPush(ctx, actorPK, repo.PK, pullRow.HeadRef, sha)
 }
 
 // RecomputeMergeability resolves and persists a pull request's merge state: it

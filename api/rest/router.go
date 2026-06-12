@@ -216,6 +216,7 @@ func mountPulls(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/pulls/{number}", handlePullGet(d))
 	r.Patch("/repos/{owner}/{repo}/pulls/{number}", handlePullUpdate(d))
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/merge", handlePullMerge(d))
+	r.Put("/repos/{owner}/{repo}/pulls/{number}/update-branch", handlePullUpdateBranch(d))
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersAdd(d))
 	r.Get("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersList(d))
 
@@ -235,10 +236,13 @@ func mountPulls(r *mizu.Router, d Deps) {
 func mountReviews(r *mizu.Router, d Deps) {
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/reviews", handleReviewCreate(d))
 	r.Get("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}", handleReviewGet(d))
+	r.Put("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}", handleReviewUpdate(d))
+	r.Get("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments", handleReviewCommentsList(d))
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events", handleReviewSubmit(d))
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/dismissals", handleReviewDismiss(d))
 
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/comments", handleReviewCommentCreate(d))
+	r.Post("/repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies", handlePullCommentReply(d))
 	r.Post("/repos/{owner}/{repo}/pulls/comments/{comment_id}/replies", handleReviewCommentReply(d))
 }
 

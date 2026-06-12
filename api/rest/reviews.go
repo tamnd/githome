@@ -24,6 +24,8 @@ type reviewCreateBody struct {
 
 // reviewCommentBody is one inline comment in a review batch or a standalone
 // comment. A caller gives either the line/side anchor or the legacy position.
+// The legacy in_reply_to form carries only a body and the parent comment's id;
+// the reply inherits its anchor from the thread root.
 type reviewCommentBody struct {
 	Path      string `json:"path"`
 	Body      string `json:"body"`
@@ -32,6 +34,7 @@ type reviewCommentBody struct {
 	StartSide string `json:"start_side"`
 	StartLine *int64 `json:"start_line"`
 	Position  *int64 `json:"position"`
+	InReplyTo *int64 `json:"in_reply_to"`
 }
 
 // reviewEventBody is the POST /reviews/{id}/events request, submitting a draft.
@@ -223,6 +226,80 @@ func handleReviewGet(d Deps) mizu.Handler {
 	}
 }
 
+// reviewUpdateBody is the PUT /reviews/{id} request, replacing the summary body.
+type reviewUpdateBody struct {
+	Body string `json:"body"`
+}
+
+// handleReviewUpdate serves PUT
+// /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}, replacing the
+// review's summary body. Only the author may edit their review.
+func handleReviewUpdate(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		number, ok := pathInt64(c, "number")
+		reviewID, ok2 := pathInt64(c, "review_id")
+		if !ok || !ok2 {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body reviewUpdateBody
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		if strings.TrimSpace(body.Body) == "" {
+			writeError(c.Writer(), errValidation(FieldError{Resource: "PullRequestReview", Field: "body", Code: "missing_field"}))
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		r, err := d.Reviews.UpdateReview(c.Request().Context(), actor.UserID, owner, repo, number, reviewID, body.Body)
+		if reviewError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.Review(owner, repo, r, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleReviewCommentsList serves GET
+// /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments, the inline
+// comments attached to one review.
+func handleReviewCommentsList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		number, ok := pathInt64(c, "number")
+		reviewID, ok2 := pathInt64(c, "review_id")
+		if !ok || !ok2 {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		comments, err := d.Reviews.ListCommentsForReview(c.Request().Context(), actor.UserID, owner, repo, number, reviewID)
+		if reviewError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		page, perr := parsePageFor(c, "PullRequestReview")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		comments = paginateSlice(&page, comments)
+		out := make([]restmodel.ReviewComment, 0, len(comments))
+		for _, cm := range comments {
+			out = append(out, d.URLs.ReviewComment(owner, repo, cm, d.NodeFormat))
+		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
 // handleReviewSubmit serves POST
 // /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events.
 func handleReviewSubmit(d Deps) mizu.Handler {
@@ -296,14 +373,26 @@ func handleReviewCommentCreate(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
-		// A reply is expressed by in_reply_to in the older comment-create shape; the
-		// dedicated replies route is preferred, so this path requires an anchor.
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		// The legacy in_reply_to form threads a reply under an existing comment; the
+		// reply inherits the parent thread's anchor, so no path is required.
+		if body.InReplyTo != nil {
+			cm, err := d.Reviews.ReplyComment(c.Request().Context(), actor.UserID, owner, repo, number, *body.InReplyTo, body.Body)
+			if reviewError(c.Writer(), err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			writeJSON(c.Writer(), http.StatusCreated, d.URLs.ReviewComment(owner, repo, cm, d.NodeFormat))
+			return nil
+		}
+		// A fresh thread needs a diff anchor.
 		if strings.TrimSpace(body.Path) == "" {
 			writeError(c.Writer(), errValidation(FieldError{Resource: "PullRequestReviewComment", Field: "path", Code: "missing_field"}))
 			return nil
 		}
-		actor := auth.ActorFrom(c.Request().Context())
-		owner, repo := c.Param("owner"), c.Param("repo")
 		cm, err := d.Reviews.CreateComment(c.Request().Context(), actor.UserID, owner, repo, number, reviewCommentInput(body))
 		if reviewError(c.Writer(), err) {
 			return nil
@@ -343,6 +432,35 @@ func handleReviewCommentReply(d Deps) mizu.Handler {
 			return err
 		}
 		cm, err := d.Reviews.ReplyComment(c.Request().Context(), actor.UserID, owner, repo, parent.PullNumber, commentID, body.Body)
+		if reviewError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusCreated, d.URLs.ReviewComment(owner, repo, cm, d.NodeFormat))
+		return nil
+	}
+}
+
+// handlePullCommentReply serves POST
+// /repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies, the
+// documented reply path that scopes the parent comment to its pull request.
+func handlePullCommentReply(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		number, ok := pathInt64(c, "number")
+		commentID, ok2 := pathInt64(c, "comment_id")
+		if !ok || !ok2 {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body replyBody
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		owner, repo := c.Param("owner"), c.Param("repo")
+		cm, err := d.Reviews.ReplyComment(c.Request().Context(), actor.UserID, owner, repo, number, commentID, body.Body)
 		if reviewError(c.Writer(), err) {
 			return nil
 		}

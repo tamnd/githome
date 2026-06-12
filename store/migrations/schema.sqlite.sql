@@ -753,3 +753,22 @@ CREATE TABLE review_requests (
     created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (pull_pk, reviewer_pk)
 );
+
+-- 0031_check_run_details
+ALTER TABLE check_runs ADD COLUMN actions TEXT;
+ALTER TABLE check_runs ADD COLUMN annotations_count INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE check_run_annotations (
+    pk               INTEGER PRIMARY KEY AUTOINCREMENT,
+    check_run_pk     INTEGER NOT NULL REFERENCES check_runs(pk) ON DELETE CASCADE,
+    path             TEXT    NOT NULL,
+    start_line       INTEGER NOT NULL,
+    end_line         INTEGER NOT NULL,
+    start_column     INTEGER,
+    end_column       INTEGER,
+    annotation_level TEXT    NOT NULL,
+    message          TEXT    NOT NULL,
+    title            TEXT,
+    raw_details      TEXT,
+    created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX check_run_annotations_run_idx ON check_run_annotations (check_run_pk);
