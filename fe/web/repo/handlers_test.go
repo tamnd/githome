@@ -510,34 +510,54 @@ func TestBlobOverDisplayCutoffShowsTooLarge(t *testing.T) {
 	}
 }
 
-// TestCommitPagePatchBounded renders the commit whose patch carries the big.txt
-// blob, far past the inline cap: the page must show the head of the patch plus
-// the truncation note, while a small commit still renders its patch whole.
-func TestCommitPagePatchBounded(t *testing.T) {
+// TestCommitPagePerFileDiff renders the commit page through the shared per-file
+// diff component: each changed file gets its own section with a #diff- anchor
+// and parsed rows, an oversized file shows the too-large note instead of rows,
+// and a root commit diffs against the empty tree so its additions still render.
+func TestCommitPagePerFileDiff(t *testing.T) {
 	fx := newFixture(t)
 
 	resp, body := get(t, fx.srv, "/octocat/hello/commit/master")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d, want 200", resp.StatusCode)
 	}
-	if !strings.Contains(body, "too large to show in full") {
-		t.Fatal("oversized patch rendered without the truncation note")
+	if !strings.Contains(body, `class="diff-file"`) {
+		t.Fatal("commit page did not render the per-file diff component")
 	}
-	if !strings.Contains(body, "diff --git") {
-		t.Fatal("truncated commit page lost the head of its patch")
+	if !strings.Contains(body, `id="diff-docs/guide.md"`) {
+		t.Errorf("commit page is missing the per-file #diff- anchor:\n%s", body[:min(len(body), 2000)])
 	}
-	if len(body) > maxCommitPatchBytes*2 {
-		t.Fatalf("page is %d bytes, the patch cap did not bite", len(body))
+	// guide.md's one added line renders as a diff row, not a raw <pre> patch.
+	if !strings.Contains(body, "guide body") {
+		t.Error("commit page lost the added line of docs/guide.md")
+	}
+	if strings.Contains(body, "commit-patch") {
+		t.Error("commit page still renders the raw patch <pre>")
+	}
+	// big.txt is far past the per-file cap: the note shows and none of the
+	// content leaks into the page.
+	if !strings.Contains(body, "too large to display") {
+		t.Error("oversized file rendered without the too-large note")
+	}
+	if strings.Contains(body, "0123456789abcde") {
+		t.Error("oversized file content leaked into the page")
+	}
+	// The summary carries the honest totals over the whole change set.
+	if !strings.Contains(body, "2 changed files") {
+		t.Errorf("commit page is missing the changed-files summary")
 	}
 
-	// The first commit (both tags point at it) has no parent, so the page shows
-	// the no-diff blankslate; either way no truncation note belongs here.
+	// The first commit (both tags point at it) has no parent: it diffs against
+	// the empty tree, so the files it introduced render as additions.
 	resp, body = get(t, fx.srv, "/octocat/hello/commit/v0.1.0")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d, want 200", resp.StatusCode)
 	}
-	if strings.Contains(body, "too large to show in full") {
-		t.Fatal("small page carried the truncation note")
+	if !strings.Contains(body, `id="diff-README.md"`) {
+		t.Error("root commit page is missing the README.md diff section")
+	}
+	if !strings.Contains(body, "welcome aboard") {
+		t.Error("root commit page lost the added README body")
 	}
 }
 
