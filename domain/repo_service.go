@@ -63,6 +63,8 @@ type RepoStore interface {
 	SoftDeleteRepo(ctx context.Context, pk int64) error
 	CountForks(ctx context.Context, pk int64) (int64, error)
 	ForksOf(ctx context.Context, pk int64) ([]*store.RepoRow, error)
+	ReposByCollaborator(ctx context.Context, userPK int64) ([]*store.RepoRow, error)
+	ReposByTeamMember(ctx context.Context, userPK int64) ([]*store.RepoRow, error)
 	CollaboratorByRepo(ctx context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error)
 	TouchRepoPushedAt(ctx context.Context, pk int64, at time.Time) error
 	EnqueueJob(ctx context.Context, j *store.JobRow) (bool, error)
@@ -271,6 +273,51 @@ func (s *RepoService) ListRepos(ctx context.Context, viewerPK, ownerPK int64) ([
 		if canSee(r, viewerPK) {
 			out = append(out, repoFromRow(r, owner))
 		}
+	}
+	return out, nil
+}
+
+// ListCollaboratorRepos returns the non-deleted repositories userPK holds a
+// direct collaborator grant on, filtered by the viewer's visibility. It backs
+// the member type and the collaborator affiliation of the repository lists.
+func (s *RepoService) ListCollaboratorRepos(ctx context.Context, viewerPK, userPK int64) ([]*Repo, error) {
+	rows, err := s.store.ReposByCollaborator(ctx, userPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.visibleWithOwners(ctx, viewerPK, rows)
+}
+
+// ListTeamRepos returns the non-deleted repositories userPK can reach through
+// a team grant, filtered by the viewer's visibility. It backs the
+// organization_member affiliation of GET /user/repos.
+func (s *RepoService) ListTeamRepos(ctx context.Context, viewerPK, userPK int64) ([]*Repo, error) {
+	rows, err := s.store.ReposByTeamMember(ctx, userPK)
+	if err != nil {
+		return nil, err
+	}
+	return s.visibleWithOwners(ctx, viewerPK, rows)
+}
+
+// visibleWithOwners resolves each row's owning account and keeps the rows the
+// viewer can see, the shared tail of the cross-owner repository lists. The
+// check runs through viewerCanSee so a private repository stays in the list
+// for the collaborator the grant names.
+func (s *RepoService) visibleWithOwners(ctx context.Context, viewerPK int64, rows []*store.RepoRow) ([]*Repo, error) {
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		ok, err := s.viewerCanSee(ctx, r, viewerPK)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		ownerRow, err := s.store.UserByPK(ctx, r.OwnerPK)
+		if err != nil {
+			continue
+		}
+		out = append(out, repoFromRow(r, userFromRow(ownerRow)))
 	}
 	return out, nil
 }

@@ -214,6 +214,14 @@ func (f *fakeRepoStore) ForksOf(_ context.Context, pk int64) ([]*store.RepoRow, 
 	return out, nil
 }
 
+func (f *fakeRepoStore) ReposByCollaborator(_ context.Context, _ int64) ([]*store.RepoRow, error) {
+	return nil, nil
+}
+
+func (f *fakeRepoStore) ReposByTeamMember(_ context.Context, _ int64) ([]*store.RepoRow, error) {
+	return nil, nil
+}
+
 func (f *fakeRepoStore) SoftDeleteRepo(_ context.Context, pk int64) error {
 	for key, r := range f.repos {
 		if r.PK == pk {
