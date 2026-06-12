@@ -273,11 +273,11 @@ func handleContents(d Deps) mizu.Handler {
 			return err
 		}
 		if res.IsDir {
-			writeJSON(c.Writer(), http.StatusOK, d.URLs.ContentDir(repo.Owner.Login, repo.Name, ref, res.Dir))
+			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.ContentDir(repo.Owner.Login, repo.Name, ref, res.Dir))
 			return nil
 		}
 		body := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, res.Entry, res.File.Content)
-		writeJSON(c.Writer(), http.StatusOK, body)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
 }
@@ -363,7 +363,7 @@ func handleRefs(d Deps) mizu.Handler {
 		for _, ref := range refs {
 			out = append(out, d.URLs.GitRef(repo.Owner.Login, repo.Name, repo.ID, ref))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -384,7 +384,7 @@ func handleRef(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.GitRef(repo.Owner.Login, repo.Name, repo.ID, ref))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.GitRef(repo.Owner.Login, repo.Name, repo.ID, ref))
 		return nil
 	}
 }
@@ -476,7 +476,7 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 			return nil
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			writeError(c.Writer(), errForbidden("Must be repo owner to update settings"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		if err != nil {
@@ -508,7 +508,7 @@ func handleRepoDelete(d Deps) mizu.Handler {
 			return nil
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			writeError(c.Writer(), errForbidden("Must be repo owner to delete"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		if err != nil {

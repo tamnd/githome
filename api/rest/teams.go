@@ -78,7 +78,7 @@ func handleTopicsPut(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be owner to set topics"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		var body struct {
@@ -184,7 +184,7 @@ func handleCollaboratorAdd(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to add collaborators"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		target, err := d.Users.ByLogin(ctx, c.Param("username"))
@@ -266,7 +266,7 @@ func handleCollaboratorDelete(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to remove collaborators"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		targetPK, err := d.Users.PKByLogin(ctx, c.Param("username"))

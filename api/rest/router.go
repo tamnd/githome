@@ -183,16 +183,19 @@ func mountAPI(r *mizu.Router, d Deps, limiter *rateLimiter) {
 // mountReleases registers the releases and release assets endpoints on r.
 // The upload endpoint lives at a separate /api/uploads/ prefix (GHES convention)
 // and is wired directly in Mount() against the same upload router.
+//
+// The three two-segment GET shapes under /releases/ (tags/{tag},
+// {release_id}/assets, assets/{asset_id}) overlap without any one being more
+// specific, which net/http's ServeMux rejects at registration, so a single
+// dispatcher owns the GET {a}/{b} shape and routes by the literal segment.
 func mountReleases(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/releases", handleReleasesList(d))
 	r.Post("/repos/{owner}/{repo}/releases", requireScope(handleReleaseCreate(d), "repo", "public_repo"))
 	r.Get("/repos/{owner}/{repo}/releases/latest", handleReleaseLatest(d))
-	r.Get("/repos/{owner}/{repo}/releases/tags/{tag}", handleReleaseByTag(d))
 	r.Get("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseGet(d))
 	r.Patch("/repos/{owner}/{repo}/releases/{release_id}", requireScope(handleReleaseEdit(d), "repo", "public_repo"))
 	r.Delete("/repos/{owner}/{repo}/releases/{release_id}", requireScope(handleReleaseDelete(d), "repo", "public_repo"))
-	r.Get("/repos/{owner}/{repo}/releases/{release_id}/assets", handleReleaseAssetsList(d))
-	r.Get("/repos/{owner}/{repo}/releases/assets/{asset_id}", handleReleaseAssetGet(d))
+	r.Get("/repos/{owner}/{repo}/releases/{seg}/{sub}", handleReleaseSubresource(d))
 	r.Patch("/repos/{owner}/{repo}/releases/assets/{asset_id}", requireScope(handleReleaseAssetEdit(d), "repo", "public_repo"))
 	r.Delete("/repos/{owner}/{repo}/releases/assets/{asset_id}", requireScope(handleReleaseAssetDelete(d), "repo", "public_repo"))
 }

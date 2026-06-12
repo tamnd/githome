@@ -46,11 +46,12 @@ func linkRels(t *testing.T, header string) map[string]string {
 		q := target[strings.IndexByte(target, '?')+1:]
 		value := ""
 		for _, kv := range strings.Split(q, "&") {
-			if strings.HasPrefix(kv, "page=") {
+			if strings.HasPrefix(kv, "page=") && value == "" {
 				value = strings.TrimPrefix(kv, "page=")
 			}
 			if strings.HasPrefix(kv, "cursor=") {
-				value = "cursor" // opaque token; tests assert presence, not value
+				value = "cursor" // opaque token wins; tests assert presence, not value
+				break
 			}
 		}
 		out[rel] = value
@@ -164,6 +165,50 @@ func TestCursorWalkCoversAllIssues(t *testing.T) {
 	}
 	if len(seen) != 7 {
 		t.Fatalf("cursor walk covered %d issues, want 7", len(seen))
+	}
+}
+
+// TestCursorPageOffersPrevAndFirst follows the page-1 cursor next-link and
+// checks the flat path's response still lets a client navigate backward: the
+// cursor link carries the page it lands on, so the follow-up offers rel="prev"
+// and rel="first" as page-number links beside the cursor rel="next". Only
+// rel="last" is absent, because the flat path never counts.
+func TestCursorPageOffersPrevAndFirst(t *testing.T) {
+	fx := issueServer(t)
+	seedIssues(t, fx, 5) // 5 issues, per_page 2 -> 3 pages
+
+	resp, _ := get(t, fx.srv, "/repos/octocat/hello/issues?per_page=2&page=1")
+	next := nextPath(t, resp.Header.Get("Link"))
+	if !strings.Contains(next, "cursor=") {
+		t.Fatalf("page 1 next = %q, want a cursor link", next)
+	}
+	if !strings.Contains(next, "page=2") {
+		t.Fatalf("cursor next link = %q, want a page=2 hint", next)
+	}
+
+	resp, _ = get(t, fx.srv, next)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("cursor page status %d", resp.StatusCode)
+	}
+	rels := linkRels(t, resp.Header.Get("Link"))
+	if rels["prev"] != "1" || rels["first"] != "1" {
+		t.Errorf("cursor page rels = %+v, want prev=1 first=1", rels)
+	}
+	if rels["next"] != "cursor" {
+		t.Errorf("cursor page next = %q, want cursor-based URL", rels["next"])
+	}
+	if _, ok := rels["last"]; ok {
+		t.Errorf("cursor page should have no last, got %+v", rels)
+	}
+
+	// The prev link is a clean page-number URL: no cursor rides along, so
+	// following it goes back through the counted OFFSET path.
+	resp, _ = get(t, fx.srv, "/repos/octocat/hello/issues?per_page=2&page=1")
+	link := resp.Header.Get("Link")
+	for _, part := range strings.Split(link, ",") {
+		if strings.Contains(part, `rel="prev"`) && strings.Contains(part, "cursor=") {
+			t.Errorf("prev link carries a cursor: %q", part)
+		}
 	}
 }
 

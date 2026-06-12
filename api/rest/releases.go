@@ -70,7 +70,7 @@ func handleReleasesList(d Deps) mizu.Handler {
 			out[i] = d.URLs.Release(owner, repo, r, d.NodeFormat)
 		}
 		writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -118,7 +118,7 @@ func handleReleaseGet(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
 		return nil
 	}
 }
@@ -133,7 +133,7 @@ func handleReleaseLatest(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
 		return nil
 	}
 }
@@ -149,7 +149,35 @@ func handleReleaseByTag(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.Release(owner, repo, r, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleReleaseSubresource serves the two-segment GET shapes under
+// /repos/{owner}/{repo}/releases/: tags/{tag}, assets/{asset_id}, and
+// {release_id}/assets. ServeMux cannot host them as three patterns because
+// they overlap without one being more specific, so one route owns the shape
+// and this dispatcher tells them apart by the literal segment, handing the
+// wildcard through as the path value the real handler reads.
+func handleReleaseSubresource(d Deps) mizu.Handler {
+	byTag := handleReleaseByTag(d)
+	assetGet := handleReleaseAssetGet(d)
+	assetsList := handleReleaseAssetsList(d)
+	return func(c *mizu.Ctx) error {
+		seg, sub := c.Param("seg"), c.Param("sub")
+		switch {
+		case seg == "tags":
+			c.Request().SetPathValue("tag", sub)
+			return byTag(c)
+		case seg == "assets":
+			c.Request().SetPathValue("asset_id", sub)
+			return assetGet(c)
+		case sub == "assets":
+			c.Request().SetPathValue("release_id", seg)
+			return assetsList(c)
+		}
+		writeError(c.Writer(), errNotFound())
 		return nil
 	}
 }
@@ -247,7 +275,7 @@ func handleReleaseAssetsList(d Deps) mizu.Handler {
 		for i, a := range assets {
 			out[i] = d.URLs.ReleaseAsset(owner, repo, id, a, d.NodeFormat)
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -321,7 +349,7 @@ func handleReleaseAssetGet(d Deps) mizu.Handler {
 		}
 		// Placeholder release ID for URL building; the asset knows its own releasePK
 		// but not the release's db_id. Build via its own ID only.
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, 0, a, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, 0, a, d.NodeFormat))
 		return nil
 	}
 }

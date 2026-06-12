@@ -119,14 +119,17 @@ func repoServerCap(t *testing.T, blobCap int64) repoFixture {
 	t.Cleanup(authSvc.Close)
 	cfg := authConfig(t)
 	root := mizu.NewRouter()
+	repoSvc := domain.NewRepoService(st, gitStore)
 	Mount(root, Deps{
 		Config:     cfg,
 		Ready:      st,
 		Auth:       authSvc,
 		Users:      domain.NewUserService(st),
-		Repos:      domain.NewRepoService(st, gitStore),
+		Repos:      repoSvc,
 		Keys:       domain.NewKeyService(st),
 		Teams:      domain.NewTeamService(st),
+		Releases:   domain.NewReleaseService(st, repoSvc, t.TempDir()),
+		Gists:      domain.NewGistService(st),
 		URLs:       presenter.NewURLBuilder(cfg.URLs),
 		NodeFormat: nodeid.FormatNew,
 	})

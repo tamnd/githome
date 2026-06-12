@@ -40,7 +40,7 @@ func handleREADME(d Deps) mizu.Handler {
 			}
 			if !res.IsDir && res.File != nil {
 				out := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, res.Entry, res.File.Content)
-				writeJSON(c.Writer(), http.StatusOK, out)
+				conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 				return nil
 			}
 		}
@@ -49,10 +49,46 @@ func handleREADME(d Deps) mizu.Handler {
 	}
 }
 
-// handleZipball serves GET /repos/{owner}/{repo}/zipball/{ref}. The archive
-// streams straight out of one git archive subprocess; nothing is buffered in
-// memory, and the ref resolves before the first byte so a bad one is still a
-// clean 404.
+// handleArchiveRedirect serves GET /repos/{owner}/{repo}/zipball/{ref} and
+// .../tarball/{ref}. GitHub answers these with a 302 to codeload rather than
+// streaming the archive itself; go-github's GetArchiveLink reads that
+// Location without following it. Githome has no codeload host, so the
+// redirect points at its own legacy.zip / legacy.tar.gz paths (the codeload
+// path shape) on the configured API base. A missing ref means the default
+// branch, and the ref is resolved before redirecting so a bad one is the
+// same clean 404 GitHub gives.
+func handleArchiveRedirect(d Deps, format string) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		ref := c.Param("ref")
+		if ref == "" {
+			ref = repo.DefaultBranch
+		}
+		if _, err := d.Repos.GetCommit(repo, ref); err != nil {
+			if gitNotFound(err) {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			return err
+		}
+		leg := "legacy.zip"
+		if format == "tar" {
+			leg = "legacy.tar.gz"
+		}
+		segments := append([]string{"repos", repo.Owner.Login, repo.Name, leg}, strings.Split(ref, "/")...)
+		c.Writer().Header().Set("Location", d.URLs.API(segments...))
+		c.Writer().WriteHeader(http.StatusFound)
+		return nil
+	}
+}
+
+// handleZipball serves GET /repos/{owner}/{repo}/legacy.zip/{ref}, the
+// redirect target of the zipball endpoint. The archive streams straight out
+// of one git archive subprocess; nothing is buffered in memory, and the ref
+// resolves before the first byte so a bad one is still a clean 404.
 func handleZipball(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
@@ -78,7 +114,8 @@ func handleZipball(d Deps) mizu.Handler {
 	}
 }
 
-// handleTarball serves GET /repos/{owner}/{repo}/tarball/{ref}.
+// handleTarball serves GET /repos/{owner}/{repo}/legacy.tar.gz/{ref}, the
+// redirect target of the tarball endpoint.
 func handleTarball(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
@@ -250,18 +287,31 @@ func shortSHA(sha string) string {
 }
 
 // archiveRef returns a short human-readable string for a ref suitable for an
-// archive filename prefix.
+// archive filename prefix: a full commit id shortens to seven characters the
+// way GitHub abbreviates it, a qualified ref drops its refs/ prefix, and any
+// slash left in a branch or tag name becomes a dash so the prefix stays a
+// single path segment.
 func archiveRef(ref string) string {
-	if strings.HasPrefix(ref, "refs/heads/") {
-		return strings.TrimPrefix(ref, "refs/heads/")
-	}
-	if strings.HasPrefix(ref, "refs/tags/") {
-		return strings.TrimPrefix(ref, "refs/tags/")
-	}
-	if len(ref) > 7 {
+	ref = strings.TrimPrefix(ref, "refs/heads/")
+	ref = strings.TrimPrefix(ref, "refs/tags/")
+	ref = strings.TrimPrefix(ref, "heads/")
+	ref = strings.TrimPrefix(ref, "tags/")
+	if len(ref) == 40 && isHex(ref) {
 		return ref[:7]
 	}
-	return ref
+	return strings.ReplaceAll(ref, "/", "-")
+}
+
+// isHex reports whether s is entirely lowercase hex digits, the shape of a
+// full git object id.
+func isHex(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // mountRepoExtra registers README, archive, compare, and contents-write endpoints.
@@ -274,8 +324,12 @@ func mountRepoExtra(r *mizu.Router, d Deps) {
 		return
 	}
 	r.Get("/repos/{owner}/{repo}/readme", handleREADME(d))
-	r.Get("/repos/{owner}/{repo}/zipball/{ref}", handleZipball(d))
-	r.Get("/repos/{owner}/{repo}/tarball/{ref}", handleTarball(d))
+	r.Get("/repos/{owner}/{repo}/zipball", handleArchiveRedirect(d, "zip"))
+	r.Get("/repos/{owner}/{repo}/zipball/{ref...}", handleArchiveRedirect(d, "zip"))
+	r.Get("/repos/{owner}/{repo}/tarball", handleArchiveRedirect(d, "tar"))
+	r.Get("/repos/{owner}/{repo}/tarball/{ref...}", handleArchiveRedirect(d, "tar"))
+	r.Get("/repos/{owner}/{repo}/legacy.zip/{ref...}", handleZipball(d))
+	r.Get("/repos/{owner}/{repo}/legacy.tar.gz/{ref...}", handleTarball(d))
 	r.Get("/repos/{owner}/{repo}/compare/{basehead}", handleCompare(d))
 	r.Put("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsCreate(d), "repo", "public_repo"))
 	r.Delete("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsDelete(d), "repo", "public_repo"))

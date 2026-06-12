@@ -7,8 +7,54 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 )
+
+// getNoRedirect performs a GET without following redirects, so a test can
+// inspect the 302 the archive endpoints answer with.
+func getNoRedirect(t *testing.T, srv *httptest.Server, path string) (*http.Response, []byte) {
+	t.Helper()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(srv.URL + path)
+	if err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return resp, body
+}
+
+// getArchive follows the archive endpoint's redirect by hand: it asserts the
+// 302 + Location contract (the link go-github's GetArchiveLink returns), then
+// fetches the Location path from the same test server, the way a client
+// reaches codeload on GitHub.
+func getArchive(t *testing.T, srv *httptest.Server, path, wantLegacy string) (*http.Response, []byte) {
+	t.Helper()
+	resp, body := getNoRedirect(t, srv, path)
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("%s: status = %d, want 302: %s", path, resp.StatusCode, body)
+	}
+	loc := resp.Header.Get("Location")
+	if loc == "" {
+		t.Fatalf("%s: 302 without Location", path)
+	}
+	u, err := url.Parse(loc)
+	if err != nil {
+		t.Fatalf("parse Location %q: %v", loc, err)
+	}
+	if !strings.Contains(u.Path, wantLegacy) {
+		t.Fatalf("Location = %q, want a %s path", loc, wantLegacy)
+	}
+	return get(t, srv, u.Path)
+}
 
 // readZipEntries returns the archive's file contents keyed by entry name.
 func readZipEntries(t *testing.T, body []byte) map[string]string {
@@ -68,7 +114,7 @@ func readTarGzEntries(t *testing.T, body []byte) map[string]string {
 
 func TestZipballArchive(t *testing.T) {
 	fx := repoServer(t)
-	res, body := get(t, fx.srv, "/repos/octocat/hello/zipball/master")
+	res, body := getArchive(t, fx.srv, "/repos/octocat/hello/zipball/master", "legacy.zip")
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", res.StatusCode, body)
 	}
@@ -89,7 +135,7 @@ func TestZipballArchive(t *testing.T) {
 
 func TestTarballArchive(t *testing.T) {
 	fx := repoServer(t)
-	res, body := get(t, fx.srv, "/repos/octocat/hello/tarball/master")
+	res, body := getArchive(t, fx.srv, "/repos/octocat/hello/tarball/master", "legacy.tar.gz")
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", res.StatusCode, body)
 	}
@@ -107,7 +153,7 @@ func TestTarballArchive(t *testing.T) {
 
 func TestArchiveByTagAndSHA(t *testing.T) {
 	fx := repoServer(t)
-	res, body := get(t, fx.srv, "/repos/octocat/hello/zipball/v0.1.0")
+	res, body := getArchive(t, fx.srv, "/repos/octocat/hello/zipball/v0.1.0", "legacy.zip")
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("tag status = %d: %s", res.StatusCode, body)
 	}
@@ -120,7 +166,7 @@ func TestArchiveByTagAndSHA(t *testing.T) {
 		t.Errorf("README.md = %q, want %q", got, "# Hello\n")
 	}
 
-	res, body = get(t, fx.srv, "/repos/octocat/hello/tarball/"+fx.firstSHA)
+	res, body = getArchive(t, fx.srv, "/repos/octocat/hello/tarball/"+fx.firstSHA, "legacy.tar.gz")
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("sha status = %d: %s", res.StatusCode, body)
 	}
@@ -133,12 +179,70 @@ func TestArchiveByTagAndSHA(t *testing.T) {
 
 func TestArchiveUnknownRef(t *testing.T) {
 	fx := repoServer(t)
-	res, _ := get(t, fx.srv, "/repos/octocat/hello/zipball/no-such-ref")
+	res, body := get(t, fx.srv, "/repos/octocat/hello/zipball/no-such-ref")
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("zipball status = %d, want 404", res.StatusCode)
+	}
+	// A bad ref is rejected at the API endpoint with the JSON envelope, the
+	// way GitHub answers, never a redirect to a dead link.
+	if !contains(body, "Not Found") {
+		t.Errorf("zipball 404 body = %s, want the JSON envelope", body)
 	}
 	res, _ = get(t, fx.srv, "/repos/octocat/hello/tarball/no-such-ref")
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("tarball status = %d, want 404", res.StatusCode)
+	}
+}
+
+// TestArchiveRedirectContract pins the Location the 302 carries: an absolute
+// URL on the configured API host using the codeload legacy.* path shape.
+func TestArchiveRedirectContract(t *testing.T) {
+	fx := repoServer(t)
+	res, _ := getNoRedirect(t, fx.srv, "/repos/octocat/hello/zipball/master")
+	if res.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, want 302", res.StatusCode)
+	}
+	if got := res.Header.Get("Location"); got != "https://git.test.internal/api/v3/repos/octocat/hello/legacy.zip/master" {
+		t.Errorf("zipball Location = %q", got)
+	}
+	res, _ = getNoRedirect(t, fx.srv, "/repos/octocat/hello/tarball/master")
+	if got := res.Header.Get("Location"); got != "https://git.test.internal/api/v3/repos/octocat/hello/legacy.tar.gz/master" {
+		t.Errorf("tarball Location = %q", got)
+	}
+}
+
+// TestArchiveDefaultAndQualifiedRef covers the ref forms the path accepts: no
+// ref at all means the default branch, and a fully qualified refs/heads/ or
+// refs/tags/ form resolves with the qualifier folded out of the filename.
+func TestArchiveDefaultAndQualifiedRef(t *testing.T) {
+	fx := repoServer(t)
+
+	res, _ := getNoRedirect(t, fx.srv, "/repos/octocat/hello/zipball")
+	if res.StatusCode != http.StatusFound {
+		t.Fatalf("bare zipball status = %d, want 302", res.StatusCode)
+	}
+	if got := res.Header.Get("Location"); got != "https://git.test.internal/api/v3/repos/octocat/hello/legacy.zip/master" {
+		t.Errorf("bare zipball Location = %q", got)
+	}
+
+	res, body := getArchive(t, fx.srv, "/repos/octocat/hello/zipball/refs/heads/master", "legacy.zip")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("qualified ref status = %d: %s", res.StatusCode, body)
+	}
+	if cd := res.Header.Get("Content-Disposition"); cd != `attachment; filename="octocat-hello-master.zip"` {
+		t.Errorf("Content-Disposition = %q", cd)
+	}
+	files := readZipEntries(t, body)
+	if got := files["octocat-hello-master/README.md"]; got != "# Hello\n" {
+		t.Errorf("README.md = %q, want %q", got, "# Hello\n")
+	}
+
+	res, body = getArchive(t, fx.srv, "/repos/octocat/hello/tarball/refs/tags/v0.1.0", "legacy.tar.gz")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("qualified tag status = %d: %s", res.StatusCode, body)
+	}
+	tfiles := readTarGzEntries(t, body)
+	if got := tfiles["octocat-hello-v0.1.0/README.md"]; got != "# Hello\n" {
+		t.Errorf("README.md = %q, want %q", got, "# Hello\n")
 	}
 }

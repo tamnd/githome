@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -88,6 +89,64 @@ func TestVersionedRepoGET304(t *testing.T) {
 	}
 	if resp2.Header.Get("ETag") != tag {
 		t.Errorf("304 ETag = %q, want %q", resp2.Header.Get("ETag"), tag)
+	}
+}
+
+// TestConditionalGET304Breadth walks the GET families the compat review called
+// out as missing validators (/user, releases, gists, contents, readme, refs)
+// and checks each serves an ETag and answers a matching If-None-Match with an
+// empty 304, the way GitHub does on virtually every GET.
+func TestConditionalGET304Breadth(t *testing.T) {
+	fx := repoServer(t)
+	auth := "token " + fx.token
+
+	if resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/releases", fx.token,
+		`{"tag_name":"v0.1.0"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed release: status %d, body %s", resp.StatusCode, body)
+	}
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/gists", fx.token,
+		`{"files":{"a.txt":{"content":"hi"}},"public":true}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed gist: status %d, body %s", resp.StatusCode, body)
+	}
+	var gist struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &gist); err != nil || gist.ID == "" {
+		t.Fatalf("decode gist id: %v from %s", err, body)
+	}
+
+	paths := []string{
+		"/user",
+		"/repos/octocat/hello/releases",
+		"/repos/octocat/hello/releases/latest",
+		"/repos/octocat/hello/releases/tags/v0.1.0",
+		"/gists/" + gist.ID,
+		"/gists/" + gist.ID + "/comments",
+		"/repos/octocat/hello/contents/README.md",
+		"/repos/octocat/hello/contents/docs",
+		"/repos/octocat/hello/readme",
+		"/repos/octocat/hello/git/refs",
+		"/repos/octocat/hello/git/ref/heads/master",
+	}
+	for _, path := range paths {
+		resp, body := getWith(t, fx.srv, path, map[string]string{"Authorization": auth})
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: status %d, body %s", path, resp.StatusCode, body)
+			continue
+		}
+		tag := resp.Header.Get("ETag")
+		if tag == "" {
+			t.Errorf("%s: no ETag on GET", path)
+			continue
+		}
+		resp2, body2 := getWith(t, fx.srv, path, map[string]string{"Authorization": auth, "If-None-Match": tag})
+		if resp2.StatusCode != http.StatusNotModified {
+			t.Errorf("%s: conditional GET status %d, want 304", path, resp2.StatusCode)
+		}
+		if len(body2) != 0 {
+			t.Errorf("%s: 304 carried %d body bytes, want none", path, len(body2))
+		}
 	}
 }
 

@@ -51,9 +51,11 @@ func handlePullsList(d Deps) mizu.Handler {
 
 		// Flat read path: a cursor follow-up seeks on the per-repo number
 		// (newest first, the order the seek key covers) and skips the COUNT
-		// that page-number navigation needs for rel="last". Only rel="next" is
-		// offered, so deep walks cost the page, not a count plus a deep OFFSET.
-		// Custom sorts and ascending direction fall back to OFFSET.
+		// that page-number navigation needs for rel="last", so deep walks cost
+		// the page, not a count plus a deep OFFSET. The forward hop stays a
+		// cursor; prev and first appear as page-number links from the page
+		// hint the cursor link carries. Custom sorts and ascending direction
+		// fall back to OFFSET.
 		if q.Cursor != "" && pullCursorEligible(q) {
 			prs, hasMore, err := d.Pulls.ListPRsPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 			if pullError(c.Writer(), err) {
@@ -70,7 +72,7 @@ func handlePullsList(d Deps) mizu.Handler {
 			if hasMore && len(prs) > 0 {
 				nextCursor = store.EncodePullCursor(store.PullCursor{Number: prs[len(prs)-1].Number})
 			}
-			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, nextCursor)
+			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, page, nextCursor)
 			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 			return nil
 		}

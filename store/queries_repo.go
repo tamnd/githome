@@ -279,6 +279,57 @@ func (s *Store) ForksOf(ctx context.Context, pk int64) ([]*RepoRow, error) {
 	return out, rows.Err()
 }
 
+// ReposByCollaborator lists the live repositories userPK holds a direct
+// collaborator grant on, ordered by name. It backs the member type and the
+// collaborator affiliation of the repository list endpoints.
+func (s *Store) ReposByCollaborator(ctx context.Context, userPK int64) ([]*RepoRow, error) {
+	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
+		JOIN users u ON u.pk = r.owner_pk
+		JOIN collaborators c ON c.repo_pk = r.pk
+		WHERE c.user_pk = ? AND r.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY r.name ASC`)
+	rows, err := s.rdb.QueryContext(ctx, q, userPK)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*RepoRow
+	for rows.Next() {
+		r, err := scanRepo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ReposByTeamMember lists the live repositories userPK can reach through a
+// team grant: the team_repos rows of every team the user belongs to. It backs
+// the organization_member affiliation of GET /user/repos.
+func (s *Store) ReposByTeamMember(ctx context.Context, userPK int64) ([]*RepoRow, error) {
+	q := s.rebind(`SELECT DISTINCT ` + repoColumns + ` FROM repositories r
+		JOIN users u ON u.pk = r.owner_pk
+		JOIN team_repos tr ON tr.repo_pk = r.pk
+		JOIN team_members tm ON tm.team_pk = tr.team_pk
+		WHERE tm.user_pk = ? AND r.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY r.name ASC`)
+	rows, err := s.rdb.QueryContext(ctx, q, userPK)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*RepoRow
+	for rows.Next() {
+		r, err := scanRepo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // scanRepo maps one repositories row into a RepoRow, absorbing the dialect
 // differences for nullable text, the boolean flags, and timestamps.
 func scanRepo(row interface{ Scan(...any) error }) (*RepoRow, error) {

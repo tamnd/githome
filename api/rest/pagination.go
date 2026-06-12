@@ -123,7 +123,7 @@ func writeLinkHeaderCursor(w http.ResponseWriter, r *http.Request, ub *presenter
 	}
 	if p.HasNext {
 		if nextCursor != "" {
-			parts = append(parts, "<"+ub.CursorLink(path, raw, nextCursor)+`>; rel="next"`)
+			parts = append(parts, "<"+ub.CursorLink(path, raw, nextCursor, p.Page+1)+`>; rel="next"`)
 		} else {
 			addPage("next", p.Page+1)
 		}
@@ -162,15 +162,29 @@ func writeLinkHeaderUncounted(w http.ResponseWriter, r *http.Request, ub *presen
 	w.Header().Set("Link", strings.Join(parts, ", "))
 }
 
-// writeNextCursorLink sets a forward-only Link header carrying just rel="next"
-// as a keyset cursor. It is the header for the flat read path: a cursor walk
-// skips the COUNT that page-number navigation needs for rel="last", so no total
-// is known and only the next hop is offered. An empty cursor means the last page
-// was reached and no header is written, which is how a client detects the end.
-func writeNextCursorLink(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, nextCursor string) {
-	if nextCursor == "" {
+// writeNextCursorLink sets the Link header for the flat read path: a cursor
+// walk skips the COUNT that page-number navigation needs for rel="last", so no
+// total is known and the forward hop stays a keyset cursor. The cursor links
+// carry the page number the hop lands on, so on a follow-up the position is
+// known and rel="prev" and rel="first" appear as plain page-number links the
+// counted path serves; only rel="last" is honestly absent. An empty cursor on
+// page 1 means a single page and no header, matching GitHub.
+func writeNextCursorLink(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, p Page, nextCursor string) {
+	hasPrev := p.Page > 1
+	if !hasPrev && nextCursor == "" {
 		return
 	}
-	link := "<" + ub.CursorLink(r.URL.Path, r.URL.RawQuery, nextCursor) + `>; rel="next"`
-	w.Header().Set("Link", link)
+	path := r.URL.Path
+	raw := r.URL.RawQuery
+	var parts []string
+	if hasPrev {
+		parts = append(parts, "<"+ub.PageLink(path, raw, p.Page-1)+`>; rel="prev"`)
+	}
+	if nextCursor != "" {
+		parts = append(parts, "<"+ub.CursorLink(path, raw, nextCursor, p.Page+1)+`>; rel="next"`)
+	}
+	if hasPrev {
+		parts = append(parts, "<"+ub.PageLink(path, raw, 1)+`>; rel="first"`)
+	}
+	w.Header().Set("Link", strings.Join(parts, ", "))
 }

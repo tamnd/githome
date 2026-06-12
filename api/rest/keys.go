@@ -57,7 +57,7 @@ func handleDeployKeyCreate(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to add deploy keys"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		var body keyCreateBody
@@ -124,7 +124,7 @@ func handleDeployKeyDelete(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to remove deploy keys"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		keyID, err := strconv.ParseInt(c.Param("key_id"), 10, 64)
@@ -343,7 +343,7 @@ func handleBranchProtectionPut(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to set branch protection"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		var body branchProtectionBody
@@ -398,7 +398,7 @@ func handleBranchProtectionDelete(d Deps) mizu.Handler {
 			return err
 		}
 		if actor.UserID != repo.OwnerPK {
-			writeError(c.Writer(), errForbidden("Must be repo admin to remove branch protection"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		if err := d.Keys.DeleteBranchProtection(ctx, repo.PK, c.Param("branch")); err != nil {
