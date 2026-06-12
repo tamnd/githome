@@ -22,6 +22,7 @@ import (
 	webauth "github.com/tamnd/githome/fe/web/auth"
 	webchecks "github.com/tamnd/githome/fe/web/checks"
 	webcompare "github.com/tamnd/githome/fe/web/compare"
+	webdashboard "github.com/tamnd/githome/fe/web/dashboard"
 	webhome "github.com/tamnd/githome/fe/web/home"
 	webissues "github.com/tamnd/githome/fe/web/issues"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
@@ -130,6 +131,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountIssues(page, d)
 	mountPulls(page, d)
 	mountSearch(page, d)
+	mountDashboard(page, d)
 	mountNotifications(page, d)
 	mountRepoSettings(page, d)
 	mountSettings(page, d)
@@ -445,6 +447,28 @@ func mountSearch(page *mizu.Router, d Deps) {
 
 	sg := page.With(sh.Resolve)
 	sg.Get("/{owner}/{repo}/search", sh.Scoped)
+}
+
+// mountDashboard registers the global, viewer-scoped /issues and /pulls
+// dashboards over the domain search; with no search service the routes stay
+// unmounted. Both literals are reserved top-level names (fe/route), so they
+// can never be read as a /{owner} profile. The handlers gate the session
+// themselves: an anonymous request bounces to the sign-in form with return_to,
+// the 302 github.com answers, since the pages exist for every account and the
+// bounce leaks nothing. See spec doc 02 section 1.1 and doc 09 section 1.6.
+func mountDashboard(page *mizu.Router, d Deps) {
+	if d.Search == nil {
+		return
+	}
+	dh := webdashboard.New(webdashboard.Deps{
+		Search: d.Search,
+		URLs:   d.URLs,
+		Render: d.Render,
+		View:   d.View,
+		Logger: d.Logger,
+	})
+	page.Get("/issues", dh.Issues)
+	page.Get("/pulls", dh.Pulls)
 }
 
 // mountRepoSettings registers the repository settings tree under

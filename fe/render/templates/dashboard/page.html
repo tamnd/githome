@@ -1,0 +1,57 @@
+{{define "content" -}}
+{{/* The data is DashboardVM. The page is the global, viewer-scoped issues or
+     pull-requests list: a Created/Assigned tab row, a cross-repo filter box, and
+     the same result rows the search page renders, each carrying its repository
+     line. Every control is a plain link or a GET form, so the page filters and
+     paginates with no JavaScript. See spec doc 09 section 1.6. */ -}}
+<div class="container-lg dashboard-page">
+  <h1 class="dashboard-heading">{{octicon .Icon 24}} {{.Heading}}</h1>
+
+  <div class="issues-toolbar">
+    <nav class="issues-tabs" aria-label="Scope">
+      {{range .Tabs -}}
+      <a class="issues-tab{{if .IsActive}} is-current{{end}}" href="{{.URL}}"
+         {{if .IsActive}}aria-current="page"{{end}}>{{.Label}} <span class="issues-tab-count">{{.Count}}</span></a>
+      {{- end}}
+    </nav>
+    <form class="search-form" method="get" action="{{.Action}}" role="search">
+      <span class="search-form-icon" aria-hidden="true">{{octicon "search" 16}}</span>
+      {{if ne .Tab "created"}}<input type="hidden" name="tab" value="{{.Tab}}">{{end}}
+      <input class="search-form-input" type="search" name="q" value="{{.QueryValue}}"
+             placeholder="Filter by label:, repo:, is:closed&hellip;" aria-label="Filter">
+      <button class="btn search-form-submit" type="submit">Filter</button>
+    </form>
+  </div>
+
+  {{if .Empty -}}
+  <div class="blankslate search-empty">
+    <span class="blankslate-icon" aria-hidden="true">{{octicon .Icon 24}}</span>
+    <p class="blankslate-text">{{.EmptyReason}}</p>
+  </div>
+  {{- else -}}
+  <ul class="search-list">
+    {{range .Rows -}}
+    <li class="search-issue">
+      <span class="search-issue-icon is-{{.State.Modifier}}" aria-label="{{.State.Label}}">{{octicon .State.Icon 16}}</span>
+      <div class="search-issue-main">
+        <a class="search-issue-title" href="{{.URL}}">{{.Title}}</a>
+        <p class="search-issue-meta">
+          <a class="search-issue-repo" href="{{.RepoURL}}">{{.RepoFullName}}</a>
+          #{{.Number}} opened <relative-time datetime="{{.OpenedISO}}">{{.OpenedAt}}</relative-time>
+          by <a class="search-issue-author" href="{{.Author.URL}}">{{.Author.Login}}</a>
+        </p>
+      </div>
+      {{if gt .CommentCount 0}}<a class="search-issue-comments" href="{{.URL}}" aria-label="{{.CommentCount}} comments">{{octicon "comment" 16}} {{.CommentCount}}</a>{{end}}
+    </li>
+    {{- end}}
+  </ul>
+  {{- end}}
+
+  {{if or .Pager.PrevURL .Pager.NextURL -}}
+  <nav class="paginate" aria-label="Pagination">
+    {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+    {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+  </nav>
+  {{- end}}
+</div>
+{{- end}}
