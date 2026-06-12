@@ -476,7 +476,7 @@ func handleRepoUpdate(d Deps) mizu.Handler {
 			return nil
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			writeError(c.Writer(), errForbidden("Must be repo owner to update settings"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		if err != nil {
@@ -508,7 +508,7 @@ func handleRepoDelete(d Deps) mizu.Handler {
 			return nil
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			writeError(c.Writer(), errForbidden("Must be repo owner to delete"))
+			writeError(c.Writer(), errForbidden("Must have admin rights to Repository."))
 			return nil
 		}
 		if err != nil {
