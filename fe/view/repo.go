@@ -219,6 +219,8 @@ type BlobLine struct {
 }
 
 // CommitsVM is the history list, grouped by calendar date in the viewer's view.
+// Pager carries the newer/older hops with the filters preserved; the Filter
+// fields echo the query back into the filter form.
 type CommitsVM struct {
 	Chrome Chrome
 	Header RepoHeaderVM
@@ -227,6 +229,12 @@ type CommitsVM struct {
 	Ref    Ref
 	Path   string
 	Groups []CommitDateGroup
+	Pager  Pager
+
+	FilterAction string // the GET form target, the page's own canonical URL
+	FilterAuthor string
+	FilterSince  string
+	FilterUntil  string
 }
 
 // CommitDateGroup is one day's heading and the commits authored that day.
@@ -350,12 +358,15 @@ type CommitVM struct {
 	When        string
 	ParentSHAs  []string // short SHAs; empty for the initial commit
 	ParentURLs  []string // tree browse URL for each parent
-	Diff        string   // rendered HTML from the markup pipeline; empty = initial commit
-	RawPatch    string   // raw unified-diff text, rendered only if Diff is empty
-	// PatchTruncated marks RawPatch as the bounded head of a larger patch; the
-	// template shows a note pointing at the browse view for the full change.
-	PatchTruncated bool
-	FilesCount     int    // number of files changed
+	// Files is the commit's diff rendered through the shared per-file diff
+	// component, the same one the PR Files tab and the compare page use.
+	Files []DiffFileVM
+	// FilesTruncated marks Files as the bounded head of a larger change; the
+	// template shows a note pointing at the browse view for the rest.
+	FilesTruncated bool
+	FilesCount     int    // number of files changed, counted before the cap
+	Additions      int    // total added lines across all files
+	Deletions      int    // total deleted lines across all files
 	CommitsURL     string // back link to the history page
 	TreeURL        string // tree at this commit
 }

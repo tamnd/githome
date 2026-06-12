@@ -194,8 +194,10 @@ type IssueDetailVM struct {
 	FormError string      // a validation message echoed back into the page
 }
 
-// NewIssueVM is the blank new-issue form: the title and body fields (echoed back
-// on a validation miss), the submit target, and any form error.
+// NewIssueVM is the new-issue form: the title and body fields (seeded from the
+// documented prefill query or echoed back on a validation miss), the metadata
+// the prefill asked to apply on creation, the submit target, and any form
+// error.
 type NewIssueVM struct {
 	Chrome    Chrome
 	Header    RepoHeaderVM
@@ -204,6 +206,9 @@ type NewIssueVM struct {
 	Action    string
 	Title     string
 	Body      string
+	Labels    []string // label names applied on creation, from ?labels= or the template
+	Assignees []string // assignee logins applied on creation, from ?assignees=
+	Milestone string   // milestone number applied on creation, from ?milestone=
 	CanSubmit bool
 	FormError string
 }

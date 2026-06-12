@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -242,6 +243,77 @@ func TestCreateIssueRedirectsToDetail(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("the created issue is not in the open list")
+	}
+}
+
+// TestCreateIssueAppliesPrefillMetadata posts the hidden fields the prefill
+// carries and expects the created issue to wear the label, the assignee, and
+// the milestone.
+func TestCreateIssueAppliesPrefillMetadata(t *testing.T) {
+	fx := newAuthedFixture(t)
+	ctx := context.Background()
+	title := "v1"
+	ms, err := fx.issues.CreateMilestone(ctx, fx.ownerPK, "octocat", "hello", domain.MilestoneInput{Title: &title})
+	if err != nil {
+		t.Fatalf("create milestone: %v", err)
+	}
+
+	token := fx.csrfToken(t, "/octocat/hello/issues/new")
+	resp := fx.post(t, "/octocat/hello/issues", token, url.Values{
+		"title":     {"a labeled issue"},
+		"labels":    {"bug"},
+		"assignees": {"octocat"},
+		"milestone": {itoa(ms.Number)},
+	})
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("create status %d, want 303", resp.StatusCode)
+	}
+	loc := resp.Header.Get("Location")
+	num := loc[strings.LastIndexByte(loc, '/')+1:]
+	n, err := strconv.ParseInt(num, 10, 64)
+	if err != nil {
+		t.Fatalf("redirect %q does not end in an issue number", loc)
+	}
+	iss, err := fx.issues.GetIssue(ctx, fx.ownerPK, "octocat", "hello", n)
+	if err != nil {
+		t.Fatalf("get created issue: %v", err)
+	}
+	if len(iss.Labels) != 1 || iss.Labels[0].Name != "bug" {
+		t.Errorf("labels = %+v, want [bug]", iss.Labels)
+	}
+	if len(iss.Assignees) != 1 || iss.Assignees[0].Login != "octocat" {
+		t.Errorf("assignees = %+v, want [octocat]", iss.Assignees)
+	}
+	if iss.Milestone == nil || iss.Milestone.Title != "v1" {
+		t.Errorf("milestone = %+v, want v1", iss.Milestone)
+	}
+}
+
+// TestCreateIssueStaleMilestoneReRenders posts a milestone number that does
+// not exist and expects the form back with the inline message, not an error
+// page and not a lost draft.
+func TestCreateIssueStaleMilestoneReRenders(t *testing.T) {
+	fx := newAuthedFixture(t)
+	token := fx.csrfToken(t, "/octocat/hello/issues/new")
+	resp := fx.post(t, "/octocat/hello/issues", token, url.Values{
+		"title":     {"survives the stale milestone"},
+		"milestone": {"99"},
+	})
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("stale-milestone status %d, want 200 re-render", resp.StatusCode)
+	}
+	page := string(body)
+	if !strings.Contains(page, "That milestone does not exist") {
+		t.Errorf("re-render is missing the milestone message:\n%s", page)
+	}
+	if !strings.Contains(page, `value="survives the stale milestone"`) {
+		t.Errorf("re-render lost the draft title:\n%s", page)
+	}
+	if strings.Contains(page, `name="milestone"`) {
+		t.Errorf("re-render kept the stale milestone field:\n%s", page)
 	}
 }
 

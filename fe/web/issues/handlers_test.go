@@ -34,6 +34,7 @@ import (
 type fixture struct {
 	srv      *httptest.Server
 	issues   *domain.IssueService
+	repos    *domain.RepoService
 	ownerPK  int64
 	owner    string
 	repo     string
@@ -154,7 +155,7 @@ func newFixture(t *testing.T) fixture {
 	t.Cleanup(srv.Close)
 
 	return fixture{
-		srv: srv, issues: issueSvc, ownerPK: owner.PK,
+		srv: srv, issues: issueSvc, repos: repoSvc, ownerPK: owner.PK,
 		owner: "octocat", repo: "hello", private: "secret",
 		openNum: open.Number, closeNum: closed.Number, prNum: prNum,
 	}

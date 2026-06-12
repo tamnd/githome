@@ -11,6 +11,12 @@
       <span class="commits-ref">{{octicon "git-branch" 16}} {{.Ref.Name}}</span>
       {{if .Path}}<span class="commits-path">{{octicon "file" 16}} {{.Path}}</span>{{end}}
     </div>
+    <form class="commits-filter" method="get" action="{{.FilterAction}}">
+      <input class="input input-sm" type="text" name="author" value="{{.FilterAuthor}}" placeholder="Author" aria-label="Filter by author">
+      <input class="input input-sm" type="date" name="since" value="{{.FilterSince}}" aria-label="Commits after">
+      <input class="input input-sm" type="date" name="until" value="{{.FilterUntil}}" aria-label="Commits before">
+      <button class="btn btn-sm" type="submit">Filter</button>
+    </form>
   </div>
   {{if .Groups -}}
   <div class="commits">
@@ -39,6 +45,12 @@
   <div class="blankslate">
     <p class="blankslate-text">No commits to show.</p>
   </div>
+  {{- end}}
+  {{if or .Pager.PrevURL .Pager.NextURL -}}
+  <nav class="paginate" aria-label="Pagination">
+    {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Newer</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Newer</span>{{end}}
+    {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Older {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Older {{octicon "chevron-right" 16}}</span>{{end}}
+  </nav>
   {{- end}}
 </div>
 {{- end}}

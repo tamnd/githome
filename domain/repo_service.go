@@ -1273,6 +1273,31 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 	return patch, nil
 }
 
+// CommitFiles returns the commit's per-file changes against its first parent,
+// or against the empty tree for a root commit: the same parsed form the PR
+// Files tab and the compare page consume, so the commit page renders through
+// the shared diff component instead of one raw patch.
+func (s *RepoService) CommitFiles(ctx context.Context, repo *Repo, sha string) ([]git.FileChange, error) {
+	gr, err := s.open(repo)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	commit, err := gr.Commit(sha)
+	gr.Release()
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	base := git.EmptyTreeSHA
+	if len(commit.Parents) > 0 {
+		base = commit.Parents[0]
+	}
+	files, err := s.gitStore.ChangedFilesDirect(ctx, repo.PK, base, commit.SHA)
+	if err != nil {
+		return nil, gitErr(err)
+	}
+	return files, nil
+}
+
 // CommitDiff returns the commit's plain unified diff against its first parent,
 // or against the empty tree for a root commit: the body /commit/{sha}.diff
 // serves. Unlike CommitPatch it is one uncapped git diff subprocess, so the

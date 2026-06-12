@@ -1,0 +1,44 @@
+/*
+ * Dashboard sheet: the global, viewer-scoped /issues and /pulls pages. The
+ * result rows reuse the search sheet's .search-issue idiom and the tab row
+ * reuses the issues sheet's .issues-tab, so this sheet only lays out the page
+ * frame: the heading, the toolbar pairing the scope tabs with the filter box,
+ * and the tab counts. See spec doc 09 section 1.6.
+ */
+
+.dashboard-page {
+  max-width: 1012px;
+  padding: var(--base-size-24) var(--base-size-16);
+}
+
+.dashboard-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  margin: 0 0 var(--base-size-16);
+  font-size: var(--text-title-size-medium, 20px);
+}
+
+/* The toolbar: the Created/Assigned tabs on the left, the filter box filling
+ * the rest of the row, wrapping to a column on a narrow viewport. */
+.issues-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--base-size-16);
+  margin-bottom: var(--base-size-16);
+}
+
+.issues-toolbar .issues-tabs {
+  flex: 0 0 auto;
+}
+
+.issues-toolbar .search-form {
+  flex: 1 1 240px;
+  margin-bottom: 0;
+}
+
+.issues-tab-count {
+  color: var(--fgColor-muted);
+  font-size: var(--text-body-size-small, 12px);
+}

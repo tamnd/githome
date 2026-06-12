@@ -1,7 +1,7 @@
 {{define "content" -}}
 {{/* The data is CommitVM. Renders the single-commit view: commit header (title,
-     body, author, SHA, parents), file-changed count, and the unified diff patch
-     in a scrollable code block. */ -}}
+     body, author, SHA, parents), file-changed count, and the diff rendered
+     through the shared per-file diff component the PR Files tab uses. */ -}}
 {{template "repo_header" (dict "Header" .Header "Nav" .Nav)}}
 <div class="repo-body">
   <div class="commit-detail">
@@ -38,11 +38,20 @@
     </div>
   </div>
 
-  {{if .RawPatch -}}
+  {{if .Files -}}
   <div class="commit-diff">
-    <pre class="commit-patch highlight"><code>{{.RawPatch}}</code></pre>
-    {{if .PatchTruncated -}}
-    <p class="diff-file-note">This patch is too large to show in full. <a href="{{.TreeURL}}">Browse the files</a> at this commit to see the rest.</p>
+    <div class="diff-summary">
+      <span class="diff-summary-files">{{.FilesCount}} changed file{{if ne .FilesCount 1}}s{{end}}</span>
+      <span class="diff-summary-counts">
+        <span class="diff-count-add">+{{.Additions}}</span>
+        <span class="diff-count-del">-{{.Deletions}}</span>
+      </span>
+    </div>
+    {{range .Files -}}
+    {{template "pr_diff_file" (dict "File" . "Review" nil)}}
+    {{- end}}
+    {{if .FilesTruncated -}}
+    <p class="diff-file-note">This commit changes more files than shown here. <a href="{{.TreeURL}}">Browse the files</a> at this commit to see the rest.</p>
     {{- end}}
   </div>
   {{- else -}}
