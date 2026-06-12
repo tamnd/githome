@@ -216,6 +216,7 @@ func mountPulls(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/pulls/{number}", handlePullGet(d))
 	r.Patch("/repos/{owner}/{repo}/pulls/{number}", handlePullUpdate(d))
 	r.Put("/repos/{owner}/{repo}/pulls/{number}/merge", handlePullMerge(d))
+	r.Put("/repos/{owner}/{repo}/pulls/{number}/update-branch", handlePullUpdateBranch(d))
 	r.Post("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersAdd(d))
 	r.Get("/repos/{owner}/{repo}/pulls/{number}/requested_reviewers", handleRequestedReviewersList(d))
 
