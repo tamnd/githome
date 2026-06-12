@@ -191,6 +191,7 @@ func mountAPI(r *mizu.Router, d Deps, limiter *rateLimiter) {
 func mountReleases(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/releases", handleReleasesList(d))
 	r.Post("/repos/{owner}/{repo}/releases", requireScope(handleReleaseCreate(d), "repo", "public_repo"))
+	r.Post("/repos/{owner}/{repo}/releases/generate-notes", requireScope(handleReleaseGenerateNotes(d), "repo", "public_repo"))
 	r.Get("/repos/{owner}/{repo}/releases/latest", handleReleaseLatest(d))
 	r.Get("/repos/{owner}/{repo}/releases/{release_id}", handleReleaseGet(d))
 	r.Patch("/repos/{owner}/{repo}/releases/{release_id}", requireScope(handleReleaseEdit(d), "repo", "public_repo"))

@@ -30,6 +30,7 @@ type ReleaseAssetRow struct {
 	PK            int64
 	DBID          int64
 	ReleasePK     int64
+	ReleaseDBID   int64 // public id of the owning release, for asset urls
 	Name          string
 	Label         *string
 	ContentType   string
@@ -45,7 +46,9 @@ type ReleaseAssetRow struct {
 const releaseColumns = `pk, db_id, repo_pk, tag_name, target_commitish, name, body,
 	draft, prerelease, author_pk, lock_version, created_at, published_at, updated_at`
 
-const releaseAssetColumns = `pk, db_id, release_pk, name, label, content_type,
+const releaseAssetColumns = `pk, db_id, release_pk,
+	(SELECT r.db_id FROM releases r WHERE r.pk = release_assets.release_pk),
+	name, label, content_type,
 	size, download_count, uploader_pk, state, lock_version, created_at, updated_at`
 
 // GetReleaseByID loads a release by its public database id within a repo.
@@ -313,7 +316,7 @@ func scanReleaseAsset(row assetScanner) (*ReleaseAssetRow, error) {
 	var uploaderPK sql.NullInt64
 	var created, updated nullTime
 	err := row.Scan(
-		&a.PK, &a.DBID, &a.ReleasePK, &a.Name, &label,
+		&a.PK, &a.DBID, &a.ReleasePK, &a.ReleaseDBID, &a.Name, &label,
 		&a.ContentType, &a.Size, &a.DownloadCount, &uploaderPK,
 		&a.State, &a.LockVersion, &created, &updated,
 	)
