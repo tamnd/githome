@@ -32,7 +32,7 @@ func handleUserGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.User(u, d.NodeFormat, true))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.User(u, d.NodeFormat, true))
 		return nil
 	}
 }
@@ -54,7 +54,7 @@ func handlePublicUserGet(d Deps) mizu.Handler {
 		// User.ID is the public db_id; actor.UserID is the internal PK; IDs differ.
 		// We only need to know if the viewer is the same user to show private fields.
 		authenticated := actor.IsUser() && actor.UserLogin == u.Login
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.User(u, d.NodeFormat, authenticated))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.User(u, d.NodeFormat, authenticated))
 		return nil
 	}
 }

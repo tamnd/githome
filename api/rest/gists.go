@@ -197,7 +197,7 @@ func handleGistGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -316,7 +316,7 @@ func handleGistCommits(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, []any{})
 		return nil
 	}
 }
@@ -404,7 +404,7 @@ func handleGistCommentsList(d Deps) mizu.Handler {
 			}
 			out = append(out, d.URLs.GistComment(&comments[i], u, d.NodeFormat))
 		}
-		writeJSON(c.Writer(), http.StatusOK, out)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -457,6 +457,6 @@ func writeGists(c *mizu.Ctx, d Deps, gists []*store.GistRow) error {
 		}
 		out = append(out, v)
 	}
-	writeJSON(c.Writer(), http.StatusOK, out)
+	conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 	return nil
 }

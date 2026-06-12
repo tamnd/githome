@@ -40,7 +40,7 @@ func handleREADME(d Deps) mizu.Handler {
 			}
 			if !res.IsDir && res.File != nil {
 				out := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, res.Entry, res.File.Content)
-				writeJSON(c.Writer(), http.StatusOK, out)
+				conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 				return nil
 			}
 		}
