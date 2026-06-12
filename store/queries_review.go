@@ -103,6 +103,16 @@ func (t *Tx) SubmitReview(ctx context.Context, pk int64, state, body, commitID s
 	return err
 }
 
+// UpdateReviewBody replaces a review's summary body, the PUT review shape.
+func (s *Store) UpdateReviewBody(ctx context.Context, pk int64, body string) error {
+	q := s.rebind(`UPDATE pull_request_reviews SET body = ?, updated_at = ? WHERE pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, body, nowUTC(), pk)
+	if err != nil {
+		return err
+	}
+	return affectedOrNotFound(res)
+}
+
 // DismissReview marks a submitted review dismissed with a reason, dropping its
 // approval or change request from the decision without deleting its comments.
 func (s *Store) DismissReview(ctx context.Context, pk int64, message string) error {
@@ -299,4 +309,3 @@ func (s *Store) DeleteReviewComment(ctx context.Context, pk int64) error {
 func (s *Store) ListAllReviewComments(ctx context.Context, repoPK int64) ([]ReviewCommentRow, error) {
 	return s.queryReviewComments(ctx, `WHERE repo_pk = ? ORDER BY created_at, pk`, repoPK)
 }
-

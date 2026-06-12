@@ -56,6 +56,7 @@ type reviewStore interface {
 	GetReviewByPK(ctx context.Context, pk int64) (*store.ReviewRow, error)
 	PendingReviewFor(ctx context.Context, pullPK, userPK int64) (*store.ReviewRow, error)
 	ListReviews(ctx context.Context, pullPK int64) ([]store.ReviewRow, error)
+	UpdateReviewBody(ctx context.Context, pk int64, body string) error
 	DismissReview(ctx context.Context, pk int64, message string) error
 	DeleteReview(ctx context.Context, pk int64) error
 
@@ -219,6 +220,68 @@ func (s *ReviewService) SubmitReview(ctx context.Context, actorPK int64, owner, 
 	s.enqueueRecompute(ctx, issueRow.PK)
 	s.recordReviewEvent(ctx, actorPK, "submitted", repo, issueRow.PK, reviewRow.PK)
 	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
+}
+
+// UpdateReview replaces the summary body of a review, the PUT review shape.
+// Only the review's author may edit it.
+func (s *ReviewService) UpdateReview(ctx context.Context, actorPK int64, owner, name string, number, reviewDBID int64, body string) (*Review, error) {
+	repo, err := s.repos.GetRepo(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	_, pullRow, err := s.loadPull(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	reviewRow, err := s.loadReview(ctx, pullRow.PK, reviewDBID)
+	if err != nil {
+		return nil, err
+	}
+	// A pending draft stays invisible to everyone but its author.
+	if reviewRow.State == ReviewPending && reviewRow.UserPK != actorPK {
+		return nil, ErrReviewNotFound
+	}
+	if reviewRow.UserPK != actorPK {
+		return nil, ErrForbidden
+	}
+	if err := s.store.UpdateReviewBody(ctx, reviewRow.PK, body); err != nil {
+		return nil, err
+	}
+	return s.GetReview(ctx, actorPK, owner, name, number, reviewDBID)
+}
+
+// ListCommentsForReview returns the inline comments attached to one review, the
+// GET reviews/{review_id}/comments shape. A pending draft's comments stay
+// private to the draft's author.
+func (s *ReviewService) ListCommentsForReview(ctx context.Context, viewerPK int64, owner, name string, number, reviewDBID int64) ([]*ReviewComment, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	_, pullRow, err := s.loadPull(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	reviewRow, err := s.loadReview(ctx, pullRow.PK, reviewDBID)
+	if err != nil {
+		return nil, err
+	}
+	if reviewRow.State == ReviewPending && reviewRow.UserPK != viewerPK {
+		return nil, ErrReviewNotFound
+	}
+	rows, err := s.store.ListReviewCommentsForReview(ctx, reviewRow.PK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*ReviewComment, 0, len(rows))
+	for i := range rows {
+		c, err := s.assembleComment(ctx, &rows[i], number)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, nil
 }
 
 // DismissReview drops a submitted review's approval or change request, recording
