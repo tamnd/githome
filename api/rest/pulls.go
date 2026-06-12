@@ -27,7 +27,9 @@ type pullCreateBody struct {
 }
 
 // handlePullsList serves GET /repos/{owner}/{repo}/pulls. The state query selects
-// open, closed, or all, defaulting to open.
+// open, closed, or all, defaulting to open. head ("owner:branch" or a bare
+// branch name) and base narrow the list to one branch pair, and sort plus
+// direction reorder it (created, updated, popularity, long-running).
 func handlePullsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
@@ -37,17 +39,22 @@ func handlePullsList(d Deps) mizu.Handler {
 			return nil
 		}
 		q := domain.PRQuery{
-			State:   c.Query("state"),
-			Page:    page.Page,
-			PerPage: page.PerPage,
-			Cursor:  c.Query("cursor"),
+			State:     c.Query("state"),
+			Head:      c.Query("head"),
+			Base:      c.Query("base"),
+			Sort:      c.Query("sort"),
+			Direction: c.Query("direction"),
+			Page:      page.Page,
+			PerPage:   page.PerPage,
+			Cursor:    c.Query("cursor"),
 		}
 
 		// Flat read path: a cursor follow-up seeks on the per-repo number
-		// (newest first, the only order this list offers) and skips the COUNT
+		// (newest first, the order the seek key covers) and skips the COUNT
 		// that page-number navigation needs for rel="last". Only rel="next" is
 		// offered, so deep walks cost the page, not a count plus a deep OFFSET.
-		if q.Cursor != "" {
+		// Custom sorts and ascending direction fall back to OFFSET.
+		if q.Cursor != "" && pullCursorEligible(q) {
 			prs, hasMore, err := d.Pulls.ListPRsPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 			if pullError(c.Writer(), err) {
 				return nil
@@ -73,7 +80,7 @@ func handlePullsList(d Deps) mizu.Handler {
 		// assembling, or marshaling the page, the same shape as the issues
 		// list. The marker covers the pull row too, so head pushes and
 		// mergeability recomputes invalidate the tag.
-		total, marker, err := d.Pulls.ListPRsVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q.State)
+		total, marker, err := d.Pulls.ListPRsVersion(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 		if pullError(c.Writer(), err) {
 			return nil
 		}
@@ -108,6 +115,14 @@ func handlePullsList(d Deps) mizu.Handler {
 		conditionalVersioned(c.Writer(), c.Request(), http.StatusOK, out, tag)
 		return nil
 	}
+}
+
+// pullCursorEligible reports whether a pulls list query can be served by the
+// keyset seek: the seek key is the per-repo number, which only matches the
+// default newest-first creation order.
+func pullCursorEligible(q domain.PRQuery) bool {
+	return (q.Sort == "" || q.Sort == "created") &&
+		(q.Direction == "" || strings.EqualFold(q.Direction, "desc"))
 }
 
 // handlePullCreate serves POST /repos/{owner}/{repo}/pulls.
@@ -285,19 +300,27 @@ const (
 	mediaPatch
 )
 
-// pullMedia reads an Accept header and reports which pull request media a client
-// asked for. The diff and patch suffixes match GitHub's vendor media types in
-// either the versioned (v3) or unversioned form.
+// pullMedia reads an Accept header and reports which pull request media a
+// client asked for. The header is parsed as a media-type list: each entry is
+// split off its q-parameters and matched exactly against GitHub's vendor diff
+// and patch types, in the versioned (v3) or unversioned form. The first raw
+// match wins; anything else, including a type that merely mentions "diff"
+// somewhere (a multipart boundary, an unrelated vendor type), keeps the
+// default JSON body.
 func pullMedia(accept string) int {
-	a := strings.ToLower(accept)
-	switch {
-	case strings.Contains(a, "diff"):
-		return mediaDiff
-	case strings.Contains(a, "patch"):
-		return mediaPatch
-	default:
-		return mediaJSON
+	for _, part := range strings.Split(accept, ",") {
+		mt := part
+		if i := strings.IndexByte(mt, ';'); i >= 0 {
+			mt = mt[:i]
+		}
+		switch strings.ToLower(strings.TrimSpace(mt)) {
+		case "application/vnd.github.diff", "application/vnd.github.v3.diff":
+			return mediaDiff
+		case "application/vnd.github.patch", "application/vnd.github.v3.patch":
+			return mediaPatch
+		}
 	}
+	return mediaJSON
 }
 
 // writePullText writes a raw diff or patch body with its media type.
@@ -326,6 +349,10 @@ func pullError(w http.ResponseWriter, err error) bool {
 		writeError(w, errConflict("Head branch was modified. Review and try the merge again."))
 	case errors.Is(err, domain.ErrInvalidMergeMethod):
 		writeError(w, errValidation(FieldError{Resource: "PullRequest", Field: "merge_method", Code: "invalid"}))
+	case errors.Is(err, domain.ErrReviewerNotFound):
+		writeError(w, errUnprocessable("Reviews may only be requested from collaborators. One or more of the users or teams you specified is not a collaborator of the repository."))
+	case errors.Is(err, domain.ErrReviewerIsAuthor):
+		writeError(w, errUnprocessable("Review cannot be requested from pull request author."))
 	case errors.Is(err, domain.ErrValidation):
 		writeError(w, errValidation())
 	default:

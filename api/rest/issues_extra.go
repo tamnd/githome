@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -9,6 +11,35 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
 )
+
+// decodeLabelsBody reads the labels add/replace request, which GitHub accepts
+// in two shapes: an object {"labels": [...]} or a bare JSON array. Members of
+// either array may be plain strings or {"name": ...} objects.
+func decodeLabelsBody(c *mizu.Ctx) ([]string, bool) {
+	var raw json.RawMessage
+	if !decodeJSON(c, &raw) {
+		return nil, false
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil, true
+	}
+	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+		var list labelList
+		if err := json.Unmarshal(raw, &list); err != nil {
+			writeError(c.Writer(), &apiError{Status: http.StatusBadRequest, Message: "Problems parsing JSON", DocURL: docRoot})
+			return nil, false
+		}
+		return list, true
+	}
+	var body struct {
+		Labels labelList `json:"labels"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		writeError(c.Writer(), &apiError{Status: http.StatusBadRequest, Message: "Problems parsing JSON", DocURL: docRoot})
+		return nil, false
+	}
+	return body.Labels, true
+}
 
 // handleIssueLabelsList serves GET /repos/{owner}/{repo}/issues/{number}/labels.
 func handleIssueLabelsList(d Deps) mizu.Handler {
@@ -46,13 +77,11 @@ func handleIssueLabelsAdd(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		var body struct {
-			Labels []string `json:"labels"`
-		}
-		if !decodeJSON(c, &body) {
+		labels, ok := decodeLabelsBody(c)
+		if !ok {
 			return nil
 		}
-		issue, err := d.Issues.AddLabels(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, body.Labels)
+		issue, err := d.Issues.AddLabels(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, labels)
 		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -61,6 +90,81 @@ func handleIssueLabelsAdd(d Deps) mizu.Handler {
 			return err
 		}
 		writeJSON(c.Writer(), http.StatusOK, labelsJSON(issue.Labels, d, c.Param("owner"), c.Param("repo")))
+		return nil
+	}
+}
+
+// validLockReason reports whether a lock reason is one of GitHub's fixed set.
+func validLockReason(r string) bool {
+	switch r {
+	case "off-topic", "too heated", "resolved", "spam":
+		return true
+	default:
+		return false
+	}
+}
+
+// handleIssueLock serves PUT /repos/{owner}/{repo}/issues/{number}/lock. The
+// body is optional; when present, lock_reason must be one of GitHub's four
+// values. A successful lock is a bare 204.
+func handleIssueLock(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body struct {
+			LockReason *string `json:"lock_reason"`
+		}
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		if body.LockReason != nil && !validLockReason(*body.LockReason) {
+			writeError(c.Writer(), errValidation(FieldError{Resource: "Issue", Field: "lock_reason", Code: "invalid"}))
+			return nil
+		}
+		err := d.Issues.SetLocked(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, true, body.LockReason)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
+// handleIssueUnlock serves DELETE /repos/{owner}/{repo}/issues/{number}/lock,
+// clearing the lock and its reason. A successful unlock is a bare 204.
+func handleIssueUnlock(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		err := d.Issues.SetLocked(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, false, nil)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
 		return nil
 	}
 }
@@ -79,14 +183,12 @@ func handleIssueLabelsReplace(d Deps) mizu.Handler {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
-		var body struct {
-			Labels []string `json:"labels"`
-		}
-		if !decodeJSON(c, &body) {
+		labels, ok := decodeLabelsBody(c)
+		if !ok {
 			return nil
 		}
 		issue, err := d.Issues.EditIssue(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, domain.IssuePatch{
-			Labels: &body.Labels,
+			Labels: &labels,
 		})
 		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
 			writeError(c.Writer(), errNotFound())

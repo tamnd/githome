@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -34,18 +35,28 @@ func (s *Store) GetPullByDBID(ctx context.Context, dbID int64) (*PullRow, error)
 	return scanPull(s.rdb.QueryRowContext(ctx, q, dbID))
 }
 
-// ListPulls returns a repository's pull requests, newest number first, paged.
-// state is "open", "closed", or "all"; the empty string lists open ones. It
-// joins the issues table so the state filter and the number ordering read from
-// the row that owns them. The repository filter goes on i.repo_pk (identical
-// to pr.repo_pk by construction): that way the issues (repo_pk, number)
-// unique index serves both the filter and the ORDER BY, with no sort step.
-func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]PullRow, error) {
-	if limit <= 0 {
-		limit = 30
-	}
+// PullFilter narrows the pull list queries. State is "open", "closed", or
+// "all" (the empty string lists open ones). HeadRef and BaseRef match the
+// branch names on either end; HeadOwner additionally pins the head to a
+// repository owned by that login, the "owner:branch" head form. Sort picks
+// created (the default, served by the number index), updated, popularity
+// (comment count), or long-running (creation age); Direction is asc or desc,
+// defaulting to desc.
+type PullFilter struct {
+	State     string
+	HeadOwner string
+	HeadRef   string
+	BaseRef   string
+	Sort      string
+	Direction string
+}
+
+// pullListWhere builds the WHERE tail of the pull list queries plus the args
+// that follow the leading repo_pk argument the caller binds first.
+func pullListWhere(f PullFilter) (string, []any) {
+	var args []any
 	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
-	switch state {
+	switch f.State {
 	case "", "open":
 		where += ` AND i.state = 'open'`
 	case "closed":
@@ -53,10 +64,64 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 	case "all":
 		// no state predicate
 	}
+	if f.HeadRef != "" {
+		where += ` AND pr.head_ref = ?`
+		args = append(args, f.HeadRef)
+	}
+	if f.HeadOwner != "" {
+		// A same-repository pull request leaves head_repo_pk NULL, so the
+		// owner check falls back to the owner of the repository being listed.
+		where += ` AND (pr.head_repo_pk IN (SELECT r.pk FROM repositories r
+			JOIN users u ON u.pk = r.owner_pk WHERE u.login = ?)
+			OR (pr.head_repo_pk IS NULL AND EXISTS (SELECT 1 FROM repositories r2
+			JOIN users u2 ON u2.pk = r2.owner_pk WHERE r2.pk = i.repo_pk AND u2.login = ?)))`
+		args = append(args, f.HeadOwner, f.HeadOwner)
+	}
+	if f.BaseRef != "" {
+		where += ` AND pr.base_ref = ?`
+		args = append(args, f.BaseRef)
+	}
+	return where, args
+}
+
+// pullListOrder maps the sort and direction to the ORDER BY clause. The
+// default creation order rides the issues (repo_pk, number) unique index with
+// no sort step; the named sorts order on the issue column that backs them,
+// with the number as the tiebreak. long-running approximates GitHub's order by
+// creation age; the activity-window narrowing is not modeled.
+func pullListOrder(f PullFilter) string {
+	dir := " DESC"
+	if strings.EqualFold(f.Direction, "asc") {
+		dir = " ASC"
+	}
+	switch f.Sort {
+	case "updated":
+		return ` ORDER BY i.updated_at` + dir + `, i.number` + dir
+	case "popularity":
+		return ` ORDER BY i.comments_count` + dir + `, i.number` + dir
+	case "long-running":
+		return ` ORDER BY i.created_at` + dir + `, i.number` + dir
+	default:
+		return ` ORDER BY i.number` + dir
+	}
+}
+
+// ListPulls returns a repository's pull requests matching the filter, paged.
+// It joins the issues table so the state filter and the orderings read from
+// the row that owns them. The repository filter goes on i.repo_pk (identical
+// to pr.repo_pk by construction): that way the issues (repo_pk, number)
+// unique index serves both the filter and the default ORDER BY, with no sort
+// step.
+func (s *Store) ListPulls(ctx context.Context, repoPK int64, f PullFilter, limit, offset int) ([]PullRow, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	where, extra := pullListWhere(f)
 	q := s.rebind(`SELECT ` + pullPrefixed + ` FROM pull_requests pr
-		JOIN issues i ON i.pk = pr.issue_pk` + where + `
-		ORDER BY i.number DESC LIMIT ? OFFSET ?`)
-	rows, err := s.rdb.QueryContext(ctx, q, repoPK, limit, offset)
+		JOIN issues i ON i.pk = pr.issue_pk` + where +
+		pullListOrder(f) + ` LIMIT ? OFFSET ?`)
+	args := append(append([]any{repoPK}, extra...), limit, offset)
+	rows, err := s.rdb.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,21 +144,15 @@ func (s *Store) ListPulls(ctx context.Context, repoPK int64, state string, limit
 // repository filter sits on i.repo_pk so the planner can use that index. It fetches one row beyond
 // the page and uses its presence as the has-next signal, so a list request on a
 // repo with hundreds of thousands of pulls costs the page, not a full count plus
-// a deep OFFSET scan. A nil cursor starts from the highest number.
-func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *PullCursor, limit int) ([]PullRow, bool, error) {
+// a deep OFFSET scan. A nil cursor starts from the highest number. The filter's
+// Sort and Direction are ignored: the seek key is the number order, and the
+// handler only routes default-ordered walks here.
+func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, f PullFilter, cursor *PullCursor, limit int) ([]PullRow, bool, error) {
 	if limit <= 0 {
 		limit = 30
 	}
-	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
-	switch state {
-	case "", "open":
-		where += ` AND i.state = 'open'`
-	case "closed":
-		where += ` AND i.state = 'closed'`
-	case "all":
-		// no state predicate
-	}
-	args := []any{repoPK}
+	where, extra := pullListWhere(f)
+	args := append([]any{repoPK}, extra...)
 	if cursor != nil {
 		where += ` AND i.number < ?`
 		args = append(args, cursor.Number)
@@ -125,41 +184,28 @@ func (s *Store) ListPullsPage(ctx context.Context, repoPK int64, state string, c
 	return out, hasMore, nil
 }
 
-// CountPulls counts a repository's pull requests matching the state filter.
-func (s *Store) CountPulls(ctx context.Context, repoPK int64, state string) (int, error) {
-	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
-	switch state {
-	case "", "open":
-		where += ` AND i.state = 'open'`
-	case "closed":
-		where += ` AND i.state = 'closed'`
-	case "all":
-	}
+// CountPulls counts a repository's pull requests matching the filter.
+func (s *Store) CountPulls(ctx context.Context, repoPK int64, f PullFilter) (int, error) {
+	where, extra := pullListWhere(f)
 	q := s.rebind(`SELECT COUNT(*) FROM pull_requests pr
 		JOIN issues i ON i.pk = pr.issue_pk` + where)
 	var n int
-	if err := s.rdb.QueryRowContext(ctx, q, repoPK).Scan(&n); err != nil {
+	args := append([]any{repoPK}, extra...)
+	if err := s.rdb.QueryRowContext(ctx, q, args...).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
 }
 
 // PullListVersion returns the count and the latest updated_at marker of the
-// pull requests matching the state filter. It is the version seed for the
+// pull requests matching the filter. It is the version seed for the
 // pulls list ETag, the same shape as IssueListVersion. The marker covers both
 // the issue row and the pull row: head pushes and mergeability recomputes
 // bump pull_requests.updated_at without touching the issue, and both rows
 // feed the rendered body. Markers are raw column text in one timestamp
 // layout, so the larger of the two compares lexicographically.
-func (s *Store) PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error) {
-	where := ` WHERE i.repo_pk = ? AND i.deleted_at IS NULL`
-	switch state {
-	case "", "open":
-		where += ` AND i.state = 'open'`
-	case "closed":
-		where += ` AND i.state = 'closed'`
-	case "all":
-	}
+func (s *Store) PullListVersion(ctx context.Context, repoPK int64, f PullFilter) (int, string, error) {
+	where, extra := pullListWhere(f)
 	q := s.rebind(`SELECT COUNT(*),
 			COALESCE(MAX(i.updated_at), ''), COALESCE(MAX(pr.updated_at), '')
 		FROM pull_requests pr
@@ -168,7 +214,8 @@ func (s *Store) PullListVersion(ctx context.Context, repoPK int64, state string)
 		n                   int
 		issMarker, prMarker string
 	)
-	if err := s.rdb.QueryRowContext(ctx, q, repoPK).Scan(&n, &issMarker, &prMarker); err != nil {
+	args := append([]any{repoPK}, extra...)
+	if err := s.rdb.QueryRowContext(ctx, q, args...).Scan(&n, &issMarker, &prMarker); err != nil {
 		return 0, "", err
 	}
 	marker := issMarker

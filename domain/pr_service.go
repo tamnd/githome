@@ -37,6 +37,14 @@ var (
 	// ErrInvalidMergeMethod is returned for a merge_method other than merge,
 	// squash, or rebase.
 	ErrInvalidMergeMethod = errors.New("domain: invalid merge method")
+
+	// ErrReviewerNotFound is returned when a requested reviewer login does not
+	// resolve to a user.
+	ErrReviewerNotFound = errors.New("domain: requested reviewer not found")
+
+	// ErrReviewerIsAuthor is returned when a review is requested from the pull
+	// request's own author.
+	ErrReviewerIsAuthor = errors.New("domain: review cannot be requested from the author")
 )
 
 // PullStore is the slice of the store the pull request service needs: the pull
@@ -62,11 +70,15 @@ type PullStore interface {
 
 	GetPullByIssuePK(ctx context.Context, issuePK int64) (*store.PullRow, error)
 	GetPullByDBID(ctx context.Context, dbID int64) (*store.PullRow, error)
-	ListPulls(ctx context.Context, repoPK int64, state string, limit, offset int) ([]store.PullRow, error)
-	ListPullsPage(ctx context.Context, repoPK int64, state string, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
-	CountPulls(ctx context.Context, repoPK int64, state string) (int, error)
-	PullListVersion(ctx context.Context, repoPK int64, state string) (int, string, error)
+	ListPulls(ctx context.Context, repoPK int64, f store.PullFilter, limit, offset int) ([]store.PullRow, error)
+	ListPullsPage(ctx context.Context, repoPK int64, f store.PullFilter, cursor *store.PullCursor, limit int) ([]store.PullRow, bool, error)
+	CountPulls(ctx context.Context, repoPK int64, f store.PullFilter) (int, error)
+	PullListVersion(ctx context.Context, repoPK int64, f store.PullFilter) (int, string, error)
 	OpenPullsByHeadRef(ctx context.Context, repoPK int64, headRef string) ([]store.PullRow, error)
+	ListReviewRequestPKs(ctx context.Context, pullPK int64) ([]int64, error)
+	ReviewRequestsByPullPKs(ctx context.Context, pullPKs []int64) (map[int64][]int64, error)
+	AddReviewRequests(ctx context.Context, pullPK int64, reviewerPKs []int64) error
+	RemoveReviewRequests(ctx context.Context, pullPK int64, reviewerPKs []int64) error
 	OpenPullsByBaseRef(ctx context.Context, repoPK int64, baseRef string) ([]store.PullRow, error)
 	SetMergeability(ctx context.Context, issuePK int64, mergeable *bool, state string, rebaseable *bool, additions, deletions, changedFiles, commits int, checkedAt time.Time) error
 	UpdatePullDraft(ctx context.Context, pullPK int64, draft bool) error
@@ -109,13 +121,21 @@ type PRInput struct {
 }
 
 // PRQuery narrows the list endpoint to a state (open, closed, all) and a page.
+// Head filters on the head branch, either a bare branch name or GitHub's
+// "owner:branch" form; Base filters on the base branch. Sort is created (the
+// default), updated, popularity, or long-running, and Direction is asc or
+// desc, defaulting to desc.
 // Cursor, when set, is the opaque keyset token from the previous page's Link
 // header, which switches the list to a number seek instead of OFFSET.
 type PRQuery struct {
-	State   string
-	Page    int
-	PerPage int
-	Cursor  string
+	State     string
+	Head      string
+	Base      string
+	Sort      string
+	Direction string
+	Page      int
+	PerPage   int
+	Cursor    string
 	// AfterNumber is the number of the last pull request on the previous page,
 	// the seek key the GraphQL connection cursors carry. The list orders by
 	// number descending, so it seeds the keyset seek directly.
@@ -329,6 +349,25 @@ func (s *PRService) UpdatePR(ctx context.Context, actorPK int64, owner, name str
 	return s.assemble(ctx, repo, issueRow, pullRow)
 }
 
+// pullFilter maps a PRQuery to the store filter, splitting the "owner:branch"
+// head form into the owner and the branch name.
+func pullFilter(q PRQuery) store.PullFilter {
+	f := store.PullFilter{
+		State:     q.State,
+		BaseRef:   q.Base,
+		Sort:      q.Sort,
+		Direction: q.Direction,
+	}
+	if q.Head != "" {
+		if owner, ref, ok := strings.Cut(q.Head, ":"); ok {
+			f.HeadOwner, f.HeadRef = owner, ref
+		} else {
+			f.HeadRef = q.Head
+		}
+	}
+	return f
+}
+
 // ListPRs returns a page of the repository's pull requests plus the total
 // matching the state filter, for the pagination headers.
 func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) ([]*PullRequest, int, error) {
@@ -336,11 +375,11 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	rows, err := s.store.ListPulls(ctx, repo.PK, pullFilter(q), q.PerPage, offsetFor(q.Page, q.PerPage))
 	if err != nil {
 		return nil, 0, err
 	}
-	total, err := s.store.CountPulls(ctx, repo.PK, q.State)
+	total, err := s.store.CountPulls(ctx, repo.PK, pullFilter(q))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -352,14 +391,14 @@ func (s *PRService) ListPRs(ctx context.Context, viewerPK int64, owner, name str
 }
 
 // ListPRsVersion returns the count and the latest updated_at marker of the
-// state-filtered window, the seed the REST pulls list hashes into a version
+// filtered window, the seed the REST pulls list hashes into a version
 // ETag, mirroring ListIssuesVersion.
-func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name, state string) (int, string, error) {
+func (s *PRService) ListPRsVersion(ctx context.Context, viewerPK int64, owner, name string, q PRQuery) (int, string, error) {
 	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
 	if err != nil {
 		return 0, "", err
 	}
-	return s.store.PullListVersion(ctx, repo.PK, state)
+	return s.store.PullListVersion(ctx, repo.PK, pullFilter(q))
 }
 
 // ListPRsWindow returns a page of the repository's pull requests without the
@@ -370,7 +409,7 @@ func (s *PRService) ListPRsWindow(ctx context.Context, viewerPK int64, owner, na
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.store.ListPulls(ctx, repo.PK, q.State, q.PerPage, offsetFor(q.Page, q.PerPage))
+	rows, err := s.store.ListPulls(ctx, repo.PK, pullFilter(q), q.PerPage, offsetFor(q.Page, q.PerPage))
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +435,7 @@ func (s *PRService) ListPRsPage(ctx context.Context, viewerPK int64, owner, name
 	if cursor == nil && q.AfterNumber > 0 {
 		cursor = &store.PullCursor{Number: q.AfterNumber}
 	}
-	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, q.State, cursor, q.PerPage)
+	rows, hasMore, err := s.store.ListPullsPage(ctx, repo.PK, pullFilter(q), cursor, q.PerPage)
 	if err != nil {
 		return nil, false, err
 	}
@@ -415,7 +454,7 @@ func (s *PRService) CountPRs(ctx context.Context, viewerPK int64, owner, name, s
 	if err != nil {
 		return 0, err
 	}
-	return s.store.CountPulls(ctx, repo.PK, state)
+	return s.store.CountPulls(ctx, repo.PK, store.PullFilter{State: state})
 }
 
 // Files returns the per-file diff of a pull request over the three-dot range
@@ -656,6 +695,79 @@ func (s *PRService) diffEnds(ctx context.Context, viewerPK int64, owner, name st
 	return repo, baseTip, pullRow.HeadSHA, nil
 }
 
+// RequestReviewers adds the given logins as requested reviewers of a pull
+// request and returns the refreshed pull request. An unknown login is refused
+// the way GitHub refuses a non-collaborator, and requesting the author is
+// refused outright; both are 422s on the wire. Re-requesting an existing
+// reviewer is a no-op.
+func (s *PRService) RequestReviewers(ctx context.Context, actorPK int64, owner, name string, number int64, logins []string) (*PullRequest, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	issueRow, pullRow, err := s.load(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	pks, err := s.resolveReviewers(ctx, issueRow, logins)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.AddReviewRequests(ctx, pullRow.PK, pks); err != nil {
+		return nil, err
+	}
+	s.recordPullEvent(ctx, actorPK, "review_requested", repo, issueRow.PK)
+	return s.assemble(ctx, repo, issueRow, pullRow)
+}
+
+// RemoveRequestedReviewers drops the given logins from a pull request's
+// requested reviewers and returns the refreshed pull request. Logins that were
+// never requested are ignored, but an unknown login or the author is refused
+// the same way the add side refuses them.
+func (s *PRService) RemoveRequestedReviewers(ctx context.Context, actorPK int64, owner, name string, number int64, logins []string) (*PullRequest, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	issueRow, pullRow, err := s.load(ctx, repo.PK, number)
+	if err != nil {
+		return nil, err
+	}
+	pks, err := s.resolveReviewers(ctx, issueRow, logins)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.RemoveReviewRequests(ctx, pullRow.PK, pks); err != nil {
+		return nil, err
+	}
+	s.recordPullEvent(ctx, actorPK, "review_request_removed", repo, issueRow.PK)
+	return s.assemble(ctx, repo, issueRow, pullRow)
+}
+
+// resolveReviewers maps reviewer logins to user PKs, refusing unknown logins
+// (ErrReviewerNotFound) and the pull request's author (ErrReviewerIsAuthor).
+func (s *PRService) resolveReviewers(ctx context.Context, issueRow *store.IssueRow, logins []string) ([]int64, error) {
+	pks := make([]int64, 0, len(logins))
+	seen := map[int64]bool{}
+	for _, login := range logins {
+		u, err := s.store.UserByLogin(ctx, login)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrReviewerNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if u.PK == issueRow.UserPK {
+			return nil, ErrReviewerIsAuthor
+		}
+		if !seen[u.PK] {
+			pks = append(pks, u.PK)
+			seen[u.PK] = true
+		}
+	}
+	return pks, nil
+}
+
 // load resolves the issue row and its pull extension by number, mapping a
 // missing or non-pull issue to ErrPullNotFound.
 func (s *PRService) load(ctx context.Context, repoPK, number int64) (*store.IssueRow, *store.PullRow, error) {
@@ -758,6 +870,21 @@ func (s *PRService) assemblePRs(ctx context.Context, repo *Repo, rows []store.Pu
 		}
 	}
 
+	// Batch-load the requested reviewers by pull PK.
+	pullPKs := make([]int64, len(rows))
+	for i := range rows {
+		pullPKs[i] = rows[i].PK
+	}
+	reviewRequestMap, err := s.store.ReviewRequestsByPullPKs(ctx, pullPKs)
+	if err != nil {
+		return nil, err
+	}
+	for _, pks := range reviewRequestMap {
+		for _, pk := range pks {
+			userPKSet[pk] = struct{}{}
+		}
+	}
+
 	userPKs := make([]int64, 0, len(userPKSet))
 	for pk := range userPKSet {
 		userPKs = append(userPKs, pk)
@@ -832,6 +959,14 @@ func (s *PRService) assemblePRs(ctx context.Context, repo *Repo, rows []store.Pu
 			}
 		}
 
+		requestedPKs := reviewRequestMap[pullRow.PK]
+		requested := make([]*User, 0, len(requestedPKs))
+		for _, pk := range requestedPKs {
+			if u, ok := userMap[pk]; ok {
+				requested = append(requested, userFromRow(u))
+			}
+		}
+
 		out = append(out, &PullRequest{
 			PK:                  pullRow.PK,
 			ID:                  pullRow.DBID,
@@ -843,11 +978,13 @@ func (s *PRService) assemblePRs(ctx context.Context, repo *Repo, rows []store.Pu
 			Body:                issueRow.Body,
 			State:               issueRow.State,
 			Locked:              issueRow.Locked,
+			ActiveLockReason:    issueRow.ActiveLockReason,
 			User:                author,
 			Assignees:           assignees,
 			Labels:              labelsFromRows(labelMap[issueRow.PK]),
 			Milestone:           milestone,
 			CommentsCount:       issueRow.CommentsCount,
+			RequestedReviewers:  requested,
 			Base:                endpoint(repo, pullRow.BaseRef, pullRow.BaseSHA),
 			Head:                endpoint(repo, pullRow.HeadRef, pullRow.HeadSHA),
 			Draft:               pullRow.Draft,
@@ -912,6 +1049,18 @@ func (s *PRService) assemble(ctx context.Context, repo *Repo, issueRow *store.Is
 			return nil, err
 		}
 	}
+	requestedPKs, err := s.store.ListReviewRequestPKs(ctx, pullRow.PK)
+	if err != nil {
+		return nil, err
+	}
+	requested := make([]*User, 0, len(requestedPKs))
+	for _, pk := range requestedPKs {
+		u, err := s.issues.userByPK(ctx, pk)
+		if err != nil {
+			return nil, err
+		}
+		requested = append(requested, u)
+	}
 
 	pr := &PullRequest{
 		PK:                  pullRow.PK,
@@ -924,11 +1073,13 @@ func (s *PRService) assemble(ctx context.Context, repo *Repo, issueRow *store.Is
 		Body:                issueRow.Body,
 		State:               issueRow.State,
 		Locked:              issueRow.Locked,
+		ActiveLockReason:    issueRow.ActiveLockReason,
 		User:                author,
 		Assignees:           assignees,
 		Labels:              labelsFromRows(labelRows),
 		Milestone:           milestone,
 		CommentsCount:       issueRow.CommentsCount,
+		RequestedReviewers:  requested,
 		Base:                endpoint(repo, pullRow.BaseRef, pullRow.BaseSHA),
 		Head:                endpoint(repo, pullRow.HeadRef, pullRow.HeadSHA),
 		Draft:               pullRow.Draft,

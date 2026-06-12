@@ -239,7 +239,7 @@ func BenchmarkListPulls_30PerPage(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, err := st.ListPulls(ctx, repo.PK, "open", 30, 0)
+		_, err := st.ListPulls(ctx, repo.PK, PullFilter{State: "open"}, 30, 0)
 		if err != nil {
 			b.Fatal(err)
 		}

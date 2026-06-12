@@ -21,15 +21,21 @@ type PullRequest struct {
 	RepoPK  int64
 	Repo    *Repo
 
-	Title         string
-	Body          *string
-	State         string // open | closed
-	Locked        bool
-	User          *User
-	Assignees     []*User
-	Labels        []*Label
-	Milestone     *Milestone
-	CommentsCount int
+	Title  string
+	Body   *string
+	State  string // open | closed
+	Locked bool
+	// ActiveLockReason mirrors the issue-side lock reason; nil when unlocked.
+	ActiveLockReason *string
+	User             *User
+	Assignees        []*User
+	Labels           []*Label
+	Milestone        *Milestone
+	CommentsCount    int
+	// RequestedReviewers are the users whose review is currently requested,
+	// in request order. A submitted review clears its author's request on
+	// GitHub; here the set changes only through the request endpoints.
+	RequestedReviewers []*User
 
 	Base GitEndpoint
 	Head GitEndpoint

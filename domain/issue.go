@@ -20,6 +20,9 @@ type Issue struct {
 	State       string
 	StateReason *string
 	Locked      bool
+	// ActiveLockReason is the reason given when the conversation was locked,
+	// one of GitHub's fixed set; nil when unlocked or locked without a reason.
+	ActiveLockReason *string
 	// IsPull marks the row as a pull request. Issues and pull requests share
 	// one number sequence per repository; cross-type listings (search) use it
 	// to tell the two apart.

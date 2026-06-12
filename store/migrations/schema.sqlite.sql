@@ -744,3 +744,12 @@ ALTER TABLE repositories ADD COLUMN allow_update_branch         INTEGER NOT NULL
 ALTER TABLE repositories ADD COLUMN web_commit_signoff_required INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE repositories ADD COLUMN fork_of_pk                  INTEGER REFERENCES repositories(pk) ON DELETE SET NULL;
 CREATE INDEX repos_fork_of_idx ON repositories (fork_of_pk) WHERE fork_of_pk IS NOT NULL;
+
+-- 0030_review_requests
+CREATE TABLE review_requests (
+    pull_pk     INTEGER NOT NULL REFERENCES pull_requests(pk) ON DELETE CASCADE,
+    reviewer_pk INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (pull_pk, reviewer_pk)
+);
