@@ -134,24 +134,34 @@ func urlPlainByte(c byte) bool {
 
 // PageLink returns the absolute URL a Link header rel points at: the given
 // request path on the configured API host, carrying every query parameter
-// through unchanged except page, which is set to the target. Building it on the
-// API host (never the inbound Host header) keeps the link on the Githome host
-// the same way every other embedded URL is.
+// through unchanged except page, which is set to the target, and cursor, which
+// is dropped because a page-number link addresses a position, not a keyset.
+// Building it on the API host (never the inbound Host header) keeps the link
+// on the Githome host the same way every other embedded URL is.
 func (b *URLBuilder) PageLink(path, rawQuery string, page int) string {
 	u := url.URL{Scheme: b.api.Scheme, Host: b.api.Host, Path: path}
 	q, _ := url.ParseQuery(rawQuery)
 	q.Set("page", strconv.Itoa(page))
+	q.Del("cursor")
 	u.RawQuery = q.Encode()
 	return u.String()
 }
 
 // CursorLink returns the URL for the next page identified by an opaque cursor.
-// It carries per_page through from the original query and drops the page and
-// cursor parameters so the link is a clean cursor reference.
-func (b *URLBuilder) CursorLink(path, rawQuery, cursor string) string {
+// It carries per_page through from the original query and replaces the page and
+// cursor parameters. page is the page number the cursor lands on; carrying it
+// alongside the cursor lets the follow-up request know where it is, so it can
+// offer rel="prev" and rel="first" page-number links, and lets clients that
+// parse page out of Link URLs (go-github fills NextPage this way) keep working
+// on the cursor path. A page below 1 drops the parameter.
+func (b *URLBuilder) CursorLink(path, rawQuery, cursor string, page int) string {
 	u := url.URL{Scheme: b.api.Scheme, Host: b.api.Host, Path: path}
 	q, _ := url.ParseQuery(rawQuery)
-	q.Del("page")
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	} else {
+		q.Del("page")
+	}
 	q.Set("cursor", cursor)
 	u.RawQuery = q.Encode()
 	return u.String()

@@ -128,9 +128,11 @@ func handleIssuesList(d Deps) mizu.Handler {
 
 		// Flat read path: a cursor follow-up on the default newest-first order
 		// seeks straight to the page and skips the COUNT that page-number
-		// navigation needs for rel="last". Only rel="next" is offered, so deep
-		// walks of a several-hundred-thousand-issue repo cost the page, not a
-		// full count plus a deep OFFSET scan.
+		// navigation needs for rel="last", so deep walks of a
+		// several-hundred-thousand-issue repo cost the page, not a full count
+		// plus a deep OFFSET scan. The forward hop stays a cursor; prev and
+		// first appear as page-number links from the page hint the cursor
+		// link carries.
 		if q.Cursor != "" && issueCursorEligible(q) {
 			issues, hasMore, err := d.Issues.ListIssuesPage(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), q)
 			if issueError(c.Writer(), err) {
@@ -148,7 +150,7 @@ func handleIssuesList(d Deps) mizu.Handler {
 				last := issues[len(issues)-1]
 				nextCursor = store.EncodeCursor(store.IssueCursor{CreatedAt: last.CreatedAt, Number: last.Number})
 			}
-			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, nextCursor)
+			writeNextCursorLink(c.Writer(), c.Request(), d.URLs, page, nextCursor)
 			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 			return nil
 		}
