@@ -21,6 +21,7 @@ const (
 	EventRelease                  = "release"
 	EventCreate                   = "create" // branch or tag created via REST or push
 	EventDelete                   = "delete" // branch or tag deleted via REST or push
+	EventRepositoryDispatch       = "repository_dispatch"
 )
 
 // The fan-out job kinds the webhook milestone introduces. deliver_event loads
@@ -56,6 +57,12 @@ type EventDetail struct {
 	Label           string `json:"label,omitempty"`
 	Before          string `json:"before,omitempty"`
 	After           string `json:"after,omitempty"`
+
+	// Action and ClientPayload carry a repository_dispatch's caller-chosen event
+	// type and opaque client payload, the two fields that event has no column
+	// for. ClientPayload is the verbatim JSON the dispatch named.
+	Action        string          `json:"action,omitempty"`
+	ClientPayload json.RawMessage `json:"client_payload,omitempty"`
 }
 
 // CreateDeletePayload carries the ref detail for create and delete webhook
