@@ -25,10 +25,12 @@ import (
 // to show whether the endpoint is answering without paging.
 const deliveryHistoryLimit = 20
 
-// Root redirects the bare repository settings root to the first backed section so
-// a bookmark of /{owner}/{repo}/settings keeps landing on a real page.
+// Root serves the General settings page at the bare repository settings root,
+// the section github.com opens on. It used to bounce straight to the webhooks
+// because General had no backing; the rename, description, and default-branch
+// form now lives there. See general.go.
 func (h *Handlers) Root(c *mizu.Ctx) error {
-	return h.redirect(c, route.RepoHooks(h.owner(c), h.name(c)))
+	return h.General(c)
 }
 
 // Hooks renders the repository's webhooks list, a row per hook with its delivery
