@@ -254,6 +254,93 @@ func TestOversizedPatch_NoRowsTooLarge(t *testing.T) {
 	}
 }
 
+// TestIntraline_HighlightsChangedWords pins the word-level highlight on an edited
+// line: the shared words stay plain and only the changed word gets a diff-word span,
+// in both the unified Text and the split cells.
+func TestIntraline_HighlightsChangedWords(t *testing.T) {
+	patch := "@@ -1,1 +1,1 @@\n-the quick red fox\n+the quick brown fox"
+
+	uni := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified)
+	var del, add *DiffRow
+	for i := range uni.Rows {
+		switch uni.Rows[i].Kind {
+		case RowDeletion:
+			del = &uni.Rows[i]
+		case RowAddition:
+			add = &uni.Rows[i]
+		}
+	}
+	if del == nil || add == nil {
+		t.Fatal("expected a deletion and an addition row in unified mode")
+	}
+	if got := string(del.Text); got != `-the quick <span class="diff-word">red</span> fox` {
+		t.Errorf("deletion Text = %q, want red span", got)
+	}
+	if got := string(add.Text); got != `+the quick <span class="diff-word">brown</span> fox` {
+		t.Errorf("addition Text = %q, want brown span", got)
+	}
+
+	// Split carries the same spans on the paired Replace cells.
+	sp := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffSplit)
+	var rep *DiffRow
+	for i := range sp.Rows {
+		if sp.Rows[i].Kind == RowReplace {
+			rep = &sp.Rows[i]
+		}
+	}
+	if rep == nil {
+		t.Fatal("expected a Replace row in split mode")
+	}
+	if got := string(rep.OldText); got != `-the quick <span class="diff-word">red</span> fox` {
+		t.Errorf("replace OldText = %q, want red span", got)
+	}
+	if got := string(rep.NewText); got != `+the quick <span class="diff-word">brown</span> fox` {
+		t.Errorf("replace NewText = %q, want brown span", got)
+	}
+}
+
+// TestIntraline_SkipsFullRewrite pins that a pair sharing no word gets no spans: a
+// wholly different line is a rewrite, not an edit, so the whole-line tint stands and
+// the cell text is the plain escaped line.
+func TestIntraline_SkipsFullRewrite(t *testing.T) {
+	patch := "@@ -1,1 +1,1 @@\n-alpha\n+omega"
+	f := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified)
+	for _, r := range f.Rows {
+		if r.Kind == RowDeletion && string(r.Text) != "-alpha" {
+			t.Errorf("rewrite deletion Text = %q, want plain -alpha", r.Text)
+		}
+		if r.Kind == RowAddition && string(r.Text) != "+omega" {
+			t.Errorf("rewrite addition Text = %q, want plain +omega", r.Text)
+		}
+	}
+}
+
+// TestIntraline_EscapesWordSpans pins that the highlighted cell still escapes HTML
+// metacharacters: a changed token carrying < is escaped inside the span, never
+// emitted as live markup.
+func TestIntraline_EscapesWordSpans(t *testing.T) {
+	patch := "@@ -1,1 +1,1 @@\n-tag <a> end\n+tag <b> end"
+	f := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified)
+	for _, r := range f.Rows {
+		if r.Kind != RowAddition {
+			continue
+		}
+		got := string(r.Text)
+		// The only live markup may be the diff-word span; the angle brackets from
+		// the source line must be escaped, never emitted as a tag.
+		if strings.Contains(got, "<b>") || strings.Contains(got, "<a>") {
+			t.Errorf("addition Text left a live tag: %q", got)
+		}
+		if !strings.Contains(got, "&lt;") || !strings.Contains(got, "&gt;") {
+			t.Errorf("addition Text did not escape the source angle brackets: %q", got)
+		}
+		// "b" replaced "a"; only that token is wrapped.
+		if !strings.Contains(got, `<span class="diff-word">b</span>`) {
+			t.Errorf("addition Text is missing the diff-word span around the changed token: %q", got)
+		}
+	}
+}
+
 // TestSplitMode_FileFlagged pins that a file built in DiffSplit reports IsSplit and
 // a unified one does not, the boolean the partial branches the two tables on.
 func TestSplitMode_FileFlagged(t *testing.T) {
