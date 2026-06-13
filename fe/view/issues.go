@@ -187,11 +187,12 @@ type IssueDetailVM struct {
 	Locked    bool
 	EditURL   string // the edit-title form target, shown when the viewer can edit
 	CanEdit   bool
-	Timeline  []CommentVM
-	Sidebar   SidebarVM
-	Composer  ComposerVM
-	Reactions ReactionsVM // the rollup on the opening body
-	FormError string      // a validation message echoed back into the page
+	Timeline      []CommentVM
+	TimelinePager Pager // prev/next over a long comment thread; zero value hides it
+	Sidebar       SidebarVM
+	Composer      ComposerVM
+	Reactions     ReactionsVM // the rollup on the opening body
+	FormError     string      // a validation message echoed back into the page
 }
 
 // NewIssueVM is the new-issue form: the title and body fields (seeded from the

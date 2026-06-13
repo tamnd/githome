@@ -5,6 +5,7 @@ import (
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
+	"github.com/tamnd/githome/fe/view"
 )
 
 // composer.go holds the timeline mutations: adding a comment, toggling the issue
@@ -190,7 +191,9 @@ func (h *Handlers) showWithError(c *mizu.Ctx, repo *domain.Repo, number int64, v
 	if err != nil {
 		return err
 	}
-	vm := h.detail(ctx, c, repo, iss, comments, vc, msg)
+	// The error re-render lands on the first page of the thread, so it carries an
+	// empty pager (a failed comment is rare and the composer is what matters here).
+	vm := h.detail(ctx, c, repo, iss, comments, vc, msg, view.Pager{Page: 1})
 	return h.render.Page(c, "issues/show", vm)
 }
 
