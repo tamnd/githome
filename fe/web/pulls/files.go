@@ -8,6 +8,7 @@ import (
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 )
 
@@ -55,7 +56,8 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 		truncated = true
 	}
 
-	files := diffFiles(changes)
+	mode := diffModeFromQuery(c)
+	files := diffFiles(changes, mode)
 	sortFilesByPath(files)
 
 	vc := h.viewer(c)
@@ -78,6 +80,7 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 		Files:        files,
 		Truncated:    truncated,
 		Review:       h.reviewSurface(ctx, repo, pr, vc),
+		Diff:         diffToggle(route.PullFiles(owner, repo.Name, pr.Number), mode),
 	}
 	return h.render.Page(c, "pulls/files", vm)
 }

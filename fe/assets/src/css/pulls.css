@@ -477,8 +477,52 @@
 }
 
 .diff-code-deletion,
-.diff-row-deletion .diff-gutter {
+.diff-row-deletion .diff-gutter,
+.diff-gutter-deletion {
   background-color: var(--bgColor-danger-muted);
+}
+
+/* Split (side-by-side) diff: the base column sits left of the head column, each
+   with its own gutter, so a deletion and the addition that replaced it line up.
+   The two code columns share the row width evenly; an empty filler cell carries
+   the muted backdrop GitHub shows opposite a one-sided change. */
+.diff-table-split .diff-code {
+  width: 50%;
+}
+
+.diff-table-split .diff-gutter-new {
+  border-left: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.diff-code-empty,
+.diff-gutter-empty {
+  background-color: var(--bgColor-neutral-muted);
+}
+
+/* The unified/split control in the diff summary line: a small segmented toggle,
+   the selected mode filled the way GitHub marks the active view. */
+.diff-mode-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  overflow: hidden;
+}
+
+.diff-mode-option {
+  padding: var(--base-size-4) var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  text-decoration: none;
+}
+
+.diff-mode-option + .diff-mode-option {
+  border-left: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.diff-mode-option.is-selected {
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
 }
 
 /* The merge box at the foot of the Conversation tab. */

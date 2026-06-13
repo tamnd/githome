@@ -253,3 +253,84 @@ func TestOversizedPatch_NoRowsTooLarge(t *testing.T) {
 		t.Errorf("small patch: TooLarge=%v rows=%d, want false and rows", f.TooLarge, len(f.Rows))
 	}
 }
+
+// TestSplitMode_FileFlagged pins that a file built in DiffSplit reports IsSplit and
+// a unified one does not, the boolean the partial branches the two tables on.
+func TestSplitMode_FileFlagged(t *testing.T) {
+	patch := "@@ -1,2 +1,2 @@\n keep\n-old\n+new"
+	if s := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffSplit); !s.IsSplit() {
+		t.Error("split-built file reports IsSplit() = false")
+	}
+	if u := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified); u.IsSplit() {
+		t.Error("unified-built file reports IsSplit() = true")
+	}
+}
+
+// TestSplitCells pins the four split accessors across the row kinds the template
+// feeds them: a replacement splits its text across the two columns, a lone deletion
+// fills the right column empty, a lone addition fills the left empty, and context
+// mirrors on both sides. The classes follow so the stylesheet tints each side right.
+func TestSplitCells(t *testing.T) {
+	// First region: a 2-deletion / 1-addition run pairs a↔c and leaves b a lone
+	// deletion. A context line, then a 1-deletion / 2-addition run pairs d↔e and
+	// leaves f a lone addition. One patch exercises replace, context, lone deletion,
+	// and lone addition together.
+	patch := "@@ -1,6 +1,5 @@\n keep\n-a\n-b\n+c\n mid\n-d\n+e\n+f"
+	f := BuildDiffFile("f.txt", "", StatusModified, 3, 3, patch, DiffSplit)
+
+	byKind := map[RowKind]*DiffRow{}
+	for i := range f.Rows {
+		r := &f.Rows[i]
+		if _, ok := byKind[r.Kind]; !ok {
+			byKind[r.Kind] = r
+		}
+	}
+
+	rep := byKind[RowReplace]
+	if rep == nil {
+		t.Fatal("no RowReplace produced")
+	}
+	if string(rep.LeftText()) != "-a" || string(rep.RightText()) != "+c" {
+		t.Errorf("replace cells = %q / %q, want -a / +c", rep.LeftText(), rep.RightText())
+	}
+	if rep.LeftClass() != "deletion" || rep.RightClass() != "addition" {
+		t.Errorf("replace classes = %q / %q, want deletion / addition", rep.LeftClass(), rep.RightClass())
+	}
+	// The replacement anchors a comment on its head (right) side only.
+	if rep.CommentsLeft() || !rep.CommentsRight() {
+		t.Errorf("replace comments left=%v right=%v, want false/true", rep.CommentsLeft(), rep.CommentsRight())
+	}
+
+	ctx := byKind[RowContext]
+	if ctx == nil {
+		t.Fatal("no RowContext produced")
+	}
+	if string(ctx.LeftText()) != " keep" || string(ctx.RightText()) != " keep" {
+		t.Errorf("context cells = %q / %q, want both ' keep'", ctx.LeftText(), ctx.RightText())
+	}
+	if ctx.LeftClass() != "context" || ctx.RightClass() != "context" {
+		t.Errorf("context classes = %q / %q, want both context", ctx.LeftClass(), ctx.RightClass())
+	}
+
+	del := byKind[RowDeletion]
+	if del == nil {
+		t.Fatal("no lone RowDeletion produced")
+	}
+	if string(del.RightText()) != "" || del.RightClass() != "empty" {
+		t.Errorf("lone deletion right cell = %q class %q, want empty filler", del.RightText(), del.RightClass())
+	}
+	if del.LeftClass() != "deletion" {
+		t.Errorf("lone deletion left class = %q, want deletion", del.LeftClass())
+	}
+
+	add := byKind[RowAddition]
+	if add == nil {
+		t.Fatal("no lone RowAddition produced")
+	}
+	if string(add.LeftText()) != "" || add.LeftClass() != "empty" {
+		t.Errorf("lone addition left cell = %q class %q, want empty filler", add.LeftText(), add.LeftClass())
+	}
+	if add.RightClass() != "addition" {
+		t.Errorf("lone addition right class = %q, want addition", add.RightClass())
+	}
+}

@@ -28,6 +28,38 @@
   {{- else if $file.TooLarge -}}
   <p class="diff-file-note">This file is too large to display.</p>
   {{- else if $file.Rows -}}
+  {{if $file.IsSplit -}}
+  <table class="diff-table diff-table-split" role="presentation">
+    <tbody>
+      {{range $file.Rows -}}
+      {{if .IsHunkHeader -}}
+      <tr class="diff-row diff-row-hunk">
+        <td class="diff-gutter diff-gutter-old" aria-hidden="true"></td>
+        <td class="diff-code diff-code-hunk" colspan="3">{{.Text}}</td>
+      </tr>
+      {{- else -}}
+      <tr class="diff-row diff-row-split">
+        <td class="diff-gutter diff-gutter-old diff-gutter-{{.LeftClass}}">{{.OldLineLabel}}</td>
+        <td class="diff-code diff-code-{{.LeftClass}}"{{if .CommentsLeft}} data-position="{{.Position}}"{{end}}>
+          {{if and $review.CanComment .CommentsLeft}}{{template "inline_composer" (dict "Review" $review "Path" $file.Path "Side" .AnchorSide "Line" .AnchorLine)}}{{end}}
+          {{.LeftText}}
+        </td>
+        <td class="diff-gutter diff-gutter-new diff-gutter-{{.RightClass}}">{{.NewLineLabel}}</td>
+        <td class="diff-code diff-code-{{.RightClass}}"{{if .CommentsRight}} data-position="{{.Position}}"{{end}}>
+          {{if and $review.CanComment .CommentsRight}}{{template "inline_composer" (dict "Review" $review "Path" $file.Path "Side" .AnchorSide "Line" .AnchorLine)}}{{end}}
+          {{.RightText}}
+        </td>
+      </tr>
+      {{range .Threads -}}
+      <tr class="diff-row diff-row-thread">
+        <td class="diff-thread-cell" colspan="4">{{template "review_thread" .}}</td>
+      </tr>
+      {{- end}}
+      {{- end}}
+      {{- end}}
+    </tbody>
+  </table>
+  {{- else -}}
   <table class="diff-table" role="presentation">
     <tbody>
       {{range $file.Rows -}}
@@ -55,6 +87,7 @@
       {{- end}}
     </tbody>
   </table>
+  {{- end}}
   {{- else -}}
   <p class="diff-file-note">No changes to display.</p>
   {{- end}}
