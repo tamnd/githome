@@ -528,3 +528,12 @@ ALTER TABLE branch_protections ADD COLUMN required_conversation_resolution BOOLE
 ALTER TABLE branch_protections ADD COLUMN lock_branch BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE branch_protections ADD COLUMN allow_fork_syncing BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE branch_protections ADD COLUMN required_signatures BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 0033_org_members
+CREATE TABLE IF NOT EXISTS org_members (
+    pk       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    org_pk   BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    user_pk  BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    role     TEXT   NOT NULL DEFAULT 'member',
+    UNIQUE (org_pk, user_pk)
+);

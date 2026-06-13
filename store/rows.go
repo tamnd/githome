@@ -473,6 +473,14 @@ type CollaboratorRow struct {
 	Permission string
 }
 
+// OrgMemberRow is a row of the org_members table.
+type OrgMemberRow struct {
+	PK     int64
+	OrgPK  int64
+	UserPK int64
+	Role   string
+}
+
 // GistRow is a row of the gists table, optionally including the file rows.
 type GistRow struct {
 	PK          int64

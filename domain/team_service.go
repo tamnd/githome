@@ -29,6 +29,13 @@ type TeamStore interface {
 	CollaboratorsByRepo(ctx context.Context, repoPK int64) ([]*store.CollaboratorRow, error)
 	UpsertCollaborator(ctx context.Context, repoPK, userPK int64, permission string) error
 	DeleteCollaborator(ctx context.Context, repoPK, userPK int64) error
+	TeamsByOrg(ctx context.Context, orgPK int64) ([]*store.TeamRow, error)
+	CountTeamMembers(ctx context.Context, teamPK int64) (int, error)
+	CountTeamRepos(ctx context.Context, teamPK int64) (int, error)
+	UpsertOrgMember(ctx context.Context, orgPK, userPK int64, role string) error
+	OrgMemberRole(ctx context.Context, orgPK, userPK int64) (string, error)
+	DeleteOrgMember(ctx context.Context, orgPK, userPK int64) error
+	OrgMembersByOrg(ctx context.Context, orgPK int64) ([]*store.OrgMemberRow, error)
 }
 
 // TeamService manages teams, collaborators, and repository topics.
@@ -252,4 +259,74 @@ func (s *TeamService) RemoveCollaborator(ctx context.Context, repoPK, userPK int
 		return ErrNotFound
 	}
 	return err
+}
+
+// ListTeams returns an org's teams, oldest first.
+func (s *TeamService) ListTeams(ctx context.Context, orgPK int64) ([]*store.TeamRow, error) {
+	return s.store.TeamsByOrg(ctx, orgPK)
+}
+
+// TeamCounts returns how many members and repos a team has.
+func (s *TeamService) TeamCounts(ctx context.Context, teamPK int64) (members, repos int, err error) {
+	if members, err = s.store.CountTeamMembers(ctx, teamPK); err != nil {
+		return 0, 0, err
+	}
+	if repos, err = s.store.CountTeamRepos(ctx, teamPK); err != nil {
+		return 0, 0, err
+	}
+	return members, repos, nil
+}
+
+// AddOrgMember adds or updates a user's org membership. Any role other than
+// admin normalizes to member, GitHub's two-role vocabulary.
+func (s *TeamService) AddOrgMember(ctx context.Context, orgPK, userPK int64, role string) (string, error) {
+	if role != "admin" {
+		role = "member"
+	}
+	return role, s.store.UpsertOrgMember(ctx, orgPK, userPK, role)
+}
+
+// GetOrgMembership returns the role of userPK in orgPK, or ErrNotFound.
+func (s *TeamService) GetOrgMembership(ctx context.Context, orgPK, userPK int64) (string, error) {
+	role, err := s.store.OrgMemberRole(ctx, orgPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", ErrNotFound
+	}
+	return role, err
+}
+
+// RemoveOrgMember removes a user from an org.
+func (s *TeamService) RemoveOrgMember(ctx context.Context, orgPK, userPK int64) error {
+	err := s.store.DeleteOrgMember(ctx, orgPK, userPK)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrNotFound
+	}
+	return err
+}
+
+// OrgMember pairs an org member with the role they hold.
+type OrgMember struct {
+	User *User
+	Role string
+}
+
+// ListOrgMembers returns an org's members with their users resolved, oldest
+// first. A membership whose user has vanished is skipped.
+func (s *TeamService) ListOrgMembers(ctx context.Context, orgPK int64) ([]OrgMember, error) {
+	rows, err := s.store.OrgMembersByOrg(ctx, orgPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrgMember, 0, len(rows))
+	for _, r := range rows {
+		u, err := s.store.UserByPK(ctx, r.UserPK)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, OrgMember{User: userFromRow(u), Role: r.Role})
+	}
+	return out, nil
 }

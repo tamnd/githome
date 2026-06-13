@@ -780,3 +780,12 @@ ALTER TABLE branch_protections ADD COLUMN required_conversation_resolution INTEG
 ALTER TABLE branch_protections ADD COLUMN lock_branch INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE branch_protections ADD COLUMN allow_fork_syncing INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE branch_protections ADD COLUMN required_signatures INTEGER NOT NULL DEFAULT 0;
+
+-- 0033_org_members
+CREATE TABLE org_members (
+    pk       INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_pk   INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    user_pk  INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    role     TEXT    NOT NULL DEFAULT 'member',
+    UNIQUE (org_pk, user_pk)
+);

@@ -224,3 +224,91 @@ func scanTeam(row interface{ Scan(...any) error }) (*TeamRow, error) {
 	t.CreatedAt, t.UpdatedAt = created.Time, updated.Time
 	return &t, nil
 }
+
+// TeamsByOrg lists an org's teams, oldest first.
+func (s *Store) TeamsByOrg(ctx context.Context, orgPK int64) ([]*TeamRow, error) {
+	q := s.rebind(`SELECT ` + teamColumns + ` FROM teams WHERE org_pk = ? ORDER BY pk`)
+	rows, err := s.rdb.QueryContext(ctx, q, orgPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*TeamRow
+	for rows.Next() {
+		t, err := scanTeam(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// CountTeamMembers returns how many users belong to a team.
+func (s *Store) CountTeamMembers(ctx context.Context, teamPK int64) (int, error) {
+	q := s.rebind(`SELECT COUNT(*) FROM team_members WHERE team_pk = ?`)
+	var n int
+	err := s.rdb.QueryRowContext(ctx, q, teamPK).Scan(&n)
+	return n, err
+}
+
+// CountTeamRepos returns how many repositories a team has access to.
+func (s *Store) CountTeamRepos(ctx context.Context, teamPK int64) (int, error) {
+	q := s.rebind(`SELECT COUNT(*) FROM team_repos WHERE team_pk = ?`)
+	var n int
+	err := s.rdb.QueryRowContext(ctx, q, teamPK).Scan(&n)
+	return n, err
+}
+
+// UpsertOrgMember adds or updates a user's membership role in an org.
+func (s *Store) UpsertOrgMember(ctx context.Context, orgPK, userPK int64, role string) error {
+	q := s.rebind(`INSERT INTO org_members (org_pk, user_pk, role) VALUES (?, ?, ?)
+		ON CONFLICT (org_pk, user_pk) DO UPDATE SET role = excluded.role`)
+	_, err := s.db.ExecContext(ctx, q, orgPK, userPK, role)
+	return err
+}
+
+// OrgMemberRole returns the role of a user in an org, or ErrNotFound.
+func (s *Store) OrgMemberRole(ctx context.Context, orgPK, userPK int64) (string, error) {
+	q := s.rebind(`SELECT role FROM org_members WHERE org_pk = ? AND user_pk = ?`)
+	var role string
+	err := s.rdb.QueryRowContext(ctx, q, orgPK, userPK).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return role, err
+}
+
+// DeleteOrgMember removes a user from an org.
+func (s *Store) DeleteOrgMember(ctx context.Context, orgPK, userPK int64) error {
+	q := s.rebind(`DELETE FROM org_members WHERE org_pk = ? AND user_pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, orgPK, userPK)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// OrgMembersByOrg lists an org's membership rows, oldest first.
+func (s *Store) OrgMembersByOrg(ctx context.Context, orgPK int64) ([]*OrgMemberRow, error) {
+	q := s.rebind(`SELECT pk, org_pk, user_pk, role FROM org_members
+		WHERE org_pk = ? ORDER BY pk`)
+	rows, err := s.rdb.QueryContext(ctx, q, orgPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*OrgMemberRow
+	for rows.Next() {
+		var r OrgMemberRow
+		if err := rows.Scan(&r.PK, &r.OrgPK, &r.UserPK, &r.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}

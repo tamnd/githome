@@ -342,9 +342,7 @@ func handleOrgGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		actor := auth.ActorFrom(ctx)
-		authenticated := actor.IsUser() && actor.UserLogin == u.Login
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.User(u, d.NodeFormat, authenticated))
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.Organization(u, d.NodeFormat))
 		return nil
 	}
 }

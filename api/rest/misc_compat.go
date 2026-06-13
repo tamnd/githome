@@ -8,6 +8,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/presenter/restmodel"
 )
 
 // handleRepoLanguages serves GET /repos/{owner}/{repo}/languages.
@@ -65,11 +66,13 @@ func handleRepoCollaboratorsList(d Deps) mizu.Handler {
 	}
 }
 
-// handleOrgMembersList serves GET /orgs/{org}/members.
+// handleOrgMembersList serves GET /orgs/{org}/members. The backing account
+// itself counts as a member (it is the org's built-in admin); persisted
+// memberships follow in grant order.
 func handleOrgMembersList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		actor := auth.ActorFrom(c.Request().Context())
-		org, err := d.Users.ByLogin(c.Request().Context(), c.Param("org"))
+		ctx := c.Request().Context()
+		org, err := d.Users.ByLogin(ctx, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -77,18 +80,39 @@ func handleOrgMembersList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, []any{
-			d.URLs.SimpleUser(org, d.NodeFormat),
-		})
-		_ = actor
+		page, perr := parsePageFor(c, "User")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		out := []restmodel.SimpleUser{d.URLs.SimpleUser(org, d.NodeFormat)}
+		orgPK, err := d.Users.PKByLogin(ctx, org.Login)
+		if err != nil {
+			return err
+		}
+		members, err := d.Teams.ListOrgMembers(ctx, orgPK)
+		if err != nil {
+			return err
+		}
+		for _, m := range members {
+			if m.User.Login == org.Login {
+				continue
+			}
+			out = append(out, d.URLs.SimpleUser(m.User, d.NodeFormat))
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
 
-// handleOrgMemberGet serves GET /orgs/{org}/members/{username}.
+// handleOrgMemberGet serves GET /orgs/{org}/members/{username}: 204 when the
+// user holds a membership (or is the org's backing account), 404 otherwise.
 func handleOrgMemberGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		_, err := d.Users.ByLogin(c.Request().Context(), c.Param("username"))
+		ctx := c.Request().Context()
+		orgPK, err := d.Users.PKByLogin(ctx, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -96,7 +120,22 @@ func handleOrgMemberGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		// In a real org system we'd check membership. For now return 204 (member).
+		userPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if userPK != orgPK {
+			if _, err := d.Teams.GetOrgMembership(ctx, orgPK, userPK); errors.Is(err, domain.ErrNotFound) {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
 		c.Writer().WriteHeader(http.StatusNoContent)
 		return nil
 	}
@@ -305,7 +344,39 @@ func handleSearchLabels(d Deps) mizu.Handler {
 // handleOrgTeamsList serves GET /orgs/{org}/teams.
 func handleOrgTeamsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		ctx := c.Request().Context()
+		org, err := d.Users.ByLogin(ctx, c.Param("org"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		page, perr := parsePageFor(c, "Team")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		orgPK, err := d.Users.PKByLogin(ctx, org.Login)
+		if err != nil {
+			return err
+		}
+		teams, err := d.Teams.ListTeams(ctx, orgPK)
+		if err != nil {
+			return err
+		}
+		out := make([]any, 0, len(teams))
+		for _, t := range teams {
+			j, err := teamJSON(ctx, d, t, org.Login)
+			if err != nil {
+				return err
+			}
+			out = append(out, j)
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
