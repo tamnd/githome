@@ -74,6 +74,7 @@ type loginVM struct {
 type joinVM struct {
 	view.Chrome
 	Action     string
+	ReturnTo   string
 	LoginValue string
 	EmailValue string
 	Error      string
@@ -137,14 +138,19 @@ func (h *Handlers) LoginSubmit(c *mizu.Ctx) error {
 	return c.Redirect(http.StatusSeeOther, returnTo)
 }
 
-// JoinForm renders the sign-up form. A signed-in viewer is redirected to /.
+// JoinForm renders the sign-up form. A signed-in viewer is redirected to the
+// return_to page (or /), the same passthrough the sign-in form does, so a
+// "Create an account" link off a page the viewer was sent to log into lands
+// back where they started once they have an account.
 func (h *Handlers) JoinForm(c *mizu.Ctx) error {
+	returnTo := c.Request().URL.Query().Get("return_to")
 	if view.ViewerFrom(c.Context()) != nil {
-		return c.Redirect(http.StatusSeeOther, "/")
+		return c.Redirect(http.StatusSeeOther, safeReturn(returnTo))
 	}
 	return h.render.Page(c, "auth/join", joinVM{
-		Chrome: h.view.Chrome(c, "Create your account"),
-		Action: route.Join(),
+		Chrome:   h.view.Chrome(c, "Create your account"),
+		Action:   route.Join(),
+		ReturnTo: returnTo,
 	})
 }
 
@@ -158,10 +164,12 @@ func (h *Handlers) JoinSubmit(c *mizu.Ctx) error {
 	login := strings.TrimSpace(c.Request().FormValue("login"))
 	email := strings.TrimSpace(c.Request().FormValue("email"))
 	password := c.Request().FormValue("password")
+	returnTo := safeReturn(c.Request().FormValue("return_to"))
 
 	vm := joinVM{
 		Chrome:     h.view.Chrome(c, "Create your account"),
 		Action:     route.Join(),
+		ReturnTo:   returnTo,
 		LoginValue: login,
 		EmailValue: email,
 	}
@@ -213,7 +221,7 @@ func (h *Handlers) JoinSubmit(c *mizu.Ctx) error {
 	}
 
 	h.sessions.Issue(c, pk, time.Now())
-	return c.Redirect(http.StatusSeeOther, "/")
+	return c.Redirect(http.StatusSeeOther, returnTo)
 }
 
 // LogoutForm renders the sign-out confirmation page. An anonymous request is

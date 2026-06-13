@@ -614,6 +614,14 @@ func mountAuth(page *mizu.Router, d Deps) {
 	page.Get("/logout", ah.LogoutForm)
 	page.Post("/logout/session", ah.LogoutSubmit)
 
+	// GitHub posts sign-in to /session and sign-out to /logout, and serves the
+	// sign-up form at /signup. A bookmark, a saved form, or a script written
+	// against github.com hits those paths; we accept them as aliases of the
+	// canonical routes above so the muscle memory works against a Githome host.
+	page.Post("/session", ah.LoginSubmit)
+	page.Post("/logout", ah.LogoutSubmit)
+	page.Get("/signup", ah.JoinForm)
+
 	if d.OAuthSvc != nil {
 		oh := webauth.NewOAuthHandlers(d.OAuthSvc, d.Render, d.View)
 		page.Get("/login/oauth/authorize", oh.AuthorizeForm)
