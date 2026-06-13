@@ -122,7 +122,10 @@ type Label struct {
 	Name        string   // the label name
 	Color       string   // the six-hex color, no leading hash
 	Description *string  // null when unset
+	IsDefault   bool     // whether the label is one GitHub seeds new repos with
+	URL         URI      // the label's HTML URL (the filtered issue list)
 	CreatedAt   DateTime // creation instant
+	UpdatedAt   DateTime // last rename/recolor; mirrors CreatedAt when untracked
 }
 
 // IsNode marks Label as implementing the Node interface.
@@ -133,9 +136,16 @@ func (l Label) GetID() string { return l.ID }
 
 // LabelConnection is the connection over an issue's or repository's labels.
 type LabelConnection struct {
+	Edges      []*LabelEdge
 	Nodes      []*Label
 	PageInfo   *PageInfo
 	TotalCount int32
+}
+
+// LabelEdge is one edge of a LabelConnection, pairing a label with its cursor.
+type LabelEdge struct {
+	Cursor string
+	Node   *Label
 }
 
 // CommentAuthorAssociation is the GraphQL CommentAuthorAssociation enum: the

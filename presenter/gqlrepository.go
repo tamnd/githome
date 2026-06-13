@@ -134,17 +134,21 @@ func (b *URLBuilder) GQLUser(u *domain.User, format nodeid.Format) *gqlmodel.Use
 	}
 	dbID := int32(u.ID)
 	out := &gqlmodel.User{
-		ID:           nodeid.Encode(nodeid.KindUser, u.ID, format),
-		Login:        u.Login,
-		Name:         u.Name,
-		Email:        u.Email,
-		Bio:          u.Bio,
-		DatabaseID:   &dbID,
-		URL:          gqlmodel.URI(b.UserHTML(u.Login)),
-		AvatarURL:    gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
-		ResourcePath: gqlmodel.URI("/" + u.Login),
-		CreatedAt:    gqlmodel.NewDateTime(u.CreatedAt),
-		UpdatedAt:    gqlmodel.NewDateTime(u.UpdatedAt),
+		ID:              nodeid.Encode(nodeid.KindUser, u.ID, format),
+		Login:           u.Login,
+		Name:            u.Name,
+		Email:           u.Email,
+		Bio:             u.Bio,
+		Company:         u.Company,
+		Location:        u.Location,
+		WebsiteURL:      gqlHomepageURL(&u.Blog),
+		TwitterUsername: u.TwitterUsername,
+		DatabaseID:      &dbID,
+		URL:             gqlmodel.URI(b.UserHTML(u.Login)),
+		AvatarURL:       gqlmodel.URI(b.HTML("avatars", "u", int64str(u.ID))),
+		ResourcePath:    gqlmodel.URI("/" + u.Login),
+		CreatedAt:       gqlmodel.NewDateTime(u.CreatedAt),
+		UpdatedAt:       gqlmodel.NewDateTime(u.UpdatedAt),
 	}
 	return out
 }

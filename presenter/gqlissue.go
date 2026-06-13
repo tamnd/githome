@@ -1,6 +1,7 @@
 package presenter
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/tamnd/githome/domain"
@@ -107,24 +108,36 @@ func gqlReactionGroups(r domain.ReactionRollup) []gqlmodel.ReactionGroup {
 	return out
 }
 
-// GQLLabel renders a domain label into the GraphQL Label shape.
-func (b *URLBuilder) GQLLabel(l *domain.Label, format nodeid.Format) *gqlmodel.Label {
+// GQLLabel renders a domain label into the GraphQL Label shape. owner and repo
+// name the repository the label belongs to, used to build the label's HTML URL
+// (the label-filtered issue list, matching GitHub). Githome does not track a
+// separate label-update instant, so updatedAt mirrors createdAt.
+func (b *URLBuilder) GQLLabel(owner, repo string, l *domain.Label, format nodeid.Format) *gqlmodel.Label {
+	created := gqlmodel.NewDateTime(l.CreatedAt)
 	return &gqlmodel.Label{
 		ID:          nodeid.Encode(nodeid.KindLabel, l.ID, format),
 		Name:        l.Name,
 		Color:       l.Color,
 		Description: l.Description,
-		CreatedAt:   gqlmodel.NewDateTime(l.CreatedAt),
+		IsDefault:   l.Default,
+		URL:         gqlmodel.URI(b.RepoHTML(owner, repo) + "/labels/" + url.PathEscape(l.Name)),
+		CreatedAt:   created,
+		UpdatedAt:   created,
 	}
 }
 
-// gqlLabelConnection builds the label connection embedded on an issue.
-func (b *URLBuilder) gqlLabelConnection(_, _ string, ls []*domain.Label, format nodeid.Format) *gqlmodel.LabelConnection {
+// gqlLabelConnection builds the label connection embedded on an issue. It fills
+// both edges and nodes so a client selecting either shape resolves; the cursor
+// is the label's node ID, the same opaque token the keyset pager would emit.
+func (b *URLBuilder) gqlLabelConnection(owner, repo string, ls []*domain.Label, format nodeid.Format) *gqlmodel.LabelConnection {
 	nodes := make([]*gqlmodel.Label, 0, len(ls))
+	edges := make([]*gqlmodel.LabelEdge, 0, len(ls))
 	for _, l := range ls {
-		nodes = append(nodes, b.GQLLabel(l, format))
+		n := b.GQLLabel(owner, repo, l, format)
+		nodes = append(nodes, n)
+		edges = append(edges, &gqlmodel.LabelEdge{Cursor: n.ID, Node: n})
 	}
-	return &gqlmodel.LabelConnection{Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}
+	return &gqlmodel.LabelConnection{Edges: edges, Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}
 }
 
 // gqlActor renders an issue or comment author into the GraphQL Actor shape,

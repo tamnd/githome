@@ -387,12 +387,6 @@ type MilestoneOrder struct {
 type Mutation struct {
 }
 
-type Organization struct {
-	ID    string  `json:"id"`
-	Login string  `json:"login"`
-	Name  *string `json:"name,omitempty"`
-}
-
 type Project struct {
 	Name string `json:"name"`
 }
@@ -560,10 +554,10 @@ type SubmitPullRequestReviewPayload struct {
 }
 
 type Team struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Slug         string        `json:"slug"`
-	Organization *Organization `json:"organization"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Slug         string                 `json:"slug"`
+	Organization *gqlmodel.Organization `json:"organization"`
 }
 
 func (Team) IsRequestedReviewer() {}

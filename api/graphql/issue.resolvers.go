@@ -345,10 +345,14 @@ func (r *repositoryResolver) Labels(ctx context.Context, obj *gqlmodel.Repositor
 	total := len(labels)
 	start, end := page.window(total)
 	nodes := make([]*gqlmodel.Label, 0, end-start)
+	edges := make([]*gqlmodel.LabelEdge, 0, end-start)
 	for _, l := range labels[start:end] {
-		nodes = append(nodes, r.URLs.GQLLabel(l, r.format(ctx)))
+		n := r.URLs.GQLLabel(owner, name, l, r.format(ctx))
+		nodes = append(nodes, n)
+		edges = append(edges, &gqlmodel.LabelEdge{Cursor: n.ID, Node: n})
 	}
 	return &gqlmodel.LabelConnection{
+		Edges:      edges,
 		Nodes:      nodes,
 		PageInfo:   pageInfoFor(start, end-start, total),
 		TotalCount: int32(total),

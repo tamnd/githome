@@ -222,11 +222,34 @@ type Team {
 }
 
 # Organization is an account that owns repositories and teams. Githome does not
-# model organizations yet; the type exists so team fragments resolve.
-type Organization {
+# model organizations yet; the type exists so team fragments and gh's
+# `... on Organization` inline fragments on repositoryOwner/node resolve.
+type Organization implements Node & Actor & RepositoryOwner {
   id: ID!
   login: String!
   name: String
+  description: String
+  email: String
+  location: String
+  websiteUrl: URI
+  twitterUsername: String
+  # databaseId is the organization's integer database id.
+  databaseId: Int
+  url: URI!
+  avatarUrl(size: Int): URI!
+  resourcePath: URI!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # repositories lists the repositories owned by this organization.
+  repositories(
+    first: Int
+    after: String
+    ownerAffiliations: [RepositoryAffiliation!]
+    isArchived: Boolean
+    isFork: Boolean
+    privacy: RepositoryPrivacy
+    orderBy: RepositoryOrder
+  ): RepositoryConnection!
 }
 
 # PullRequestMergeMethod is the strategy to use when merging a pull request.

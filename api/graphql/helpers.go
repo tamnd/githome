@@ -179,6 +179,32 @@ func (r *Resolver) labelableRefFromID(ctx context.Context, id string) (owner, na
 // viewerID is the request actor's user PK, zero for an anonymous request.
 func viewerID(ctx context.Context) int64 { return auth.ActorFrom(ctx).UserID }
 
+// avatarWithSize applies the optional avatarUrl(size:) argument to a base
+// avatar URL by appending GitHub's `?s=<size>` query. A nil or non-positive
+// size leaves the URL untouched. The base never already carries a query today,
+// so a plain `?` is safe.
+func avatarWithSize(base gqlmodel.URI, size *int32) gqlmodel.URI {
+	if size == nil || *size <= 0 {
+		return base
+	}
+	return base + gqlmodel.URI("?s="+strconv.FormatInt(int64(*size), 10))
+}
+
+// milestoneStateFilter maps the GraphQL milestone state list onto the single
+// state string the issue service understands. A request for exactly one of OPEN
+// or CLOSED narrows to that state; anything else (both, or none) lists all.
+func milestoneStateFilter(states []generated.MilestoneState) string {
+	if len(states) == 1 {
+		switch states[0] {
+		case generated.MilestoneStateOpen:
+			return "open"
+		case generated.MilestoneStateClosed:
+			return "closed"
+		}
+	}
+	return "all"
+}
+
 // splitNWO splits an owner/name string into its two parts.
 func splitNWO(nwo string) (owner, name string) {
 	if i := strings.IndexByte(nwo, '/'); i >= 0 {
@@ -431,7 +457,7 @@ func (r *Resolver) resolveNode(ctx context.Context, id string) (generated.Node, 
 		if err != nil {
 			return nil, err
 		}
-		return r.URLs.GQLLabel(l, r.format(ctx)), nil
+		return r.URLs.GQLLabel(owner, name, l, r.format(ctx)), nil
 	case nodeid.KindMilestone:
 		number, owner, name, err := r.Issues.MilestoneRepoRef(ctx, dbID)
 		if errors.Is(err, domain.ErrMilestoneNotFound) {
