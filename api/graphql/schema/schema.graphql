@@ -29,7 +29,10 @@ interface Node {
 type Query {
   # repository looks up a single repository by its owner login and name. It is
   # null when the repository does not exist or the viewer cannot see it.
-  repository(owner: String!, name: String!): Repository
+  # followRenames asks the lookup to follow a repository that was renamed away
+  # from owner/name to its new path; Githome resolves the current name directly,
+  # so the argument is accepted for wire compatibility and has no effect.
+  repository(owner: String!, name: String!, followRenames: Boolean = true): Repository
   # viewer is the currently authenticated user.
   viewer: User!
   # user looks up a user by login.
@@ -44,10 +47,26 @@ type Query {
   # null when the ID cannot be resolved or the viewer cannot see the object.
   nodes(ids: [ID!]!): [Node]!
   # rateLimit returns the current rate-limit state for the authenticated user.
-  rateLimit: RateLimit
+  # dryRun asks GitHub to compute the cost of the rest of the query without
+  # charging it; Githome reports the same live state either way.
+  rateLimit(dryRun: Boolean = false): RateLimit
   # search returns results matching a query string across repositories, issues,
-  # pull requests, and users.
-  search(query: String!, type: SearchType!, first: Int, after: String): SearchResultItemConnection!
+  # pull requests, and users. first/after page forward; last/before page
+  # backward. first must not exceed 100.
+  search(query: String!, type: SearchType!, first: Int, after: String, last: Int, before: String): SearchResultItemConnection!
+  # license looks up a single open-source license by its SPDX-derived key
+  # (e.g. "mit"). Returns null for an unknown key.
+  license(key: String!): License
+  # licenses lists the open-source licenses Githome can detect and offer.
+  licenses: [License]!
+  # codeOfConduct looks up a single code of conduct by its key (e.g.
+  # "contributor_covenant"). Returns null for an unknown key.
+  codeOfConduct(key: String!): CodeOfConduct
+  # codesOfConduct lists the codes of conduct Githome can offer.
+  codesOfConduct: [CodeOfConduct]!
+  # meta returns information about the running Githome instance, the analogue of
+  # GitHub's /meta endpoint.
+  meta: GitHubMetadata!
 }
 
 # Repository is a git repository.
@@ -224,8 +243,45 @@ type Language {
 
 # License is an open-source license.
 type License {
+  # key is the lowercase identifier GitHub keys licenses by, e.g. "mit".
+  key: String!
   name: String!
+  # nickname is a short common name, e.g. "GNU GPLv3", null when there is none.
+  nickname: String
+  # spdxId is the SPDX short identifier, e.g. "MIT", null when the license has
+  # no SPDX id.
   spdxId: String
+  # url is the HTML page describing the license, null when none is published.
+  url: URI
+  # body is the full license text. It is empty for a license summary that
+  # carries no stored body.
+  body: String!
+}
+
+# CodeOfConduct is a code of conduct a repository can adopt.
+type CodeOfConduct {
+  # key is the lowercase identifier, e.g. "contributor_covenant".
+  key: String!
+  name: String!
+  # body is the full text, empty when only the summary is known.
+  body: String
+  # url is the HTML page for the code of conduct, null when none is published.
+  url: URI
+}
+
+# GitHubMetadata describes the running instance, the analogue of /meta. A
+# self-hosted Githome does not publish GitHub's hosted-service IP ranges, so the
+# address lists come back empty.
+type GitHubMetadata {
+  # gitHubServicesSha is the running build's commit SHA, empty when unknown.
+  gitHubServicesSha: GitObjectID!
+  # isPasswordAuthenticationVerifiable mirrors GitHub's flag; Githome accepts
+  # password auth, so it is true.
+  isPasswordAuthenticationVerifiable: Boolean!
+  gitIpAddresses: [String!]
+  hookIpAddresses: [String!]
+  importerIpAddresses: [String!]
+  pagesIpAddresses: [String!]
 }
 
 # User is a GitHub user account.
@@ -357,6 +413,12 @@ type SearchResultItemConnection {
   repositoryCount: Int!
   userCount: Int!
   wikiCount: Int!
+  # codeCount is the number of code results; Githome does not index code
+  # search, so it is always 0.
+  codeCount: Int!
+  # discussionCount is the number of discussion results; Githome does not model
+  # discussions, so it is always 0.
+  discussionCount: Int!
 }
 
 # SearchResultItemEdge is one search result with its cursor.

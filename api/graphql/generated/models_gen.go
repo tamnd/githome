@@ -177,6 +177,13 @@ type ClosePullRequestPayload struct {
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
+type CodeOfConduct struct {
+	Key  string        `json:"key"`
+	Name string        `json:"name"`
+	Body *string       `json:"body,omitempty"`
+	URL  *gqlmodel.URI `json:"url,omitempty"`
+}
+
 type CommitConnection struct {
 	Nodes      []*gqlmodel.Commit `json:"nodes,omitempty"`
 	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
@@ -386,6 +393,15 @@ type GitActorConnection struct {
 	Nodes      []*GitActor        `json:"nodes,omitempty"`
 	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
 	TotalCount int32              `json:"totalCount"`
+}
+
+type GitHubMetadata struct {
+	GitHubServicesSha                  gqlmodel.GitObjectID `json:"gitHubServicesSha"`
+	IsPasswordAuthenticationVerifiable bool                 `json:"isPasswordAuthenticationVerifiable"`
+	GitIPAddresses                     []string             `json:"gitIpAddresses,omitempty"`
+	HookIPAddresses                    []string             `json:"hookIpAddresses,omitempty"`
+	ImporterIPAddresses                []string             `json:"importerIpAddresses,omitempty"`
+	PagesIPAddresses                   []string             `json:"pagesIpAddresses,omitempty"`
 }
 
 type IssueCommentEdge struct {
@@ -631,6 +647,8 @@ type SearchResultItemConnection struct {
 	RepositoryCount int32                   `json:"repositoryCount"`
 	UserCount       int32                   `json:"userCount"`
 	WikiCount       int32                   `json:"wikiCount"`
+	CodeCount       int32                   `json:"codeCount"`
+	DiscussionCount int32                   `json:"discussionCount"`
 }
 
 type SearchResultItemEdge struct {

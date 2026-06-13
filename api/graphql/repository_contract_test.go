@@ -94,10 +94,12 @@ func graphqlServer(t *testing.T) (*httptest.Server, string) {
 	t.Cleanup(authSvc.Close)
 
 	repoSvc := domain.NewRepoService(st, gitStore)
+	issueSvc := domain.NewIssueService(st, repoSvc)
 	h := graphqlapi.NewHandler(graphqlapi.Deps{
 		Auth:       authSvc,
 		Repos:      repoSvc,
-		Issues:     domain.NewIssueService(st, repoSvc),
+		Issues:     issueSvc,
+		Search:     domain.NewSearchService(st, repoSvc, issueSvc, gitStore),
 		URLs:       presenter.NewURLBuilder(graphqlURLs(t)),
 		NodeFormat: nodeid.FormatNew,
 	})

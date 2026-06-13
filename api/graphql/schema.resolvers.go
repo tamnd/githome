@@ -24,7 +24,7 @@ import (
 // A repository that does not exist or that the actor cannot see resolves to
 // null plus a NOT_FOUND error, the same answer in both cases so a private
 // repo's existence does not leak.
-func (r *queryResolver) Repository(ctx context.Context, owner string, name string) (*gqlmodel.Repository, error) {
+func (r *queryResolver) Repository(ctx context.Context, owner string, name string, followRenames *bool) (*gqlmodel.Repository, error) {
 	actor := auth.ActorFrom(ctx)
 	repo, err := r.Repos.GetRepo(ctx, actor.UserID, owner, name)
 	if errors.Is(err, domain.ErrRepoNotFound) {
@@ -127,7 +127,7 @@ func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.No
 // node-count walk computes for the in-flight operation, charged against the
 // fixed hourly budget. Githome does not deduct from the budget across requests,
 // so used is this call's cost and remaining is the budget less that cost.
-func (r *queryResolver) RateLimit(ctx context.Context) (*gqlmodel.RateLimit, error) {
+func (r *queryResolver) RateLimit(ctx context.Context, dryRun *bool) (*gqlmodel.RateLimit, error) {
 	nodeCount, cost := queryCost(ctx)
 	return &gqlmodel.RateLimit{
 		Limit:     rateLimitBudget,
@@ -141,13 +141,25 @@ func (r *queryResolver) RateLimit(ctx context.Context) (*gqlmodel.RateLimit, err
 
 // Search is the resolver for the search field. It fans out to the domain search
 // service depending on the requested type. Only REPOSITORY and ISSUE are
-// implemented today; other types return an empty connection.
-func (r *queryResolver) Search(ctx context.Context, query string, typeArg generated.SearchType, first *int32, after *string) (*generated.SearchResultItemConnection, error) {
+// implemented today; other types return an empty connection. first/after page
+// forward, last/before backward; the page size must not exceed 100, matching
+// GitHub, which errors rather than silently clamping.
+func (r *queryResolver) Search(ctx context.Context, query string, typeArg generated.SearchType, first *int32, after *string, last *int32, before *string) (*generated.SearchResultItemConnection, error) {
 	limit := int32(30)
-	if first != nil && *first > 0 {
-		limit = *first
-		if limit > 100 {
-			limit = 100
+	if first != nil {
+		if *first > 100 {
+			return nil, errors.New("first must be less than or equal to 100")
+		}
+		if *first > 0 {
+			limit = *first
+		}
+	}
+	if last != nil {
+		if *last > 100 {
+			return nil, errors.New("last must be less than or equal to 100")
+		}
+		if *last > 0 {
+			limit = *last
 		}
 	}
 	conn := &generated.SearchResultItemConnection{
@@ -199,6 +211,39 @@ func (r *queryResolver) Search(ctx context.Context, query string, typeArg genera
 		conn.Edges = append(conn.Edges, &generated.SearchResultItemEdge{Cursor: encodeCursor(i + 1), Node: node})
 	}
 	return conn, nil
+}
+
+// License is the resolver for the license field. It looks up a license in the
+// static registry by its GitHub key; an unknown key resolves to null.
+func (r *queryResolver) License(ctx context.Context, key string) (*gqlmodel.License, error) {
+	return licenseByKey(key), nil
+}
+
+// Licenses is the resolver for the licenses field. It returns the static
+// license registry in GitHub's picker order.
+func (r *queryResolver) Licenses(ctx context.Context) ([]*gqlmodel.License, error) {
+	return staticLicenses, nil
+}
+
+// CodeOfConduct is the resolver for the codeOfConduct field. It looks up a code
+// of conduct in the static registry by key; an unknown key resolves to null.
+func (r *queryResolver) CodeOfConduct(ctx context.Context, key string) (*generated.CodeOfConduct, error) {
+	return codeOfConductByKey(key), nil
+}
+
+// CodesOfConduct is the resolver for the codesOfConduct field.
+func (r *queryResolver) CodesOfConduct(ctx context.Context) ([]*generated.CodeOfConduct, error) {
+	return staticCodesOfConduct, nil
+}
+
+// Meta is the resolver for the meta field. It reports the running instance's
+// build version and that Githome accepts password auth. A self-hosted instance
+// does not publish GitHub's hosted-service IP ranges, so those lists are empty.
+func (r *queryResolver) Meta(ctx context.Context) (*generated.GitHubMetadata, error) {
+	return &generated.GitHubMetadata{
+		GitHubServicesSha:                  gqlmodel.GitObjectID(""),
+		IsPasswordAuthenticationVerifiable: true,
+	}, nil
 }
 
 // ViewerPermission is the resolver for the viewerPermission field. The presenter
