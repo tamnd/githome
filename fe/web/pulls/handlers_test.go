@@ -138,6 +138,7 @@ func newFixture(t *testing.T) fixture {
 	pg.Get("/{owner}/{repo}/pull/{number}", h.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", h.Commits)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", h.Files)
+	pg.Get("/{owner}/{repo}/pull/{number}/files/expand", h.ExpandDiff)
 	pg.Get("/{owner}/{repo}/pull/{number}/checks", h.Checks)
 	pg.Get("/{owner}/{repo}/pull/{number}/partials/merge-box", h.MergeBox)
 
@@ -345,6 +346,39 @@ func TestFilesTabSplitMode(t *testing.T) {
 	// The split view never disturbs the path or the file content.
 	if !strings.Contains(split, "b.txt") {
 		t.Errorf("split files tab dropped the changed file path:\n%s", split)
+	}
+}
+
+func TestExpandDiffFragment(t *testing.T) {
+	fx := newFixture(t)
+
+	// a.txt is unchanged on the feature branch and has one line; unfolding line 1
+	// reads it from the head blob and returns a context row, not the page chrome.
+	path := "/octocat/hello/pull/" + itoa(fx.prNum) + "/files/expand"
+	resp, body := get(t, fx.srv, path+"?path=a.txt&sha="+fx.headSHA+"&os=1&ns=1&n=1")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expand status %d, want 200", resp.StatusCode)
+	}
+	if strings.Contains(body, "<html") {
+		t.Errorf("expand fragment leaked the page chrome:\n%s", body)
+	}
+	if !strings.Contains(body, "diff-row-context") {
+		t.Errorf("expand fragment is missing the context row:\n%s", body)
+	}
+	if !strings.Contains(body, "one") {
+		t.Errorf("expand fragment did not read the blob line:\n%s", body)
+	}
+
+	// A missing path is the soft 404 the diff page uses, not a 500.
+	bad, _ := get(t, fx.srv, path+"?path=nope.txt&sha="+fx.headSHA+"&os=1&ns=1&n=1")
+	if bad.StatusCode != http.StatusNotFound {
+		t.Errorf("expand of a missing file status = %d, want 404", bad.StatusCode)
+	}
+
+	// A request missing the required line params is rejected, not served empty.
+	missing, _ := get(t, fx.srv, path+"?path=a.txt&sha="+fx.headSHA)
+	if missing.StatusCode != http.StatusNotFound {
+		t.Errorf("expand without line params status = %d, want 404", missing.StatusCode)
 	}
 }
 
