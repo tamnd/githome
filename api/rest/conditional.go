@@ -15,9 +15,8 @@ import (
 // Link or other headers first, then hand the value here so the validator check
 // runs against the same representation the client would receive.
 //
-// GitHub does not spend rate-limit quota on a 304. Githome does not meter
-// per-request quota yet, so there is nothing to refund; when the limiter lands,
-// the refund hangs here, before the body is skipped.
+// GitHub does not spend rate-limit quota on a 304, so the 304 path refunds the
+// unit the limiter charged this request before writing the response.
 func conditionalJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {
@@ -27,6 +26,7 @@ func conditionalJSON(w http.ResponseWriter, r *http.Request, status int, v any) 
 	tag := etag.Weak(body)
 	w.Header().Set("ETag", tag)
 	if etag.Match(r.Header.Get("If-None-Match"), tag) {
+		refundRateConditional(w, r)
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -45,6 +45,7 @@ func notModified(w http.ResponseWriter, r *http.Request, tag string) bool {
 		return false
 	}
 	w.Header().Set("ETag", tag)
+	refundRateConditional(w, r)
 	w.WriteHeader(http.StatusNotModified)
 	return true
 }
@@ -59,6 +60,7 @@ func notModified(w http.ResponseWriter, r *http.Request, tag string) bool {
 func conditionalVersioned(w http.ResponseWriter, r *http.Request, status int, v any, tag string) {
 	w.Header().Set("ETag", tag)
 	if etag.Match(r.Header.Get("If-None-Match"), tag) {
+		refundRateConditional(w, r)
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}

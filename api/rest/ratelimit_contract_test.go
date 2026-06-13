@@ -153,6 +153,44 @@ func TestRateLimitAuthedBucket(t *testing.T) {
 	}
 }
 
+// TestRateLimitConditional304NoSpend checks a conditional GET that answers 304
+// does not spend rate-limit quota: GitHub charges nothing for a 304, so the
+// remaining and used counts must hold steady across the conditional request,
+// and the 304 response itself must report the held-steady numbers.
+func TestRateLimitConditional304NoSpend(t *testing.T) {
+	fx := issueServer(t)
+
+	// A first GET both spends a unit and hands back the ETag to validate against.
+	resp, body := get(t, fx.srv, "/repos/octocat/hello")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("first GET status %d, body %s", resp.StatusCode, body)
+	}
+	tag := resp.Header.Get("ETag")
+	if tag == "" {
+		t.Fatal("first GET did not set an ETag")
+	}
+	_, remaining1, used1, _ := rateHeaders(t, resp)
+
+	// The conditional GET returns 304 and must leave the bucket untouched.
+	resp2, _ := getWith(t, fx.srv, "/repos/octocat/hello", map[string]string{"If-None-Match": tag})
+	if resp2.StatusCode != http.StatusNotModified {
+		t.Fatalf("conditional GET status %d, want 304", resp2.StatusCode)
+	}
+	_, remaining2, used2, _ := rateHeaders(t, resp2)
+	if remaining2 != remaining1 || used2 != used1 {
+		t.Errorf("304 spent quota: remaining %d->%d, used %d->%d, want held at %d/%d",
+			remaining1, remaining2, used1, used2, remaining1, used1)
+	}
+
+	// A following full GET confirms the meter resumes from the held value: it
+	// spends exactly one beyond the first request, proving the 304 refund did not
+	// leak an extra unit either.
+	resp3, _ := get(t, fx.srv, "/repos/octocat/hello")
+	if _, _, used3, _ := rateHeaders(t, resp3); used3 != used1+1 {
+		t.Errorf("used after 304 then GET = %d, want %d", used3, used1+1)
+	}
+}
+
 // TestRateLimitSearchResource checks search requests spend the separate
 // per-minute search bucket: resource name, the anonymous 10-a-minute budget,
 // and no charge to core.
