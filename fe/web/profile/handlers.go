@@ -37,6 +37,7 @@ type Deps struct {
 	Users  *domain.UserService
 	Events *domain.EventService
 	Search *domain.SearchService
+	Social *domain.SocialService
 	URLs   *presenter.URLBuilder
 	Render *render.Set
 	View   *view.Builder
@@ -49,6 +50,7 @@ type Handlers struct {
 	users  *domain.UserService
 	events *domain.EventService
 	search *domain.SearchService
+	social *domain.SocialService
 	urls   *presenter.URLBuilder
 	render *render.Set
 	view   *view.Builder
@@ -61,6 +63,7 @@ func New(d Deps) *Handlers {
 		users:  d.Users,
 		events: d.Events,
 		search: d.Search,
+		social: d.Social,
 		urls:   d.URLs,
 		render: d.Render,
 		view:   d.View,

@@ -17,6 +17,9 @@ package view
 const (
 	ProfileOverview     = "overview"
 	ProfileRepositories = "repositories"
+	ProfileStars        = "stars"
+	ProfileFollowers    = "followers"
+	ProfileFollowing    = "following"
 )
 
 // ProfileHeaderVM is the identity card a profile wears: the login and display
@@ -115,13 +118,55 @@ type ProfileReposVM struct {
 	Sorts []SearchSortOption
 	Pager Pager
 
+	Query      string // the active ?q= filter, echoed back into the find-a-repo box
+	OwnerLogin string // the account login, the find-a-repo form's action target
+
+	Empty       bool
+	EmptyReason string
+}
+
+// UserCardVM is one entry in a people list (followers, following): the account's
+// login and display name, its avatar, a short bio line, and the link to its
+// profile. Every field is resolved in the handler so the template only prints,
+// the same contract the rest of the profile models follow.
+type UserCardVM struct {
+	Login      string
+	Name       string
+	AvatarURL  string
+	Bio        string
+	ProfileURL string
+}
+
+// ProfileStarsVM is the stars tab body: the repositories the account has starred,
+// filtered by the viewer's visibility, with a pager. It reuses the search row the
+// repositories tab and the search page render, so a starred repository looks the
+// same wherever it appears. An account that has starred nothing the viewer can see
+// renders the blankslate.
+type ProfileStarsVM struct {
+	Items []RepoResultVM
+	Pager Pager
+
+	Empty       bool
+	EmptyReason string
+}
+
+// ProfilePeopleVM is a followers or following tab body: a list of accounts with the
+// pager, and the blankslate for an account with no followers (or that follows no
+// one). The Heading names which list it is so the template needs no per-tab branch.
+type ProfilePeopleVM struct {
+	Heading string
+	Users   []UserCardVM
+	Pager   Pager
+
 	Empty       bool
 	EmptyReason string
 }
 
 // ProfilePageVM is the whole profile page: the shell, the identity header, the tab
-// strip, and exactly one tab body filled (the overview or the repositories tab).
-// The template switches on ActiveTab so the unused body is zero.
+// strip, and exactly one tab body filled (the overview, repositories, stars, or a
+// people list). The template switches on ActiveTab so the unused bodies are zero.
+// FollowersURL and FollowingURL link the identity card's count line to the people
+// tabs, the way GitHub's profile sidebar does.
 type ProfilePageVM struct {
 	Chrome Chrome
 	Header ProfileHeaderVM
@@ -129,8 +174,13 @@ type ProfilePageVM struct {
 	Tabs      []ProfileTab
 	ActiveTab string
 
+	FollowersURL string
+	FollowingURL string
+
 	Overview ProfileOverviewVM
 	Repos    ProfileReposVM
+	Stars    ProfileStarsVM
+	People   ProfilePeopleVM
 }
 
 // ProfileTabOr validates a requested ?tab= against the two backed tabs and falls
@@ -141,6 +191,12 @@ func ProfileTabOr(raw string) string {
 	switch raw {
 	case ProfileRepositories:
 		return ProfileRepositories
+	case ProfileStars:
+		return ProfileStars
+	case ProfileFollowers:
+		return ProfileFollowers
+	case ProfileFollowing:
+		return ProfileFollowing
 	default:
 		return ProfileOverview
 	}

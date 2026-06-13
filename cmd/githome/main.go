@@ -278,6 +278,10 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, authSvc
 		return nil, err
 	}
 
+	// The social service backs the profile's stars, followers, and following tabs,
+	// the same domain service the REST social routes use.
+	socialSvc := domain.NewSocialService(st)
+
 	// The markup renderer is the one path from file or comment content to trusted
 	// HTML. It is built here and shared by the web front (and later the REST
 	// text/html media type) so both surfaces apply the same allowlist and link
@@ -321,6 +325,7 @@ func mountWeb(root *mizu.Router, cfg config.Config, logger *slog.Logger, authSvc
 		Search:        search,
 		Users:         users,
 		Events:        events,
+		Social:        socialSvc,
 		Notifications: notifications,
 		URLs:          urls,
 		Markup:        markupRenderer,

@@ -84,6 +84,15 @@ func newFixture(t *testing.T) fixture {
 		t.Fatalf("insert org: %v", err)
 	}
 
+	// A second user who follows octocat and stars its repo, so the followers and
+	// stars tabs have a real row to render. octocat follows this user back, so the
+	// following tab also has one.
+	hubberBio := "frontend tinkerer"
+	hubber := &store.UserRow{Login: "hubber", Type: "User", Bio: &hubberBio}
+	if err := st.InsertUser(ctx, hubber); err != nil {
+		t.Fatalf("insert hubber: %v", err)
+	}
+
 	desc := "the hello repo"
 	hello := &store.RepoRow{OwnerPK: octocat.PK, Name: "hello", Description: &desc, DefaultBranch: "main"}
 	if err := st.InsertRepo(ctx, hello); err != nil {
@@ -98,6 +107,23 @@ func newFixture(t *testing.T) fixture {
 	secret := &store.RepoRow{OwnerPK: octocat.PK, Name: "secret", Private: true, DefaultBranch: "main"}
 	if err := st.InsertRepo(ctx, secret); err != nil {
 		t.Fatalf("insert secret: %v", err)
+	}
+
+	// octocat stars the public hello repo and its own private secret repo, so the
+	// stars tab proves it lists the public one and hides the private one from the
+	// anonymous viewer. octocat follows hubber and hubber follows octocat, so the
+	// following and followers tabs each have a row.
+	if err := st.InsertStar(ctx, octocat.PK, hello.PK); err != nil {
+		t.Fatalf("star hello: %v", err)
+	}
+	if err := st.InsertStar(ctx, octocat.PK, secret.PK); err != nil {
+		t.Fatalf("star secret: %v", err)
+	}
+	if err := st.InsertFollow(ctx, octocat.PK, hubber.PK); err != nil {
+		t.Fatalf("octocat follows hubber: %v", err)
+	}
+	if err := st.InsertFollow(ctx, hubber.PK, octocat.PK); err != nil {
+		t.Fatalf("hubber follows octocat: %v", err)
 	}
 
 	// Two public events on the hello repo, seeded with the rendered Events-API
@@ -131,6 +157,7 @@ func newFixture(t *testing.T) fixture {
 	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
 	userSvc := domain.NewUserService(st)
 	eventSvc := domain.NewEventService(st, repoSvc)
+	socialSvc := domain.NewSocialService(st)
 
 	renderSet, err := render.New(assets.FS(), false)
 	if err != nil {
@@ -142,6 +169,7 @@ func newFixture(t *testing.T) fixture {
 		Users:  userSvc,
 		Events: eventSvc,
 		Search: searchSvc,
+		Social: socialSvc,
 		URLs:   presenter.NewURLBuilder(testURLs(t)),
 		Render: renderSet,
 		View:   view.NewBuilder("Githome"),
@@ -266,6 +294,71 @@ func TestRepositoriesTab(t *testing.T) {
 	// The private repo never appears in the anonymous repositories tab.
 	if strings.Contains(body, "octocat/secret") {
 		t.Errorf("private repo leaked into the anonymous repositories tab:\n%s", body)
+	}
+}
+
+func TestStarsTab(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat?tab=stars")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// The stars tab lists the publicly visible starred repo.
+	if !strings.Contains(body, "octocat/hello") {
+		t.Errorf("stars tab is missing the starred repo:\n%s", body)
+	}
+	// The private starred repo never appears for the anonymous viewer.
+	if strings.Contains(body, "octocat/secret") {
+		t.Errorf("private starred repo leaked into the anonymous stars tab:\n%s", body)
+	}
+	// The Stars tab is in the strip and marked current.
+	if !strings.Contains(body, `aria-current="page"`) {
+		t.Errorf("stars tab is missing the active-tab marker:\n%s", body)
+	}
+}
+
+func TestFollowersTab(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat?tab=followers")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// hubber follows octocat, so the followers list shows hubber with its bio.
+	for _, want := range []string{"Followers", "hubber", "frontend tinkerer"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("followers tab is missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestFollowingTab(t *testing.T) {
+	fx := newFixture(t)
+	resp, body := get(t, fx.srv, "/octocat?tab=following")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	// octocat follows hubber, so the following list shows hubber.
+	for _, want := range []string{"Following", "hubber"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("following tab is missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestRepositoriesTabQueryFilter(t *testing.T) {
+	fx := newFixture(t)
+	// A ?q= that matches the repo name keeps it; one that matches nothing empties
+	// the list, proving the tab honors the filter rather than ignoring it.
+	_, hit := get(t, fx.srv, "/octocat?tab=repositories&q=hello")
+	if !strings.Contains(hit, "octocat/hello") {
+		t.Errorf("repositories ?q=hello dropped the matching repo:\n%s", hit)
+	}
+	_, miss := get(t, fx.srv, "/octocat?tab=repositories&q=zzznomatch")
+	if strings.Contains(miss, "octocat/hello") {
+		t.Errorf("repositories ?q=zzznomatch still listed the repo:\n%s", miss)
+	}
+	if !strings.Contains(miss, "No repositories matched") {
+		t.Errorf("repositories ?q= miss is missing the no-match blankslate:\n%s", miss)
 	}
 }
 

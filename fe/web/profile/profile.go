@@ -3,6 +3,7 @@ package profile
 import (
 	"github.com/go-mizu/mizu"
 
+	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
 	"github.com/tamnd/githome/fe/webmw"
 )
@@ -25,9 +26,11 @@ func (h *Handlers) Show(c *mizu.Ctx) error {
 
 	tab := view.ProfileTabOr(c.Query("tab"))
 	vm := view.ProfilePageVM{
-		Header:    h.header(u),
-		ActiveTab: tab,
-		Tabs:      h.tabs(u, tab),
+		Header:       h.header(u),
+		ActiveTab:    tab,
+		Tabs:         h.tabs(u, tab),
+		FollowersURL: route.ProfileTab(u.Login, view.ProfileFollowers),
+		FollowingURL: route.ProfileTab(u.Login, view.ProfileFollowing),
 	}
 	title := u.Login
 	if u.Name != nil && *u.Name != "" {
@@ -37,11 +40,29 @@ func (h *Handlers) Show(c *mizu.Ctx) error {
 
 	switch tab {
 	case view.ProfileRepositories:
-		repos, err := h.repositories(ctx, viewer, u, c.Query("sort"), c.Query("order"), pageParam(c))
+		repos, err := h.repositories(ctx, viewer, u, c.Query("q"), c.Query("sort"), c.Query("order"), pageParam(c))
 		if err != nil {
 			return err
 		}
 		vm.Repos = repos
+	case view.ProfileStars:
+		stars, err := h.stars(ctx, viewer, u, pageParam(c))
+		if err != nil {
+			return err
+		}
+		vm.Stars = stars
+	case view.ProfileFollowers:
+		people, err := h.followers(ctx, u, pageParam(c))
+		if err != nil {
+			return err
+		}
+		vm.People = people
+	case view.ProfileFollowing:
+		people, err := h.following(ctx, u, pageParam(c))
+		if err != nil {
+			return err
+		}
+		vm.People = people
 	default:
 		overview, err := h.overview(ctx, viewer, u)
 		if err != nil {

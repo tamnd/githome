@@ -278,13 +278,36 @@
   color: var(--fgColor-muted);
 }
 
-/* The repositories tab: the sort menu and the repository list. */
+/* The repositories tab: the find-a-repo box, sort menu, and repository list. */
 .profile-repos-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
   padding-bottom: var(--base-size-8);
   margin-bottom: var(--base-size-8);
   border-bottom: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.profile-repos-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-repos-find {
+  width: 100%;
+  max-width: 340px;
+  padding: var(--base-size-4) var(--base-size-8);
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-default);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.profile-repos-find:focus {
+  outline: none;
+  border-color: var(--borderColor-accent-emphasis);
+  box-shadow: 0 0 0 1px var(--borderColor-accent-emphasis);
 }
 
 .profile-sort {
@@ -411,4 +434,52 @@
 /* profile-tab-label: text label inside a profile tab link. */
 .profile-tab-label {
   flex: 1 1 auto;
+}
+
+/* profile-people: the followers / following tab body. */
+.profile-people {
+  min-width: 0;
+}
+
+.profile-people-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--base-size-16);
+}
+
+.profile-person {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-12);
+  padding: var(--base-size-16);
+  border: var(--borderWidth-thin) solid var(--borderColor-muted);
+  border-radius: var(--borderRadius-medium);
+}
+
+.profile-person-avatar img {
+  display: block;
+  border-radius: var(--borderRadius-full);
+}
+
+.profile-person-body {
+  min-width: 0;
+}
+
+.profile-person-name {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.profile-person-login {
+  margin-left: var(--base-size-4);
+  color: var(--fgColor-muted);
+}
+
+.profile-person-bio {
+  margin-top: var(--base-size-4);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
 }
