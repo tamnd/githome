@@ -45,11 +45,58 @@ func SettingsTokens() string {
 	return "/settings/tokens"
 }
 
+// SettingsTokenNew is the mint-a-token form, /settings/tokens/new, the
+// dedicated page github.com shows for creating a classic token. It is a literal
+// segment registered before the {id}/delete route, so "new" is never read as a
+// token id.
+func SettingsTokenNew() string {
+	return SettingsTokens() + "/new"
+}
+
 // SettingsTokenDelete is the delete-token POST target,
 // /settings/tokens/{id}/delete. Deleting is a POST, never a GET, so a crawler
 // or a prefetch cannot revoke a credential.
 func SettingsTokenDelete(id int64) string {
 	return SettingsTokens() + "/" + strconv.FormatInt(id, 10) + "/delete"
+}
+
+// The remaining account-settings sections are documented github.com URLs that
+// Githome does not yet back. Each resolves to an honest-absence stub inside the
+// settings chrome rather than a site-wide 404, so the URL is recognized and the
+// section reads as planned rather than broken. See 2005/review/01 R01-50.
+
+// SettingsEmails is the email-addresses page, /settings/emails.
+func SettingsEmails() string {
+	return "/settings/emails"
+}
+
+// SettingsNotifications is the notification preferences page,
+// /settings/notifications (distinct from the /notifications inbox).
+func SettingsNotifications() string {
+	return "/settings/notifications"
+}
+
+// SettingsSecurity is the password and authentication page,
+// /settings/security.
+func SettingsSecurity() string {
+	return "/settings/security"
+}
+
+// SettingsOrganizations is the organization membership page,
+// /settings/organizations.
+func SettingsOrganizations() string {
+	return "/settings/organizations"
+}
+
+// SettingsApplications is the authorized applications page,
+// /settings/applications.
+func SettingsApplications() string {
+	return "/settings/applications"
+}
+
+// SettingsDevelopers is the developer settings landing, /settings/developers.
+func SettingsDevelopers() string {
+	return "/settings/developers"
 }
 
 // RepoSettings is a repository's settings root, /{owner}/{repo}/settings. It

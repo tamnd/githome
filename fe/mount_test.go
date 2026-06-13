@@ -121,7 +121,7 @@ func TestUnknownPathRendersThemed404(t *testing.T) {
 	// None of these is mounted: a repo sub-page the front does not serve yet, a
 	// settings section that does not exist, and a top-level path no route owns.
 	// Each renders the full themed 404, never the mux's plain-text one.
-	for _, path := range []string{"/octocat/repo/wiki", "/settings/security", "/no-such-page"} {
+	for _, path := range []string{"/octocat/repo/wiki", "/settings/no-such-section", "/no-such-page"} {
 		resp, body := get(t, srv, path)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("GET %s = %d, want 404", path, resp.StatusCode)
