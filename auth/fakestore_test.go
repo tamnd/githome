@@ -211,6 +211,14 @@ func (f *fakeStore) InstallationByPK(_ context.Context, _ int64) (*store.Install
 	return nil, store.ErrNotFound
 }
 
+func (f *fakeStore) InstallationByDBID(_ context.Context, _ int64) (*store.InstallationRow, error) {
+	return nil, store.ErrNotFound
+}
+
+func (f *fakeStore) InstallationByAppAndAccount(_ context.Context, _, _ int64) (*store.InstallationRow, error) {
+	return nil, store.ErrNotFound
+}
+
 func (f *fakeStore) InstallationsByAppPK(_ context.Context, _ int64) ([]*store.InstallationRow, error) {
 	return nil, nil
 }

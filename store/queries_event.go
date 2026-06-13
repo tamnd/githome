@@ -83,12 +83,14 @@ func (s *Store) SetEventPayload(ctx context.Context, pk int64, payload string) e
 }
 
 // EventFilter selects a slice of the activity feed. RepoPK and ActorPK are the
-// per-repository and per-user scopes; PublicOnly applies the visibility filter
-// the unauthenticated Events API enforces (the repo is public and the event is
-// public). Limit caps the page.
+// per-repository and per-user scopes; OwnerPK scopes to every repository a user
+// or organization owns (the org timeline); PublicOnly applies the visibility
+// filter the unauthenticated Events API enforces (the repo is public and the
+// event is public). Limit caps the page.
 type EventFilter struct {
 	RepoPK     *int64
 	ActorPK    *int64
+	OwnerPK    *int64
 	PublicOnly bool
 	Limit      int
 }
@@ -108,6 +110,10 @@ func (s *Store) ListEvents(ctx context.Context, f EventFilter) ([]EventRow, erro
 	if f.ActorPK != nil {
 		where = append(where, `e.actor_pk = ?`)
 		args = append(args, *f.ActorPK)
+	}
+	if f.OwnerPK != nil {
+		where = append(where, `r.owner_pk = ?`)
+		args = append(args, *f.OwnerPK)
 	}
 	if f.PublicOnly {
 		where = append(where, `r.private = ? AND e.public = ?`)

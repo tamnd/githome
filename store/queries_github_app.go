@@ -9,6 +9,73 @@ import (
 const githubAppColumns = `pk, db_id, owner_pk, slug, name, client_id,
 	private_key_pem, permissions, events, created_at`
 
+// InsertGitHubApp registers a GitHub App. The installer seeds the first-party
+// app this way; tests use it to set up the app-auth surface. A zero Permissions
+// or Events string defaults to the empty JSON object/array the columns require.
+func (s *Store) InsertGitHubApp(ctx context.Context, a *GitHubAppRow) error {
+	dbID, err := s.AllocDBID(ctx)
+	if err != nil {
+		return err
+	}
+	a.DBID = dbID
+	if a.Permissions == "" {
+		a.Permissions = "{}"
+	}
+	if a.Events == "" {
+		a.Events = "[]"
+	}
+	q := s.rebind(`INSERT INTO github_apps
+		(db_id, owner_pk, slug, name, client_id, private_key_pem, permissions, events)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		RETURNING pk, created_at`)
+	var created nullTime
+	if err := s.db.QueryRowContext(ctx, q,
+		a.DBID, a.OwnerPK, a.Slug, a.Name, a.ClientID, a.PrivateKeyPEM, a.Permissions, a.Events,
+	).Scan(&a.PK, &created); err != nil {
+		return err
+	}
+	a.CreatedAt = created.Time
+	return nil
+}
+
+// InsertInstallation records an app installation on an account.
+func (s *Store) InsertInstallation(ctx context.Context, in *InstallationRow) error {
+	dbID, err := s.AllocDBID(ctx)
+	if err != nil {
+		return err
+	}
+	in.DBID = dbID
+	if in.RepositorySelection == "" {
+		in.RepositorySelection = "all"
+	}
+	if in.Permissions == "" {
+		in.Permissions = "{}"
+	}
+	if in.Events == "" {
+		in.Events = "[]"
+	}
+	q := s.rebind(`INSERT INTO installations
+		(db_id, app_pk, account_pk, repository_selection, permissions, events, suspended_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		RETURNING pk, created_at`)
+	var created nullTime
+	if err := s.db.QueryRowContext(ctx, q,
+		in.DBID, in.AppPK, in.AccountPK, in.RepositorySelection, in.Permissions, in.Events, argTime(in.SuspendedAt),
+	).Scan(&in.PK, &created); err != nil {
+		return err
+	}
+	in.CreatedAt = created.Time
+	return nil
+}
+
+// InsertInstallationRepo grants a "selected"-scope installation access to a
+// repository.
+func (s *Store) InsertInstallationRepo(ctx context.Context, instPK, repoPK int64) error {
+	q := s.rebind(`INSERT INTO installation_repositories (installation_pk, repo_pk) VALUES (?, ?)`)
+	_, err := s.db.ExecContext(ctx, q, instPK, repoPK)
+	return err
+}
+
 // GitHubAppByPK loads a GitHub App by its internal primary key.
 func (s *Store) GitHubAppByPK(ctx context.Context, pk int64) (*GitHubAppRow, error) {
 	q := s.rebind(`SELECT ` + githubAppColumns + ` FROM github_apps WHERE pk = ?`)
@@ -30,6 +97,13 @@ func (s *Store) InstallationByPK(ctx context.Context, pk int64) (*InstallationRo
 	return scanInstallation(s.rdb.QueryRowContext(ctx, q, pk))
 }
 
+// InstallationByDBID loads an installation by its public database id, the id
+// the installation object and its access_tokens_url expose to API clients.
+func (s *Store) InstallationByDBID(ctx context.Context, dbID int64) (*InstallationRow, error) {
+	q := s.rebind(`SELECT ` + installationColumns + ` FROM installations WHERE db_id = ?`)
+	return scanInstallation(s.rdb.QueryRowContext(ctx, q, dbID))
+}
+
 // InstallationsByAppPK returns all installations for an app, ordered by created_at.
 func (s *Store) InstallationsByAppPK(ctx context.Context, appPK int64) ([]*InstallationRow, error) {
 	q := s.rebind(`SELECT ` + installationColumns +
@@ -48,6 +122,15 @@ func (s *Store) InstallationsByAppPK(ctx context.Context, appPK int64) ([]*Insta
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// InstallationByAppAndAccount loads the installation of app appPK on the
+// account accountPK, the lookup GET /repos/{owner}/{repo}/installation needs to
+// resolve a repository's owning account back to its installation.
+func (s *Store) InstallationByAppAndAccount(ctx context.Context, appPK, accountPK int64) (*InstallationRow, error) {
+	q := s.rebind(`SELECT ` + installationColumns +
+		` FROM installations WHERE app_pk = ? AND account_pk = ?`)
+	return scanInstallation(s.rdb.QueryRowContext(ctx, q, appPK, accountPK))
 }
 
 // InstallationRepoPKs returns the repo PKs accessible to an installation.

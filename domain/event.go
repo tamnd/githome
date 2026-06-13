@@ -249,6 +249,58 @@ func (s *EventService) UserFeed(ctx context.Context, viewerPK int64, login strin
 	return s.toEvents(ctx, rows)
 }
 
+// PublicUserFeed returns the public events a user performed, regardless of who
+// is viewing. It backs GET /users/{u}/events/public, which never exposes
+// private activity even to the account itself.
+func (s *EventService) PublicUserFeed(ctx context.Context, login string, perPage int) ([]Event, error) {
+	u, err := s.store.UserByLogin(ctx, login)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	rows, err := s.store.ListEvents(ctx, store.EventFilter{
+		ActorPK:    &u.PK,
+		PublicOnly: true,
+		Limit:      perPage,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.toEvents(ctx, rows)
+}
+
+// OrgFeed returns the timeline of an organization: the events on every
+// repository the org owns. The org account itself (or a site admin viewer) sees
+// private activity; every other viewer sees only the public subset. It backs
+// GET /orgs/{org}/events.
+func (s *EventService) OrgFeed(ctx context.Context, viewerPK int64, org string, perPage int) ([]Event, error) {
+	o, err := s.store.UserByLogin(ctx, org)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	rows, err := s.store.ListEvents(ctx, store.EventFilter{
+		OwnerPK:    &o.PK,
+		PublicOnly: viewerPK != o.PK,
+		Limit:      perPage,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return s.toEvents(ctx, rows)
+}
+
+// ReceivedFeed returns the events a user receives in their dashboard timeline.
+// Githome does not model a follow graph yet, so the received feed degrades to
+// the global public timeline: the activity any account would see before
+// following anyone. The publicOnly flag is accepted for the
+// /received_events/public twin and is a no-op while the feed is already public.
+// It backs GET /users/{u}/received_events[/public].
+func (s *EventService) ReceivedFeed(ctx context.Context, login string, perPage int, publicOnly bool) ([]Event, error) {
+	if _, err := s.store.UserByLogin(ctx, login); err != nil {
+		return nil, ErrUserNotFound
+	}
+	return s.PublicFeed(ctx, perPage)
+}
+
 // toEvents resolves each row's actor and repository into the compact objects the
 // feed embeds and maps the stored fields onto the domain view. Actor and repo
 // are cached across the page so a busy actor or repository is resolved once.

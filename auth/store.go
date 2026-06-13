@@ -40,6 +40,8 @@ type Store interface {
 	// GitHub App auth.
 	GitHubAppByPK(ctx context.Context, pk int64) (*store.GitHubAppRow, error)
 	InstallationByPK(ctx context.Context, pk int64) (*store.InstallationRow, error)
+	InstallationByDBID(ctx context.Context, dbID int64) (*store.InstallationRow, error)
+	InstallationByAppAndAccount(ctx context.Context, appPK, accountPK int64) (*store.InstallationRow, error)
 	InstallationsByAppPK(ctx context.Context, appPK int64) ([]*store.InstallationRow, error)
 	InstallationRepoPKs(ctx context.Context, instPK int64) ([]int64, error)
 }

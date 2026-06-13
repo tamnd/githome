@@ -186,6 +186,30 @@ func (s *Service) InstallationsByApp(ctx context.Context, appPK int64) ([]*store
 	return s.store.InstallationsByAppPK(ctx, appPK)
 }
 
+// InstallationByPK loads one installation by its internal primary key. The REST
+// layer renders it for the installation-token actor's own metadata.
+func (s *Service) InstallationByPK(ctx context.Context, pk int64) (*store.InstallationRow, error) {
+	return s.store.InstallationByPK(ctx, pk)
+}
+
+// InstallationByDBID loads one installation by its public database id, the id
+// carried in the access_tokens_url the installation object hands to API clients.
+func (s *Service) InstallationByDBID(ctx context.Context, dbID int64) (*store.InstallationRow, error) {
+	return s.store.InstallationByDBID(ctx, dbID)
+}
+
+// InstallationByAppAndAccount resolves the installation of app appPK on the
+// account accountPK, backing GET /repos/{owner}/{repo}/installation.
+func (s *Service) InstallationByAppAndAccount(ctx context.Context, appPK, accountPK int64) (*store.InstallationRow, error) {
+	return s.store.InstallationByAppAndAccount(ctx, appPK, accountPK)
+}
+
+// InstallationRepoPKs returns the repo PKs a "selected"-scope installation may
+// access, backing GET /installation/repositories.
+func (s *Service) InstallationRepoPKs(ctx context.Context, instPK int64) ([]int64, error) {
+	return s.store.InstallationRepoPKs(ctx, instPK)
+}
+
 // looksLikeJWT does a quick structural check (three dot-separated segments) so
 // resolveAppJWT is only called for JWT-shaped strings and not for every Bearer token.
 func looksLikeJWT(s string) bool {
