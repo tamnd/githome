@@ -103,7 +103,12 @@ func testLoaders(t *testing.T, cs *countingBatchStore) *Loaders {
 		SSHHost: "git.test.internal",
 		SSHPort: 22,
 	}
-	return newLoaders(domain.NewBatcher(cs), presenter.NewURLBuilder(urls), nodeid.FormatNew)
+	// The batch tests fan out N goroutines and assert they collapse into one
+	// fetch. A loaded -race runner can take longer than the 1ms production
+	// window to schedule all N, splitting the wave into two fetches and failing
+	// the count. A wide window removes that race without changing what is tested:
+	// the coalescing behavior is identical, only the deadline is generous.
+	return newLoaders(domain.NewBatcher(cs), presenter.NewURLBuilder(urls), nodeid.FormatNew, 250*time.Millisecond)
 }
 
 // TestLoaderCommentsPreviewBatches proves the fan-out shape an issue
