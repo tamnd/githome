@@ -24,6 +24,8 @@ import (
 	"syscall"
 
 	"github.com/go-mizu/mizu"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/tamnd/githome/api/graphql"
 	"github.com/tamnd/githome/api/rest"
@@ -220,9 +222,16 @@ func run() error {
 		logger.Info("web front mounted", "site", cfg.Web.SiteName, "dev_assets", assets.Dev())
 	}
 
+	// Serve HTTP/2 over cleartext (h2c) as well as HTTP/1.1. The deployment
+	// terminates TLS at a reverse proxy, so the listener is plaintext; without
+	// h2c a client (or a proxy speaking h2c upstream) is pinned to HTTP/1.1 and
+	// the page's asset fetches serialize over one connection. Wrapping the
+	// handler lets an h2c prior-knowledge or Upgrade request multiplex them.
+	// An HTTP/1.1 client is unaffected: the wrapper passes it straight through.
+	h2s := &http2.Server{IdleTimeout: cfg.Server.IdleTimeout}
 	srv := &http.Server{
 		Addr:              cfg.Listen.HTTP,
-		Handler:           handler,
+		Handler:           h2c.NewHandler(handler, h2s),
 		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 		ReadTimeout:       cfg.Server.ReadTimeout,
 		WriteTimeout:      cfg.Server.WriteTimeout,
