@@ -538,7 +538,7 @@ func (r *pullRequestResolver) Assignees(ctx context.Context, obj *gqlmodel.PullR
 	if obj.Assignees != nil {
 		return obj.Assignees, nil
 	}
-	return &gqlmodel.UserConnection{}, nil
+	return &gqlmodel.UserConnection{PageInfo: &gqlmodel.PageInfo{}}, nil
 }
 
 // Milestone returns the milestone of the pull request, pre-loaded by the presenter.

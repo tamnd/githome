@@ -17,6 +17,60 @@ import (
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
+// DatabaseID is the resolver for the databaseId field: the issue's integer
+// database id, the same value REST reports as `id`.
+func (r *issueResolver) DatabaseID(ctx context.Context, obj *gqlmodel.Issue) (*int32, error) {
+	if obj.DatabaseID == 0 {
+		return nil, nil
+	}
+	id := int32(obj.DatabaseID)
+	return &id, nil
+}
+
+// ActiveLockReason is the resolver for the activeLockReason field. It maps the
+// stored lock-reason string onto the LockReason enum, returning null when the
+// conversation is unlocked or was locked without a reason.
+func (r *issueResolver) ActiveLockReason(ctx context.Context, obj *gqlmodel.Issue) (*generated.LockReason, error) {
+	if obj.ActiveLockReason == nil {
+		return nil, nil
+	}
+	lr := generated.LockReason(*obj.ActiveLockReason)
+	for _, v := range generated.AllLockReason {
+		if v == lr {
+			return &lr, nil
+		}
+	}
+	return nil, nil
+}
+
+// ViewerCanUpdate is the resolver for the viewerCanUpdate field. The author can
+// always edit their own issue, and anyone with push (or higher) on the
+// repository can edit any issue; everyone else, including anonymous viewers,
+// cannot.
+func (r *issueResolver) ViewerCanUpdate(ctx context.Context, obj *gqlmodel.Issue) (bool, error) {
+	viewer := viewerID(ctx)
+	if viewer == 0 {
+		return false, nil
+	}
+	if obj.UserPK != 0 && viewer == obj.UserPK {
+		return true, nil
+	}
+	repo, err := r.Repos.GetRepo(ctx, viewer, obj.RepoOwner, obj.RepoName)
+	if err != nil {
+		return false, nil
+	}
+	role, err := r.Repos.RepoPermission(ctx, viewer, repo)
+	if err != nil {
+		return false, nil
+	}
+	switch role {
+	case "push", "maintain", "admin":
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
 // Author is the resolver for the author field. It loads the issue author
 // through the per-request user dataloader so that concurrent nested field
 // resolutions batch into one user query per request.
@@ -56,7 +110,7 @@ func (r *issueResolver) Assignees(ctx context.Context, obj *gqlmodel.Issue, firs
 	if obj.Assignees != nil {
 		return obj.Assignees, nil
 	}
-	return &gqlmodel.UserConnection{}, nil
+	return &gqlmodel.UserConnection{PageInfo: &gqlmodel.PageInfo{}}, nil
 }
 
 // Milestone is the resolver for the milestone field. GQLIssue fills the
@@ -120,10 +174,15 @@ func (r *issueResolver) Comments(ctx context.Context, obj *gqlmodel.Issue, first
 	}, nil
 }
 
-// ReactionGroups is the resolver for the reactionGroups field. Githome does not
-// track emoji reactions, so this always returns an empty slice.
+// ReactionGroups is the resolver for the reactionGroups field. The presenter
+// folds the issue's stored reaction rollup onto the model; this hands back a
+// pointer slice over it, so the GraphQL counts agree with the REST reactions.
 func (r *issueResolver) ReactionGroups(ctx context.Context, obj *gqlmodel.Issue) ([]*gqlmodel.ReactionGroup, error) {
-	return []*gqlmodel.ReactionGroup{}, nil
+	out := make([]*gqlmodel.ReactionGroup, len(obj.ReactionGroups))
+	for i := range obj.ReactionGroups {
+		out[i] = &obj.ReactionGroups[i]
+	}
+	return out, nil
 }
 
 // ProjectCards is the resolver for the projectCards field. Githome does not

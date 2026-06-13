@@ -92,6 +92,7 @@ func (User) IsRequestedReviewer() {}
 // UserConnection is the Relay connection over a set of users (assignees, etc.).
 type UserConnection struct {
 	Nodes      []*User
+	PageInfo   *PageInfo
 	TotalCount int32
 }
 

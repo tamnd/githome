@@ -96,6 +96,16 @@ type Issue struct {
 	Comments       *IssueCommentConnection
 	ReactionGroups []ReactionGroup // emoji reaction counts; always non-nil (empty when none)
 
+	// DatabaseID is the issue's integer database id (the legacy REST id),
+	// served as databaseId by the resolver.
+	DatabaseID int64
+	// ActiveLockReason is GitHub's raw lock-reason string, nil when unlocked or
+	// locked without a reason; the resolver maps it onto the LockReason enum.
+	ActiveLockReason *string
+	// IsPinned reports whether the issue is pinned to the repository. Githome
+	// does not model pinned issues yet, so it is always false.
+	IsPinned bool
+
 	// RepoOwner and RepoName carry the repository coordinates so the comments
 	// field resolver can page the issue's comments. They are not part of the
 	// GraphQL schema, so gqlgen ignores them; the presenter fills them.

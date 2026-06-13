@@ -30,12 +30,14 @@ func (b *URLBuilder) GQLIssue(owner, repo string, iss *domain.Issue, format node
 		Labels:         b.gqlLabelConnection(owner, repo, iss.Labels, format),
 		Assignees:      b.GQLUserConnection(iss.Assignees, format),
 		Milestone:      b.GQLMilestone(owner, repo, iss.Milestone, format),
-		Comments:       &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount), PageInfo: &gqlmodel.PageInfo{}},
-		ReactionGroups: []gqlmodel.ReactionGroup{}, // Githome does not store reactions
-		RepoOwner:      owner,
-		RepoName:       repo,
-		PK:             iss.PK,
-		UserPK:         iss.UserPK,
+		Comments:         &gqlmodel.IssueCommentConnection{TotalCount: int32(iss.CommentsCount), PageInfo: &gqlmodel.PageInfo{}},
+		ReactionGroups:   gqlReactionGroups(iss.Reactions),
+		RepoOwner:        owner,
+		RepoName:         repo,
+		PK:               iss.PK,
+		UserPK:           iss.UserPK,
+		DatabaseID:       iss.ID,
+		ActiveLockReason: iss.ActiveLockReason,
 	}
 	if sr := issueStateReason(iss.StateReason); sr != nil {
 		out.StateReason = sr

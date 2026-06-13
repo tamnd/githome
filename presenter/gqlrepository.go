@@ -51,7 +51,7 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		SquashMergeAllowed:  true,
 		RebaseMergeAllowed:  true,
 		RepositoryTopics:    b.gqlRepositoryTopics(r),
-		Watchers:            &gqlmodel.UserConnection{Nodes: []*gqlmodel.User{}, TotalCount: 0},
+		Watchers:            &gqlmodel.UserConnection{Nodes: []*gqlmodel.User{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0},
 		Languages:           &gqlmodel.LanguageConnection{Nodes: []*gqlmodel.Language{}, Edges: []*gqlmodel.LanguageEdge{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0, TotalSize: 0},
 		RepoOwner:           r.Owner.Login,
 		RepoName:            r.Name,
@@ -161,7 +161,7 @@ func (b *URLBuilder) GQLUserConnection(users []*domain.User, format nodeid.Forma
 			nodes = append(nodes, n)
 		}
 	}
-	return &gqlmodel.UserConnection{Nodes: nodes, TotalCount: int32(len(nodes))}
+	return &gqlmodel.UserConnection{Nodes: nodes, PageInfo: &gqlmodel.PageInfo{}, TotalCount: int32(len(nodes))}
 }
 
 // GQLMilestone renders a domain milestone into the GraphQL Milestone shape.
