@@ -69,8 +69,17 @@
   --fontStack-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
     Consolas, "Liberation Mono", monospace;
 
-  /* Container widths. */
+  /* Container widths and the sm/md/lg/xl breakpoint scale. The breakpoint
+     values mirror Primer's viewport-width ladder; CSS cannot read a custom
+     property inside a media-query condition, so the px values are restated in
+     each @media rule and documented here as the single source of truth. */
+  --container-sm: 544px;
   --container-md: 768px;
   --container-lg: 1012px;
   --container-xl: 1280px;
+
+  --breakpoint-sm: 544px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1012px;
+  --breakpoint-xl: 1280px;
 }
