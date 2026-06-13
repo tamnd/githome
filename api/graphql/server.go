@@ -61,10 +61,13 @@ func NewHandler(d Deps) http.Handler {
 		},
 	})
 	srv := handler.New(es)
+	// POST only: GitHub's GraphQL endpoint refuses GET. The GET route stays
+	// registered (see Mount) but postOnly answers it with 405; the transport
+	// list carries POST alone so a GET never reaches a transport.
 	srv.AddTransport(transport.POST{})
-	srv.AddTransport(transport.GET{})
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](256))
 	srv.SetErrorPresenter(presentError)
+	srv.AroundResponses(rateLimitInterceptor)
 	srv.Use(extension.Introspection{})
 	srv.Use(nodeLimitExtension(maxNodeLimit))
 	srv.Use(depthLimitExtension(maxQueryDepth))
@@ -75,7 +78,11 @@ func NewHandler(d Deps) http.Handler {
 	// The format middleware sits outside the loaders middleware so the
 	// per-request dataloaders render node ids in the header-selected format.
 	h = idFormatMiddleware(d.NodeFormat, h)
-	return authenticate(d.Auth, h)
+	// The rate-limit headers wrap the execution stack so the cost recorded
+	// during execution is written before liftErrorTypes flushes the body, and
+	// postOnly gates the method before any of it runs.
+	h = rateLimitHeaders(h)
+	return postOnly(authenticate(d.Auth, h))
 }
 
 // Mount registers the GraphQL endpoint at both the GHES-style /api/graphql and
