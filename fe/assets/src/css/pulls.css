@@ -565,6 +565,28 @@
   color: var(--fgColor-onEmphasis);
 }
 
+/* The hide/show-whitespace control sits beside the unified/split toggle. It is
+   a single link rather than a segmented pair: it flips one boolean, so it reads
+   as a plain action. */
+.diff-ws-toggle {
+  display: inline-flex;
+  margin-left: var(--base-size-8);
+}
+
+.diff-ws-option {
+  padding: var(--base-size-4) var(--base-size-8);
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+  text-decoration: none;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.diff-ws-option:hover {
+  color: var(--fgColor-accent);
+  border-color: var(--borderColor-accent-emphasis);
+}
+
 /* The merge box at the foot of the Conversation tab. */
 .merge-box {
   margin-top: var(--base-size-16);

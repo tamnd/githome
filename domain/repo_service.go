@@ -1081,7 +1081,7 @@ const MaxCompareCommits = 250
 // list is capped at MaxCompareCommits; when the cap bites, one extra rev-list
 // --count establishes the honest TotalCommits.
 func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
-	return s.compare(ctx, repo, base, head, false)
+	return s.compare(ctx, repo, base, head, false, false)
 }
 
 // CompareDirect is Compare over the two-dot form: the files are the diff
@@ -1090,10 +1090,18 @@ func (s *RepoService) Compare(ctx context.Context, repo *Repo, base, head string
 // the same base..head walk both forms share. Unrelated histories still
 // produce the direct diff; only the merge base is absent.
 func (s *RepoService) CompareDirect(ctx context.Context, repo *Repo, base, head string) (*CompareResult, error) {
-	return s.compare(ctx, repo, base, head, true)
+	return s.compare(ctx, repo, base, head, true, false)
 }
 
-func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string, direct bool) (*CompareResult, error) {
+// CompareOpts is Compare/CompareDirect with the range form and the whitespace
+// mode chosen by the caller, backing the compare page's ?w=1 "Hide whitespace"
+// view. The whitespace-ignored files carry display-only line counts and
+// offsets; callers that anchor on the diff pass ignoreWhitespace false.
+func (s *RepoService) CompareOpts(ctx context.Context, repo *Repo, base, head string, direct, ignoreWhitespace bool) (*CompareResult, error) {
+	return s.compare(ctx, repo, base, head, direct, ignoreWhitespace)
+}
+
+func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string, direct, ignoreWhitespace bool) (*CompareResult, error) {
 	baseBranch, err := s.compareEnd(repo, base)
 	if err != nil {
 		return nil, ErrGitNotFound
@@ -1133,11 +1141,7 @@ func (s *RepoService) compare(ctx context.Context, repo *Repo, base, head string
 	}()
 	go func() {
 		defer wg.Done()
-		if direct {
-			files, fdErr = s.gitStore.ChangedFilesDirect(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-		} else {
-			files, fdErr = s.gitStore.ChangedFiles(ctx, repo.PK, baseBranch.Commit, headBranch.Commit)
-		}
+		files, fdErr = s.gitStore.ChangedFilesOpts(ctx, repo.PK, baseBranch.Commit, headBranch.Commit, direct, ignoreWhitespace)
 	}()
 	go func() {
 		defer wg.Done()
@@ -1276,8 +1280,9 @@ func (s *RepoService) CommitPatch(repo *Repo, sha string) (string, error) {
 // CommitFiles returns the commit's per-file changes against its first parent,
 // or against the empty tree for a root commit: the same parsed form the PR
 // Files tab and the compare page consume, so the commit page renders through
-// the shared diff component instead of one raw patch.
-func (s *RepoService) CommitFiles(ctx context.Context, repo *Repo, sha string) ([]git.FileChange, error) {
+// the shared diff component instead of one raw patch. ignoreWhitespace serves
+// the "Hide whitespace" (?w=1) view, a separate diff with display-only offsets.
+func (s *RepoService) CommitFiles(ctx context.Context, repo *Repo, sha string, ignoreWhitespace bool) ([]git.FileChange, error) {
 	gr, err := s.open(repo)
 	if err != nil {
 		return nil, gitErr(err)
@@ -1291,7 +1296,7 @@ func (s *RepoService) CommitFiles(ctx context.Context, repo *Repo, sha string) (
 	if len(commit.Parents) > 0 {
 		base = commit.Parents[0]
 	}
-	files, err := s.gitStore.ChangedFilesDirect(ctx, repo.PK, base, commit.SHA)
+	files, err := s.gitStore.ChangedFilesOpts(ctx, repo.PK, base, commit.SHA, true, ignoreWhitespace)
 	if err != nil {
 		return nil, gitErr(err)
 	}

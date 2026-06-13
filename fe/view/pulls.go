@@ -251,14 +251,17 @@ type PRFilesVM struct {
 	Diff         DiffToggleVM    // the unified/split control and which mode is current
 }
 
-// DiffToggleVM is the unified/split control on a diff page. Split is the current
-// mode when Split is true; the two URLs re-request the same page in the other
-// mode, preserving the rest of the query so a whitespace toggle survives a mode
-// switch.
+// DiffToggleVM is the unified/split and hide-whitespace controls on a diff
+// page. Split and IgnoreWS report the current axes; each URL re-requests the
+// same page flipping one axis while preserving the other, so toggling the mode
+// keeps ?w=1 and toggling whitespace keeps ?diff=split.
 type DiffToggleVM struct {
 	Split      bool
+	IgnoreWS   bool
 	UnifiedURL string
 	SplitURL   string
+	ShowWSURL  string
+	HideWSURL  string
 }
 
 // MergeBoxState is the visual state of the merge box, derived once from the cached

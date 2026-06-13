@@ -364,9 +364,10 @@ type CommitVM struct {
 	// FilesTruncated marks Files as the bounded head of a larger change; the
 	// template shows a note pointing at the browse view for the rest.
 	FilesTruncated bool
-	FilesCount     int    // number of files changed, counted before the cap
-	Additions      int    // total added lines across all files
-	Deletions      int    // total deleted lines across all files
-	CommitsURL     string // back link to the history page
-	TreeURL        string // tree at this commit
+	FilesCount     int          // number of files changed, counted before the cap
+	Additions      int          // total added lines across all files
+	Deletions      int          // total deleted lines across all files
+	CommitsURL     string       // back link to the history page
+	TreeURL        string       // tree at this commit
+	Diff           DiffToggleVM // the unified/split and hide-whitespace controls
 }

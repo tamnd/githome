@@ -79,6 +79,26 @@ func Commit(owner, name, sha string) string {
 	return Repo(owner, name) + "/commit/" + esc(sha)
 }
 
+// DiffView appends GitHub's diff display parameters to a diff page's own path:
+// ?diff=split when the side-by-side view is current and ?w=1 when whitespace is
+// hidden. Only the non-default axes appear, so a plain unified view stays at the
+// bare path; the two parameters compose so a control can flip one and keep the
+// other. The same helper serves the PR Files tab, the compare page, and the
+// commit page so the three diff surfaces honor the identical query grammar.
+func DiffView(base string, split, ignoreWS bool) string {
+	q := url.Values{}
+	if split {
+		q.Set("diff", "split")
+	}
+	if ignoreWS {
+		q.Set("w", "1")
+	}
+	if len(q) == 0 {
+		return base
+	}
+	return base + "?" + q.Encode()
+}
+
 // Blame is the line-by-line blame view, /{owner}/{repo}/blame/{ref}/{path}.
 func Blame(owner, name, ref, path string) string {
 	return refPathURL(owner, name, "blame", ref, path)

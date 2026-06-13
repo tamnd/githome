@@ -1,0 +1,18 @@
+{{define "partials/diff_toggle" -}}
+{{/* The data is a DiffToggleVM: the unified/split and hide-whitespace controls
+     a diff page shows above the file list. Each control is a pair of plain <a>
+     links so the toggles work with scripting off; each link re-requests the
+     same page flipping one axis and preserving the other, the value the build
+     layer encoded into the URL. The whole control is read-only navigation. */ -}}
+<span class="diff-mode-toggle" role="group" aria-label="Diff view">
+  <a class="diff-mode-option{{if not .Split}} is-selected{{end}}" href="{{.UnifiedURL}}"{{if not .Split}} aria-current="true"{{end}}>Unified</a>
+  <a class="diff-mode-option{{if .Split}} is-selected{{end}}" href="{{.SplitURL}}"{{if .Split}} aria-current="true"{{end}}>Split</a>
+</span>
+<span class="diff-ws-toggle" role="group" aria-label="Whitespace">
+  {{if .IgnoreWS -}}
+  <a class="diff-ws-option" href="{{.ShowWSURL}}">Show whitespace</a>
+  {{- else -}}
+  <a class="diff-ws-option" href="{{.HideWSURL}}">Hide whitespace</a>
+  {{- end}}
+</span>
+{{- end}}

@@ -57,5 +57,6 @@ type CompareRangeVM struct {
 	Expanded     bool // true when ?expand=1, shows PR creation form
 	CreateURL    string
 	CSRFToken    string
-	ExpandURL    string // the same range URL with ?expand=1
+	ExpandURL    string       // the same range URL with ?expand=1
+	Diff         DiffToggleVM // the unified/split and hide-whitespace controls
 }

@@ -463,12 +463,15 @@ func (s *PRService) CountPRs(ctx context.Context, viewerPK int64, owner, name, s
 
 // Files returns the per-file diff of a pull request over the three-dot range
 // from the base branch tip to the head, the body of the files endpoint.
-func (s *PRService) Files(ctx context.Context, viewerPK int64, owner, name string, number int64) ([]git.FileChange, error) {
+// ignoreWhitespace serves the "Hide whitespace" (?w=1) view: a separate diff
+// whose own line offsets are display-only, so the review API still anchors on
+// the canonical diff this method returns when the flag is false.
+func (s *PRService) Files(ctx context.Context, viewerPK int64, owner, name string, number int64, ignoreWhitespace bool) ([]git.FileChange, error) {
 	repo, base, head, err := s.diffEnds(ctx, viewerPK, owner, name, number)
 	if err != nil {
 		return nil, err
 	}
-	return s.gitStore.ChangedFiles(ctx, repo.PK, base, head)
+	return s.gitStore.ChangedFilesOpts(ctx, repo.PK, base, head, false, ignoreWhitespace)
 }
 
 // Commits returns a pull request's own commits, oldest first.

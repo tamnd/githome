@@ -288,7 +288,7 @@ func pullFiles(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
-	files, err := d.Pulls.Files(c.Request().Context(), actor.UserID, owner, repo, number)
+	files, err := d.Pulls.Files(c.Request().Context(), actor.UserID, owner, repo, number, false)
 	if pullError(c.Writer(), err) {
 		return nil
 	}
