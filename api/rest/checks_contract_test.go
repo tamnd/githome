@@ -67,6 +67,22 @@ func TestStatusesListContract(t *testing.T) {
 	assertWriteGolden(t, "status_list.golden.json", body)
 }
 
+func TestStatusesListPagination(t *testing.T) {
+	fx := reviewServer(t)
+	fx.seedStatus(t, `{"state":"success","context":"ci/build"}`)
+	fx.seedStatus(t, `{"state":"pending","context":"ci/test"}`)
+	resp, body := get(t, fx.srv, "/repos/octocat/hello/commits/feature/statuses?per_page=1")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200, body %s", resp.StatusCode, body)
+	}
+	if n := strings.Count(string(body), `"context"`); n != 1 {
+		t.Errorf("per_page=1 returned %d statuses, want 1: %s", n, body)
+	}
+	if link := resp.Header.Get("Link"); !strings.Contains(link, `rel="next"`) {
+		t.Errorf("missing next link on first page: %q", link)
+	}
+}
+
 func TestCheckRunCreateContract(t *testing.T) {
 	fx := reviewServer(t)
 	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/check-runs", fx.ownerToken,
