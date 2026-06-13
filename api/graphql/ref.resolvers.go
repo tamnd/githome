@@ -55,30 +55,24 @@ func (r *mutationResolver) DeleteRef(ctx context.Context, input generated.Delete
 }
 
 // CreateBranchProtectionRule is the resolver for the createBranchProtectionRule
-// field. Githome does not yet implement branch protection rules; this stub
-// returns an empty rule so tooling that creates them does not hard-fail.
+// field. Githome does not implement branch protection rules. Returning a fake
+// rule with a sentinel id let a client believe protection was in force when it
+// was not, so this returns the UNPROCESSABLE error GitHub returns when a rule
+// cannot be created rather than a rule that does nothing.
 func (r *mutationResolver) CreateBranchProtectionRule(ctx context.Context, input generated.CreateBranchProtectionRuleInput) (*generated.CreateBranchProtectionRulePayload, error) {
-	return &generated.CreateBranchProtectionRulePayload{
-		BranchProtectionRule: &generated.BranchProtectionRule{
-			ID: branchProtectionRuleID,
-		},
-		ClientMutationID: input.ClientMutationID,
-	}, nil
+	return nil, unprocessablef("Branch protection rules are not supported.")
 }
 
 // UpdateBranchProtectionRule is the resolver for the updateBranchProtectionRule
-// field. Stub: no-op, returns the rule unchanged.
+// field. As with creation, Githome stores no rules, so it reports
+// UNPROCESSABLE rather than echo back a rule it never changed.
 func (r *mutationResolver) UpdateBranchProtectionRule(ctx context.Context, input generated.UpdateBranchProtectionRuleInput) (*generated.UpdateBranchProtectionRulePayload, error) {
-	return &generated.UpdateBranchProtectionRulePayload{
-		BranchProtectionRule: &generated.BranchProtectionRule{
-			ID: input.BranchProtectionRuleID,
-		},
-		ClientMutationID: input.ClientMutationID,
-	}, nil
+	return nil, unprocessablef("Branch protection rules are not supported.")
 }
 
 // DeleteBranchProtectionRule is the resolver for the deleteBranchProtectionRule
-// field. Stub: no-op, always succeeds.
+// field. There are no rules to delete, so it reports UNPROCESSABLE rather than
+// a hollow success.
 func (r *mutationResolver) DeleteBranchProtectionRule(ctx context.Context, input generated.DeleteBranchProtectionRuleInput) (*generated.DeleteBranchProtectionRulePayload, error) {
-	return &generated.DeleteBranchProtectionRulePayload{ClientMutationID: input.ClientMutationID}, nil
+	return nil, unprocessablef("Branch protection rules are not supported.")
 }

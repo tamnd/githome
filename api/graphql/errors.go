@@ -33,6 +33,14 @@ func notFoundf(format string, args ...any) error {
 	return typedError{msg: fmt.Sprintf(format, args...), errType: "NOT_FOUND"}
 }
 
+// unprocessablef builds an UNPROCESSABLE error with the given message. GitHub
+// returns this type when a mutation is understood but cannot be carried out —
+// the faithful answer for a feature Githome does not implement, rather than a
+// fake success that reports a change it never made.
+func unprocessablef(format string, args ...any) error {
+	return typedError{msg: fmt.Sprintf(format, args...), errType: "UNPROCESSABLE"}
+}
+
 // notFoundErrors are the domain not-found values the presenter maps to a
 // NOT_FOUND type when a resolver lets one through untranslated.
 var notFoundErrors = []error{

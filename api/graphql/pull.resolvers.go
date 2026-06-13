@@ -135,21 +135,20 @@ func (r *mutationResolver) MergePullRequest(ctx context.Context, input generated
 }
 
 // EnablePullRequestAutoMerge is the resolver for the enablePullRequestAutoMerge
-// field. Githome does not implement auto-merge; this stub succeeds and returns
-// the pull request unchanged so gh pr merge --auto does not hard-fail.
+// field. Githome does not implement auto-merge, so rather than report success
+// for a change it never makes — leaving gh pr merge --auto believing the pull
+// request will merge itself — it returns the UNPROCESSABLE error GitHub returns
+// when auto-merge cannot be enabled. It still validates the pull request id so
+// a bad id reports NOT_FOUND, matching the order GitHub checks.
 func (r *mutationResolver) EnablePullRequestAutoMerge(ctx context.Context, input generated.EnablePullRequestAutoMergeInput) (*generated.EnablePullRequestAutoMergePayload, error) {
 	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
 	if err != nil {
 		return nil, err
 	}
-	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
-	if err != nil {
+	if _, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number); err != nil {
 		return nil, mapErr(err)
 	}
-	return &generated.EnablePullRequestAutoMergePayload{
-		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
-		ClientMutationID: input.ClientMutationID,
-	}, nil
+	return nil, unprocessablef("Auto-merge is not available for this repository.")
 }
 
 // UpdatePullRequest is the resolver for the updatePullRequest field. gh pr edit
@@ -231,15 +230,44 @@ func (r *mutationResolver) ReopenPullRequest(ctx context.Context, input generate
 	}, nil
 }
 
-// RequestReviews is the resolver for the requestReviews field. Githome does not
-// yet track review requests; this stub succeeds and returns the pull request
-// unchanged so gh pr edit --reviewer does not hard-fail.
+// RequestReviews is the resolver for the requestReviews field. gh pr create
+// --reviewer and gh pr edit --add-reviewer send it. It persists the requested
+// reviewers through the pull service rather than reporting a hollow success.
+// union defaults to false, which GitHub treats as replacing the current set, so
+// reviewers no longer named are dropped first; union: true adds without
+// removing.
 func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.RequestReviewsInput) (*generated.RequestReviewsPayload, error) {
 	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
 	if err != nil {
 		return nil, err
 	}
-	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	logins, lErr := r.userLoginsFromIDs(ctx, input.UserIds)
+	if lErr != nil {
+		return nil, lErr
+	}
+	viewer := viewerID(ctx)
+	if input.Union == nil || !*input.Union {
+		current, gErr := r.Pulls.GetPR(ctx, viewer, owner, name, number)
+		if gErr != nil {
+			return nil, mapErr(gErr)
+		}
+		want := make(map[string]bool, len(logins))
+		for _, l := range logins {
+			want[l] = true
+		}
+		var stale []string
+		for _, u := range current.RequestedReviewers {
+			if !want[u.Login] {
+				stale = append(stale, u.Login)
+			}
+		}
+		if len(stale) > 0 {
+			if _, rErr := r.Pulls.RemoveRequestedReviewers(ctx, viewer, owner, name, number, stale); rErr != nil {
+				return nil, mapErr(rErr)
+			}
+		}
+	}
+	pr, err := r.Pulls.RequestReviewers(ctx, viewer, owner, name, number, logins)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -247,14 +275,17 @@ func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.R
 		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}
-	// requestedReviewersEdge is the first newly requested reviewer as an edge;
-	// resolve it from the input's user ids so a client can splice it into a
-	// cached connection. Unresolvable ids leave the edge null.
-	if logins, lErr := r.userLoginsFromIDs(ctx, input.UserIds); lErr == nil && len(logins) > 0 {
-		if u, uErr := r.Users.ByLogin(ctx, logins[0]); uErr == nil {
-			payload.RequestedReviewersEdge = &gqlmodel.UserEdge{
-				Cursor: encodeCursor(0),
-				Node:   r.URLs.GQLUser(u, r.format(ctx)),
+	// requestedReviewersEdge is the first newly requested reviewer as an edge so
+	// a client can splice it into a cached connection. It comes from the
+	// refreshed pull request's reviewer set, so no extra lookup is needed.
+	if len(logins) > 0 {
+		for _, u := range pr.RequestedReviewers {
+			if u.Login == logins[0] {
+				payload.RequestedReviewersEdge = &gqlmodel.UserEdge{
+					Cursor: encodeCursor(0),
+					Node:   r.URLs.GQLUser(u, r.format(ctx)),
+				}
+				break
 			}
 		}
 	}
@@ -463,14 +494,31 @@ func (r *pullRequestResolver) LatestReviews(ctx context.Context, obj *gqlmodel.P
 	return r.buildReviewConnection(ctx, latestReviewsOf(revs), page, obj.RepoOwner, obj.RepoName), nil
 }
 
-// ReviewRequests is the resolver for the reviewRequests field. Githome does not
-// persist review requests in a separate table; this returns an empty connection
-// so VS Code and other clients that select the field do not error.
+// ReviewRequests is the resolver for the reviewRequests field. It returns the
+// pull request's currently requested reviewers, the set requestReviews
+// persists, so a client that requests a reviewer and reads the connection back
+// sees them. A first: argument caps the page; teams are not modeled, so every
+// node is a User.
 func (r *pullRequestResolver) ReviewRequests(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*generated.ReviewRequestConnection, error) {
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	reviewers := pr.RequestedReviewers
+	total := int32(len(reviewers))
+	if first != nil && *first >= 0 && int(*first) < len(reviewers) {
+		reviewers = reviewers[:*first]
+	}
+	nodes := make([]*generated.ReviewRequest, 0, len(reviewers))
+	for _, u := range reviewers {
+		nodes = append(nodes, &generated.ReviewRequest{
+			RequestedReviewer: r.URLs.GQLUser(u, r.format(ctx)),
+		})
+	}
 	return &generated.ReviewRequestConnection{
-		Nodes:      []*generated.ReviewRequest{},
+		Nodes:      nodes,
 		PageInfo:   &gqlmodel.PageInfo{},
-		TotalCount: 0,
+		TotalCount: total,
 	}, nil
 }
 

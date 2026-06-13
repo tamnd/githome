@@ -206,6 +206,7 @@ func reviewGraphQLServer(t *testing.T) reviewGQLFixture {
 		Pulls:      pullSvc,
 		Reviews:    reviewSvc,
 		Checks:     checksSvc,
+		Users:      domain.NewUserService(st),
 		URLs:       presenter.NewURLBuilder(graphqlURLs(t)),
 		NodeFormat: nodeid.FormatNew,
 	})

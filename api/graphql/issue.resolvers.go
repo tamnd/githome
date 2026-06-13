@@ -12,7 +12,6 @@ import (
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
-	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -167,9 +166,11 @@ func (r *mutationResolver) CreateIssue(ctx context.Context, input generated.Crea
 		in.AssigneeLogins = logins
 	}
 	if input.MilestoneID != nil {
-		if _, msNum, dErr := nodeid.Decode(*input.MilestoneID); dErr == nil {
-			in.MilestoneNumber = &msNum
+		msNum, mErr := milestoneNumberFromID(*input.MilestoneID)
+		if mErr != nil {
+			return nil, mErr
 		}
+		in.MilestoneNumber = &msNum
 	}
 	iss, err := r.Issues.CreateIssue(ctx, viewerID(ctx), owner, name, in)
 	if err != nil {
@@ -194,40 +195,25 @@ func (r *mutationResolver) UpdateIssue(ctx context.Context, input generated.Upda
 		patch.State = &s
 	}
 	if len(input.LabelIds) > 0 {
-		names := make([]string, 0, len(input.LabelIds))
-		for _, lid := range input.LabelIds {
-			_, dbID, derr := nodeid.Decode(lid)
-			if derr != nil {
-				continue
-			}
-			lname, lerr := r.Issues.LabelNameByDBID(ctx, dbID)
-			if lerr != nil {
-				continue
-			}
-			names = append(names, lname)
+		names, lErr := r.labelNamesFromIDs(ctx, input.LabelIds)
+		if lErr != nil {
+			return nil, lErr
 		}
 		patch.Labels = &names
 	}
 	if len(input.AssigneeIds) > 0 {
-		logins := make([]string, 0, len(input.AssigneeIds))
-		for _, uid := range input.AssigneeIds {
-			_, pk, derr := nodeid.Decode(uid)
-			if derr != nil {
-				continue
-			}
-			login, lerr := r.Issues.UserLoginByPK(ctx, pk)
-			if lerr != nil {
-				continue
-			}
-			logins = append(logins, login)
+		logins, aErr := r.userLoginsFromIDs(ctx, input.AssigneeIds)
+		if aErr != nil {
+			return nil, aErr
 		}
 		patch.AssigneeLogins = &logins
 	}
 	if input.MilestoneID != nil {
-		_, msNum, derr := nodeid.Decode(*input.MilestoneID)
-		if derr == nil {
-			patch.MilestoneNumber = &msNum
+		msNum, mErr := milestoneNumberFromID(*input.MilestoneID)
+		if mErr != nil {
+			return nil, mErr
 		}
+		patch.MilestoneNumber = &msNum
 	}
 	iss, err := r.Issues.EditIssue(ctx, viewerID(ctx), owner, name, number, patch)
 	if err != nil {

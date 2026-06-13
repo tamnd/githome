@@ -28,12 +28,6 @@ var errBadID = errors.New("invalid node ID")
 // per-request cap.
 const maxNodeIDs = 100
 
-// branchProtectionRuleID is a placeholder node ID for branch protection rules.
-// Githome does not yet store rules, so we use a fixed sentinel rather than a
-// real node-id encode so clients that pass the id back in an update receive it
-// unchanged.
-const branchProtectionRuleID = "BPR_placeholder"
-
 // setThreadResolved marks a review thread resolved or unresolved through the
 // review service and returns the updated thread for the mutation payload.
 func (r *mutationResolver) setThreadResolved(ctx context.Context, threadID string, resolved bool) (*gqlmodel.PullRequestReviewThread, error) {
@@ -311,40 +305,54 @@ func mapMergeErr(err error) error {
 	}
 }
 
-// labelNamesFromIDs decodes a slice of label node IDs into label names, skipping
-// any ID that does not decode to a known label.
+// labelNamesFromIDs decodes a slice of label node IDs into label names. An ID
+// that does not decode to a known label is an error, not a silent skip: GitHub
+// rejects the whole mutation with "Could not resolve to a node...", so a typo'd
+// id never reports success with nothing applied.
 func (r *Resolver) labelNamesFromIDs(ctx context.Context, ids []string) ([]string, error) {
 	names := make([]string, 0, len(ids))
 	for _, id := range ids {
 		kind, dbID, err := nodeid.Decode(id)
 		if err != nil || kind != nodeid.KindLabel {
-			continue
+			return nil, unresolvable("Label", id)
 		}
 		name, err := r.Issues.LabelNameByDBID(ctx, dbID)
 		if err != nil {
-			continue
+			return nil, unresolvable("Label", id)
 		}
 		names = append(names, name)
 	}
 	return names, nil
 }
 
-// userLoginsFromIDs decodes a slice of user node IDs into user logins, skipping
-// any ID that does not decode to a known user.
+// userLoginsFromIDs decodes a slice of user node IDs into user logins. As with
+// labels, an ID that does not decode to a known user is an error so a bad id
+// cannot silently drop a reviewer or assignee.
 func (r *Resolver) userLoginsFromIDs(ctx context.Context, ids []string) ([]string, error) {
 	logins := make([]string, 0, len(ids))
 	for _, id := range ids {
 		kind, pk, err := nodeid.Decode(id)
 		if err != nil || kind != nodeid.KindUser {
-			continue
+			return nil, unresolvable("User", id)
 		}
 		login, err := r.Issues.UserLoginByPK(ctx, pk)
 		if err != nil {
-			continue
+			return nil, unresolvable("User", id)
 		}
 		logins = append(logins, login)
 	}
 	return logins, nil
+}
+
+// milestoneNumberFromID decodes a milestone node ID into its number, checking
+// the kind so a User (or any other) ID whose integer happens to match a
+// milestone cannot quietly set one.
+func milestoneNumberFromID(id string) (int64, error) {
+	kind, num, err := nodeid.Decode(id)
+	if err != nil || kind != nodeid.KindMilestone {
+		return 0, unresolvable("Milestone", id)
+	}
+	return num, nil
 }
 
 // labelableFromIssue converts the updated domain issue into the GraphQL
