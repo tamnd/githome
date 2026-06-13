@@ -483,6 +483,229 @@ CREATE TABLE release_assets (
 );
 CREATE UNIQUE INDEX release_assets_release_name_uq ON release_assets (release_pk, name) WHERE deleted_at IS NULL;
 
+-- 0012_github_apps
+CREATE TABLE github_apps (
+    pk                  BIGSERIAL PRIMARY KEY,
+    db_id               BIGINT    NOT NULL UNIQUE DEFAULT nextval('global_id_seq'),
+    owner_pk            BIGINT    NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    slug                TEXT      NOT NULL UNIQUE,
+    name                TEXT      NOT NULL,
+    client_id           TEXT      NOT NULL UNIQUE,
+    client_secret_hash  BYTEA,
+    webhook_secret_hash BYTEA,
+    private_key_pem     BYTEA     NOT NULL,
+    permissions         JSONB     NOT NULL DEFAULT '{}',
+    events              TEXT[]    NOT NULL DEFAULT '{}',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE installations (
+    pk                   BIGSERIAL PRIMARY KEY,
+    db_id                BIGINT    NOT NULL UNIQUE DEFAULT nextval('global_id_seq'),
+    app_pk               BIGINT    NOT NULL REFERENCES github_apps(pk) ON DELETE CASCADE,
+    account_pk           BIGINT    NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    repository_selection TEXT      NOT NULL DEFAULT 'all',
+    permissions          JSONB     NOT NULL DEFAULT '{}',
+    events               TEXT[]    NOT NULL DEFAULT '{}',
+    suspended_at         TIMESTAMPTZ,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX installations_app_account_uq ON installations (app_pk, account_pk);
+
+CREATE TABLE installation_repositories (
+    installation_pk BIGINT NOT NULL REFERENCES installations(pk) ON DELETE CASCADE,
+    repo_pk         BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    PRIMARY KEY (installation_pk, repo_pk)
+);
+
+ALTER TABLE tokens ADD COLUMN installation_pk BIGINT REFERENCES installations(pk) ON DELETE CASCADE;
+ALTER TABLE tokens ADD COLUMN github_app_pk   BIGINT REFERENCES github_apps(pk) ON DELETE CASCADE;
+ALTER TABLE tokens ADD COLUMN grant_json      TEXT;
+
+-- 0013_keys_protection
+CREATE TABLE ssh_keys (
+    pk           BIGSERIAL PRIMARY KEY,
+    db_id        BIGINT    NOT NULL UNIQUE DEFAULT nextval('global_id_seq'),
+    user_pk      BIGINT    NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    title        TEXT,
+    key_type     TEXT      NOT NULL,
+    public_key   TEXT      NOT NULL,
+    fingerprint  TEXT      NOT NULL,
+    read_only    BOOLEAN   NOT NULL DEFAULT FALSE,
+    repo_pk      BIGINT    REFERENCES repositories(pk) ON DELETE CASCADE,
+    last_used_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX ssh_keys_fp_uq ON ssh_keys (fingerprint);
+
+CREATE TABLE branch_protections (
+    pk                          BIGSERIAL PRIMARY KEY,
+    repo_pk                     BIGINT    NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    branch_pattern              TEXT      NOT NULL,
+    require_pr_reviews          BOOLEAN   NOT NULL DEFAULT FALSE,
+    required_approving_count    INT       NOT NULL DEFAULT 0,
+    dismiss_stale_reviews       BOOLEAN   NOT NULL DEFAULT FALSE,
+    require_code_owner_reviews  BOOLEAN   NOT NULL DEFAULT FALSE,
+    require_status_checks       BOOLEAN   NOT NULL DEFAULT FALSE,
+    require_branches_up_to_date BOOLEAN   NOT NULL DEFAULT FALSE,
+    status_check_contexts       TEXT[]    NOT NULL DEFAULT '{}',
+    enforce_admins              BOOLEAN   NOT NULL DEFAULT FALSE,
+    restrictions_users          TEXT[]    NOT NULL DEFAULT '{}',
+    restrictions_teams          TEXT[]    NOT NULL DEFAULT '{}',
+    allow_force_pushes          BOOLEAN   NOT NULL DEFAULT FALSE,
+    allow_deletions             BOOLEAN   NOT NULL DEFAULT FALSE,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX branch_protections_repo_pattern_uq ON branch_protections (repo_pk, branch_pattern);
+
+-- 0014_teams_collab_topics
+ALTER TABLE repositories ADD COLUMN IF NOT EXISTS topics TEXT NOT NULL DEFAULT '[]';
+
+CREATE TABLE IF NOT EXISTS teams (
+    pk          BIGSERIAL PRIMARY KEY,
+    db_id       BIGINT NOT NULL UNIQUE,
+    org_pk      BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    name        TEXT   NOT NULL,
+    slug        TEXT   NOT NULL,
+    description TEXT,
+    privacy     TEXT   NOT NULL DEFAULT 'secret',
+    permission  TEXT   NOT NULL DEFAULT 'pull',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS teams_org_slug_uq ON teams (org_pk, slug);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    pk      BIGSERIAL PRIMARY KEY,
+    team_pk BIGINT NOT NULL REFERENCES teams(pk) ON DELETE CASCADE,
+    user_pk BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    role    TEXT   NOT NULL DEFAULT 'member',
+    UNIQUE (team_pk, user_pk)
+);
+
+CREATE TABLE IF NOT EXISTS team_repos (
+    pk         BIGSERIAL PRIMARY KEY,
+    team_pk    BIGINT NOT NULL REFERENCES teams(pk) ON DELETE CASCADE,
+    repo_pk    BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    permission TEXT   NOT NULL DEFAULT 'pull',
+    UNIQUE (team_pk, repo_pk)
+);
+
+CREATE TABLE IF NOT EXISTS collaborators (
+    pk         BIGSERIAL PRIMARY KEY,
+    repo_pk    BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    user_pk    BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    permission TEXT   NOT NULL DEFAULT 'push',
+    UNIQUE (repo_pk, user_pk)
+);
+
+-- 0015_oauth_auth_codes
+CREATE TABLE IF NOT EXISTS oauth_auth_codes (
+    pk           BIGSERIAL   PRIMARY KEY,
+    code_hash    BYTEA       NOT NULL UNIQUE,
+    oauth_app_pk BIGINT      NOT NULL REFERENCES oauth_apps(pk) ON DELETE CASCADE,
+    user_pk      BIGINT      NOT NULL REFERENCES users(pk)      ON DELETE CASCADE,
+    redirect_uri TEXT        NOT NULL,
+    scopes       TEXT        NOT NULL DEFAULT '',
+    used         BOOLEAN     NOT NULL DEFAULT false,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 0016_gists
+CREATE TABLE gists (
+    pk          BIGSERIAL PRIMARY KEY,
+    gist_id     TEXT        NOT NULL UNIQUE,
+    owner_pk    BIGINT      NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    description TEXT        NOT NULL DEFAULT '',
+    public      BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX gists_owner ON gists (owner_pk);
+
+CREATE TABLE gist_files (
+    pk        BIGSERIAL PRIMARY KEY,
+    gist_pk   BIGINT NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    filename  TEXT   NOT NULL,
+    content   TEXT   NOT NULL DEFAULT '',
+    UNIQUE(gist_pk, filename)
+);
+
+CREATE TABLE gist_stars (
+    gist_pk BIGINT NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    user_pk BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    PRIMARY KEY(gist_pk, user_pk)
+);
+
+CREATE TABLE gist_comments (
+    pk         BIGSERIAL   PRIMARY KEY,
+    gist_pk    BIGINT      NOT NULL REFERENCES gists(pk) ON DELETE CASCADE,
+    user_pk    BIGINT      NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    body       TEXT        NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 0017_oauth_app_callback
+ALTER TABLE oauth_apps ADD COLUMN IF NOT EXISTS callback_url TEXT NOT NULL DEFAULT '';
+
+-- 0018_protection_restrictions
+ALTER TABLE branch_protections ADD COLUMN IF NOT EXISTS restrictions_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 0019_notifications
+CREATE TABLE IF NOT EXISTS notification_threads (
+    pk           BIGSERIAL PRIMARY KEY,
+    user_pk      BIGINT  NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    repo_pk      BIGINT  NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    issue_pk     BIGINT  NOT NULL REFERENCES issues(pk) ON DELETE CASCADE,
+    reason       TEXT    NOT NULL DEFAULT 'subscribed',
+    unread       BOOLEAN NOT NULL DEFAULT TRUE,
+    subscribed   BOOLEAN NOT NULL DEFAULT TRUE,
+    ignored      BOOLEAN NOT NULL DEFAULT FALSE,
+    last_read_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS notification_threads_user_issue_uq ON notification_threads (user_pk, issue_pk);
+CREATE INDEX IF NOT EXISTS notification_threads_user_updated ON notification_threads (user_pk, updated_at);
+
+-- 0020_code_search
+CREATE TABLE code_documents (
+    repo_pk       BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    path          TEXT   NOT NULL,
+    sha           TEXT   NOT NULL,
+    content       TEXT   NOT NULL DEFAULT '',
+    search_vector tsvector GENERATED ALWAYS AS (
+        to_tsvector('simple', regexp_replace(path, '[^A-Za-z0-9]+', ' ', 'g') || ' ' || content)
+    ) STORED,
+    PRIMARY KEY (repo_pk, path)
+);
+CREATE INDEX code_documents_search_vector_gin ON code_documents USING GIN (search_vector);
+
+CREATE TABLE code_index_state (
+    repo_pk    BIGINT      PRIMARY KEY REFERENCES repositories(pk) ON DELETE CASCADE,
+    head_sha   TEXT        NOT NULL,
+    truncated  BOOLEAN     NOT NULL DEFAULT FALSE,
+    indexed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 0021_list_indexes
+CREATE INDEX issues_repo_updated_number_idx
+    ON issues (repo_pk, updated_at DESC, number DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX issues_repo_comments_number_idx
+    ON issues (repo_pk, comments_count DESC, number DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX issue_labels_label_idx ON issue_labels (label_pk);
+CREATE INDEX gists_public_updated_idx ON gists (public, updated_at DESC);
+DROP INDEX issue_comments_issue_idx;
+CREATE INDEX issue_comments_issue_created_pk_idx
+    ON issue_comments (issue_pk, created_at, pk)
+    WHERE deleted_at IS NULL;
+
+
 -- 0022_repo_redirects
 CREATE TABLE repo_redirects (
     pk         BIGSERIAL   PRIMARY KEY,
