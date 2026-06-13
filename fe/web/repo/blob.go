@@ -62,7 +62,7 @@ func (h *Handlers) renderTooLarge(c *mizu.Ctx, repo *domain.Repo, refs *refSet, 
 	h.log.WarnContext(c.Context(), "blob too large to render in the web view",
 		"repo", repo.FullName(), "ref", ref, "path", path)
 	vm := view.BlobVM{
-		Header:    h.header(repo, "code"),
+		Header:    h.header(c.Context(), repo, "code"),
 		Nav:       h.nav(repo, ref),
 		Repo:      repoRef(repo),
 		Ref:       view.Ref{Name: ref},
@@ -99,7 +99,7 @@ func (h *Handlers) buildBlob(ctx context.Context, repo *domain.Repo, refs *refSe
 	}
 	grammar := languageForName(baseName(path))
 	vm := view.BlobVM{
-		Header:    h.header(repo, "code"),
+		Header:    h.header(ctx, repo, "code"),
 		Nav:       h.nav(repo, ref),
 		Repo:      repoRef(repo),
 		Ref:       view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch},

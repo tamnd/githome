@@ -8,6 +8,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 )
 
 // build maps the resolved repository and the ref's rollup into the page view
@@ -41,14 +42,16 @@ func (h *Handlers) build(c *mizu.Ctx, repo *domain.Repo, ref string, rollup *dom
 // the repository name, visibility, and the link back into the repository.
 func (h *Handlers) header(c *mizu.Ctx, repo *domain.Repo) view.RepoHeaderVM {
 	owner, name := h.owner(c), h.name(c)
+	pk := webmw.ViewerID(c.Context())
 	hdr := view.RepoHeaderVM{
-		Owner:      owner,
-		Name:       name,
-		OwnerURL:   "/" + owner,
-		URL:        route.Repo(owner, name),
-		Private:    repo.Private,
-		Fork:       repo.Fork,
-		OpenIssues: repo.OpenIssuesCount,
+		Owner:       owner,
+		Name:        name,
+		OwnerURL:    "/" + owner,
+		URL:         route.Repo(owner, name),
+		Private:     repo.Private,
+		Fork:        repo.Fork,
+		OpenIssues:  repo.OpenIssuesCount,
+		CanSettings: pk != 0 && pk == repo.OwnerPK,
 	}
 	if repo.Description != nil {
 		hdr.Description = *repo.Description
@@ -68,6 +71,7 @@ func (h *Handlers) nav(c *mizu.Ctx, ref string) view.TreeNav {
 		CommitsURL:  route.Commits(owner, name, ref, ""),
 		BranchesURL: route.Branches(owner, name),
 		TagsURL:     route.Tags(owner, name),
+		SettingsURL: route.RepoSettings(owner, name),
 	}
 }
 

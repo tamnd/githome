@@ -49,7 +49,7 @@ func (h *Handlers) FileFinder(c *mizu.Ctx) error {
 
 	vm := view.FileFinderVM{
 		Chrome:    h.chrome(c, "Find a file · "+repo.FullName()),
-		Header:    h.header(repo, "code"),
+		Header:    h.header(c.Context(), repo, "code"),
 		Nav:       h.nav(repo, rest),
 		Repo:      repoRef(repo),
 		Ref:       rest,

@@ -48,7 +48,7 @@ func (h *Handlers) Tags(c *mizu.Ctx) error {
 
 	vm := view.TagsVM{
 		Chrome: h.chrome(c, "Tags · "+repo.FullName()),
-		Header: h.header(repo, "tags"),
+		Header: h.header(c.Context(), repo, "tags"),
 		Nav:    h.nav(repo, repo.DefaultBranch),
 		Repo:   repoRef(repo),
 		Items:  rows,

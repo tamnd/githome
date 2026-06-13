@@ -50,7 +50,7 @@ func (h *Handlers) Milestones(c *mizu.Ctx) error {
 
 	vm := view.MilestonesVM{
 		Chrome:    h.chrome(c, "Milestones · "+owner+"/"+repo.Name),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		OpenTab:   view.FilterTab{Label: "Open", Count: openCount, URL: route.Milestones(owner, repo.Name, ""), IsActive: state == "open"},
@@ -115,7 +115,7 @@ func (h *Handlers) Milestone(c *mizu.Ctx) error {
 
 	vm := view.MilestoneDetailVM{
 		Chrome:    h.chrome(c, m.Title+" · "+owner+"/"+repo.Name),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		Milestone: milestoneRow(owner, repo.Name, m),

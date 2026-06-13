@@ -14,6 +14,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/markup"
 )
@@ -50,22 +51,30 @@ func repoRef(r *domain.Repo) view.RepoRef {
 
 // header builds the repo context bar with the pulls tab current, the same partial
 // every repo page renders.
-func (h *Handlers) header(r *domain.Repo) view.RepoHeaderVM {
+func (h *Handlers) header(ctx context.Context, r *domain.Repo) view.RepoHeaderVM {
 	owner := ownerLogin(r)
 	hdr := view.RepoHeaderVM{
-		Owner:      owner,
-		Name:       r.Name,
-		OwnerURL:   "/" + owner,
-		URL:        route.Repo(owner, r.Name),
-		Private:    r.Private,
-		Fork:       r.Fork,
-		OpenIssues: r.OpenIssuesCount,
-		ActiveTab:  "pulls",
+		Owner:       owner,
+		Name:        r.Name,
+		OwnerURL:    "/" + owner,
+		URL:         route.Repo(owner, r.Name),
+		Private:     r.Private,
+		Fork:        r.Fork,
+		OpenIssues:  r.OpenIssuesCount,
+		ActiveTab:   "pulls",
+		CanSettings: canAdmin(ctx, r),
 	}
 	if r.Description != nil {
 		hdr.Description = *r.Description
 	}
 	return hdr
+}
+
+// canAdmin reports whether the viewer administers the repo: a signed-in user whose
+// pk owns it. It gates the Settings tab the same way the settings pages gate access.
+func canAdmin(ctx context.Context, r *domain.Repo) bool {
+	pk := webmw.ViewerID(ctx)
+	return pk != 0 && pk == r.OwnerPK
 }
 
 // nav builds the repo underline-nav link set, the same one every repo page shows,
@@ -79,6 +88,7 @@ func (h *Handlers) nav(r *domain.Repo) view.TreeNav {
 		CommitsURL:  route.Commits(owner, r.Name, r.DefaultBranch, ""),
 		BranchesURL: route.Branches(owner, r.Name),
 		TagsURL:     route.Tags(owner, r.Name),
+		SettingsURL: route.RepoSettings(owner, r.Name),
 	}
 }
 
@@ -106,7 +116,7 @@ func (h *Handlers) shell(c *mizu.Ctx, repo *domain.Repo, pr *domain.PullRequest,
 
 	sh := view.PRShellVM{
 		Chrome:    h.chrome(c, title),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		Number:    pr.Number,

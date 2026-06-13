@@ -60,7 +60,7 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 
 	vm := view.IssueIndexVM{
 		Chrome:      h.chrome(c, repo.Name+" issues"),
-		Header:      h.header(repo),
+		Header:      h.header(c.Context(), repo),
 		Nav:         h.nav(repo),
 		Repo:        repoRef(repo),
 		QueryValue:  q.Raw,

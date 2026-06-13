@@ -37,7 +37,7 @@ func (h *Handlers) Branches(c *mizu.Ctx) error {
 
 	vm := view.BranchesVM{
 		Chrome:  h.chrome(c, "Branches · "+repo.FullName()),
-		Header:  h.header(repo, "branches"),
+		Header:  h.header(c.Context(), repo, "branches"),
 		Nav:     h.nav(repo, repo.DefaultBranch),
 		Repo:    repoRef(repo),
 		Default: repo.DefaultBranch,

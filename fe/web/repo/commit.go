@@ -94,7 +94,7 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 
 	vm := view.CommitVM{
 		Chrome:         h.chrome(c, shortSHA(commit.SHA)+" · "+commitTitle(commit.Message)),
-		Header:         h.header(repo, ""),
+		Header:         h.header(c.Context(), repo, ""),
 		Nav:            h.nav(repo, commit.SHA),
 		Repo:           repoRef(repo),
 		SHA:            commit.SHA,

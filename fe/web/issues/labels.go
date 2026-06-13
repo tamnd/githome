@@ -33,7 +33,7 @@ func (h *Handlers) Labels(c *mizu.Ctx) error {
 
 	vm := view.LabelsVM{
 		Chrome: h.chrome(c, "Labels · "+owner+"/"+repo.Name),
-		Header: h.header(repo),
+		Header: h.header(c.Context(), repo),
 		Nav:    h.nav(repo),
 		Repo:   repoRef(repo),
 		Labels: chips,

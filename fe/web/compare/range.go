@@ -91,7 +91,7 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 	title := "Comparing " + base + sep + head + " · " + owner + "/" + repo.Name
 	vm := view.CompareRangeVM{
 		Chrome:       h.chrome(c, title),
-		Header:       h.header(repo, "pulls"),
+		Header:       h.header(c.Context(), repo, "pulls"),
 		Nav:          h.nav(repo),
 		Base:         branchVM(repo, cmp.Base),
 		Head:         branchVM(repo, cmp.Head),

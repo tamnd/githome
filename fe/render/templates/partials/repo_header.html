@@ -41,6 +41,11 @@
       <li><a class="reponav-item{{if eq $h.ActiveTab "tags"}} is-current{{end}}"
              href="{{$nav.TagsURL}}"{{if eq $h.ActiveTab "tags"}} aria-current="page"{{end}}>
         {{octicon "tag" 16}} Tags</a></li>
+      {{if $h.CanSettings -}}
+      <li><a class="reponav-item{{if eq $h.ActiveTab "settings"}} is-current{{end}}"
+             href="{{$nav.SettingsURL}}"{{if eq $h.ActiveTab "settings"}} aria-current="page"{{end}}>
+        {{octicon "gear" 16}} Settings</a></li>
+      {{- end}}
     </ul>
   </nav>
 </div>
