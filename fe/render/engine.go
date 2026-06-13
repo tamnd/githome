@@ -28,6 +28,13 @@ import (
 //go:embed templates
 var templatesFS embed.FS
 
+// bufPool recycles the render scratch buffer. Every full page and fragment is
+// rendered into a buffer before a byte reaches the socket (so a template error
+// is a clean 500, not a half-written 200); pooling the buffer keeps that
+// guarantee while taking the per-request allocation out of the hot path. A
+// buffer is reset on checkout and returned once its bytes have been written.
+var bufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
 // Set is the parsed template registry plus the asset manifest. One Set is built
 // at boot and shared across requests. In the fedev build it re-parses the
 // templates and re-reads the manifest per render so an edit shows on reload.
@@ -161,8 +168,10 @@ func (s *Set) Page(c *mizu.Ctx, name string, vm any) error {
 	if IsFragment(c) {
 		return s.Fragment(c, name, vm)
 	}
-	var buf bytes.Buffer
-	if err := s.execTemplate(&buf, name, "base", vm); err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	if err := s.execTemplate(buf, name, "base", vm); err != nil {
 		return s.ServerError(c, err)
 	}
 	h := c.Header()
@@ -210,8 +219,10 @@ func etagMatches(header, etag string) bool {
 // swap. The same content template backs both Page and Fragment, so a fragment is
 // never a second template.
 func (s *Set) Fragment(c *mizu.Ctx, name string, vm any) error {
-	var buf bytes.Buffer
-	if err := s.execTemplate(&buf, name, "content", vm); err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	if err := s.execTemplate(buf, name, "content", vm); err != nil {
 		return s.ServerError(c, err)
 	}
 	c.Header().Add("Vary", "HX-Request")

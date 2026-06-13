@@ -241,8 +241,47 @@ func TestAssetServedImmutable(t *testing.T) {
 	if cc := resp.Header.Get("Cache-Control"); !strings.Contains(cc, "immutable") {
 		t.Fatalf("cache-control = %q, want immutable", cc)
 	}
+	if resp.Header.Get("ETag") == "" {
+		t.Error("asset response is missing the ETag validator")
+	}
 	if len(body) == 0 {
 		t.Error("asset body should not be empty")
+	}
+}
+
+// TestAssetRevalidatesWith304 checks the conditional-GET path the streaming
+// handler gets from http.ServeContent: a second request that echoes the ETag in
+// If-None-Match gets an empty 304, so a revalidation past the immutable cache
+// ships no bytes.
+func TestAssetRevalidatesWith304(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	hashed := manifestEntry(t, "app.css")
+
+	resp, _ := get(t, srv, "/assets/"+hashed)
+	etag := resp.Header.Get("ETag")
+	if etag == "" {
+		t.Fatal("asset response is missing the ETag validator")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL+"/assets/"+hashed, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("If-None-Match", etag)
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp2, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body2, _ := io.ReadAll(resp2.Body)
+	_ = resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNotModified {
+		t.Fatalf("status = %d, want 304 for a matching If-None-Match", resp2.StatusCode)
+	}
+	if len(body2) != 0 {
+		t.Errorf("304 must not ship a body, got %d bytes", len(body2))
 	}
 }
 
