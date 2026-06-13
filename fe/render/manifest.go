@@ -3,10 +3,12 @@ package render
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-mizu/mizu"
 )
@@ -65,6 +67,14 @@ func (s *Set) asset(logical string) string {
 // files are immutable, so the production build sends a far-future cache header;
 // the dev build sends no-cache so an edit is always picked up. The handler never
 // serves the manifest itself or escapes the asset root.
+//
+// The body streams through http.ServeContent off the embedded file's
+// io.ReadSeeker rather than copying the whole file into a per-request slice, so
+// a large bundle is no longer fully buffered to be written. ServeContent also
+// gives Range requests and the conditional-GET dance (If-None-Match → 304) for
+// free; in production it carries a strong ETag derived from the content-hashed
+// file name, so a revalidation that does slip past the immutable cache returns
+// an empty 304 instead of the bytes.
 func (s *Set) AssetHandler() mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		name := c.Param("file")
@@ -73,17 +83,46 @@ func (s *Set) AssetHandler() mizu.Handler {
 			return s.NotFound(c)
 		}
 		clean := path.Clean(name)
-		b, err := fs.ReadFile(s.assetFS, clean)
+		f, err := s.assetFS.Open(clean)
 		if err != nil {
 			return s.NotFound(c)
 		}
+		defer f.Close()
+
+		h := c.Header()
+		h.Set("Content-Type", contentTypeFor(clean))
 		if s.dev {
-			c.Header().Set("Cache-Control", "no-cache")
+			h.Set("Cache-Control", "no-cache")
 		} else {
-			c.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			h.Set("Cache-Control", "public, max-age=31536000, immutable")
+			h.Set("ETag", assetETag(clean))
 		}
-		return c.Bytes(http.StatusOK, b, contentTypeFor(clean))
+
+		rs, ok := f.(io.ReadSeeker)
+		if !ok {
+			// An asset tree whose files are not seekable cannot stream; fall back
+			// to a full read so the handler still serves the bytes.
+			b, err := io.ReadAll(f)
+			if err != nil {
+				return s.NotFound(c)
+			}
+			return c.Bytes(http.StatusOK, b, contentTypeFor(clean))
+		}
+		// A zero modtime tells ServeContent to skip Last-Modified; the ETag is the
+		// validator. The Content-Type set above wins over ServeContent's sniffing.
+		http.ServeContent(c.Writer(), c.Request(), clean, time.Time{}, rs)
+		return nil
 	}
+}
+
+// assetETag is a strong validator for an asset response. The build embeds the
+// content hash in the file name (app.<hash>.css), so the name itself is a
+// content address and a quoted form of it changes whenever the bytes do — the
+// definition of a strong ETag for the hashed bundles. The few non-hashed assets
+// ride the immutable cache, so an unchanged ETag never strands a stale copy in
+// practice.
+func assetETag(clean string) string {
+	return `"` + clean + `"`
 }
 
 // contentTypeFor returns the MIME type for the few asset extensions the front
