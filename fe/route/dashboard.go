@@ -23,3 +23,14 @@ func DashboardPulls(rawQuery string) string {
 	}
 	return u
 }
+
+// Notifications is the notifications inbox, /notifications. rawQuery is the
+// already-encoded ?all=/?participating=/?page= string and an empty one yields
+// the bare inbox.
+func Notifications(rawQuery string) string {
+	u := "/notifications"
+	if rawQuery != "" {
+		u += "?" + rawQuery
+	}
+	return u
+}

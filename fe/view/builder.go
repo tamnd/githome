@@ -45,12 +45,45 @@ func (b *Builder) Home(c *mizu.Ctx) HomeVM {
 // NotificationsVM is the notifications inbox model. The inbox is backed by the
 // notifications domain layer when it is available; when nil, an authenticated
 // viewer sees the empty-inbox blankslate. An anonymous viewer is not shown an
-// inbox — mountNotifications 404s before the view model is built.
+// inbox — mountNotifications redirects before the view model is built.
 type NotificationsVM struct {
-	Chrome Chrome
+	Chrome  Chrome
+	Filters []NotificationFilterVM // the left-rail filter links
+	Threads []NotificationRowVM    // one row per thread on this page
+	Pager   Pager                  // prev/next, omitted when a post-filter is active
+	Empty   bool                   // true when no thread matches the current filter
+	// EmptyAll distinguishes a genuinely empty account (no notifications at all)
+	// from a filter that simply matched nothing, so the blankslate copy matches
+	// GitHub's two messages.
+	EmptyAll bool
 }
 
-// Notifications builds the notifications inbox model for the signed-in viewer.
+// NotificationFilterVM is one link in the inbox's left rail: a label, the URL it
+// points at, and whether it is the filter currently in effect.
+type NotificationFilterVM struct {
+	Label   string
+	URL     string
+	Current bool
+}
+
+// NotificationRowVM is one thread in the inbox list: the subject and its link,
+// the repository it belongs to, the humanized reason the viewer is subscribed,
+// the unread marker, and when it last changed.
+type NotificationRowVM struct {
+	Title        string
+	URL          string
+	RepoFullName string
+	RepoURL      string
+	Reason       string // humanized, e.g. "mentioned", "review requested"
+	Unread       bool
+	IsPull       bool
+	UpdatedAt    string
+	UpdatedISO   string
+}
+
+// Notifications builds the empty-inbox model for a viewer whose notifications
+// service is unbacked: the chrome only. The handler builds the populated model
+// directly when the service is present.
 func (b *Builder) Notifications(c *mizu.Ctx) NotificationsVM {
-	return NotificationsVM{Chrome: b.Chrome(c, "Notifications")}
+	return NotificationsVM{Chrome: b.Chrome(c, "Notifications"), Empty: true, EmptyAll: true}
 }
