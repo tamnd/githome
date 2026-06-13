@@ -11,9 +11,27 @@ import (
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/markup"
 )
 
-// handleREADME serves GET /repos/{owner}/{repo}/readme.
+// readmeNames are the README candidates, tried in order, matching github.com's
+// preference: a Markdown README wins over plain text, which wins over reST or
+// AsciiDoc. The case variants cover the common spellings.
+var readmeNames = []string{
+	"README.md", "readme.md", "Readme.md",
+	"README.markdown", "readme.markdown",
+	"README", "readme",
+	"README.txt", "readme.txt",
+	"README.rst", "readme.rst",
+	"README.adoc", "readme.adoc",
+}
+
+// handleREADME serves GET /repos/{owner}/{repo}/readme and
+// .../readme/{dir}. The dir path parameter scopes the search to a
+// subdirectory, the form octokit's repos.getReadmeInDirectory drives. The
+// Accept header negotiates raw bytes or rendered HTML the same way the contents
+// endpoint does.
 func handleREADME(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		repo, err := loadRepo(d, c)
@@ -24,14 +42,13 @@ func handleREADME(d Deps) mizu.Handler {
 		if ref == "" {
 			ref = repo.DefaultBranch
 		}
-		candidates := []string{
-			"README.md", "readme.md", "Readme.md",
-			"README", "readme",
-			"README.txt", "readme.txt",
-			"README.rst", "readme.rst",
-		}
-		for _, name := range candidates {
-			res, err := d.Repos.Contents(repo, name, ref)
+		dir := strings.Trim(c.Param("dir"), "/")
+		for _, name := range readmeNames {
+			path := name
+			if dir != "" {
+				path = dir + "/" + name
+			}
+			res, err := d.Repos.Contents(repo, path, ref)
 			if errors.Is(err, domain.ErrGitNotFound) || errors.Is(err, domain.ErrEmptyRepo) {
 				continue
 			}
@@ -39,14 +56,66 @@ func handleREADME(d Deps) mizu.Handler {
 				return err
 			}
 			if !res.IsDir && res.File != nil {
-				out := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, res.Entry, res.File.Content)
-				conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+				writeContentFile(d, c, repo, ref, res.Entry, res.File.Content)
 				return nil
 			}
 		}
 		writeError(c.Writer(), errNotFound())
 		return nil
 	}
+}
+
+// contentMedia values name the file representations the contents and readme
+// endpoints negotiate from the Accept header.
+const (
+	contentMediaJSON = iota // the default metadata + base64 object
+	contentMediaRaw         // the file's raw bytes
+	contentMediaHTML        // the file rendered to HTML
+)
+
+// contentMedia reads an Accept header and reports which file representation a
+// client asked for: GitHub's vnd.github.raw and vnd.github.html vendor types
+// (versioned, unversioned, and +json suffixed forms), defaulting to the JSON
+// object. A directory listing ignores this and always returns JSON.
+func contentMedia(accept string) int {
+	for _, part := range strings.Split(accept, ",") {
+		mt := part
+		if i := strings.IndexByte(mt, ';'); i >= 0 {
+			mt = mt[:i]
+		}
+		switch strings.ToLower(strings.TrimSpace(mt)) {
+		case "application/vnd.github.raw", "application/vnd.github.v3.raw", "application/vnd.github.raw+json":
+			return contentMediaRaw
+		case "application/vnd.github.html", "application/vnd.github.v3.html", "application/vnd.github.html+json":
+			return contentMediaHTML
+		}
+	}
+	return contentMediaJSON
+}
+
+// writeContentFile writes a single file response, negotiating the Accept header:
+// the raw bytes for vnd.github.raw, rendered HTML for vnd.github.html (when a
+// markup renderer is wired), and otherwise the conditional JSON object. It is
+// shared by the contents and readme endpoints so both negotiate identically.
+func writeContentFile(d Deps, c *mizu.Ctx, repo *domain.Repo, ref string, entry git.PathEntry, content []byte) {
+	switch contentMedia(c.Request().Header.Get("Accept")) {
+	case contentMediaRaw:
+		w := c.Writer()
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(content)
+		return
+	case contentMediaHTML:
+		if d.Markup != nil {
+			ref := &markup.RepoRef{Owner: repo.Owner.Login, Name: repo.Name, ID: repo.ID}
+			html := d.Markup.RenderFile(c.Context(), ref, "", entry.Path, string(content))
+			writeHTML(c.Writer(), http.StatusOK, string(html))
+			return
+		}
+		// No renderer wired: fall through to the JSON object.
+	}
+	out := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, entry, content)
+	conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 }
 
 // handleArchiveRedirect serves GET /repos/{owner}/{repo}/zipball/{ref} and
@@ -324,6 +393,7 @@ func mountRepoExtra(r *mizu.Router, d Deps) {
 		return
 	}
 	r.Get("/repos/{owner}/{repo}/readme", handleREADME(d))
+	r.Get("/repos/{owner}/{repo}/readme/{dir...}", handleREADME(d))
 	r.Get("/repos/{owner}/{repo}/zipball", handleArchiveRedirect(d, "zip"))
 	r.Get("/repos/{owner}/{repo}/zipball/{ref...}", handleArchiveRedirect(d, "zip"))
 	r.Get("/repos/{owner}/{repo}/tarball", handleArchiveRedirect(d, "tar"))

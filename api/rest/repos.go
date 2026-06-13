@@ -106,11 +106,25 @@ func handleBranches(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		branches = paginateSlice(&page, branches)
-		out := make([]restmodel.BranchShort, 0, len(branches))
+		// Build the wire objects first so the protected filter can read each
+		// branch's computed protection flag, then paginate the filtered set: the
+		// page window and Link header must count only the branches that survive
+		// the filter, as github.com does.
+		all := make([]restmodel.BranchShort, 0, len(branches))
 		for _, br := range branches {
-			out = append(out, d.URLs.BranchShort(repo.Owner.Login, repo.Name, br))
+			all = append(all, d.URLs.BranchShort(repo.Owner.Login, repo.Name, br))
 		}
+		if v := c.Query("protected"); v != "" {
+			want := truthy(v)
+			kept := all[:0:0]
+			for _, b := range all {
+				if b.Protected == want {
+					kept = append(kept, b)
+				}
+			}
+			all = kept
+		}
+		out := paginateSlice(&page, all)
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
@@ -277,8 +291,7 @@ func handleContents(d Deps) mizu.Handler {
 			conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.ContentDir(repo.Owner.Login, repo.Name, ref, res.Dir))
 			return nil
 		}
-		body := d.URLs.ContentFile(repo.Owner.Login, repo.Name, ref, res.Entry, res.File.Content)
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
+		writeContentFile(d, c, repo, ref, res.Entry, res.File.Content)
 		return nil
 	}
 }

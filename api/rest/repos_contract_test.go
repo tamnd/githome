@@ -21,6 +21,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/jsondiff"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
@@ -133,6 +134,7 @@ func repoServerCap(t *testing.T, blobCap int64) repoFixture {
 		Social:     domain.NewSocialService(st),
 		URLs:       presenter.NewURLBuilder(cfg.URLs),
 		NodeFormat: nodeid.FormatNew,
+		Markup:     markup.New(markup.Config{}),
 	})
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
