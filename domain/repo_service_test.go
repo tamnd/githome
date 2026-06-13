@@ -28,6 +28,9 @@ type fakeRepoStore struct {
 	jobs       []store.JobRow
 	events     []store.EventRow
 	dedupeSeen map[string]bool
+	// collaborators maps a [repoPK, userPK] pair to the stored permission so a
+	// test can grant a non-owner a role and exercise the write gate.
+	collaborators map[[2]int64]string
 }
 
 func (f *fakeRepoStore) InsertEvent(_ context.Context, e *store.EventRow) error {
@@ -204,6 +207,9 @@ func (f *fakeRepoStore) UpdateRepo(_ context.Context, pk int64, p store.RepoPatc
 }
 
 func (f *fakeRepoStore) CollaboratorByRepo(_ context.Context, repoPK, userPK int64) (*store.CollaboratorRow, error) {
+	if perm, ok := f.collaborators[[2]int64{repoPK, userPK}]; ok {
+		return &store.CollaboratorRow{RepoPK: repoPK, UserPK: userPK, Permission: perm}, nil
+	}
 	return nil, store.ErrNotFound
 }
 
