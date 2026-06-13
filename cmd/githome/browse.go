@@ -25,6 +25,8 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-mizu/mizu"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/domain"
@@ -168,11 +170,15 @@ func runBrowse(args []string) error {
 		HomeHandler: homeRedirect,
 	})
 
+	// Serve HTTP/2 cleartext (h2c) alongside HTTP/1.1, the same as the main
+	// server, so a client that speaks h2c multiplexes the page's asset fetches
+	// over one connection; an HTTP/1.1 client passes straight through.
+	idleTimeout := 120 * time.Second
 	srv := &http.Server{
 		Addr:              listenAddr,
-		Handler:           handler,
+		Handler:           h2c.NewHandler(handler, &http2.Server{IdleTimeout: idleTimeout}),
 		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		IdleTimeout:       idleTimeout,
 	}
 
 	repoURL := "/local/" + repoName
