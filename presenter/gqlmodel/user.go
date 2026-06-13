@@ -3,17 +3,22 @@ package gqlmodel
 // User is the GraphQL User object, carrying the fields gh api and gh auth
 // status select. It grows toward the full GitHub User type milestone by milestone.
 type User struct {
-	ID           string   // the User node ID
-	Login        string   // the user's login
-	Name         *string  // display name, null when unset
-	Email        *string  // public email, null when unset
-	Bio          *string  // profile bio, null when unset
-	DatabaseID   *int32   // the integer database id (REST id)
-	URL          URI      // the user's profile HTML URL
-	AvatarURL    URI      // the user's avatar URL
-	ResourcePath URI      // the path part of the profile URL, e.g. /octocat
-	CreatedAt    DateTime // account creation instant
-	UpdatedAt    DateTime // last-update instant
+	ID              string   // the User node ID
+	Login           string   // the user's login
+	Name            *string  // display name, null when unset
+	Email           *string  // public email, null when unset
+	Bio             *string  // profile bio, null when unset
+	Company         *string  // profile company, null when unset
+	Location        *string  // profile location, null when unset
+	WebsiteURL      *URI     // profile blog/website URL, null when unset
+	TwitterUsername *string  // Twitter/X handle without the @, null when unset
+	DatabaseID      *int32   // the integer database id (REST id)
+	URL             URI      // the user's profile HTML URL
+	AvatarURL       URI      // the user's avatar URL; the size arg appends ?s=
+	ResourcePath    URI      // the path part of the profile URL, e.g. /octocat
+	Status          *UserStatus // the user's set status; always null today
+	CreatedAt       DateTime // account creation instant
+	UpdatedAt       DateTime // last-update instant
 }
 
 // IsNode marks User as implementing the Node interface.
@@ -21,6 +26,56 @@ func (User) IsNode() {}
 
 // GetID satisfies the Node interface getter gqlgen requires.
 func (u User) GetID() string { return u.ID }
+
+// UserStatus is a user's set status. Githome does not model statuses, so the
+// type is never instantiated; it exists for schema validation.
+type UserStatus struct {
+	ID                           string
+	Emoji                        *string
+	Message                      *string
+	IndicatesLimitedAvailability bool
+	CreatedAt                    DateTime
+	UpdatedAt                    DateTime
+	ExpiresAt                    *DateTime
+}
+
+// IsNode marks UserStatus as implementing the Node interface.
+func (UserStatus) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (s UserStatus) GetID() string { return s.ID }
+
+// Organization is the GraphQL Organization object. Githome does not model
+// organizations yet, so the type is never instantiated; it exists so gh's
+// `... on Organization` inline fragments validate.
+type Organization struct {
+	ID              string
+	Login           string
+	Name            *string
+	Description     *string
+	Email           *string
+	Location        *string
+	WebsiteURL      *URI
+	TwitterUsername *string
+	DatabaseID      *int32
+	URL             URI
+	AvatarURL       URI
+	ResourcePath    URI
+	CreatedAt       DateTime
+	UpdatedAt       DateTime
+}
+
+// IsNode marks Organization as implementing the Node interface.
+func (Organization) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (o Organization) GetID() string { return o.ID }
+
+// IsActor marks Organization as implementing the Actor interface.
+func (Organization) IsActor() {}
+
+// IsRepositoryOwner marks Organization as implementing the RepositoryOwner interface.
+func (Organization) IsRepositoryOwner() {}
 
 // IsSearchResultItem marks User as a member of the SearchResultItem union.
 func (User) IsSearchResultItem() {}

@@ -253,21 +253,6 @@ func (r *repositoryResolver) Milestones(ctx context.Context, obj *gqlmodel.Repos
 	return conn, nil
 }
 
-// milestoneStateFilter collapses the GraphQL MilestoneState slice into the
-// "open"|"closed"|"all" string the domain service takes. An empty or mixed
-// selection means all states.
-func milestoneStateFilter(states []generated.MilestoneState) string {
-	if len(states) == 1 {
-		switch states[0] {
-		case generated.MilestoneStateOpen:
-			return "open"
-		case generated.MilestoneStateClosed:
-			return "closed"
-		}
-	}
-	return "all"
-}
-
 // LatestRelease is the resolver for the latestRelease field. It returns the
 // repository's most recent published release, or null when there are none or
 // the release service is not wired. gh repo view selects it.
@@ -328,6 +313,20 @@ func (r *repositoryResolver) Owner(ctx context.Context, obj *gqlmodel.Repository
 	return r.URLs.GQLRepositoryOwner(u, r.format(ctx)), nil
 }
 
+// AvatarURL is the resolver for the avatarUrl field. The presenter fills the
+// base avatar URL; when the client requests a size, append the same `?s=`
+// query GitHub uses so the stored image is scaled to a square that many pixels.
+func (r *userResolver) AvatarURL(ctx context.Context, obj *gqlmodel.User, size *int32) (gqlmodel.URI, error) {
+	return avatarWithSize(obj.AvatarURL, size), nil
+}
+
+// IsViewer is the resolver for the isViewer field. A user is the viewer when
+// their login matches the authenticated actor's; an anonymous actor is nobody.
+func (r *userResolver) IsViewer(ctx context.Context, obj *gqlmodel.User) (bool, error) {
+	login := auth.ActorFrom(ctx).UserLogin
+	return login != "" && login == obj.Login, nil
+}
+
 // Repositories is the resolver for the repositories field on User.
 // It lists all visible repositories for the user's login.
 func (r *userResolver) Repositories(ctx context.Context, obj *gqlmodel.User, first *int32, after *string, ownerAffiliations []generated.RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *generated.RepositoryPrivacy, orderBy *generated.RepositoryOrder) (*gqlmodel.RepositoryConnection, error) {
@@ -346,3 +345,4 @@ func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 type queryResolver struct{ *Resolver }
 type repositoryResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+

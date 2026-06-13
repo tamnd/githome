@@ -237,9 +237,25 @@ type User implements Node & Actor & RepositoryOwner {
   bio: String
   # databaseId is the user's integer database id, the value the REST API calls id.
   databaseId: Int
+  # company is the user's profile company string, null when unset.
+  company: String
+  # location is the user's profile location string, null when unset.
+  location: String
+  # websiteUrl is the user's profile blog/website URL, null when unset.
+  websiteUrl: URI
+  # twitterUsername is the user's Twitter/X handle without the leading @, null
+  # when unset.
+  twitterUsername: String
   url: URI!
-  avatarUrl: URI!
+  # avatarUrl is the user's avatar. The optional size argument requests a
+  # square image that many pixels on a side, the same `?s=` query gh appends.
+  avatarUrl(size: Int): URI!
   resourcePath: URI!
+  # isViewer is whether this user is the actor making the request.
+  isViewer: Boolean!
+  # status is the user's set status. Githome does not model user statuses, so
+  # this is always null.
+  status: UserStatus
   createdAt: DateTime!
   updatedAt: DateTime!
   # repositories lists the repositories owned by this user.
@@ -253,6 +269,21 @@ type User implements Node & Actor & RepositoryOwner {
     orderBy: RepositoryOrder
   ): RepositoryConnection!
 }
+
+# UserStatus is a user's set status (the emoji and message shown on a profile).
+# Githome does not model statuses yet; the type exists so gh's `status { ... }`
+# selection validates and resolves to null.
+type UserStatus implements Node {
+  id: ID!
+  emoji: String
+  message: String
+  # indicatesLimitedAvailability is whether the user has marked themselves busy.
+  indicatesLimitedAvailability: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  expiresAt: DateTime
+}
+
 
 # Ref is a git reference: a branch or a tag. The id field carries the opaque
 # node ID clients pass to deleteRef.

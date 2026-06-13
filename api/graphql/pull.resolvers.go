@@ -299,6 +299,20 @@ func (r *mutationResolver) DisablePullRequestAutoMerge(ctx context.Context, inpu
 	}, nil
 }
 
+// AvatarURL is the resolver for the avatarUrl field on Organization. It applies
+// the optional size the same way the User resolver does. Githome does not model
+// organizations, so this only runs if a future caller hands one to the schema.
+func (r *organizationResolver) AvatarURL(ctx context.Context, obj *gqlmodel.Organization, size *int32) (gqlmodel.URI, error) {
+	return avatarWithSize(obj.AvatarURL, size), nil
+}
+
+// Repositories is the resolver for the repositories field on Organization.
+// Githome does not model organizations or their repositories, so the connection
+// is always empty, never null.
+func (r *organizationResolver) Repositories(ctx context.Context, obj *gqlmodel.Organization, first *int32, after *string, ownerAffiliations []generated.RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *generated.RepositoryPrivacy, orderBy *generated.RepositoryOrder) (*gqlmodel.RepositoryConnection, error) {
+	return &gqlmodel.RepositoryConnection{Nodes: []*gqlmodel.Repository{}, PageInfo: &gqlmodel.PageInfo{}}, nil
+}
+
 // BaseRef returns the base branch ref of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) BaseRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.BaseRef, nil
@@ -591,8 +605,12 @@ func (r *repositoryResolver) PullRequests(ctx context.Context, obj *gqlmodel.Rep
 // Commit returns generated.CommitResolver implementation.
 func (r *Resolver) Commit() generated.CommitResolver { return &commitResolver{r} }
 
+// Organization returns generated.OrganizationResolver implementation.
+func (r *Resolver) Organization() generated.OrganizationResolver { return &organizationResolver{r} }
+
 // PullRequest returns generated.PullRequestResolver implementation.
 func (r *Resolver) PullRequest() generated.PullRequestResolver { return &pullRequestResolver{r} }
 
 type commitResolver struct{ *Resolver }
+type organizationResolver struct{ *Resolver }
 type pullRequestResolver struct{ *Resolver }

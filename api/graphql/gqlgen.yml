@@ -104,6 +104,20 @@ models:
     fields:
       repositories:
         resolver: true
+      # avatarUrl takes an optional size; isViewer depends on who is asking.
+      avatarUrl:
+        resolver: true
+      isViewer:
+        resolver: true
+  Organization:
+    model: github.com/tamnd/githome/presenter/gqlmodel.Organization
+    fields:
+      avatarUrl:
+        resolver: true
+      repositories:
+        resolver: true
+  UserStatus:
+    model: github.com/tamnd/githome/presenter/gqlmodel.UserStatus
   RepositoryOwner:
     model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryOwner
   Commit:

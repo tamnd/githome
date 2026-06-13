@@ -33,6 +33,7 @@ type ResolverRoot interface {
 	Issue() IssueResolver
 	IssueComment() IssueCommentResolver
 	Mutation() MutationResolver
+	Organization() OrganizationResolver
 	PullRequest() PullRequestResolver
 	PullRequestReviewThread() PullRequestReviewThreadResolver
 	Query() QueryResolver
@@ -270,13 +271,22 @@ type ComplexityRoot struct {
 		CreatedAt   func(childComplexity int) int
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
+		IsDefault   func(childComplexity int) int
 		Name        func(childComplexity int) int
+		URL         func(childComplexity int) int
+		UpdatedAt   func(childComplexity int) int
 	}
 
 	LabelConnection struct {
+		Edges      func(childComplexity int) int
 		Nodes      func(childComplexity int) int
 		PageInfo   func(childComplexity int) int
 		TotalCount func(childComplexity int) int
+	}
+
+	LabelEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Language struct {
@@ -366,9 +376,21 @@ type ComplexityRoot struct {
 	}
 
 	Organization struct {
-		ID    func(childComplexity int) int
-		Login func(childComplexity int) int
-		Name  func(childComplexity int) int
+		AvatarURL       func(childComplexity int, size *int32) int
+		CreatedAt       func(childComplexity int) int
+		DatabaseID      func(childComplexity int) int
+		Description     func(childComplexity int) int
+		Email           func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Location        func(childComplexity int) int
+		Login           func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Repositories    func(childComplexity int, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) int
+		ResourcePath    func(childComplexity int) int
+		TwitterUsername func(childComplexity int) int
+		URL             func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+		WebsiteURL      func(childComplexity int) int
 	}
 
 	PageInfo struct {
@@ -801,23 +823,39 @@ type ComplexityRoot struct {
 	}
 
 	User struct {
-		AvatarURL    func(childComplexity int) int
-		Bio          func(childComplexity int) int
-		CreatedAt    func(childComplexity int) int
-		DatabaseID   func(childComplexity int) int
-		Email        func(childComplexity int) int
-		ID           func(childComplexity int) int
-		Login        func(childComplexity int) int
-		Name         func(childComplexity int) int
-		Repositories func(childComplexity int, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) int
-		ResourcePath func(childComplexity int) int
-		URL          func(childComplexity int) int
-		UpdatedAt    func(childComplexity int) int
+		AvatarURL       func(childComplexity int, size *int32) int
+		Bio             func(childComplexity int) int
+		Company         func(childComplexity int) int
+		CreatedAt       func(childComplexity int) int
+		DatabaseID      func(childComplexity int) int
+		Email           func(childComplexity int) int
+		ID              func(childComplexity int) int
+		IsViewer        func(childComplexity int) int
+		Location        func(childComplexity int) int
+		Login           func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Repositories    func(childComplexity int, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) int
+		ResourcePath    func(childComplexity int) int
+		Status          func(childComplexity int) int
+		TwitterUsername func(childComplexity int) int
+		URL             func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+		WebsiteURL      func(childComplexity int) int
 	}
 
 	UserConnection struct {
 		Nodes      func(childComplexity int) int
 		TotalCount func(childComplexity int) int
+	}
+
+	UserStatus struct {
+		CreatedAt                    func(childComplexity int) int
+		Emoji                        func(childComplexity int) int
+		ExpiresAt                    func(childComplexity int) int
+		ID                           func(childComplexity int) int
+		IndicatesLimitedAvailability func(childComplexity int) int
+		Message                      func(childComplexity int) int
+		UpdatedAt                    func(childComplexity int) int
 	}
 
 	Workflow struct {
@@ -889,6 +927,11 @@ type MutationResolver interface {
 	DeletePullRequestReview(ctx context.Context, input DeletePullRequestReviewInput) (*DeletePullRequestReviewPayload, error)
 	AddPullRequestReviewComment(ctx context.Context, input AddPullRequestReviewCommentInput) (*AddPullRequestReviewCommentPayload, error)
 }
+type OrganizationResolver interface {
+	AvatarURL(ctx context.Context, obj *gqlmodel.Organization, size *int32) (gqlmodel.URI, error)
+
+	Repositories(ctx context.Context, obj *gqlmodel.Organization, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) (*gqlmodel.RepositoryConnection, error)
+}
 type PullRequestResolver interface {
 	BaseRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error)
 	HeadRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error)
@@ -949,6 +992,10 @@ type StatusContextResolver interface {
 	IsRequired(ctx context.Context, obj *gqlmodel.StatusContext, pullRequestID *string) (bool, error)
 }
 type UserResolver interface {
+	AvatarURL(ctx context.Context, obj *gqlmodel.User, size *int32) (gqlmodel.URI, error)
+
+	IsViewer(ctx context.Context, obj *gqlmodel.User) (bool, error)
+
 	Repositories(ctx context.Context, obj *gqlmodel.User, first *int32, after *string, ownerAffiliations []RepositoryAffiliation, isArchived *bool, isFork *bool, privacy *RepositoryPrivacy, orderBy *RepositoryOrder) (*gqlmodel.RepositoryConnection, error)
 }
 
@@ -1785,13 +1832,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Label.ID(childComplexity), true
+	case "Label.isDefault":
+		if e.ComplexityRoot.Label.IsDefault == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.IsDefault(childComplexity), true
 	case "Label.name":
 		if e.ComplexityRoot.Label.Name == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Label.Name(childComplexity), true
+	case "Label.url":
+		if e.ComplexityRoot.Label.URL == nil {
+			break
+		}
 
+		return e.ComplexityRoot.Label.URL(childComplexity), true
+	case "Label.updatedAt":
+		if e.ComplexityRoot.Label.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.UpdatedAt(childComplexity), true
+
+	case "LabelConnection.edges":
+		if e.ComplexityRoot.LabelConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelConnection.Edges(childComplexity), true
 	case "LabelConnection.nodes":
 		if e.ComplexityRoot.LabelConnection.Nodes == nil {
 			break
@@ -1810,6 +1881,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LabelConnection.TotalCount(childComplexity), true
+
+	case "LabelEdge.cursor":
+		if e.ComplexityRoot.LabelEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelEdge.Cursor(childComplexity), true
+	case "LabelEdge.node":
+		if e.ComplexityRoot.LabelEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelEdge.Node(childComplexity), true
 
 	case "Language.name":
 		if e.ComplexityRoot.Language.Name == nil {
@@ -2339,12 +2423,53 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.UpdatePullRequest(childComplexity, args["input"].(UpdatePullRequestInput)), true
 
+	case "Organization.avatarUrl":
+		if e.ComplexityRoot.Organization.AvatarURL == nil {
+			break
+		}
+
+		args, err := ec.field_Organization_avatarUrl_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Organization.AvatarURL(childComplexity, args["size"].(*int32)), true
+	case "Organization.createdAt":
+		if e.ComplexityRoot.Organization.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CreatedAt(childComplexity), true
+	case "Organization.databaseId":
+		if e.ComplexityRoot.Organization.DatabaseID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.DatabaseID(childComplexity), true
+	case "Organization.description":
+		if e.ComplexityRoot.Organization.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.Description(childComplexity), true
+	case "Organization.email":
+		if e.ComplexityRoot.Organization.Email == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.Email(childComplexity), true
 	case "Organization.id":
 		if e.ComplexityRoot.Organization.ID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Organization.ID(childComplexity), true
+	case "Organization.location":
+		if e.ComplexityRoot.Organization.Location == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.Location(childComplexity), true
 	case "Organization.login":
 		if e.ComplexityRoot.Organization.Login == nil {
 			break
@@ -2357,6 +2482,47 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Organization.Name(childComplexity), true
+	case "Organization.repositories":
+		if e.ComplexityRoot.Organization.Repositories == nil {
+			break
+		}
+
+		args, err := ec.field_Organization_repositories_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Organization.Repositories(childComplexity, args["first"].(*int32), args["after"].(*string), args["ownerAffiliations"].([]RepositoryAffiliation), args["isArchived"].(*bool), args["isFork"].(*bool), args["privacy"].(*RepositoryPrivacy), args["orderBy"].(*RepositoryOrder)), true
+	case "Organization.resourcePath":
+		if e.ComplexityRoot.Organization.ResourcePath == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ResourcePath(childComplexity), true
+	case "Organization.twitterUsername":
+		if e.ComplexityRoot.Organization.TwitterUsername == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.TwitterUsername(childComplexity), true
+	case "Organization.url":
+		if e.ComplexityRoot.Organization.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.URL(childComplexity), true
+	case "Organization.updatedAt":
+		if e.ComplexityRoot.Organization.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.UpdatedAt(childComplexity), true
+	case "Organization.websiteUrl":
+		if e.ComplexityRoot.Organization.WebsiteURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.WebsiteURL(childComplexity), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -4169,13 +4335,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			break
 		}
 
-		return e.ComplexityRoot.User.AvatarURL(childComplexity), true
+		args, err := ec.field_User_avatarUrl_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.User.AvatarURL(childComplexity, args["size"].(*int32)), true
 	case "User.bio":
 		if e.ComplexityRoot.User.Bio == nil {
 			break
 		}
 
 		return e.ComplexityRoot.User.Bio(childComplexity), true
+	case "User.company":
+		if e.ComplexityRoot.User.Company == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.Company(childComplexity), true
 	case "User.createdAt":
 		if e.ComplexityRoot.User.CreatedAt == nil {
 			break
@@ -4200,6 +4377,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.ID(childComplexity), true
+	case "User.isViewer":
+		if e.ComplexityRoot.User.IsViewer == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.IsViewer(childComplexity), true
+	case "User.location":
+		if e.ComplexityRoot.User.Location == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.Location(childComplexity), true
 	case "User.login":
 		if e.ComplexityRoot.User.Login == nil {
 			break
@@ -4229,6 +4418,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.ResourcePath(childComplexity), true
+	case "User.status":
+		if e.ComplexityRoot.User.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.Status(childComplexity), true
+	case "User.twitterUsername":
+		if e.ComplexityRoot.User.TwitterUsername == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.TwitterUsername(childComplexity), true
 	case "User.url":
 		if e.ComplexityRoot.User.URL == nil {
 			break
@@ -4241,6 +4442,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.UpdatedAt(childComplexity), true
+	case "User.websiteUrl":
+		if e.ComplexityRoot.User.WebsiteURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.WebsiteURL(childComplexity), true
 
 	case "UserConnection.nodes":
 		if e.ComplexityRoot.UserConnection.Nodes == nil {
@@ -4254,6 +4461,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.UserConnection.TotalCount(childComplexity), true
+
+	case "UserStatus.createdAt":
+		if e.ComplexityRoot.UserStatus.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.CreatedAt(childComplexity), true
+	case "UserStatus.emoji":
+		if e.ComplexityRoot.UserStatus.Emoji == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.Emoji(childComplexity), true
+	case "UserStatus.expiresAt":
+		if e.ComplexityRoot.UserStatus.ExpiresAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.ExpiresAt(childComplexity), true
+	case "UserStatus.id":
+		if e.ComplexityRoot.UserStatus.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.ID(childComplexity), true
+	case "UserStatus.indicatesLimitedAvailability":
+		if e.ComplexityRoot.UserStatus.IndicatesLimitedAvailability == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.IndicatesLimitedAvailability(childComplexity), true
+	case "UserStatus.message":
+		if e.ComplexityRoot.UserStatus.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.Message(childComplexity), true
+	case "UserStatus.updatedAt":
+		if e.ComplexityRoot.UserStatus.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserStatus.UpdatedAt(childComplexity), true
 
 	case "Workflow.name":
 		if e.ComplexityRoot.Workflow.Name == nil {
@@ -4602,13 +4852,27 @@ type Label implements Node {
   name: String!
   color: String!
   description: String
+  # isDefault is whether the label is one of the labels GitHub seeds a new
+  # repository with (bug, enhancement, and so on).
+  isDefault: Boolean!
+  # url is the label's HTML URL, the filtered issue list for the label.
+  url: URI!
   createdAt: DateTime!
+  # updatedAt is the last time the label was renamed or recolored. Githome does
+  # not track a separate label update instant, so it mirrors createdAt.
+  updatedAt: DateTime!
 }
 
 type LabelConnection {
+  edges: [LabelEdge]
   nodes: [Label]
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type LabelEdge {
+  cursor: String!
+  node: Label
 }
 
 # LabelOrderField is the field to order labels by.
@@ -5088,11 +5352,34 @@ type Team {
 }
 
 # Organization is an account that owns repositories and teams. Githome does not
-# model organizations yet; the type exists so team fragments resolve.
-type Organization {
+# model organizations yet; the type exists so team fragments and gh's
+# ` + "`" + `... on Organization` + "`" + ` inline fragments on repositoryOwner/node resolve.
+type Organization implements Node & Actor & RepositoryOwner {
   id: ID!
   login: String!
   name: String
+  description: String
+  email: String
+  location: String
+  websiteUrl: URI
+  twitterUsername: String
+  # databaseId is the organization's integer database id.
+  databaseId: Int
+  url: URI!
+  avatarUrl(size: Int): URI!
+  resourcePath: URI!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # repositories lists the repositories owned by this organization.
+  repositories(
+    first: Int
+    after: String
+    ownerAffiliations: [RepositoryAffiliation!]
+    isArchived: Boolean
+    isFork: Boolean
+    privacy: RepositoryPrivacy
+    orderBy: RepositoryOrder
+  ): RepositoryConnection!
 }
 
 # PullRequestMergeMethod is the strategy to use when merging a pull request.
@@ -5943,9 +6230,25 @@ type User implements Node & Actor & RepositoryOwner {
   bio: String
   # databaseId is the user's integer database id, the value the REST API calls id.
   databaseId: Int
+  # company is the user's profile company string, null when unset.
+  company: String
+  # location is the user's profile location string, null when unset.
+  location: String
+  # websiteUrl is the user's profile blog/website URL, null when unset.
+  websiteUrl: URI
+  # twitterUsername is the user's Twitter/X handle without the leading @, null
+  # when unset.
+  twitterUsername: String
   url: URI!
-  avatarUrl: URI!
+  # avatarUrl is the user's avatar. The optional size argument requests a
+  # square image that many pixels on a side, the same ` + "`" + `?s=` + "`" + ` query gh appends.
+  avatarUrl(size: Int): URI!
   resourcePath: URI!
+  # isViewer is whether this user is the actor making the request.
+  isViewer: Boolean!
+  # status is the user's set status. Githome does not model user statuses, so
+  # this is always null.
+  status: UserStatus
   createdAt: DateTime!
   updatedAt: DateTime!
   # repositories lists the repositories owned by this user.
@@ -5959,6 +6262,21 @@ type User implements Node & Actor & RepositoryOwner {
     orderBy: RepositoryOrder
   ): RepositoryConnection!
 }
+
+# UserStatus is a user's set status (the emoji and message shown on a profile).
+# Githome does not model statuses yet; the type exists so gh's ` + "`" + `status { ... }` + "`" + `
+# selection validates and resolves to null.
+type UserStatus implements Node {
+  id: ID!
+  emoji: String
+  message: String
+  # indicatesLimitedAvailability is whether the user has marked themselves busy.
+  indicatesLimitedAvailability: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  expiresAt: DateTime
+}
+
 
 # Ref is a git reference: a branch or a tag. The id field carries the opaque
 # node ID clients pass to deleteRef.
@@ -6565,14 +6883,22 @@ func (ec *executionContext) childFields_Label(ctx context.Context, field graphql
 		return ec.fieldContext_Label_color(ctx, field)
 	case "description":
 		return ec.fieldContext_Label_description(ctx, field)
+	case "isDefault":
+		return ec.fieldContext_Label_isDefault(ctx, field)
+	case "url":
+		return ec.fieldContext_Label_url(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Label_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Label_updatedAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Label", field.Name)
 }
 
 func (ec *executionContext) childFields_LabelConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
+	case "edges":
+		return ec.fieldContext_LabelConnection_edges(ctx, field)
 	case "nodes":
 		return ec.fieldContext_LabelConnection_nodes(ctx, field)
 	case "pageInfo":
@@ -6581,6 +6907,16 @@ func (ec *executionContext) childFields_LabelConnection(ctx context.Context, fie
 		return ec.fieldContext_LabelConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LabelConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_LabelEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_LabelEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_LabelEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type LabelEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_Language(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -6691,6 +7027,30 @@ func (ec *executionContext) childFields_Organization(ctx context.Context, field 
 		return ec.fieldContext_Organization_login(ctx, field)
 	case "name":
 		return ec.fieldContext_Organization_name(ctx, field)
+	case "description":
+		return ec.fieldContext_Organization_description(ctx, field)
+	case "email":
+		return ec.fieldContext_Organization_email(ctx, field)
+	case "location":
+		return ec.fieldContext_Organization_location(ctx, field)
+	case "websiteUrl":
+		return ec.fieldContext_Organization_websiteUrl(ctx, field)
+	case "twitterUsername":
+		return ec.fieldContext_Organization_twitterUsername(ctx, field)
+	case "databaseId":
+		return ec.fieldContext_Organization_databaseId(ctx, field)
+	case "url":
+		return ec.fieldContext_Organization_url(ctx, field)
+	case "avatarUrl":
+		return ec.fieldContext_Organization_avatarUrl(ctx, field)
+	case "resourcePath":
+		return ec.fieldContext_Organization_resourcePath(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Organization_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Organization_updatedAt(ctx, field)
+	case "repositories":
+		return ec.fieldContext_Organization_repositories(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Organization", field.Name)
 }
@@ -7483,12 +7843,24 @@ func (ec *executionContext) childFields_User(ctx context.Context, field graphql.
 		return ec.fieldContext_User_bio(ctx, field)
 	case "databaseId":
 		return ec.fieldContext_User_databaseId(ctx, field)
+	case "company":
+		return ec.fieldContext_User_company(ctx, field)
+	case "location":
+		return ec.fieldContext_User_location(ctx, field)
+	case "websiteUrl":
+		return ec.fieldContext_User_websiteUrl(ctx, field)
+	case "twitterUsername":
+		return ec.fieldContext_User_twitterUsername(ctx, field)
 	case "url":
 		return ec.fieldContext_User_url(ctx, field)
 	case "avatarUrl":
 		return ec.fieldContext_User_avatarUrl(ctx, field)
 	case "resourcePath":
 		return ec.fieldContext_User_resourcePath(ctx, field)
+	case "isViewer":
+		return ec.fieldContext_User_isViewer(ctx, field)
+	case "status":
+		return ec.fieldContext_User_status(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_User_createdAt(ctx, field)
 	case "updatedAt":
@@ -7507,6 +7879,26 @@ func (ec *executionContext) childFields_UserConnection(ctx context.Context, fiel
 		return ec.fieldContext_UserConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UserConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_UserStatus(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_UserStatus_id(ctx, field)
+	case "emoji":
+		return ec.fieldContext_UserStatus_emoji(ctx, field)
+	case "message":
+		return ec.fieldContext_UserStatus_message(ctx, field)
+	case "indicatesLimitedAvailability":
+		return ec.fieldContext_UserStatus_indicatesLimitedAvailability(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_UserStatus_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_UserStatus_updatedAt(ctx, field)
+	case "expiresAt":
+		return ec.fieldContext_UserStatus_expiresAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UserStatus", field.Name)
 }
 
 func (ec *executionContext) childFields_Workflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8220,6 +8612,82 @@ func (ec *executionContext) field_Mutation_updatePullRequest_args(ctx context.Co
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Organization_avatarUrl_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "size",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["size"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Organization_repositories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "ownerAffiliations",
+		func(ctx context.Context, v any) ([]RepositoryAffiliation, error) {
+			return ec.unmarshalORepositoryAffiliation2ᚕgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryAffiliationᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["ownerAffiliations"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "isArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["isArchived"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "isFork",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["isFork"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "privacy",
+		func(ctx context.Context, v any) (*RepositoryPrivacy, error) {
+			return ec.unmarshalORepositoryPrivacy2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryPrivacy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["privacy"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*RepositoryOrder, error) {
+			return ec.unmarshalORepositoryOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐRepositoryOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
 	return args, nil
 }
 
@@ -9030,6 +9498,20 @@ func (ec *executionContext) field_StatusContext_isRequired_args(ctx context.Cont
 		return nil, err
 	}
 	args["pullRequestId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_User_avatarUrl_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "size",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["size"] = arg0
 	return args, nil
 }
 
@@ -12482,6 +12964,52 @@ func (ec *executionContext) fieldContext_Label_description(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Label_isDefault(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_isDefault(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsDefault, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_isDefault(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Label_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
 func (ec *executionContext) _Label_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12503,6 +13031,61 @@ func (ec *executionContext) _Label_createdAt(ctx context.Context, field graphql.
 }
 func (ec *executionContext) fieldContext_Label_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Label_updatedAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _LabelConnection_edges(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*gqlmodel.LabelEdge) graphql.Marshaler {
+			return ec.marshalOLabelEdge2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabelEdge(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LabelConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LabelConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LabelEdge(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _LabelConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelConnection) (ret graphql.Marshaler) {
@@ -12590,6 +13173,61 @@ func (ec *executionContext) _LabelConnection_totalCount(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_LabelConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("LabelConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LabelEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LabelEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LabelEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LabelEdge_node(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.LabelEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Label) graphql.Marshaler {
+			return ec.marshalOLabel2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabel(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LabelEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LabelEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Language_name(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Language) (ret graphql.Marshaler) {
@@ -14723,7 +15361,7 @@ func (ec *executionContext) fieldContext_Mutation_addPullRequestReviewComment(ct
 	return fc, nil
 }
 
-func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -14746,7 +15384,7 @@ func (ec *executionContext) fieldContext_Organization_id(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _Organization_login(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+func (ec *executionContext) _Organization_login(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -14769,7 +15407,7 @@ func (ec *executionContext) fieldContext_Organization_login(_ context.Context, f
 	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Organization_name(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+func (ec *executionContext) _Organization_name(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -14790,6 +15428,324 @@ func (ec *executionContext) _Organization_name(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_Organization_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_description(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_email(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_email(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Email, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_location(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_location(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Location, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_location(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_websiteUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_websiteUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WebsiteURL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalOURI2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_websiteUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_twitterUsername(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_twitterUsername(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TwitterUsername, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_twitterUsername(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_databaseId(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_databaseId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DatabaseID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_databaseId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_avatarUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_avatarUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Organization().AvatarURL(ctx, obj, fc.Args["size"].(*int32))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_avatarUrl(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type URI does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Organization_avatarUrl_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Organization_resourcePath(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_resourcePath(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ResourcePath, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_resourcePath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_updatedAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Organization_repositories(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_repositories(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Organization().Repositories(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["ownerAffiliations"].([]RepositoryAffiliation), fc.Args["isArchived"].(*bool), fc.Args["isFork"].(*bool), fc.Args["privacy"].(*RepositoryPrivacy), fc.Args["orderBy"].(*RepositoryOrder))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.RepositoryConnection) graphql.Marshaler {
+			return ec.marshalNRepositoryConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐRepositoryConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_repositories(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RepositoryConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Organization_repositories_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PageInfo) (ret graphql.Marshaler) {
@@ -21820,8 +22776,8 @@ func (ec *executionContext) _Team_organization(ctx context.Context, field graphq
 			return obj.Organization, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Organization) graphql.Marshaler {
-			return ec.marshalNOrganization2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐOrganization(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Organization) graphql.Marshaler {
+			return ec.marshalNOrganization2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐOrganization(ctx, selections, v)
 		},
 		true,
 		true,
@@ -22368,6 +23324,98 @@ func (ec *executionContext) fieldContext_User_databaseId(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _User_company(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_company(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Company, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_company(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _User_location(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_location(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Location, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_location(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _User_websiteUrl(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_websiteUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WebsiteURL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.URI) graphql.Marshaler {
+			return ec.marshalOURI2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_websiteUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _User_twitterUsername(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_twitterUsername(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TwitterUsername, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_twitterUsername(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _User_url(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -22400,7 +23448,8 @@ func (ec *executionContext) _User_avatarUrl(ctx context.Context, field graphql.C
 			return ec.fieldContext_User_avatarUrl(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.AvatarURL, nil
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.User().AvatarURL(ctx, obj, fc.Args["size"].(*int32))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.URI) graphql.Marshaler {
@@ -22410,8 +23459,28 @@ func (ec *executionContext) _User_avatarUrl(ctx context.Context, field graphql.C
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_User_avatarUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type URI does not have child fields"))
+func (ec *executionContext) fieldContext_User_avatarUrl(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "User",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type URI does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_User_avatarUrl_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _User_resourcePath(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
@@ -22435,6 +23504,61 @@ func (ec *executionContext) _User_resourcePath(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_User_resourcePath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type URI does not have child fields"))
+}
+
+func (ec *executionContext) _User_isViewer(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_isViewer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.User().IsViewer(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_User_isViewer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, true, true, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _User_status(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.UserStatus) graphql.Marshaler {
+			return ec.marshalOUserStatus2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUserStatus(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "User",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UserStatus(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _User_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.User) (ret graphql.Marshaler) {
@@ -22580,6 +23704,167 @@ func (ec *executionContext) _UserConnection_totalCount(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_UserConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UserConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_emoji(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_emoji(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Emoji, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_emoji(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_message(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_indicatesLimitedAvailability(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_indicatesLimitedAvailability(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IndicatesLimitedAvailability, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_indicatesLimitedAvailability(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_createdAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_updatedAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalNDateTime2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _UserStatus_expiresAt(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserStatus_expiresAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExpiresAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.DateTime) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDateTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UserStatus_expiresAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserStatus", field, false, false, errors.New("field of type DateTime does not have child fields"))
 }
 
 func (ec *executionContext) _Workflow_name(ctx context.Context, field graphql.CollectedField, obj *Workflow) (ret graphql.Marshaler) {
@@ -26035,6 +27320,13 @@ func (ec *executionContext) _Actor(ctx context.Context, sel ast.SelectionSet, ob
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
+	case gqlmodel.Organization:
+		return ec._Organization(ctx, sel, &obj)
+	case *gqlmodel.Organization:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Organization(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -26150,6 +27442,13 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
+	case gqlmodel.Organization:
+		return ec._Organization(ctx, sel, &obj)
+	case *gqlmodel.Organization:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Organization(ctx, sel, obj)
 	case gqlmodel.Tree:
 		return ec._Tree(ctx, sel, &obj)
 	case *gqlmodel.Tree:
@@ -26178,6 +27477,13 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._Blob(ctx, sel, obj)
+	case gqlmodel.UserStatus:
+		return ec._UserStatus(ctx, sel, &obj)
+	case *gqlmodel.UserStatus:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UserStatus(ctx, sel, obj)
 	case gqlmodel.Topic:
 		return ec._Topic(ctx, sel, &obj)
 	case *gqlmodel.Topic:
@@ -26289,6 +27595,13 @@ func (ec *executionContext) _RepositoryOwner(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
+	case gqlmodel.Organization:
+		return ec._Organization(ctx, sel, &obj)
+	case *gqlmodel.Organization:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Organization(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -28364,8 +29677,23 @@ func (ec *executionContext) _Label(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "description":
 			out.Values[i] = ec._Label_description(ctx, field, obj)
+		case "isDefault":
+			out.Values[i] = ec._Label_isDefault(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "url":
+			out.Values[i] = ec._Label_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createdAt":
 			out.Values[i] = ec._Label_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Label_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28403,6 +29731,8 @@ func (ec *executionContext) _LabelConnection(ctx context.Context, sel ast.Select
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("LabelConnection")
+		case "edges":
+			out.Values[i] = ec._LabelConnection_edges(ctx, field, obj)
 		case "nodes":
 			out.Values[i] = ec._LabelConnection_nodes(ctx, field, obj)
 		case "pageInfo":
@@ -28415,6 +29745,47 @@ func (ec *executionContext) _LabelConnection(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var labelEdgeImplementors = []string{"LabelEdge"}
+
+func (ec *executionContext) _LabelEdge(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.LabelEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, labelEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LabelEdge")
+		case "cursor":
+			out.Values[i] = ec._LabelEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._LabelEdge_node(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -28981,9 +30352,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 	return out
 }
 
-var organizationImplementors = []string{"Organization"}
+var organizationImplementors = []string{"Organization", "Node", "Actor", "RepositoryOwner"}
 
-func (ec *executionContext) _Organization(ctx context.Context, sel ast.SelectionSet, obj *Organization) graphql.Marshaler {
+func (ec *executionContext) _Organization(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.Organization) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, organizationImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -28995,15 +30366,119 @@ func (ec *executionContext) _Organization(ctx context.Context, sel ast.Selection
 		case "id":
 			out.Values[i] = ec._Organization_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "login":
 			out.Values[i] = ec._Organization_login(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._Organization_name(ctx, field, obj)
+		case "description":
+			out.Values[i] = ec._Organization_description(ctx, field, obj)
+		case "email":
+			out.Values[i] = ec._Organization_email(ctx, field, obj)
+		case "location":
+			out.Values[i] = ec._Organization_location(ctx, field, obj)
+		case "websiteUrl":
+			out.Values[i] = ec._Organization_websiteUrl(ctx, field, obj)
+		case "twitterUsername":
+			out.Values[i] = ec._Organization_twitterUsername(ctx, field, obj)
+		case "databaseId":
+			out.Values[i] = ec._Organization_databaseId(ctx, field, obj)
+		case "url":
+			out.Values[i] = ec._Organization_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "avatarUrl":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Organization_avatarUrl(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "resourcePath":
+			out.Values[i] = ec._Organization_resourcePath(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._Organization_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Organization_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "repositories":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Organization_repositories(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -33074,21 +34549,98 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._User_bio(ctx, field, obj)
 		case "databaseId":
 			out.Values[i] = ec._User_databaseId(ctx, field, obj)
+		case "company":
+			out.Values[i] = ec._User_company(ctx, field, obj)
+		case "location":
+			out.Values[i] = ec._User_location(ctx, field, obj)
+		case "websiteUrl":
+			out.Values[i] = ec._User_websiteUrl(ctx, field, obj)
+		case "twitterUsername":
+			out.Values[i] = ec._User_twitterUsername(ctx, field, obj)
 		case "url":
 			out.Values[i] = ec._User_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "avatarUrl":
-			out.Values[i] = ec._User_avatarUrl(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._User_avatarUrl(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "resourcePath":
 			out.Values[i] = ec._User_resourcePath(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "isViewer":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._User_isViewer(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "status":
+			out.Values[i] = ec._User_status(ctx, field, obj)
 		case "createdAt":
 			out.Values[i] = ec._User_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -33176,6 +34728,66 @@ func (ec *executionContext) _UserConnection(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var userStatusImplementors = []string{"UserStatus", "Node"}
+
+func (ec *executionContext) _UserStatus(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.UserStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, userStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UserStatus")
+		case "id":
+			out.Values[i] = ec._UserStatus_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "emoji":
+			out.Values[i] = ec._UserStatus_emoji(ctx, field, obj)
+		case "message":
+			out.Values[i] = ec._UserStatus_message(ctx, field, obj)
+		case "indicatesLimitedAvailability":
+			out.Values[i] = ec._UserStatus_indicatesLimitedAvailability(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._UserStatus_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._UserStatus_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "expiresAt":
+			out.Values[i] = ec._UserStatus_expiresAt(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -34043,7 +35655,7 @@ func (ec *executionContext) marshalNOrderDirection2githubᚗcomᚋtamndᚋgithom
 	return v
 }
 
-func (ec *executionContext) marshalNOrganization2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Organization) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -35357,6 +36969,26 @@ func (ec *executionContext) marshalOLabelConnection2ᚖgithubᚗcomᚋtamndᚋgi
 	return ec._LabelConnection(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOLabelEdge2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabelEdge(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.LabelEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalOLabelEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabelEdge(ctx, sel, v[i])
+	})
+
+	return ret
+}
+
+func (ec *executionContext) marshalOLabelEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabelEdge(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.LabelEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._LabelEdge(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOLabelOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLabelOrder(ctx context.Context, v any) (*LabelOrder, error) {
 	if v == nil {
 		return nil, nil
@@ -36242,6 +37874,13 @@ func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpre
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOUserStatus2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUserStatus(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UserStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._UserStatus(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOWorkflowRun2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐWorkflowRun(ctx context.Context, sel ast.SelectionSet, v *WorkflowRun) graphql.Marshaler {

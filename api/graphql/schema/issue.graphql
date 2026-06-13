@@ -201,13 +201,27 @@ type Label implements Node {
   name: String!
   color: String!
   description: String
+  # isDefault is whether the label is one of the labels GitHub seeds a new
+  # repository with (bug, enhancement, and so on).
+  isDefault: Boolean!
+  # url is the label's HTML URL, the filtered issue list for the label.
+  url: URI!
   createdAt: DateTime!
+  # updatedAt is the last time the label was renamed or recolored. Githome does
+  # not track a separate label update instant, so it mirrors createdAt.
+  updatedAt: DateTime!
 }
 
 type LabelConnection {
+  edges: [LabelEdge]
   nodes: [Label]
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type LabelEdge {
+  cursor: String!
+  node: Label
 }
 
 # LabelOrderField is the field to order labels by.
