@@ -256,5 +256,19 @@ func jsonInt(t *testing.T, body []byte, key string) int64 {
 	return n
 }
 
+// jsonString pulls a top-level string field out of a JSON body.
+func jsonString(t *testing.T, body []byte, key string) string {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		t.Fatalf("decode %s: %v\n%s", key, err, body)
+	}
+	s, ok := m[key].(string)
+	if !ok {
+		t.Fatalf("field %q not a string: %v\n%s", key, m[key], body)
+	}
+	return s
+}
+
 // itoa renders an int64 for a url path segment.
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }

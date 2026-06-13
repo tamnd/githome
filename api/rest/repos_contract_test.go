@@ -251,6 +251,48 @@ func TestGitDataContract(t *testing.T) {
 	fx.assertGolden(t, "git_commit.golden.json", "/repos/octocat/hello/git/commits/"+fx.headSHA)
 }
 
+// TestGitDataPolish covers the git-data write polish: base64 blob content
+// tolerates the whitespace clients wrap it with, an annotated tag carries a
+// node_id, and a commit create missing its required fields is a structured 422.
+func TestGitDataPolish(t *testing.T) {
+	fx := repoServer(t)
+	tok := fx.token
+
+	// Base64 with embedded spaces, tabs, and newlines still decodes.
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/git/blobs", tok,
+		`{"content":"aGVsbG8g\n d2 9ybGQ=","encoding":"base64"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("blob create status %d, want 201, body %s", resp.StatusCode, body)
+	}
+	blobSHA := jsonString(t, body, "sha")
+
+	// An annotated tag pointing at HEAD carries a node_id.
+	resp, body = authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/git/tags", tok,
+		`{"tag":"v1.0","message":"release","object":"`+fx.headSHA+`","type":"commit"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("tag create status %d, want 201, body %s", resp.StatusCode, body)
+	}
+	if nid := jsonString(t, body, "node_id"); nid == "" {
+		t.Errorf("git tag missing node_id: %s", body)
+	}
+
+	// A commit create missing message and tree is a structured 422.
+	resp, body = authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/git/commits", tok, `{}`)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("commit create status %d, want 422, body %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), `"field":"tree"`) || !strings.Contains(string(body), `"field":"message"`) {
+		t.Errorf("commit 422 missing structured fields: %s", body)
+	}
+
+	// The whitespace-stripped blob is the same object as a clean encode.
+	resp, body = authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/git/blobs", tok,
+		`{"content":"aGVsbG8gd29ybGQ=","encoding":"base64"}`)
+	if resp.StatusCode != http.StatusCreated || jsonString(t, body, "sha") != blobSHA {
+		t.Errorf("whitespace blob sha %s != clean blob sha, body %s", blobSHA, body)
+	}
+}
+
 // TestBlobTooLarge confirms a blob past the server's size ceiling comes back as
 // a 403 on both the contents and git blob endpoints, rather than buffering the
 // whole object. The fixture's README is eight bytes, so a one-byte cap trips it.
