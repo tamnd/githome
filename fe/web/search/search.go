@@ -131,9 +131,9 @@ func (h *Handlers) Global(c *mizu.Ctx) error {
 		types:  globalTypes,
 		active: typ,
 		q:      q,
-		sort:   c.Query("sort"),
-		order:  c.Query("order"),
-		page:   pageParam(c.Query("page")),
+		sort:   queryOr(c, "sort", "s"),
+		order:  queryOr(c, "order", "o"),
+		page:   pageParam(queryOr(c, "page", "p")),
 		action: route.Search(""),
 		title:  searchTitle(q, ""),
 	})
@@ -161,9 +161,9 @@ func (h *Handlers) Scoped(c *mizu.Ctx) error {
 		types:  repoTypes,
 		active: typ,
 		q:      q,
-		sort:   c.Query("sort"),
-		order:  c.Query("order"),
-		page:   pageParam(c.Query("page")),
+		sort:   queryOr(c, "sort", "s"),
+		order:  queryOr(c, "order", "o"),
+		page:   pageParam(queryOr(c, "page", "p")),
 		action: route.RepoSearch(ownerLogin(repo), repo.Name, ""),
 		title:  searchTitle(q, repo.Name),
 	})
@@ -192,6 +192,17 @@ type req struct {
 func repoFromContext(ctx context.Context) (*domain.Repo, bool) {
 	repo, ok := ctx.Value(keyRepo).(*domain.Repo)
 	return repo, ok
+}
+
+// queryOr reads the primary query parameter and falls back to a legacy alias
+// when it is empty. GitHub's search URLs carry the modern names (sort, order,
+// page) and the older single-letter forms (s, o, p) interchangeably, so a link
+// copied from either era resolves to the same facet.
+func queryOr(c *mizu.Ctx, primary, alias string) string {
+	if v := c.Query(primary); v != "" {
+		return v
+	}
+	return c.Query(alias)
 }
 
 // pageParam parses a 1-based page number, clamping a missing or malformed value
