@@ -25,6 +25,7 @@ import (
 	webdashboard "github.com/tamnd/githome/fe/web/dashboard"
 	webhome "github.com/tamnd/githome/fe/web/home"
 	webissues "github.com/tamnd/githome/fe/web/issues"
+	webnotifications "github.com/tamnd/githome/fe/web/notifications"
 	webprofile "github.com/tamnd/githome/fe/web/profile"
 	webpulls "github.com/tamnd/githome/fe/web/pulls"
 	webrepo "github.com/tamnd/githome/fe/web/repo"
@@ -56,27 +57,28 @@ type AuthPwStore interface {
 // those routes unmounted. HomeHandler overrides the default landing page; browse
 // mode uses it to redirect straight to the repository root.
 type Deps struct {
-	Render      *render.Set
-	View        *view.Builder
-	Auth        AuthPwStore
-	OAuthSvc    webauth.OAuthService
-	Tokens      websettings.TokenService
-	Repos       *domain.RepoService
-	Hooks       *domain.HookService
-	Checks      *domain.ChecksService
-	Issues      *domain.IssueService
-	Pulls       *domain.PRService
-	Reviews     *domain.ReviewService
-	Search      *domain.SearchService
-	Users       *domain.UserService
-	Events      *domain.EventService
-	URLs        *presenter.URLBuilder
-	Markup      *markup.Renderer
-	Sessions    *webmw.Sessions
-	CSRF        *webmw.CSRF
-	Flash       *webmw.Flash
-	Logger      *slog.Logger
-	HomeHandler mizu.Handler // optional: overrides the default landing page
+	Render        *render.Set
+	View          *view.Builder
+	Auth          AuthPwStore
+	OAuthSvc      webauth.OAuthService
+	Tokens        websettings.TokenService
+	Repos         *domain.RepoService
+	Hooks         *domain.HookService
+	Checks        *domain.ChecksService
+	Issues        *domain.IssueService
+	Pulls         *domain.PRService
+	Reviews       *domain.ReviewService
+	Search        *domain.SearchService
+	Users         *domain.UserService
+	Events        *domain.EventService
+	Notifications *domain.NotificationService
+	URLs          *presenter.URLBuilder
+	Markup        *markup.Renderer
+	Sessions      *webmw.Sessions
+	CSRF          *webmw.CSRF
+	Flash         *webmw.Flash
+	Logger        *slog.Logger
+	HomeHandler   mizu.Handler // optional: overrides the default landing page
 }
 
 // Mount registers the web front's dynamic routes on root and returns the
@@ -612,6 +614,22 @@ func mountAuth(page *mizu.Router, d Deps) {
 // name (fe/route), so it is registered before the profile catch-all and is
 // never read as a login. See implementation/12 section 3.
 func mountNotifications(page *mizu.Router, d Deps) {
+	// With the notifications domain layer wired, the inbox handler lists the
+	// viewer's threads with the Inbox and All filters; without it the route
+	// still exists and renders the empty-inbox blankslate so the reserved name
+	// is never read as a profile and an anonymous request still bounces to
+	// sign-in.
+	if d.Notifications != nil {
+		nh := webnotifications.New(webnotifications.Deps{
+			Notifications: d.Notifications,
+			Repos:         d.Repos,
+			Render:        d.Render,
+			View:          d.View,
+			Logger:        d.Logger,
+		})
+		page.Get("/notifications", nh.Index)
+		return
+	}
 	page.Get("/notifications", func(c *mizu.Ctx) error {
 		if view.ViewerFrom(c.Context()) == nil {
 			return c.Redirect(http.StatusFound, route.LoginWithReturn(c.Request().URL.RequestURI()))

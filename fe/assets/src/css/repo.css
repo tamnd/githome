@@ -1144,6 +1144,77 @@
   min-width: 0;
 }
 
+/* The inbox thread list: one row per subscribed thread, the unread ones
+   carrying a left accent rule and a trailing dot, the read ones muted. The row
+   layout mirrors the cross-repo search rows so the two surfaces read alike. */
+.notifications-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+}
+
+.notifications-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-8);
+  padding: var(--base-size-8) var(--base-size-16);
+  border-top: 1px solid var(--borderColor-muted);
+}
+
+.notifications-row:first-child {
+  border-top: 0;
+}
+
+.notifications-row.is-unread {
+  background-color: var(--bgColor-muted);
+}
+
+.notifications-row-icon {
+  color: var(--fgColor-muted);
+  flex: 0 0 auto;
+  line-height: var(--base-size-20);
+}
+
+.notifications-row-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.notifications-row-title {
+  font-weight: 600;
+  color: var(--fgColor-default);
+}
+
+.notifications-row.is-unread .notifications-row-title {
+  color: var(--fgColor-default);
+}
+
+.notifications-row-meta {
+  margin: var(--base-size-4) 0 0;
+  font-size: var(--text-small-size);
+  color: var(--fgColor-muted);
+}
+
+.notifications-row-repo {
+  color: var(--fgColor-muted);
+}
+
+.notifications-row-reason::before {
+  content: "\00b7";
+  margin: 0 var(--base-size-4);
+}
+
+.notifications-row-unread {
+  flex: 0 0 auto;
+  align-self: center;
+  width: var(--base-size-8);
+  height: var(--base-size-8);
+  border-radius: 50%;
+  background-color: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
+}
+
 /* The create-repository form at /new: a single centered column with the
    owner/name row, the description, and the visibility choices. It reuses the
    settings form field classes for the labels and inputs. */

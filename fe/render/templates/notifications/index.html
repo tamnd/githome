@@ -1,24 +1,58 @@
 {{define "content" -}}
-{{/* The data is NotificationsVM. Shows the notifications inbox for the
-     signed-in viewer. The notifications domain layer is not yet backed, so
-     this renders the empty-inbox blankslate. */ -}}
+{{/* The data is NotificationsVM. The page is the viewer's notifications inbox:
+     an Inbox/All filter rail and the list of subscribed threads, newest first,
+     each carrying its repository line, the humanized reason, and an unread
+     marker. Every control is a plain link, so the page filters and paginates
+     with no JavaScript. When the inbox is empty the blankslate copy depends on
+     whether the filter is All (genuinely empty) or Inbox (all caught up). */ -}}
 <div class="container-xl">
   <div class="notifications-page">
     <div class="notifications-sidebar">
       <h2 class="notifications-sidebar-heading">Filters</h2>
       <ul class="notifications-filter-list">
-        <li><a class="notifications-filter-link is-active" href="/notifications">Inbox</a></li>
-        <li><a class="notifications-filter-link" href="/notifications?query=is%3Asaved">Saved</a></li>
+        {{range .Filters -}}
+        <li><a class="notifications-filter-link{{if .Current}} is-active{{end}}" href="{{.URL}}"
+               {{if .Current}}aria-current="page"{{end}}>{{.Label}}</a></li>
+        {{- end}}
       </ul>
     </div>
     <div class="notifications-inbox">
+      {{if .Empty -}}
       <div class="blankslate">
         {{octicon "check-circle" 32}}
+        {{if .EmptyAll -}}
+        <h3 class="blankslate-heading">No notifications</h3>
+        <p class="blankslate-text">You have no notifications.</p>
+        {{- else -}}
         <h3 class="blankslate-heading">You're all caught up!</h3>
-        <p class="blankslate-text">
-          You have no unread notifications.
-        </p>
+        <p class="blankslate-text">You have no unread notifications.</p>
+        {{- end}}
       </div>
+      {{- else -}}
+      <ul class="notifications-list">
+        {{range .Threads -}}
+        <li class="notifications-row{{if .Unread}} is-unread{{end}}">
+          <span class="notifications-row-icon" aria-label="{{if .IsPull}}Pull request{{else}}Issue{{end}}">{{if .IsPull}}{{octicon "git-pull-request" 16}}{{else}}{{octicon "issue-opened" 16}}{{end}}</span>
+          <div class="notifications-row-main">
+            <a class="notifications-row-title" href="{{.URL}}">{{.Title}}</a>
+            <p class="notifications-row-meta">
+              {{if .RepoFullName}}<a class="notifications-row-repo" href="{{.RepoURL}}">{{.RepoFullName}}</a>{{end}}
+              {{if .Reason}}<span class="notifications-row-reason">{{.Reason}}</span>{{end}}
+              updated <relative-time datetime="{{.UpdatedISO}}">{{.UpdatedAt}}</relative-time>
+            </p>
+          </div>
+          {{if .Unread}}<span class="notifications-row-unread" aria-label="Unread"></span>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- end}}
+
+      {{if or .Pager.PrevURL .Pager.NextURL -}}
+      <nav class="paginate" aria-label="Pagination">
+        {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+        {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
     </div>
   </div>
 </div>
