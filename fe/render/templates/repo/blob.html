@@ -38,7 +38,7 @@
     <div class="blob-render markdown-body">{{.Body}}</div>
     {{- else if or (eq .Kind "text") (eq .Kind "svg") -}}
     <div class="blob-scroll">
-      <table class="blob-code" aria-label="File content">
+      <table class="blob-code" aria-label="File content" data-line-select>
         <tbody>
           {{range .Lines -}}
           <tr class="blob-line" id="L{{.Number}}">

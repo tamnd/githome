@@ -344,9 +344,18 @@ func TestBlobShowsFileContent(t *testing.T) {
 	if !strings.Contains(body, "func") || !strings.Contains(body, "main") {
 		t.Errorf("blob is missing the file content:\n%s", body)
 	}
-	// Line numbers anchor the source lines.
+	// Line numbers anchor the source lines, and each number links to its own
+	// #L{n} fragment so a deep link resolves with no JavaScript.
 	if !strings.Contains(body, `id="L1"`) {
 		t.Errorf("blob is missing line anchors")
+	}
+	if !strings.Contains(body, `class="blob-num-link" href="#L1"`) {
+		t.Errorf("blob line number is not a #L1 permalink")
+	}
+	// The line table carries the data-line-select hook the range-selection
+	// enhancement binds to; with JS off it is inert and the anchors above stand.
+	if !strings.Contains(body, "data-line-select") {
+		t.Errorf("blob line table is missing the data-line-select hook")
 	}
 	// A Go source blob is syntax-highlighted: the keyword spans carry the pl-k
 	// class the highlighter emits, so the source path runs through markup.

@@ -75,6 +75,75 @@ function wireFileFilter(): void {
   }
 }
 
+// wireBlobLineSelection enhances the numbered code view with GitHub's line and
+// line-range selection. With JS off every line number is already an anchor to
+// #L{n} and the :target rule paints the one linked line, so the no-JS path is
+// intact. The enhancement adds shift-click to select a span, reflects it in the
+// URL fragment as #L{a}-L{b} (the form GitHub uses to permalink a range), and
+// paints the whole range — which a single :target cannot do.
+function wireBlobLineSelection(): void {
+  const table = document.querySelector<HTMLElement>("[data-line-select]");
+  if (!table) {
+    return;
+  }
+  const rows = Array.from(table.querySelectorAll<HTMLElement>(".blob-line"));
+  if (rows.length === 0) {
+    return;
+  }
+
+  // lineNumber pulls the integer out of a row id like "L42".
+  const lineNumber = (row: HTMLElement): number => Number.parseInt(row.id.slice(1), 10);
+
+  // paint toggles the selected class across the inclusive [lo, hi] range; a hi
+  // below lo clears every row.
+  const paint = (lo: number, hi: number): void => {
+    for (const row of rows) {
+      const n = lineNumber(row);
+      row.classList.toggle("is-line-selected", n >= lo && n <= hi);
+    }
+  };
+
+  // applyHash repaints from the current fragment: #L{a} highlights one line,
+  // #L{a}-L{b} the span, anything else clears.
+  const applyHash = (): void => {
+    const m = /^#L(\d+)(?:-L(\d+))?$/.exec(window.location.hash);
+    if (!m) {
+      paint(1, 0);
+      return;
+    }
+    const a = Number.parseInt(m[1], 10);
+    const b = m[2] ? Number.parseInt(m[2], 10) : a;
+    paint(Math.min(a, b), Math.max(a, b));
+  };
+
+  let anchor = 0;
+  for (const row of rows) {
+    const link = row.querySelector<HTMLElement>(".blob-num-link");
+    if (!link) {
+      continue;
+    }
+    link.addEventListener("click", (e) => {
+      const n = lineNumber(row);
+      if (e.shiftKey && anchor > 0) {
+        // Extend the selection from the last anchored line to this one without a
+        // navigation, then repaint the span ourselves.
+        e.preventDefault();
+        const lo = Math.min(anchor, n);
+        const hi = Math.max(anchor, n);
+        window.history.replaceState(null, "", `#L${lo}-L${hi}`);
+        paint(lo, hi);
+      } else {
+        // A plain click anchors here; the browser sets #L{n} and the hashchange
+        // handler repaints.
+        anchor = n;
+      }
+    });
+  }
+
+  window.addEventListener("hashchange", applyHash);
+  applyHash();
+}
+
 // RelativeTime upgrades the <relative-time> elements the server renders with a
 // machine datetime and an absolute fallback body. On connect the element swaps
 // its text for a relative phrase ("3 days ago") in the viewer's locale and
@@ -140,6 +209,7 @@ function boot(): void {
   wireCopyButtons();
   wireFlashDismiss();
   wireFileFilter();
+  wireBlobLineSelection();
 }
 
 if (document.readyState === "loading") {
