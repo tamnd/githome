@@ -130,6 +130,7 @@ func repoServerCap(t *testing.T, blobCap int64) repoFixture {
 		Teams:      domain.NewTeamService(st),
 		Releases:   domain.NewReleaseService(st, repoSvc, t.TempDir()),
 		Gists:      domain.NewGistService(st),
+		Social:     domain.NewSocialService(st),
 		URLs:       presenter.NewURLBuilder(cfg.URLs),
 		NodeFormat: nodeid.FormatNew,
 	})

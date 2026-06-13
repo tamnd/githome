@@ -121,6 +121,7 @@ func run() error {
 	searchSvc := domain.NewSearchService(st, repoSvc, issueSvc, gitStore)
 	releaseSvc := domain.NewReleaseService(st, repoSvc, cfg.AssetRoot())
 	gistSvc := domain.NewGistService(st)
+	socialSvc := domain.NewSocialService(st)
 	keySvc := domain.NewKeyService(st)
 	teamSvc := domain.NewTeamService(st)
 	notifSvc := domain.NewNotificationService(st)
@@ -176,6 +177,7 @@ func run() error {
 		Events:        eventSvc,
 		Search:        searchSvc,
 		Gists:         gistSvc,
+		Social:        socialSvc,
 		Releases:      releaseSvc,
 		Notifications: notifSvc,
 		URLs:          urls,

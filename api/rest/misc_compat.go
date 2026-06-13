@@ -179,16 +179,6 @@ func handleUserOrgs(d Deps) mizu.Handler {
 	}
 }
 
-// handleUserFollowingCheck serves GET /user/following/{username}.
-func handleUserFollowingCheck(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		// Users have no follow relationship - return 404 per GitHub's
-		// "not following" response.
-		c.Writer().WriteHeader(http.StatusNotFound)
-		return nil
-	}
-}
-
 // handlePublicUserKeys serves GET /users/{username}/keys.
 func handlePublicUserKeys(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
@@ -591,7 +581,6 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 	if d.Users != nil {
 		r.Get("/user/emails", handleUserEmails(d))
 		r.Get("/user/orgs", handleUserOrgs(d))
-		r.Get("/user/following/{username}", handleUserFollowingCheck(d))
 		r.Get("/orgs/{org}/members", handleOrgMembersList(d))
 		r.Get("/orgs/{org}/members/{username}", handleOrgMemberGet(d))
 		r.Get("/users/{username}/keys", handlePublicUserKeys(d))
