@@ -9,6 +9,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/presenter/restmodel"
 )
 
 // handleSearchIssues serves GET /search/issues. The q query carries the search
@@ -32,11 +33,32 @@ func handleSearchIssues(d Deps) mizu.Handler {
 			return err
 		}
 		body := d.URLs.SearchIssues(hits, total, false, d.NodeFormat)
+		if wantsTextMatch(c.Request()) {
+			terms := queryTerms(raw)
+			for i := range body.Items {
+				body.Items[i].TextMatches = issueTextMatches(body.Items[i], terms)
+			}
+		}
 		page.Total = total
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
+}
+
+// issueTextMatches builds the text_matches entries for an issue hit from its
+// title and body, the two free-text properties GitHub highlights.
+func issueTextMatches(item restmodel.IssueSearchItem, terms []string) []restmodel.TextMatch {
+	var out []restmodel.TextMatch
+	if tm, ok := textMatch(item.URL, strptr("Issue"), "title", item.Title, terms); ok {
+		out = append(out, tm)
+	}
+	if item.Body != nil {
+		if tm, ok := textMatch(item.URL, strptr("Issue"), "body", *item.Body, terms); ok {
+			out = append(out, tm)
+		}
+	}
+	return out
 }
 
 // handleSearchRepositories serves GET /search/repositories.
@@ -58,11 +80,32 @@ func handleSearchRepositories(d Deps) mizu.Handler {
 			return err
 		}
 		body := d.URLs.SearchRepositories(repos, total, false, d.NodeFormat)
+		if wantsTextMatch(c.Request()) {
+			terms := queryTerms(raw)
+			for i := range body.Items {
+				body.Items[i].TextMatches = repoTextMatches(body.Items[i], terms)
+			}
+		}
 		page.Total = total
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
+}
+
+// repoTextMatches builds the text_matches entries for a repository hit from its
+// name and description.
+func repoTextMatches(item restmodel.RepoSearchItem, terms []string) []restmodel.TextMatch {
+	var out []restmodel.TextMatch
+	if tm, ok := textMatch(item.URL, strptr("Repository"), "name", item.Name, terms); ok {
+		out = append(out, tm)
+	}
+	if item.Desc != nil {
+		if tm, ok := textMatch(item.URL, strptr("Repository"), "description", *item.Desc, terms); ok {
+			out = append(out, tm)
+		}
+	}
+	return out
 }
 
 // handleSearchCode serves GET /search/code. The query must scope the walk with
@@ -85,7 +128,7 @@ func handleSearchCode(d Deps) mizu.Handler {
 		if errors.Is(err, domain.ErrSearchScopeRequired) {
 			writeError(c.Writer(), errValidation(FieldError{
 				Resource: "Search", Field: "q", Code: "invalid",
-				Message: "Code search requires a repo, user, or org qualifier to scope the search.",
+				Message: "Must include at least one user, organization, or repository",
 			}))
 			return nil
 		}
@@ -93,11 +136,28 @@ func handleSearchCode(d Deps) mizu.Handler {
 			return err
 		}
 		body := d.URLs.SearchCode(results, total, incomplete, d.NodeFormat)
+		if wantsTextMatch(c.Request()) {
+			terms := queryTerms(raw)
+			for i := range body.Items {
+				body.Items[i].TextMatches = codeTextMatches(body.Items[i], terms)
+			}
+		}
 		page.Total = total
 		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
+}
+
+// codeTextMatches builds the text_matches entries for a code hit. Only the file
+// path is matched: githome's code index stores paths and blob ids, not the
+// content fragments GitHub highlights for in-file matches, so the richer
+// content text matches are not synthesized.
+func codeTextMatches(item restmodel.CodeSearchItem, terms []string) []restmodel.TextMatch {
+	if tm, ok := textMatch(item.URL, nil, "path", item.Path, terms); ok {
+		return []restmodel.TextMatch{tm}
+	}
+	return nil
 }
 
 // searchTerm reads the q query parameter, reporting false when it is missing or

@@ -35,11 +35,13 @@ func TestForbiddenCanonicalMessage(t *testing.T) {
 	}
 }
 
-// TestAcceptVariantsIgnored checks the media types Githome does not render
-// variants for (text-match on search, html+json and full+json on issues) are
-// accepted and answered with the normal JSON representation, never rejected.
-// GitHub clients send these routinely; the body simply lacks body_html and
-// text_matches until those renders exist.
+// TestAcceptVariantsIgnored checks the issue body media types Githome does not
+// render variants for (html+json, full+json, text+json) are accepted and
+// answered with the normal JSON representation, never rejected. GitHub clients
+// send these routinely; the body simply lacks body_html until that render
+// exists. The text-match variant on search IS honored now (see
+// TestSearchTextMatch); here we only confirm the envelope still carries
+// total_count when it is requested.
 func TestAcceptVariantsIgnored(t *testing.T) {
 	fx := issueServer(t)
 	if resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/issues", fx.token,
