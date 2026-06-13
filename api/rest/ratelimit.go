@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -106,6 +107,21 @@ func (l *rateLimiter) take(key, resource string, authed bool) (rateStatus, bool)
 	return l.status(w, limit, resource), true
 }
 
+// refund returns one charged unit to the bucket and reports the state after the
+// refund. It never pushes used below zero. A window that has since rolled over
+// is replaced fresh by window(), so a refund after the reset is a no-op against
+// the new window — the unit it would undo was spent in the previous one.
+func (l *rateLimiter) refund(key, resource string, authed bool) rateStatus {
+	limit, window := l.limitFor(resource, authed)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	w := l.window(key, resource, window)
+	if w.used > 0 {
+		w.used--
+	}
+	return l.status(w, limit, resource)
+}
+
 // peek reports the bucket without charging it, the view GET /rate_limit serves.
 func (l *rateLimiter) peek(key, resource string, authed bool) rateStatus {
 	limit, window := l.limitFor(resource, authed)
@@ -143,6 +159,38 @@ func stampRateHeaders(h http.Header, st rateStatus) {
 	h.Set("X-RateLimit-Used", strconv.Itoa(st.used))
 	h.Set("X-RateLimit-Reset", strconv.FormatInt(st.reset.Unix(), 10))
 	h.Set("X-RateLimit-Resource", st.resource)
+}
+
+// rateCharge records the single unit the limiter charged a request, so a handler
+// that ends up answering 304 Not Modified can hand it back: GitHub does not
+// spend rate-limit quota on a conditional 304, and Githome matches that.
+type rateCharge struct {
+	limiter  *rateLimiter
+	key      string
+	resource string
+	authed   bool
+}
+
+type rateChargeKeyType struct{}
+
+var rateChargeKey rateChargeKeyType
+
+func withRateCharge(ctx context.Context, ch *rateCharge) context.Context {
+	return context.WithValue(ctx, rateChargeKey, ch)
+}
+
+// refundRateConditional gives back the rate-limit unit charged for a request
+// that is about to answer 304, and re-stamps the X-RateLimit-* headers so the
+// client sees its remaining count held steady. It is a no-op when no charge was
+// recorded (an unmetered path, or the limiter is not mounted). It must run
+// before WriteHeader, while the response headers can still be set; the
+// conditional read helpers call it on exactly that path.
+func refundRateConditional(w http.ResponseWriter, r *http.Request) {
+	ch, _ := r.Context().Value(rateChargeKey).(*rateCharge)
+	if ch == nil {
+		return
+	}
+	stampRateHeaders(w.Header(), ch.limiter.refund(ch.key, ch.resource, ch.authed))
 }
 
 // rateKeyFor names the bucket a request spends from: the actor's RateKey when a
@@ -200,7 +248,8 @@ func rateLimit(l *rateLimiter) mizu.Middleware {
 				stampRateHeaders(c.Header(), l.peek(key, "core", authed))
 				return next(c)
 			}
-			st, ok := l.take(key, rateResource(r.URL.Path), authed)
+			resource := rateResource(r.URL.Path)
+			st, ok := l.take(key, resource, authed)
 			stampRateHeaders(c.Header(), st)
 			if !ok {
 				retry := int(time.Until(st.reset).Seconds()) + 1
@@ -215,6 +264,13 @@ func rateLimit(l *rateLimiter) mizu.Middleware {
 				})
 				return nil
 			}
+			// Record the charge so a conditional handler that answers 304 can
+			// refund it before writing the response. mizu exposes no context
+			// setter, so update the request in place; c.Request() downstream sees
+			// the charge, exactly as the auth middleware threads the actor.
+			*r = *r.WithContext(withRateCharge(r.Context(), &rateCharge{
+				limiter: l, key: key, resource: resource, authed: authed,
+			}))
 			return next(c)
 		}
 	}
