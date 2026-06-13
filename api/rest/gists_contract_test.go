@@ -108,3 +108,45 @@ func TestGistUpdateRenameAndDelete(t *testing.T) {
 		t.Fatalf("rename missing file: status %d, body %s", resp.StatusCode, body)
 	}
 }
+
+// TestGistCommentCRUD covers the single-comment surface the compat review
+// flagged as missing: a created comment can be read, edited, and deleted by id,
+// and the deleted comment is then gone.
+func TestGistCommentCRUD(t *testing.T) {
+	fx := repoServer(t)
+
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/gists", fx.token,
+		`{"files":{"a.txt":{"content":"alpha"}},"public":true}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed gist: status %d, body %s", resp.StatusCode, body)
+	}
+	gistID := jsonString(t, body, "id")
+	base := "/gists/" + gistID + "/comments"
+
+	resp, body = authedSend(t, fx.srv, http.MethodPost, base, fx.token, `{"body":"first take"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("comment create: status %d, body %s", resp.StatusCode, body)
+	}
+	commentID := jsonInt(t, body, "id")
+	one := base + "/" + itoa(commentID)
+
+	resp, body = authedSend(t, fx.srv, http.MethodGet, one, fx.token, "")
+	if resp.StatusCode != http.StatusOK || jsonString(t, body, "body") != "first take" {
+		t.Fatalf("comment get: status %d, body %s", resp.StatusCode, body)
+	}
+
+	resp, body = authedSend(t, fx.srv, http.MethodPatch, one, fx.token, `{"body":"second take"}`)
+	if resp.StatusCode != http.StatusOK || jsonString(t, body, "body") != "second take" {
+		t.Fatalf("comment update: status %d, body %s", resp.StatusCode, body)
+	}
+
+	resp, body = authedSend(t, fx.srv, http.MethodDelete, one, fx.token, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("comment delete: status %d, body %s", resp.StatusCode, body)
+	}
+
+	resp, _ = authedSend(t, fx.srv, http.MethodGet, one, fx.token, "")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("deleted comment get: status %d, want 404", resp.StatusCode)
+	}
+}

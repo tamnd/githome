@@ -12,6 +12,10 @@ import (
 // ErrGistNotFound is returned when a gist cannot be found.
 var ErrGistNotFound = errors.New("domain: gist not found")
 
+// ErrGistCommentNotFound is returned when a gist comment cannot be found, or
+// names a comment on a different gist than the one in the request path.
+var ErrGistCommentNotFound = errors.New("domain: gist comment not found")
+
 // GistStore is the store slice the gist service needs.
 type GistStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
@@ -28,6 +32,9 @@ type GistStore interface {
 	IsGistStarred(ctx context.Context, gistPK, userPK int64) (bool, error)
 	InsertGistComment(ctx context.Context, c *store.GistCommentRow) error
 	ListGistComments(ctx context.Context, gistPK int64) ([]store.GistCommentRow, error)
+	GetGistComment(ctx context.Context, commentPK int64) (*store.GistCommentRow, error)
+	UpdateGistComment(ctx context.Context, commentPK int64, body string) error
+	DeleteGistComment(ctx context.Context, commentPK int64) error
 }
 
 // GistService manages gists and their files.
@@ -258,6 +265,58 @@ func (s *GistService) ListGistComments(ctx context.Context, gistID string, calle
 		return nil, err
 	}
 	return s.store.ListGistComments(ctx, g.PK)
+}
+
+// gistComment loads a comment and confirms it belongs to the named gist the
+// caller is allowed to see. A comment whose gist is hidden, or whose pk names a
+// comment on a different gist, reads as not found so nothing leaks.
+func (s *GistService) gistComment(ctx context.Context, gistID string, commentPK, callerPK int64) (*store.GistRow, *store.GistCommentRow, error) {
+	g, err := s.GetGist(ctx, gistID, callerPK)
+	if err != nil {
+		return nil, nil, err
+	}
+	c, err := s.store.GetGistComment(ctx, commentPK)
+	if errors.Is(err, store.ErrNotFound) || (c != nil && c.GistPK != g.PK) {
+		return nil, nil, ErrGistCommentNotFound
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, c, nil
+}
+
+// GetGistComment returns one comment on a gist the caller can see.
+func (s *GistService) GetGistComment(ctx context.Context, gistID string, commentPK, callerPK int64) (*store.GistCommentRow, error) {
+	_, c, err := s.gistComment(ctx, gistID, commentPK, callerPK)
+	return c, err
+}
+
+// UpdateGistComment rewrites a comment's body. Only the comment author may edit.
+func (s *GistService) UpdateGistComment(ctx context.Context, gistID string, commentPK, callerPK int64, body string) (*store.GistCommentRow, error) {
+	_, c, err := s.gistComment(ctx, gistID, commentPK, callerPK)
+	if err != nil {
+		return nil, err
+	}
+	if c.UserPK != callerPK {
+		return nil, ErrForbidden
+	}
+	if err := s.store.UpdateGistComment(ctx, commentPK, body); err != nil {
+		return nil, err
+	}
+	c.Body = body
+	return c, nil
+}
+
+// DeleteGistComment removes a comment. Only the comment author may delete.
+func (s *GistService) DeleteGistComment(ctx context.Context, gistID string, commentPK, callerPK int64) error {
+	_, c, err := s.gistComment(ctx, gistID, commentPK, callerPK)
+	if err != nil {
+		return err
+	}
+	if c.UserPK != callerPK {
+		return ErrForbidden
+	}
+	return s.store.DeleteGistComment(ctx, commentPK)
 }
 
 // randGistID generates a 20-byte random hex string matching GitHub's gist ID format.
