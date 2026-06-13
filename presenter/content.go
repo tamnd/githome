@@ -29,6 +29,12 @@ func (b *URLBuilder) ContentDir(owner, repoName, ref string, entries []git.PathE
 	return out
 }
 
+// ContentEntry renders the content object without the body, the shape the
+// contents PUT and DELETE responses embed.
+func (b *URLBuilder) ContentEntry(owner, repoName, ref string, e git.PathEntry) restmodel.Content {
+	return b.contentEntry(owner, repoName, ref, e)
+}
+
 // contentEntry builds the shared shape for a contents entry, file or directory.
 func (b *URLBuilder) contentEntry(owner, repoName, ref string, e git.PathEntry) restmodel.Content {
 	repoBase := b.RepoAPI(owner, repoName)

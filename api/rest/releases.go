@@ -14,13 +14,24 @@ import (
 
 // releaseCreateBody is the POST /releases request.
 type releaseCreateBody struct {
-	TagName         string  `json:"tag_name"`
-	TargetCommitish string  `json:"target_commitish"`
-	Name            *string `json:"name"`
-	Body            *string `json:"body"`
-	Draft           bool    `json:"draft"`
-	Prerelease      bool    `json:"prerelease"`
-	MakeLatest      string  `json:"make_latest"`
+	TagName              string  `json:"tag_name"`
+	TargetCommitish      string  `json:"target_commitish"`
+	Name                 *string `json:"name"`
+	Body                 *string `json:"body"`
+	Draft                bool    `json:"draft"`
+	Prerelease           bool    `json:"prerelease"`
+	MakeLatest           string  `json:"make_latest"`
+	GenerateReleaseNotes bool    `json:"generate_release_notes"`
+}
+
+// generateNotesBody is the POST /releases/generate-notes request. The
+// configuration_file_path field is accepted but unused: Githome has one
+// built-in notes format.
+type generateNotesBody struct {
+	TagName               string `json:"tag_name"`
+	TargetCommitish       string `json:"target_commitish"`
+	PreviousTagName       string `json:"previous_tag_name"`
+	ConfigurationFilePath string `json:"configuration_file_path"`
 }
 
 // releaseEditBody is the PATCH /releases/{id} request.
@@ -94,11 +105,55 @@ func handleReleaseCreate(d Deps) mizu.Handler {
 			Prerelease:      body.Prerelease,
 			MakeLatest:      body.MakeLatest,
 		}
+		if body.GenerateReleaseNotes {
+			notes, err := d.Releases.GenerateReleaseNotes(c.Request().Context(), actor.UserID, owner, repo, domain.GenerateNotesInput{
+				TagName:         body.TagName,
+				TargetCommitish: body.TargetCommitish,
+			})
+			if err != nil {
+				return mapReleaseError(c, err)
+			}
+			gen := d.URLs.GeneratedNotes(owner, repo, notes)
+			// GitHub's contract: an explicit name wins over the generated one,
+			// and an explicit body is prepended to the generated notes.
+			if in.Name == nil {
+				in.Name = &gen.Name
+			}
+			if in.Body == nil || *in.Body == "" {
+				in.Body = &gen.Body
+			} else {
+				merged := *in.Body + "\n" + gen.Body
+				in.Body = &merged
+			}
+		}
 		r, err := d.Releases.CreateRelease(c.Request().Context(), actor.UserID, owner, repo, in)
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.Release(owner, repo, r, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleReleaseGenerateNotes serves POST /repos/{owner}/{repo}/releases/generate-notes.
+func handleReleaseGenerateNotes(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		actor := auth.ActorFrom(c.Request().Context())
+		owner := c.Param("owner")
+		repo := c.Param("repo")
+		var body generateNotesBody
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		notes, err := d.Releases.GenerateReleaseNotes(c.Request().Context(), actor.UserID, owner, repo, domain.GenerateNotesInput{
+			TagName:         body.TagName,
+			TargetCommitish: body.TargetCommitish,
+			PreviousTagName: body.PreviousTagName,
+		})
+		if err != nil {
+			return mapReleaseError(c, err)
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.GeneratedNotes(owner, repo, notes))
 		return nil
 	}
 }
@@ -347,9 +402,7 @@ func handleReleaseAssetGet(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
-		// Placeholder release ID for URL building; the asset knows its own releasePK
-		// but not the release's db_id. Build via its own ID only.
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, 0, a, d.NodeFormat))
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, a.ReleaseID, a, d.NodeFormat))
 		return nil
 	}
 }
@@ -373,7 +426,7 @@ func handleReleaseAssetEdit(d Deps) mizu.Handler {
 		if err != nil {
 			return mapReleaseError(c, err)
 		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, 0, a, d.NodeFormat))
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.ReleaseAsset(owner, repo, a.ReleaseID, a, d.NodeFormat))
 		return nil
 	}
 }
@@ -415,6 +468,9 @@ func mapReleaseError(c *mizu.Ctx, err error) error {
 		writeError(c.Writer(), errNotFound())
 		return nil
 	case errors.Is(err, domain.ErrRepoNotFound):
+		writeError(c.Writer(), errNotFound())
+		return nil
+	case errors.Is(err, domain.ErrGitNotFound), errors.Is(err, domain.ErrEmptyRepo):
 		writeError(c.Writer(), errNotFound())
 		return nil
 	case errors.Is(err, domain.ErrForbidden):

@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter/restmodel"
 	"github.com/tamnd/githome/store"
 )
@@ -389,7 +391,7 @@ func handleTeamCreate(d Deps) mizu.Handler {
 		if org != nil {
 			orgLogin = org.Login
 		}
-		writeJSON(c.Writer(), http.StatusCreated, teamToJSON(t, d, orgLogin))
+		writeJSON(c.Writer(), http.StatusCreated, teamToJSON(t, d, orgLogin, 0, 0))
 		return nil
 	}
 }
@@ -401,7 +403,11 @@ func handleTeamGet(d Deps) mizu.Handler {
 		if t == nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, teamToJSON(t, d, orgLogin))
+		j, err := teamJSON(ctx, d, t, orgLogin)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, j)
 		return nil
 	}
 }
@@ -431,7 +437,11 @@ func handleTeamUpdate(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, teamToJSON(updated, d, orgLogin))
+		j, err := teamJSON(ctx, d, updated, orgLogin)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, j)
 		return nil
 	}
 }
@@ -655,24 +665,39 @@ func loadTeamByCtx(d Deps, c *mizu.Ctx, _ interface{}) (*store.TeamRow, string, 
 }
 
 // teamToJSON renders a team object for the REST API.
-func teamToJSON(t *store.TeamRow, d Deps, orgLogin string) map[string]any {
+func teamToJSON(t *store.TeamRow, d Deps, orgLogin string, members, repos int) map[string]any {
 	desc := ""
 	if t.Description != nil {
 		desc = *t.Description
 	}
+	base := d.URLs.API("orgs", orgLogin, "teams", t.Slug)
 	return map[string]any{
-		"id":          t.DBID,
-		"node_id":     "",
-		"url":         d.URLs.API("orgs", orgLogin, "teams", t.Slug),
-		"html_url":    d.URLs.HTML("orgs", orgLogin, "teams", t.Slug),
-		"name":        t.Name,
-		"slug":        t.Slug,
-		"description": desc,
-		"privacy":     t.Privacy,
-		"permission":  t.Permission,
-		"created_at":  t.CreatedAt.UTC().Format(time.RFC3339),
-		"updated_at":  t.UpdatedAt.UTC().Format(time.RFC3339),
+		"id":               t.DBID,
+		"node_id":          nodeid.Encode(nodeid.KindTeam, t.DBID, d.NodeFormat),
+		"url":              base,
+		"html_url":         d.URLs.HTML("orgs", orgLogin, "teams", t.Slug),
+		"members_url":      base + "/members{/member}",
+		"repositories_url": base + "/repos",
+		"name":             t.Name,
+		"slug":             t.Slug,
+		"description":      desc,
+		"privacy":          t.Privacy,
+		"permission":       t.Permission,
+		"parent":           nil,
+		"members_count":    members,
+		"repos_count":      repos,
+		"created_at":       t.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":       t.UpdatedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+// teamJSON is teamToJSON with the member and repo counts resolved.
+func teamJSON(ctx context.Context, d Deps, t *store.TeamRow, orgLogin string) (map[string]any, error) {
+	members, repos, err := d.Teams.TeamCounts(ctx, t.PK)
+	if err != nil {
+		return nil, err
+	}
+	return teamToJSON(t, d, orgLogin, members, repos), nil
 }
 
 // decodeJSONOpt is like decodeJSON but returns true even if the body is absent
@@ -720,19 +745,34 @@ func handleOrgMembershipPut(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		_ = orgUser
-		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, body.Role, "active", d))
+		orgPK, err := d.Users.PKByLogin(ctx, orgUser.Login)
+		if err != nil {
+			return err
+		}
+		userPK, err := d.Users.PKByLogin(ctx, user.Login)
+		if err != nil {
+			return err
+		}
+		role := body.Role
+		if userPK == orgPK {
+			role = "admin"
+		} else if role, err = d.Teams.AddOrgMember(ctx, orgPK, userPK, role); err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, role, "active", d))
 		return nil
 	}
 }
 
-// handleOrgMembershipGet serves GET /orgs/{org}/memberships/{username}.
+// handleOrgMembershipGet serves GET /orgs/{org}/memberships/{username}. The
+// org's backing account reads as its built-in admin; anyone else needs a
+// persisted membership or the answer is the 404 GitHub gives a non-member.
 func handleOrgMembershipGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		ctx := c.Request().Context()
 		org := c.Param("org")
 		username := c.Param("username")
-		_, err := d.Users.ByLogin(ctx, org)
+		orgPK, err := d.Users.PKByLogin(ctx, org)
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -748,7 +788,22 @@ func handleOrgMembershipGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, "member", "active", d))
+		userPK, err := d.Users.PKByLogin(ctx, user.Login)
+		if err != nil {
+			return err
+		}
+		role := "admin"
+		if userPK != orgPK {
+			role, err = d.Teams.GetOrgMembership(ctx, orgPK, userPK)
+			if errors.Is(err, domain.ErrNotFound) {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+		}
+		writeJSON(c.Writer(), http.StatusOK, orgMembershipJSON(org, user, role, "active", d))
 		return nil
 	}
 }
@@ -762,12 +817,23 @@ func handleOrgMemberDelete(d Deps) mizu.Handler {
 			writeError(c.Writer(), errRequiresAuth())
 			return nil
 		}
-		_, err := d.Users.ByLogin(ctx, c.Param("username"))
+		orgPK, err := d.Users.PKByLogin(ctx, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
 		}
 		if err != nil {
+			return err
+		}
+		userPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := d.Teams.RemoveOrgMember(ctx, orgPK, userPK); err != nil && !errors.Is(err, domain.ErrNotFound) {
 			return err
 		}
 		c.Writer().WriteHeader(http.StatusNoContent)

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
 	"github.com/tamnd/githome/worker"
 )
@@ -259,6 +260,66 @@ func (s *ReleaseService) DeleteRelease(ctx context.Context, actorPK int64, owner
 		return err
 	}
 	return s.store.DeleteRelease(ctx, row.PK)
+}
+
+// GenerateNotesInput is the request for automatic release-notes generation.
+type GenerateNotesInput struct {
+	TagName         string
+	TargetCommitish string
+	PreviousTagName string
+}
+
+// GeneratedNotes carries the material for automatic release notes: the commits
+// landing in the release and the previous tag the range was cut against, empty
+// when the repository has no earlier release to diff from.
+type GeneratedNotes struct {
+	TagName         string
+	PreviousTagName string
+	Commits         []git.Commit
+}
+
+// GenerateReleaseNotes collects the commit range automatic release notes are
+// written from. The actor must have write access. The tag usually does not
+// exist yet (gh generates notes before creating the release), so resolution
+// falls back from the tag to the requested target commitish to the default
+// branch, and the previous tag defaults to the latest published release.
+func (s *ReleaseService) GenerateReleaseNotes(ctx context.Context, actorPK int64, owner, name string, in GenerateNotesInput) (*GeneratedNotes, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	if in.TagName == "" {
+		return nil, ErrValidation
+	}
+	target := in.TagName
+	if _, err := s.repos.GetCommit(repo, target); err != nil {
+		target = in.TargetCommitish
+		if target == "" {
+			target = repo.DefaultBranch
+		}
+	}
+	prev := in.PreviousTagName
+	if prev == "" {
+		if latest, err := s.store.GetLatestRelease(ctx, repo.PK); err == nil && latest.TagName != in.TagName {
+			prev = latest.TagName
+		}
+	}
+	out := &GeneratedNotes{TagName: in.TagName, PreviousTagName: prev}
+	if prev != "" {
+		cmp, err := s.repos.Compare(ctx, repo, prev, target)
+		if err == nil {
+			out.Commits = cmp.Commits
+			return out, nil
+		}
+		// The previous tag no longer resolves; note from plain history instead.
+		out.PreviousTagName = ""
+	}
+	commits, err := s.repos.ListCommits(repo, git.LogOpts{From: target})
+	if err != nil {
+		return nil, err
+	}
+	out.Commits = commits
+	return out, nil
 }
 
 // ListReleaseAssets returns all assets for a release.
@@ -521,6 +582,7 @@ func assetFromRow(a *store.ReleaseAssetRow) *ReleaseAsset {
 		PK:            a.PK,
 		ID:            a.DBID,
 		ReleasePK:     a.ReleasePK,
+		ReleaseID:     a.ReleaseDBID,
 		Name:          a.Name,
 		Label:         a.Label,
 		ContentType:   a.ContentType,

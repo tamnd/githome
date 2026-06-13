@@ -144,6 +144,13 @@ func (s *Store) ListCheckSuites(ctx context.Context, repoPK int64, headSHA strin
 	return out, rows.Err()
 }
 
+// GetCheckSuiteByDBID resolves a check suite by its public database id, the
+// lookup GET /repos/{owner}/{repo}/check-suites/{id} performs.
+func (s *Store) GetCheckSuiteByDBID(ctx context.Context, dbID int64) (*CheckSuiteRow, error) {
+	q := s.rebind(`SELECT ` + checkSuiteColumns + ` FROM check_suites WHERE db_id = ?`)
+	return scanCheckSuite(s.rdb.QueryRowContext(ctx, q, dbID))
+}
+
 // SetCheckSuiteState rolls a suite's status and conclusion forward, the summary
 // the recompute derives from the suite's runs.
 func (s *Store) SetCheckSuiteState(ctx context.Context, pk int64, status string, conclusion *string) error {
@@ -179,7 +186,9 @@ func scanCheckSuiteRows(row interface{ Scan(...any) error }) (*CheckSuiteRow, er
 	return &suite, nil
 }
 
-const checkRunColumns = `pk, db_id, suite_pk, repo_pk, head_sha, name, status,
+const checkRunColumns = `pk, db_id, suite_pk,
+	(SELECT cs.db_id FROM check_suites cs WHERE cs.pk = check_runs.suite_pk),
+	repo_pk, head_sha, name, status,
 	conclusion, details_url, external_id, output_title, output_summary,
 	output_text, started_at, completed_at, actions, annotations_count,
 	created_at, updated_at`
@@ -284,7 +293,7 @@ func scanCheckRunRows(row interface{ Scan(...any) error }) (*CheckRunRow, error)
 		actions                                sql.NullString
 		startedAt, completedAt, created, upd   nullTime
 	)
-	if err := row.Scan(&r.PK, &r.DBID, &r.SuitePK, &r.RepoPK, &r.HeadSHA, &r.Name,
+	if err := row.Scan(&r.PK, &r.DBID, &r.SuitePK, &r.SuiteDBID, &r.RepoPK, &r.HeadSHA, &r.Name,
 		&r.Status, &conclusion, &detailsURL, &externalID, &outputTitle,
 		&outputSummary, &outputText, &startedAt, &completedAt, &actions,
 		&r.AnnotationsCount, &created, &upd); err != nil {

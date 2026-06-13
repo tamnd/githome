@@ -520,3 +520,20 @@ CREATE TABLE check_run_annotations (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX check_run_annotations_run_idx ON check_run_annotations (check_run_pk);
+
+-- 0032_protection_details
+ALTER TABLE branch_protections ADD COLUMN required_linear_history BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE branch_protections ADD COLUMN block_creations BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE branch_protections ADD COLUMN required_conversation_resolution BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE branch_protections ADD COLUMN lock_branch BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE branch_protections ADD COLUMN allow_fork_syncing BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE branch_protections ADD COLUMN required_signatures BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 0033_org_members
+CREATE TABLE IF NOT EXISTS org_members (
+    pk       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    org_pk   BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    user_pk  BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    role     TEXT   NOT NULL DEFAULT 'member',
+    UNIQUE (org_pk, user_pk)
+);

@@ -248,9 +248,12 @@ type CheckSuiteRow struct {
 // failure, neutral, cancelled, timed_out, action_required, skipped) is set when
 // the run completes.
 type CheckRunRow struct {
-	PK            int64
-	DBID          int64
-	SuitePK       int64
+	PK      int64
+	DBID    int64
+	SuitePK int64
+	// SuiteDBID is the public id of the run's suite, read alongside the run so
+	// the response's check_suite reference matches GET /check-suites/{id}.
+	SuiteDBID     int64
 	RepoPK        int64
 	HeadSHA       string
 	Name          string
@@ -436,8 +439,16 @@ type BranchProtectionRow struct {
 	RestrictionsEnabled     bool   // a restrictions object was supplied at all
 	AllowForcePushes        bool
 	AllowDeletions          bool
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+
+	RequiredLinearHistory          bool
+	BlockCreations                 bool
+	RequiredConversationResolution bool
+	LockBranch                     bool
+	AllowForkSyncing               bool
+	RequiredSignatures             bool
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // TeamRow is a row of the teams table.
@@ -460,6 +471,14 @@ type CollaboratorRow struct {
 	RepoPK     int64
 	UserPK     int64
 	Permission string
+}
+
+// OrgMemberRow is a row of the org_members table.
+type OrgMemberRow struct {
+	PK     int64
+	OrgPK  int64
+	UserPK int64
+	Role   string
 }
 
 // GistRow is a row of the gists table, optionally including the file rows.

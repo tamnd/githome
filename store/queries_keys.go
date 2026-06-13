@@ -76,7 +76,9 @@ const branchProtColumns = `pk, repo_pk, branch_pattern, require_pr_reviews,
 	required_approving_count, dismiss_stale_reviews, require_code_owner_reviews,
 	require_status_checks, require_branches_up_to_date, status_check_contexts,
 	enforce_admins, restrictions_users, restrictions_teams, restrictions_enabled,
-	allow_force_pushes, allow_deletions, created_at, updated_at`
+	allow_force_pushes, allow_deletions, required_linear_history, block_creations,
+	required_conversation_resolution, lock_branch, allow_fork_syncing,
+	required_signatures, created_at, updated_at`
 
 // BranchProtectionByPattern loads a branch protection rule for a specific pattern.
 func (s *Store) BranchProtectionByPattern(ctx context.Context, repoPK int64, pattern string) (*BranchProtectionRow, error) {
@@ -92,8 +94,10 @@ func (s *Store) UpsertBranchProtection(ctx context.Context, r *BranchProtectionR
 		 dismiss_stale_reviews, require_code_owner_reviews, require_status_checks,
 		 require_branches_up_to_date, status_check_contexts, enforce_admins,
 		 restrictions_users, restrictions_teams, restrictions_enabled,
-		 allow_force_pushes, allow_deletions, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 allow_force_pushes, allow_deletions, required_linear_history,
+		 block_creations, required_conversation_resolution, lock_branch,
+		 allow_fork_syncing, required_signatures, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (repo_pk, branch_pattern) DO UPDATE SET
 		  require_pr_reviews = excluded.require_pr_reviews,
 		  required_approving_count = excluded.required_approving_count,
@@ -108,6 +112,12 @@ func (s *Store) UpsertBranchProtection(ctx context.Context, r *BranchProtectionR
 		  restrictions_enabled = excluded.restrictions_enabled,
 		  allow_force_pushes = excluded.allow_force_pushes,
 		  allow_deletions = excluded.allow_deletions,
+		  required_linear_history = excluded.required_linear_history,
+		  block_creations = excluded.block_creations,
+		  required_conversation_resolution = excluded.required_conversation_resolution,
+		  lock_branch = excluded.lock_branch,
+		  allow_fork_syncing = excluded.allow_fork_syncing,
+		  required_signatures = excluded.required_signatures,
 		  updated_at = excluded.updated_at
 		RETURNING pk, created_at, updated_at`)
 	var created, updated nullTime
@@ -116,7 +126,9 @@ func (s *Store) UpsertBranchProtection(ctx context.Context, r *BranchProtectionR
 		r.DismissStaleReviews, r.RequireCodeOwnerReviews, r.RequireStatusChecks,
 		r.RequireBranchesUpToDate, r.StatusCheckContexts, r.EnforceAdmins,
 		r.RestrictionsUsers, r.RestrictionsTeams, r.RestrictionsEnabled,
-		r.AllowForcePushes, r.AllowDeletions, nowUTC(),
+		r.AllowForcePushes, r.AllowDeletions, r.RequiredLinearHistory,
+		r.BlockCreations, r.RequiredConversationResolution, r.LockBranch,
+		r.AllowForkSyncing, r.RequiredSignatures, nowUTC(),
 	).Scan(&r.PK, &created, &updated)
 	if err != nil {
 		return err
@@ -198,6 +210,8 @@ func scanBranchProtection(row interface{ Scan(...any) error }) (*BranchProtectio
 		&r.RequireStatusChecks, &r.RequireBranchesUpToDate, &r.StatusCheckContexts,
 		&r.EnforceAdmins, &r.RestrictionsUsers, &r.RestrictionsTeams,
 		&r.RestrictionsEnabled, &r.AllowForcePushes, &r.AllowDeletions,
+		&r.RequiredLinearHistory, &r.BlockCreations, &r.RequiredConversationResolution,
+		&r.LockBranch, &r.AllowForkSyncing, &r.RequiredSignatures,
 		&created, &updated,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

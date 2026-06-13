@@ -47,9 +47,13 @@ type CombinedStatus struct {
 // CheckRun is one named check against a head sha inside a suite. Status is queued,
 // in_progress, or completed; Conclusion is set once completed.
 type CheckRun struct {
-	PK               int64
-	ID               int64
-	SuitePK          int64
+	PK      int64
+	ID      int64
+	SuitePK int64
+	// SuiteID is the public id of the run's suite, the value the response's
+	// check_suite reference carries so it round-trips through
+	// GET /check-suites/{id}.
+	SuiteID          int64
 	RepoPK           int64
 	HeadSHA          string
 	Name             string

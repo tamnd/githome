@@ -29,6 +29,7 @@ type ReleaseAsset struct {
 	PK            int64
 	ID            int64
 	ReleasePK     int64
+	ReleaseID     int64 // public id of the owning release, for asset urls
 	Name          string
 	Label         *string
 	ContentType   string

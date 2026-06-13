@@ -214,12 +214,12 @@ func handleGistUpdate(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
-		files := make(map[string]*string, len(body.Files))
+		files := make(map[string]*domain.GistFileUpdate, len(body.Files))
 		for fn, f := range body.Files {
 			if f == nil {
 				files[fn] = nil
 			} else {
-				files[fn] = f.Content
+				files[fn] = &domain.GistFileUpdate{Content: f.Content, NewName: f.Filename}
 			}
 		}
 		g, err := d.Gists.UpdateGist(c.Request().Context(), gistID, actor.UserID, domain.GistUpdateInput{
@@ -228,6 +228,10 @@ func handleGistUpdate(d Deps) mizu.Handler {
 		})
 		if errors.Is(err, domain.ErrGistNotFound) {
 			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if errors.Is(err, domain.ErrValidation) {
+			writeError(c.Writer(), errValidation(FieldError{Resource: "Gist", Field: "files", Code: "invalid"}))
 			return nil
 		}
 		if errors.Is(err, domain.ErrForbidden) {

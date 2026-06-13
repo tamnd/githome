@@ -772,3 +772,20 @@ CREATE TABLE check_run_annotations (
     created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX check_run_annotations_run_idx ON check_run_annotations (check_run_pk);
+
+-- 0032_protection_details
+ALTER TABLE branch_protections ADD COLUMN required_linear_history INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN block_creations INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN required_conversation_resolution INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN lock_branch INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN allow_fork_syncing INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE branch_protections ADD COLUMN required_signatures INTEGER NOT NULL DEFAULT 0;
+
+-- 0033_org_members
+CREATE TABLE org_members (
+    pk       INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_pk   INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    user_pk  INTEGER NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    role     TEXT    NOT NULL DEFAULT 'member',
+    UNIQUE (org_pk, user_pk)
+);

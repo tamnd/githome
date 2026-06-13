@@ -50,7 +50,15 @@ type GistInput struct {
 // GistUpdateInput is the update payload for a gist.
 type GistUpdateInput struct {
 	Description *string
-	Files       map[string]*string // filename → content (nil = delete file)
+	Files       map[string]*GistFileUpdate // filename → change (nil = delete file)
+}
+
+// GistFileUpdate is one file entry in a gist update. Content replaces the
+// file body; NewName renames the file, keeping its content unless Content
+// is also given.
+type GistFileUpdate struct {
+	Content *string
+	NewName *string
 }
 
 // CreateGist creates a new gist owned by userPK.
@@ -140,7 +148,34 @@ func (s *GistService) UpdateGist(ctx context.Context, gistID string, callerPK in
 	if g.OwnerPK != callerPK {
 		return nil, ErrForbidden
 	}
-	if err := s.store.UpdateGist(ctx, g.PK, in.Description, in.Files); err != nil {
+	existing := make(map[string]string, len(g.Files))
+	for _, f := range g.Files {
+		existing[f.Filename] = f.Content
+	}
+	files := make(map[string]*string, len(in.Files))
+	for fn, f := range in.Files {
+		if f == nil {
+			files[fn] = nil
+			continue
+		}
+		target := fn
+		if f.NewName != nil && *f.NewName != "" {
+			target = *f.NewName
+		}
+		content := f.Content
+		if content == nil {
+			old, ok := existing[fn]
+			if !ok {
+				return nil, ErrValidation
+			}
+			content = &old
+		}
+		if target != fn {
+			files[fn] = nil
+		}
+		files[target] = content
+	}
+	if err := s.store.UpdateGist(ctx, g.PK, in.Description, files); err != nil {
 		return nil, err
 	}
 	return s.store.GetGistByID(ctx, gistID)

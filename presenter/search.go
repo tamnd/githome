@@ -69,3 +69,20 @@ func (b *URLBuilder) SearchCode(results []domain.CodeResult, total int, incomple
 		Items:             items,
 	}
 }
+
+// SearchUsers renders the user search envelope. Each hit is a SimpleUser, the
+// shape GitHub returns for account search rather than the full profile.
+func (b *URLBuilder) SearchUsers(users []*domain.User, total int, incomplete bool, format nodeid.Format) restmodel.SearchUsers {
+	items := make([]restmodel.UserSearchItem, 0, len(users))
+	for _, u := range users {
+		items = append(items, restmodel.UserSearchItem{
+			SimpleUser: b.SimpleUser(u, format),
+			Score:      search.Score(),
+		})
+	}
+	return restmodel.SearchUsers{
+		TotalCount:        total,
+		IncompleteResults: incomplete,
+		Items:             items,
+	}
+}

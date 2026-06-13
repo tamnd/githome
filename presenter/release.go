@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/nodeid"
@@ -66,6 +67,28 @@ func (b *URLBuilder) ReleaseAsset(owner, repo string, releaseID int64, a *domain
 		out.Uploader = b.SimpleUser(a.Uploader, format)
 	}
 	return out
+}
+
+// GeneratedNotes renders POST /releases/generate-notes: GitHub's "What's
+// Changed" markdown built from the release's commit range, closed by a Full
+// Changelog link that compares against the previous tag when one exists.
+func (b *URLBuilder) GeneratedNotes(owner, repo string, n *domain.GeneratedNotes) restmodel.GeneratedNotes {
+	var sb strings.Builder
+	sb.WriteString("## What's Changed\n")
+	for _, c := range n.Commits {
+		subject := c.Message
+		if i := strings.IndexByte(subject, '\n'); i >= 0 {
+			subject = subject[:i]
+		}
+		sb.WriteString("* " + subject + " by " + c.Author.Name + "\n")
+	}
+	sb.WriteString("\n\n**Full Changelog**: ")
+	if n.PreviousTagName != "" {
+		sb.WriteString(b.HTML(owner, repo, "compare", n.PreviousTagName+"..."+n.TagName))
+	} else {
+		sb.WriteString(b.HTML(owner, repo, "commits", n.TagName))
+	}
+	return restmodel.GeneratedNotes{Name: n.TagName, Body: sb.String()}
 }
 
 // uploadURL returns the upload base URL for release assets, e.g.

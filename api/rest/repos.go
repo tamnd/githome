@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-mizu/mizu"
@@ -362,6 +363,33 @@ func handleRefs(d Deps) mizu.Handler {
 		out := make([]restmodel.GitRefObject, 0, len(refs))
 		for _, ref := range refs {
 			out = append(out, d.URLs.GitRef(repo.Owner.Login, repo.Name, repo.ID, ref))
+		}
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+		return nil
+	}
+}
+
+// handleMatchingRefs serves GET /repos/{owner}/{repo}/git/matching-refs/{ref},
+// every reference whose fully qualified name starts with refs/{ref}, so
+// heads/feature matches refs/heads/feature, refs/heads/feature-a, and
+// refs/heads/feature/b alike. No match is a 200 with an empty array, never a
+// 404, the contract go-github's ListMatchingRefs leans on.
+func handleMatchingRefs(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		refs, err := d.Repos.ListRefs(repo)
+		if err != nil {
+			return err
+		}
+		prefix := "refs/" + strings.TrimPrefix(c.Param("ref"), "refs/")
+		out := make([]restmodel.GitRefObject, 0, len(refs))
+		for _, ref := range refs {
+			if strings.HasPrefix(ref.Name, prefix) {
+				out = append(out, d.URLs.GitRef(repo.Owner.Login, repo.Name, repo.ID, ref))
+			}
 		}
 		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
 		return nil

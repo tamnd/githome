@@ -23,6 +23,13 @@ type Release struct {
 	Assets          []ReleaseAsset `json:"assets"`
 }
 
+// GeneratedNotes is the body of POST /releases/generate-notes: a suggested
+// name and markdown body for a release.
+type GeneratedNotes struct {
+	Name string `json:"name"`
+	Body string `json:"body"`
+}
+
 // ReleaseAsset is one downloadable file attached to a release.
 type ReleaseAsset struct {
 	URL                string     `json:"url"`

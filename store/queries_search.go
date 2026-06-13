@@ -380,3 +380,89 @@ func inClause(col string, ids []int64) (string, []any) {
 	}
 	return ` AND ` + col + ` IN (` + strings.Join(ph, ", ") + `)`, args
 }
+
+// UserSearch filters the cross-account user search. Terms match the login, the
+// display name, and (when public) the email; the type filter narrows to User
+// or Organization accounts. Sort orders by join date or follower count.
+type UserSearch struct {
+	Terms  []string
+	Type   string // "user" | "org"; "" is both
+	Sort   string // "joined" | "followers" | "repositories"; "" is best-match (db_id)
+	Order  string // "asc" | "desc"; "" is desc
+	Limit  int
+	Offset int
+}
+
+func (q UserSearch) where() (string, []any) {
+	var b strings.Builder
+	args := []any{}
+	b.WriteString(` WHERE deleted_at IS NULL`)
+	switch strings.ToLower(q.Type) {
+	case "user":
+		b.WriteString(` AND type = ?`)
+		args = append(args, "User")
+	case "org", "organization":
+		b.WriteString(` AND type = ?`)
+		args = append(args, "Organization")
+	}
+	for _, t := range q.Terms {
+		like := "%" + strings.ToLower(t) + "%"
+		b.WriteString(` AND (lower(login) LIKE ? OR lower(COALESCE(name, '')) LIKE ? OR lower(COALESCE(email, '')) LIKE ?)`)
+		args = append(args, like, like, like)
+	}
+	return b.String(), args
+}
+
+func (q UserSearch) orderBy() string {
+	col := "db_id"
+	switch strings.ToLower(q.Sort) {
+	case "joined":
+		col = "created_at"
+	case "followers":
+		col = "followers"
+	case "repositories":
+		col = "public_repos"
+	}
+	dir := "DESC"
+	if strings.EqualFold(q.Order, "asc") {
+		dir = "ASC"
+	}
+	return ` ORDER BY ` + col + ` ` + dir + `, db_id ` + dir
+}
+
+// SearchUsers returns the page of users matching the query.
+func (s *Store) SearchUsers(ctx context.Context, q UserSearch) ([]UserRow, error) {
+	where, args := q.where()
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 30
+	}
+	args = append(args, limit, q.Offset)
+	sql := s.rebind(`SELECT ` + userColumns + ` FROM users` + where + q.orderBy() + ` LIMIT ? OFFSET ?`)
+	rows, err := s.rdb.QueryContext(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []UserRow
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *u)
+	}
+	return out, rows.Err()
+}
+
+// CountSearchUsers counts every user matching the query for the envelope's
+// total_count.
+func (s *Store) CountSearchUsers(ctx context.Context, q UserSearch) (int, error) {
+	where, args := q.where()
+	sql := s.rebind(`SELECT COUNT(*) FROM users` + where)
+	var n int
+	if err := s.rdb.QueryRowContext(ctx, sql, args...).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}

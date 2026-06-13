@@ -53,3 +53,16 @@ type CodeSearchItem struct {
 	Repository Repository `json:"repository"`
 	Score      float64    `json:"score"`
 }
+
+// SearchUsers is the GET /search/users body.
+type SearchUsers struct {
+	TotalCount        int              `json:"total_count"`
+	IncompleteResults bool             `json:"incomplete_results"`
+	Items             []UserSearchItem `json:"items"`
+}
+
+// UserSearchItem is one account hit: the SimpleUser object plus its score.
+type UserSearchItem struct {
+	SimpleUser
+	Score float64 `json:"score"`
+}

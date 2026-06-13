@@ -3,12 +3,12 @@ package rest
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/presenter/restmodel"
 )
 
 // handleRepoLanguages serves GET /repos/{owner}/{repo}/languages.
@@ -66,11 +66,13 @@ func handleRepoCollaboratorsList(d Deps) mizu.Handler {
 	}
 }
 
-// handleOrgMembersList serves GET /orgs/{org}/members.
+// handleOrgMembersList serves GET /orgs/{org}/members. The backing account
+// itself counts as a member (it is the org's built-in admin); persisted
+// memberships follow in grant order.
 func handleOrgMembersList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		actor := auth.ActorFrom(c.Request().Context())
-		org, err := d.Users.ByLogin(c.Request().Context(), c.Param("org"))
+		ctx := c.Request().Context()
+		org, err := d.Users.ByLogin(ctx, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -78,18 +80,39 @@ func handleOrgMembersList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		writeJSON(c.Writer(), http.StatusOK, []any{
-			d.URLs.SimpleUser(org, d.NodeFormat),
-		})
-		_ = actor
+		page, perr := parsePageFor(c, "User")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		out := []restmodel.SimpleUser{d.URLs.SimpleUser(org, d.NodeFormat)}
+		orgPK, err := d.Users.PKByLogin(ctx, org.Login)
+		if err != nil {
+			return err
+		}
+		members, err := d.Teams.ListOrgMembers(ctx, orgPK)
+		if err != nil {
+			return err
+		}
+		for _, m := range members {
+			if m.User.Login == org.Login {
+				continue
+			}
+			out = append(out, d.URLs.SimpleUser(m.User, d.NodeFormat))
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
 
-// handleOrgMemberGet serves GET /orgs/{org}/members/{username}.
+// handleOrgMemberGet serves GET /orgs/{org}/members/{username}: 204 when the
+// user holds a membership (or is the org's backing account), 404 otherwise.
 func handleOrgMemberGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		_, err := d.Users.ByLogin(c.Request().Context(), c.Param("username"))
+		ctx := c.Request().Context()
+		orgPK, err := d.Users.PKByLogin(ctx, c.Param("org"))
 		if errors.Is(err, domain.ErrUserNotFound) {
 			writeError(c.Writer(), errNotFound())
 			return nil
@@ -97,7 +120,22 @@ func handleOrgMemberGet(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
-		// In a real org system we'd check membership. For now return 204 (member).
+		userPK, err := d.Users.PKByLogin(ctx, c.Param("username"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if userPK != orgPK {
+			if _, err := d.Teams.GetOrgMembership(ctx, orgPK, userPK); errors.Is(err, domain.ErrNotFound) {
+				writeError(c.Writer(), errNotFound())
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
 		c.Writer().WriteHeader(http.StatusNoContent)
 		return nil
 	}
@@ -255,14 +293,30 @@ func handleIssueTimeline(d Deps) mizu.Handler {
 	}
 }
 
-// handleSearchUsers serves GET /search/users.
+// handleSearchUsers serves GET /search/users. It runs a real account search
+// over the users table: the q free-text matches login, name, and public
+// email, the type: qualifier narrows to user or org accounts, and sort/order
+// pick the ordering. A missing q is the required-field 422, matching GitHub.
 func handleSearchUsers(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"total_count":        0,
-			"incomplete_results": false,
-			"items":              []any{},
-		})
+		raw, ok := searchTerm(c)
+		if !ok {
+			writeError(c.Writer(), errValidation(missingQ()))
+			return nil
+		}
+		page, perr := parsePageFor(c, "Search")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		users, total, err := d.Search.SearchUsers(c.Request().Context(), raw, c.Query("sort"), c.Query("order"), page.Page, page.PerPage)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.SearchUsers(users, total, false, d.NodeFormat)
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
 }
@@ -303,40 +357,42 @@ func handleSearchLabels(d Deps) mizu.Handler {
 	}
 }
 
-// handleCheckSuiteGet serves GET /repos/{owner}/{repo}/check-suites/{suite_id}.
-func handleCheckSuiteGet(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		suiteID, ok := pathInt64(c, "suite_id")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		repo, err := loadRepo(d, c)
-		if repo == nil {
-			return err
-		}
-		// Scan the ref-level list to find the suite by DB ID.
-		ctx := c.Request().Context()
-		actor := auth.ActorFrom(ctx)
-		suites, _, err := d.Checks.ListCheckSuites(ctx, actor.UserID, repo.Owner.Login, repo.Name, "HEAD")
-		if err != nil {
-			return err
-		}
-		for _, s := range suites {
-			if s.ID == suiteID {
-				writeJSON(c.Writer(), http.StatusOK, d.URLs.CheckSuite(repo.Owner.Login, repo.Name, s, d.NodeFormat))
-				return nil
-			}
-		}
-		writeError(c.Writer(), errNotFound())
-		return nil
-	}
-}
-
 // handleOrgTeamsList serves GET /orgs/{org}/teams.
 func handleOrgTeamsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		ctx := c.Request().Context()
+		org, err := d.Users.ByLogin(ctx, c.Param("org"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		page, perr := parsePageFor(c, "Team")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		orgPK, err := d.Users.PKByLogin(ctx, org.Login)
+		if err != nil {
+			return err
+		}
+		teams, err := d.Teams.ListTeams(ctx, orgPK)
+		if err != nil {
+			return err
+		}
+		out := make([]any, 0, len(teams))
+		for _, t := range teams {
+			j, err := teamJSON(ctx, d, t, org.Login)
+			if err != nil {
+				return err
+			}
+			out = append(out, j)
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -461,24 +517,6 @@ func handleRepoInstallation(d Deps) mizu.Handler {
 	}
 }
 
-// handleCheckSuiteCreate serves POST /repos/{owner}/{repo}/check-suites
-// (GitHub auto-creates; we accept but return a synthetic 200).
-func handleCheckSuiteCreate(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		repo, err := loadRepo(d, c)
-		if repo == nil {
-			return err
-		}
-		writeJSON(c.Writer(), http.StatusCreated, map[string]any{
-			"id":         0,
-			"status":     "completed",
-			"created_at": time.Now().UTC().Format(time.RFC3339),
-			"updated_at": time.Now().UTC().Format(time.RFC3339),
-		})
-		return nil
-	}
-}
-
 // mountMiscCompat registers all the "compat gap" endpoints that don't belong
 // to a primary sub-system file.
 func mountMiscCompat(r *mizu.Router, d Deps) {
@@ -509,7 +547,6 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/search/labels", handleSearchLabels(d))
 		r.Get("/installation/repositories", handleInstallationRepos(d))
 		r.Get("/repos/{owner}/{repo}/installation", handleRepoInstallation(d))
-		r.Post("/repos/{owner}/{repo}/check-suites", handleCheckSuiteCreate(d))
 	}
 	if d.Issues != nil {
 		r.Get("/repos/{owner}/{repo}/issues/{number}/labels", handleIssueLabelsList(d))
@@ -528,9 +565,6 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Get("/repos/{owner}/{repo}/pulls/comments", handleAllReviewCommentsList(d))
 		r.Patch("/repos/{owner}/{repo}/pulls/comments/{comment_id}", handleReviewCommentEdit(d))
 		r.Delete("/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}", handlePullReviewDelete(d))
-	}
-	if d.Checks != nil {
-		r.Get("/repos/{owner}/{repo}/check-suites/{suite_id}", handleCheckSuiteGet(d))
 	}
 	if d.Hooks != nil {
 		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/pings", requireScope(handleWebhookPing(d), "repo", "write:repo_hook"))

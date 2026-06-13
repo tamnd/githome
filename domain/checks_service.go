@@ -40,6 +40,7 @@ type checksStore interface {
 
 	EnsureCheckSuite(ctx context.Context, repoPK int64, headSHA, appSlug string) (*store.CheckSuiteRow, error)
 	ListCheckSuites(ctx context.Context, repoPK int64, headSHA string) ([]store.CheckSuiteRow, error)
+	GetCheckSuiteByDBID(ctx context.Context, dbID int64) (*store.CheckSuiteRow, error)
 	SetCheckSuiteState(ctx context.Context, pk int64, status string, conclusion *string) error
 
 	InsertCheckRun(ctx context.Context, r *store.CheckRunRow) error
@@ -187,7 +188,7 @@ func (s *ChecksService) CreateCheckRun(ctx context.Context, actorPK int64, owner
 		return nil, err
 	}
 	row := &store.CheckRunRow{
-		SuitePK: suite.PK, RepoPK: repo.PK, HeadSHA: sha, Name: strings.TrimSpace(in.Name),
+		SuitePK: suite.PK, SuiteDBID: suite.DBID, RepoPK: repo.PK, HeadSHA: sha, Name: strings.TrimSpace(in.Name),
 		Status: statusOrDefault(in.Status), Conclusion: optStr(in.Conclusion),
 		DetailsURL: optStr(in.DetailsURL), ExternalID: optStr(in.ExternalID),
 		OutputTitle: optStr(in.OutputTitle), OutputSummary: optStr(in.OutputSummary),
@@ -470,6 +471,130 @@ func (s *ChecksService) suitesForSHA(ctx context.Context, repoPK int64, sha stri
 	return out, nil
 }
 
+// GetCheckSuite resolves one check suite by its public id for the viewer,
+// carrying its check runs.
+func (s *ChecksService) GetCheckSuite(ctx context.Context, viewerPK int64, owner, name string, suiteDBID int64) (*CheckSuite, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.suiteInRepo(ctx, repo.PK, suiteDBID)
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleSuite(ctx, row)
+}
+
+// CreateCheckSuite creates (or returns) the suite for a head sha, the POST
+// /check-suites contract. The unique (repo, sha, app) key makes a re-create
+// return the existing suite with its real id. It needs write access.
+func (s *ChecksService) CreateCheckSuite(ctx context.Context, actorPK int64, owner, name, headSHA string) (*CheckSuite, error) {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	sha, err := s.resolveSHA(ctx, repo.PK, strings.TrimSpace(headSHA))
+	if err != nil {
+		return nil, ErrValidation
+	}
+	row, err := s.store.EnsureCheckSuite(ctx, repo.PK, sha, "githome")
+	if err != nil {
+		return nil, err
+	}
+	return s.assembleSuite(ctx, row)
+}
+
+// RerequestCheckRun resets a finished check run back to queued, the transition
+// POST /check-runs/{id}/rerequest performs so a reporter runs it again. It
+// needs write access.
+func (s *ChecksService) RerequestCheckRun(ctx context.Context, actorPK int64, owner, name string, runDBID int64) error {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return err
+	}
+	row, err := s.store.GetCheckRun(ctx, runDBID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && row.RepoPK != repo.PK) {
+		return ErrCheckNotFound
+	}
+	if err != nil {
+		return err
+	}
+	s.resetRun(row)
+	if err := s.store.UpdateCheckRun(ctx, row); err != nil {
+		return err
+	}
+	s.refreshSuite(ctx, row.SuitePK)
+	s.recomputeForSHA(ctx, repo.PK, row.HeadSHA)
+	return nil
+}
+
+// RerequestCheckSuite resets a suite and every run inside it back to queued,
+// the transition POST /check-suites/{id}/rerequest performs. It needs write
+// access.
+func (s *ChecksService) RerequestCheckSuite(ctx context.Context, actorPK int64, owner, name string, suiteDBID int64) error {
+	repo, err := s.repos.AuthorizeWrite(ctx, actorPK, owner, name)
+	if err != nil {
+		return err
+	}
+	row, err := s.suiteInRepo(ctx, repo.PK, suiteDBID)
+	if err != nil {
+		return err
+	}
+	runs, err := s.store.ListCheckRunsForSuite(ctx, row.PK)
+	if err != nil {
+		return err
+	}
+	for i := range runs {
+		s.resetRun(&runs[i])
+		if err := s.store.UpdateCheckRun(ctx, &runs[i]); err != nil {
+			return err
+		}
+	}
+	s.refreshSuite(ctx, row.PK)
+	s.recomputeForSHA(ctx, repo.PK, row.HeadSHA)
+	return nil
+}
+
+// suiteInRepo loads a suite by public id and pins it to the repository, the
+// same not-found-over-leak rule run lookups follow.
+func (s *ChecksService) suiteInRepo(ctx context.Context, repoPK, suiteDBID int64) (*store.CheckSuiteRow, error) {
+	row, err := s.store.GetCheckSuiteByDBID(ctx, suiteDBID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && row.RepoPK != repoPK) {
+		return nil, ErrCheckNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+// resetRun puts a run back in the queued state a rerequest demands, clearing
+// the verdict and the timing of the finished attempt.
+func (s *ChecksService) resetRun(row *store.CheckRunRow) {
+	row.Status = "queued"
+	row.Conclusion = nil
+	row.StartedAt = nil
+	row.CompletedAt = nil
+}
+
+// assembleSuite builds one suite with its runs loaded, the single-suite analog
+// of suitesForSHA.
+func (s *ChecksService) assembleSuite(ctx context.Context, row *store.CheckSuiteRow) (*CheckSuite, error) {
+	runRows, err := s.store.ListCheckRunsForSuite(ctx, row.PK)
+	if err != nil {
+		return nil, err
+	}
+	runs := make([]*CheckRun, 0, len(runRows))
+	for i := range runRows {
+		runs = append(runs, s.assembleRun(&runRows[i]))
+	}
+	return &CheckSuite{
+		PK: row.PK, ID: row.DBID, RepoPK: row.RepoPK, HeadSHA: row.HeadSHA,
+		AppSlug: row.AppSlug, Status: row.Status, Conclusion: row.Conclusion,
+		Runs: runs, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}, nil
+}
+
 // Rollup folds a ref's statuses and check runs into the status check rollup for
 // the viewer, the value the pull request and its head commit surface.
 func (s *ChecksService) Rollup(ctx context.Context, viewerPK int64, owner, name, ref string) (*StatusCheckRollup, error) {
@@ -595,7 +720,7 @@ func (s *ChecksService) assembleStatus(ctx context.Context, row *store.CommitSta
 
 func (s *ChecksService) assembleRun(row *store.CheckRunRow) *CheckRun {
 	return &CheckRun{
-		PK: row.PK, ID: row.DBID, SuitePK: row.SuitePK, RepoPK: row.RepoPK,
+		PK: row.PK, ID: row.DBID, SuitePK: row.SuitePK, SuiteID: row.SuiteDBID, RepoPK: row.RepoPK,
 		HeadSHA: row.HeadSHA, Name: row.Name, Status: row.Status, Conclusion: row.Conclusion,
 		DetailsURL: row.DetailsURL, ExternalID: row.ExternalID,
 		OutputTitle: row.OutputTitle, OutputSummary: row.OutputSummary, OutputText: row.OutputText,
@@ -699,6 +824,16 @@ func rankRun(r store.CheckRunRow) int {
 // until every run completes, then the worst conclusion as its verdict.
 func suiteSummary(runs []store.CheckRunRow) (string, *string) {
 	if len(runs) == 0 {
+		return "queued", nil
+	}
+	allQueued := true
+	for i := range runs {
+		if runs[i].Status != "queued" {
+			allQueued = false
+			break
+		}
+	}
+	if allQueued {
 		return "queued", nil
 	}
 	for i := range runs {
