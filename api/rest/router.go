@@ -14,6 +14,7 @@ import (
 	"github.com/tamnd/githome/auth"
 	"github.com/tamnd/githome/config"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/markup"
 	"github.com/tamnd/githome/nodeid"
 	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/store"
@@ -50,6 +51,13 @@ type Deps struct {
 	Notifications *domain.NotificationService
 	URLs          *presenter.URLBuilder
 	NodeFormat    nodeid.Format
+
+	// Markup is the shared GFM renderer (the same instance the web front uses).
+	// When set, POST /markdown and POST /markdown/raw render through it; when nil
+	// those two routes stay unmounted. The static misc-data endpoints (/zen,
+	// /octocat, /licenses, /emojis, /gitignore/templates, /feeds) need no markup
+	// and mount regardless.
+	Markup *markup.Renderer
 
 	// WebFront reports that the server-rendered web front is mounted on the same
 	// router and owns the bare root namespace (/{owner}/{repo}). When set, the
@@ -164,6 +172,7 @@ func mountAPI(r *mizu.Router, d Deps, limiter *rateLimiter) {
 	}
 	mountGists(r, d)
 	mountRepoExtra(r, d)
+	mountMiscData(r, d)
 	if d.Social != nil && d.Users != nil && d.Repos != nil {
 		mountSocial(r, d)
 	}

@@ -86,12 +86,17 @@ func handleRateLimit(cfg config.Config, limiter *rateLimiter) mizu.Handler {
 		core := live("core")
 		rl := restmodel.RateLimit{
 			Resources: restmodel.RateLimitResources{
-				Core:                core,
-				Search:              live("search"),
-				GraphQL:             full(cfg.RateLimit.GraphQLPoints, "graphql"),
-				IntegrationManifest: full(limiter.cfg.AuthedPerHour, "integration_manifest"),
-				CodeScanningUpload:  full(500, "code_scanning_upload"),
-				CodeSearch:          full(limiter.cfg.SearchPerMin, "code_search"),
+				Core:                      core,
+				Search:                    live("search"),
+				GraphQL:                   full(cfg.RateLimit.GraphQLPoints, "graphql"),
+				IntegrationManifest:       full(limiter.cfg.AuthedPerHour, "integration_manifest"),
+				SourceImport:              full(100, "source_import"),
+				CodeScanningUpload:        full(500, "code_scanning_upload"),
+				ActionsRunnerRegistration: full(limiter.cfg.AuthedPerHour, "actions_runner_registration"),
+				SCIM:                      full(limiter.cfg.AuthedPerHour, "scim"),
+				DependencySnapshots:       full(100, "dependency_snapshots"),
+				CodeSearch:                full(limiter.cfg.SearchPerMin, "code_search"),
+				AuditLog:                  full(limiter.cfg.AuthedPerHour, "audit_log"),
 			},
 			Rate: core,
 		}
