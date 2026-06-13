@@ -287,4 +287,3 @@ func userKeyToJSON(k *store.SSHKeyRow, d Deps) map[string]any {
 		"read_only":  false,
 	}
 }
-

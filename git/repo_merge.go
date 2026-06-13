@@ -96,13 +96,14 @@ func (s *Store) CommitsBetween(ctx context.Context, pk int64, base, head SHA) ([
 	return s.CommitsBetweenN(ctx, pk, base, head, 0)
 }
 
-// CommitsBetweenN is CommitsBetween bounded to at most max commits (the newest
-// max of the range, still returned oldest first), so a compare across thousands
-// of commits never loads the whole range into memory. max <= 0 is unbounded.
-func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, max int) ([]Commit, error) {
+// CommitsBetweenN is CommitsBetween bounded to at most limit commits (the
+// newest limit of the range, still returned oldest first), so a compare across
+// thousands of commits never loads the whole range into memory. limit <= 0 is
+// unbounded.
+func (s *Store) CommitsBetweenN(ctx context.Context, pk int64, base, head SHA, limit int) ([]Commit, error) {
 	args := []string{"log", "--reverse", "--pretty=format:" + logRecordFormat}
-	if max > 0 {
-		args = append(args, "-n", strconv.Itoa(max))
+	if limit > 0 {
+		args = append(args, "-n", strconv.Itoa(limit))
 	}
 	args = append(args, base+".."+head)
 	r, err := s.run(ctx, pk, nil, args...)
@@ -391,7 +392,7 @@ func (s *Store) DiffDirect(ctx context.Context, pk int64, base, head SHA) ([]byt
 // commit page's .patch form serves. format-patch -1 handles a root commit
 // without a parent.
 func (s *Store) FormatPatchCommit(ctx context.Context, pk int64, sha SHA) ([]byte, error) {
-	args := []string{"format-patch", "-1", "--stdout", "--no-color", "--end-of-options", string(sha)}
+	args := []string{"format-patch", "-1", "--stdout", "--no-color", "--end-of-options", sha}
 	r, err := s.run(ctx, pk, nil, args...)
 	if err != nil {
 		return nil, err

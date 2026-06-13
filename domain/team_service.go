@@ -74,10 +74,10 @@ func (s *TeamService) CreateTeam(ctx context.Context, orgPK int64, name, descrip
 		permission = "pull"
 	}
 	t := &store.TeamRow{
-		OrgPK:     orgPK,
-		Name:      name,
-		Slug:      slugify(name),
-		Privacy:   privacy,
+		OrgPK:      orgPK,
+		Name:       name,
+		Slug:       slugify(name),
+		Privacy:    privacy,
 		Permission: permission,
 	}
 	if d := strings.TrimSpace(description); d != "" {

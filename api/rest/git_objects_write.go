@@ -136,10 +136,10 @@ func handleGitCommitCreate(d Deps) mizu.Handler {
 			return err
 		}
 		var body struct {
-			Message   string   `json:"message"`
-			Tree      string   `json:"tree"`
-			Parents   []string `json:"parents"`
-			Author    *struct {
+			Message string   `json:"message"`
+			Tree    string   `json:"tree"`
+			Parents []string `json:"parents"`
+			Author  *struct {
 				Name  string `json:"name"`
 				Email string `json:"email"`
 				Date  string `json:"date"`

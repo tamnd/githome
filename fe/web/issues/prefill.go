@@ -44,7 +44,7 @@ func (h *Handlers) prefillNewIssue(c *mizu.Ctx, repo *domain.Repo, vm *view.NewI
 // and folds it into the form: the body is the template text with its YAML
 // front matter stripped, and the front matter's title, labels, and assignees
 // fill any field the query left empty.
-func (h *Handlers) applyIssueTemplate(ctx context.Context, repo *domain.Repo, name string, vm *view.NewIssueVM) {
+func (h *Handlers) applyIssueTemplate(_ context.Context, repo *domain.Repo, name string, vm *view.NewIssueVM) {
 	// The template is one file name inside the template directory, never a
 	// path of its own.
 	if name != path.Base(name) || strings.HasPrefix(name, ".") {

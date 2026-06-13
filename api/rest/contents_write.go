@@ -173,7 +173,7 @@ func currentBlobSHA(d Deps, repo *domain.Repo, path, branch string) (string, boo
 	if err != nil || res.IsDir {
 		return "", false
 	}
-	return string(res.Entry.SHA), true
+	return res.Entry.SHA, true
 }
 
 // errShaRequired is GitHub's 422 for a contents PUT or DELETE that targets an

@@ -959,7 +959,7 @@ func checkCurrentBlob(gr *git.Repo, in WriteFileInput) error {
 		ref = "HEAD"
 	}
 	cur, err := gr.PathAt(ref, in.Path)
-	if err != nil || cur.IsDir || string(cur.Entry.SHA) != in.CurrentBlobSHA {
+	if err != nil || cur.IsDir || cur.Entry.SHA != in.CurrentBlobSHA {
 		return ErrConflict
 	}
 	return nil

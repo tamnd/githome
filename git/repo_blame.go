@@ -49,40 +49,40 @@ func blameCost(lines []BlameLine) int64 {
 // handled is false when the Repo has no store or the run failed, in which case
 // the caller falls back to go-git; when handled is true the result, including
 // a size-cap refusal, is final.
-func (r *Repo) blameBatch(ref, path string) (lines []BlameLine, err error, handled bool) {
+func (r *Repo) blameBatch(ref, path string) (lines []BlameLine, handled bool, err error) {
 	if r.store == nil {
-		return nil, nil, false
+		return nil, false, nil
 	}
 	c, cerr := r.commitFromRev(ref)
 	if cerr != nil {
-		return nil, nil, false
+		return nil, false, nil
 	}
 	sha := c.Hash.String()
 	key := strconv.FormatInt(r.pk, 10) + ":" + sha + ":" + path
 	if v, ok := r.store.blames.get(key); ok {
-		return v, nil, true
+		return v, true, nil
 	}
 	if r.maxBlobBytes > 0 {
 		res, rerr := r.store.run(context.Background(), r.pk, nil, "cat-file", "-s", sha+":"+path)
 		if rerr != nil || res.code != 0 {
-			return nil, nil, false
+			return nil, false, nil
 		}
 		if n, perr := strconv.ParseInt(strings.TrimSpace(string(res.stdout)), 10, 64); perr == nil && n > r.maxBlobBytes {
-			return nil, ErrBlobTooLarge, true
+			return nil, true, ErrBlobTooLarge
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), blameTimeout)
 	defer cancel()
 	res, rerr := r.store.run(ctx, r.pk, nil, "blame", "--porcelain", "--end-of-options", sha, "--", path)
 	if rerr != nil || res.code != 0 {
-		return nil, nil, false
+		return nil, false, nil
 	}
 	lines, ok := parseBlamePorcelain(string(res.stdout))
 	if !ok {
-		return nil, nil, false
+		return nil, false, nil
 	}
 	r.store.blames.put(key, lines)
-	return lines, nil, true
+	return lines, true, nil
 }
 
 // parseBlamePorcelain parses git blame --porcelain output. Commit metadata

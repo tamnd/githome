@@ -25,7 +25,7 @@ const archiveTimeout = 5 * time.Minute
 func (s *Store) ArchiveStream(ctx context.Context, pk int64, format, prefix string, sha SHA, w io.Writer) error {
 	ctx, cancel := context.WithTimeout(ctx, archiveTimeout)
 	defer cancel()
-	args := []string{"archive", "--format=" + format, "--prefix=" + prefix + "/", "--end-of-options", string(sha)}
+	args := []string{"archive", "--format=" + format, "--prefix=" + prefix + "/", "--end-of-options", sha}
 	full := append([]string{"--git-dir", s.runDir(pk)}, args...)
 	cmd := exec.CommandContext(ctx, s.bin(), full...)
 	cmd.Env = baseEnv()

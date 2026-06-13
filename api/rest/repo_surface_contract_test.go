@@ -109,7 +109,9 @@ func TestCommunityProfile(t *testing.T) {
 		HealthPercentage int     `json:"health_percentage"`
 		Description      *string `json:"description"`
 		Files            struct {
-			Readme       *struct{ HTMLURL string `json:"html_url"` } `json:"readme"`
+			Readme *struct {
+				HTMLURL string `json:"html_url"`
+			} `json:"readme"`
 			License      *struct{} `json:"license"`
 			Contributing *struct{} `json:"contributing"`
 		} `json:"files"`

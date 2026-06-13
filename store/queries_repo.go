@@ -220,7 +220,7 @@ func (s *Store) ReposByOwner(ctx context.Context, ownerPK int64) ([]*RepoRow, er
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RepoRow
 	for rows.Next() {
 		r, err := scanRepo(rows)
@@ -247,7 +247,7 @@ func (s *Store) ListPublicRepos(ctx context.Context, sinceDBID int64, limit int)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RepoRow
 	for rows.Next() {
 		r, err := scanRepo(rows)
@@ -294,7 +294,7 @@ func (s *Store) ForksOf(ctx context.Context, pk int64) ([]*RepoRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RepoRow
 	for rows.Next() {
 		r, err := scanRepo(rows)
@@ -319,7 +319,7 @@ func (s *Store) ReposByCollaborator(ctx context.Context, userPK int64) ([]*RepoR
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RepoRow
 	for rows.Next() {
 		r, err := scanRepo(rows)
@@ -345,7 +345,7 @@ func (s *Store) ReposByTeamMember(ctx context.Context, userPK int64) ([]*RepoRow
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*RepoRow
 	for rows.Next() {
 		r, err := scanRepo(rows)

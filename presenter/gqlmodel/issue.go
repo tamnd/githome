@@ -53,7 +53,7 @@ type ReactingUserConnection struct {
 	TotalCount int32
 }
 
-// ReactionGroup summarises how many users reacted with a given emoji on an issue.
+// ReactionGroup summarizes how many users reacted with a given emoji on an issue.
 type ReactionGroup struct {
 	Content ReactionContent
 	Users   ReactingUserConnection

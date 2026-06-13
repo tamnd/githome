@@ -483,27 +483,6 @@ func handleCommentEdit(d Deps) mizu.Handler {
 	}
 }
 
-// handleCommentDelete serves DELETE /repos/{owner}/{repo}/issues/comments/{id}.
-func handleCommentDelete(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		id, ok := pathInt64(c, "id")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		actor := auth.ActorFrom(c.Request().Context())
-		err := d.Issues.DeleteComment(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), id)
-		if issueError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		c.Writer().WriteHeader(http.StatusNoContent)
-		return nil
-	}
-}
-
 // handleIssueDeleteDispatch dispatches the two DELETE shapes that share
 // /issues/{seg1}/{seg2} and that mizu cannot tell apart without a dispatcher,
 // because neither "/issues/comments/{id}" nor "/issues/{number}/labels" is
@@ -1229,13 +1208,4 @@ func queryInt64(c *mizu.Ctx, name string) (int64, bool) {
 		return 0, false
 	}
 	return n, true
-}
-
-// pageNum reads the 1-based page query, defaulting to 1.
-func pageNum(c *mizu.Ctx) int {
-	n, err := strconv.Atoi(c.Query("page"))
-	if err != nil || n <= 0 {
-		return 1
-	}
-	return n
 }

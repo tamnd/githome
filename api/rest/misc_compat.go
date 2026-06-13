@@ -433,7 +433,7 @@ func handleSingleCommitGet(d Deps) mizu.Handler {
 }
 
 // handleRepoTeamsList serves GET /repos/{owner}/{repo}/teams.
-func handleRepoTeamsList(d Deps) mizu.Handler {
+func handleRepoTeamsList(_ Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, []any{})
 		return nil
@@ -592,7 +592,7 @@ func handleSearchUsers(d Deps) mizu.Handler {
 }
 
 // handleSearchCommits serves GET /search/commits.
-func handleSearchCommits(d Deps) mizu.Handler {
+func handleSearchCommits(_ Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
 			"total_count":        0,
@@ -604,7 +604,7 @@ func handleSearchCommits(d Deps) mizu.Handler {
 }
 
 // handleSearchTopics serves GET /search/topics.
-func handleSearchTopics(d Deps) mizu.Handler {
+func handleSearchTopics(_ Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
 			"total_count":        0,
@@ -616,7 +616,7 @@ func handleSearchTopics(d Deps) mizu.Handler {
 }
 
 // handleSearchLabels serves GET /search/labels.
-func handleSearchLabels(d Deps) mizu.Handler {
+func handleSearchLabels(_ Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
 			"total_count":        0,
@@ -668,7 +668,7 @@ func handleOrgTeamsList(d Deps) mizu.Handler {
 }
 
 // handleOrgTeamReposList serves GET /orgs/{org}/teams/{team_slug}/repos.
-func handleOrgTeamReposList(d Deps) mizu.Handler {
+func handleOrgTeamReposList(_ Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		writeJSON(c.Writer(), http.StatusOK, []any{})
 		return nil
@@ -816,9 +816,9 @@ func handleInstallationRepos(d Deps) mizu.Handler {
 			items = append(items, d.URLs.Repository(r, d.NodeFormat, nil))
 		}
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"total_count":           len(items),
-			"repository_selection":  inst.RepositorySelection,
-			"repositories":          items,
+			"total_count":          len(items),
+			"repository_selection": inst.RepositorySelection,
+			"repositories":         items,
 		})
 		return nil
 	}

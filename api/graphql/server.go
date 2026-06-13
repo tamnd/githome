@@ -71,7 +71,7 @@ func NewHandler(d Deps) http.Handler {
 	srv.Use(extension.Introspection{})
 	srv.Use(nodeLimitExtension(maxNodeLimit))
 	srv.Use(depthLimitExtension(maxQueryDepth))
-	var h http.Handler = liftErrorTypes(srv)
+	var h = liftErrorTypes(srv)
 	if d.Batch != nil {
 		h = loadersMiddleware(d.Batch, d.URLs, d.NodeFormat, h)
 	}

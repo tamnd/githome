@@ -111,7 +111,7 @@ func TestRepoPermissionsCollaborator(t *testing.T) {
 	}
 
 	// The repo list renders the same resolved block per item.
-	resp, body = authedGet(t, fx.srv, "/users/octocat/repos", "token "+hubToken)
+	resp, _ = authedGet(t, fx.srv, "/users/octocat/repos", "token "+hubToken)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("list: status %d", resp.StatusCode)
 	}

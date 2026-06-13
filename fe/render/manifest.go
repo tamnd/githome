@@ -87,7 +87,7 @@ func (s *Set) AssetHandler() mizu.Handler {
 		if err != nil {
 			return s.NotFound(c)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		h := c.Header()
 		h.Set("Content-Type", contentTypeFor(clean))

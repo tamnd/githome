@@ -319,7 +319,7 @@ func (s *SearchService) codeIndexHeadSHA(repo *Repo) string {
 	if err != nil {
 		return ""
 	}
-	return string(br.Commit)
+	return br.Commit
 }
 
 // codeIndexFresh reports whether the stored index state already matches head.

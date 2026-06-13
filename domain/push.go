@@ -121,8 +121,8 @@ func (s *RepoService) SyntheticHeadPush(ctx context.Context, repoPK int64, defau
 		Protocol: "http",
 		Updates: []RefUpdate{{
 			Ref:    ref,
-			OldSHA: string(sha),
-			NewSHA: string(sha),
+			OldSHA: sha,
+			NewSHA: sha,
 		}},
 	}, true, nil
 }

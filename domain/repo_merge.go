@@ -74,7 +74,7 @@ func (s *RepoService) MergeBranch(ctx context.Context, actorPK int64, owner, nam
 	// Fan the merge out as a push to the base branch so the activity feed and a
 	// repository's webhooks observe it the same as any other update to that
 	// branch. Delivery is best-effort, exactly as a real push's is.
-	s.OnPush(ctx, PushBatch{
+	_ = s.OnPush(ctx, PushBatch{
 		RepoPK:   repo.PK,
 		PusherPK: actorPK,
 		Protocol: "api",

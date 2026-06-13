@@ -23,6 +23,17 @@ linters:
       # cancelled is a GitHub check-run conclusion value (their spelling, not ours).
       ignore-rules:
         - cancelled
+  exclusions:
+    rules:
+      # gqlgen owns the resolver method signatures: their argument names come
+      # from the schema field arguments, so a resolver that does not use one
+      # (ctx, after, dryRun, ...) cannot rename it without the next regenerate
+      # reverting the change. Do not flag unused parameters in generated
+      # resolver files.
+      - path: \.resolvers\.go$
+        linters:
+          - revive
+        text: unused-parameter
 
 formatters:
   enable:

@@ -13,25 +13,25 @@ type GistFile struct {
 
 // Gist is the body returned by every gist endpoint.
 type Gist struct {
-	ID          string               `json:"id"`
-	NodeID      string               `json:"node_id"`
-	Description string               `json:"description"`
-	Public      bool                 `json:"public"`
-	Owner       SimpleUser           `json:"owner"`
-	User        *SimpleUser          `json:"user"`
-	Files       map[string]GistFile  `json:"files"`
-	Forks       []any                `json:"forks"`
-	History     []any                `json:"history"`
-	Truncated   bool                 `json:"truncated"`
-	Comments    int                  `json:"comments"`
-	GitPullURL  string               `json:"git_pull_url"`
-	GitPushURL  string               `json:"git_push_url"`
-	HTMLURL     string               `json:"html_url"`
-	CommitsURL  string               `json:"commits_url"`
-	ForksURL    string               `json:"forks_url"`
-	CommentsURL string               `json:"comments_url"`
-	CreatedAt   Time                 `json:"created_at"`
-	UpdatedAt   Time                 `json:"updated_at"`
+	ID          string              `json:"id"`
+	NodeID      string              `json:"node_id"`
+	Description string              `json:"description"`
+	Public      bool                `json:"public"`
+	Owner       SimpleUser          `json:"owner"`
+	User        *SimpleUser         `json:"user"`
+	Files       map[string]GistFile `json:"files"`
+	Forks       []any               `json:"forks"`
+	History     []any               `json:"history"`
+	Truncated   bool                `json:"truncated"`
+	Comments    int                 `json:"comments"`
+	GitPullURL  string              `json:"git_pull_url"`
+	GitPushURL  string              `json:"git_push_url"`
+	HTMLURL     string              `json:"html_url"`
+	CommitsURL  string              `json:"commits_url"`
+	ForksURL    string              `json:"forks_url"`
+	CommentsURL string              `json:"comments_url"`
+	CreatedAt   Time                `json:"created_at"`
+	UpdatedAt   Time                `json:"updated_at"`
 }
 
 // GistComment is the body returned by gist comment endpoints.

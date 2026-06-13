@@ -48,7 +48,7 @@ func GQLReactionContent(rest string) gqlmodel.ReactionContent {
 	return gqlmodel.ReactionContent(rest)
 }
 
-// GQLReactionGroupsFromList summarises a list of domain reactions into the
+// GQLReactionGroupsFromList summarizes a list of domain reactions into the
 // GraphQL reaction groups, the subject-level rollup addReaction and
 // removeReaction return after the change. The slice is non-nil even when empty.
 func GQLReactionGroupsFromList(rs []*domain.Reaction) []*gqlmodel.ReactionGroup {

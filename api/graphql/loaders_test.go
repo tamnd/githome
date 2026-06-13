@@ -27,7 +27,7 @@ type countingBatchStore struct {
 	rollupCalls   atomic.Int64
 }
 
-func (c *countingBatchStore) UsersByPKs(ctx context.Context, pks []int64) (map[int64]*store.UserRow, error) {
+func (c *countingBatchStore) UsersByPKs(_ context.Context, pks []int64) (map[int64]*store.UserRow, error) {
 	c.userCalls.Add(1)
 	out := make(map[int64]*store.UserRow, len(pks))
 	for _, pk := range pks {
@@ -36,7 +36,7 @@ func (c *countingBatchStore) UsersByPKs(ctx context.Context, pks []int64) (map[i
 	return out, nil
 }
 
-func (c *countingBatchStore) LabelsByIssuePKs(ctx context.Context, pks []int64) (map[int64][]store.LabelRow, error) {
+func (c *countingBatchStore) LabelsByIssuePKs(_ context.Context, pks []int64) (map[int64][]store.LabelRow, error) {
 	c.labelCalls.Add(1)
 	out := make(map[int64][]store.LabelRow, len(pks))
 	for _, pk := range pks {
@@ -45,7 +45,7 @@ func (c *countingBatchStore) LabelsByIssuePKs(ctx context.Context, pks []int64) 
 	return out, nil
 }
 
-func (c *countingBatchStore) AssigneesByIssuePKs(ctx context.Context, pks []int64) (map[int64][]int64, error) {
+func (c *countingBatchStore) AssigneesByIssuePKs(_ context.Context, pks []int64) (map[int64][]int64, error) {
 	c.assigneeCalls.Add(1)
 	out := make(map[int64][]int64, len(pks))
 	for _, pk := range pks {
@@ -54,16 +54,16 @@ func (c *countingBatchStore) AssigneesByIssuePKs(ctx context.Context, pks []int6
 	return out, nil
 }
 
-func (c *countingBatchStore) MilestonesByPKs(ctx context.Context, pks []int64) (map[int64]*store.MilestoneRow, error) {
+func (c *countingBatchStore) MilestonesByPKs(_ context.Context, _ []int64) (map[int64]*store.MilestoneRow, error) {
 	return map[int64]*store.MilestoneRow{}, nil
 }
 
-func (c *countingBatchStore) ReactionRollupsBySubjectPKs(ctx context.Context, subjectType string, pks []int64) (map[int64]store.ReactionRollup, error) {
+func (c *countingBatchStore) ReactionRollupsBySubjectPKs(_ context.Context, _ string, _ []int64) (map[int64]store.ReactionRollup, error) {
 	c.rollupCalls.Add(1)
 	return map[int64]store.ReactionRollup{}, nil
 }
 
-func (c *countingBatchStore) CommentsByIssuePKs(ctx context.Context, issuePKs []int64, perIssue int) (map[int64][]store.CommentRow, error) {
+func (c *countingBatchStore) CommentsByIssuePKs(_ context.Context, issuePKs []int64, perIssue int) (map[int64][]store.CommentRow, error) {
 	c.commentCalls.Add(1)
 	now := time.Now()
 	out := make(map[int64][]store.CommentRow, len(issuePKs))

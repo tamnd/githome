@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )

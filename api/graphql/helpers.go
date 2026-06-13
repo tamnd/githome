@@ -8,8 +8,8 @@ package graphql
 import (
 	"context"
 	"errors"
-	"sort"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 

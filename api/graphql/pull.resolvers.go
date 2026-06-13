@@ -483,11 +483,11 @@ func (r *pullRequestResolver) MergeCommit(ctx context.Context, obj *gqlmodel.Pul
 	if !obj.Merged || obj.MergeCommitOID == "" {
 		return nil, nil
 	}
-	repo, err := r.Resolver.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	repo, err := r.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	c, err := r.Resolver.Repos.GetCommit(repo, obj.MergeCommitOID)
+	c, err := r.Repos.GetCommit(repo, obj.MergeCommitOID)
 	if err != nil {
 		return nil, nil
 	}
@@ -514,7 +514,7 @@ func (r *pullRequestResolver) ClosingIssuesReferences(ctx context.Context, obj *
 	viewer := viewerID(ctx)
 	issues := make([]*domain.Issue, 0)
 	for _, n := range closingIssueNumbers(obj.Body) {
-		iss, err := r.Resolver.Issues.GetIssue(ctx, viewer, obj.RepoOwner, obj.RepoName, n)
+		iss, err := r.Issues.GetIssue(ctx, viewer, obj.RepoOwner, obj.RepoName, n)
 		if err != nil {
 			continue
 		}

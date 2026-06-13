@@ -156,7 +156,7 @@ func scanSSHKeys(rows *sql.Rows, err error) ([]*SSHKeyRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*SSHKeyRow
 	for rows.Next() {
 		k, err := scanSSHKeyRow(rows)

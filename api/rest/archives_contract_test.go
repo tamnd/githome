@@ -24,7 +24,7 @@ func getNoRedirect(t *testing.T, srv *httptest.Server, path string) (*http.Respo
 	if err != nil {
 		t.Fatalf("GET %s: %v", path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
@@ -73,7 +73,7 @@ func readZipEntries(t *testing.T, body []byte) map[string]string {
 			t.Fatalf("open %s: %v", f.Name, err)
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			t.Fatalf("read %s: %v", f.Name, err)
 		}
@@ -89,7 +89,7 @@ func readTarGzEntries(t *testing.T, body []byte) map[string]string {
 	if err != nil {
 		t.Fatalf("open gzip: %v", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 	tr := tar.NewReader(gzr)
 	out := map[string]string{}
 	for {

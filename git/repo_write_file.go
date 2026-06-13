@@ -188,7 +188,6 @@ func (r *Repo) rebuildTree(
 	blobHash plumbing.Hash,
 	del bool,
 ) (plumbing.Hash, error) {
-
 	name := parts[0]
 
 	var newEntries []object.TreeEntry
