@@ -390,9 +390,14 @@ func TestSubmitApproveAsReviewer(t *testing.T) {
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("approve status %d, want 303", resp.StatusCode)
 	}
-	if loc := resp.Header.Get("Location"); !strings.Contains(loc, "#pullrequestreview-") {
+	loc := resp.Header.Get("Location")
+	if !strings.Contains(loc, "#pullrequestreview-") {
 		t.Errorf("approve redirected to %q, want a review anchor", loc)
 	}
+	// The redirect target's fragment is the review's own id; the timeline article
+	// must carry that exact id so the permalink resolves. A bare "pullrequestreview"
+	// would collide across reviews and never match the fragment.
+	anchor := loc[strings.Index(loc, "#")+1:]
 	// The decision derives APPROVED from the one approval.
 	dec, err := fx.reviews.ReviewDecision(context.Background(), fx.ownerPK, fx.owner, fx.repo, fx.prNum)
 	if err != nil {
@@ -405,6 +410,12 @@ func TestSubmitApproveAsReviewer(t *testing.T) {
 	_, page := fx.getBody(t, fx.pullPath())
 	if !strings.Contains(page, "approved these changes") {
 		t.Errorf("conversation timeline is missing the approval:\n%s", page)
+	}
+	if !strings.Contains(page, `id="`+anchor+`"`) {
+		t.Errorf("conversation timeline is missing the per-review anchor id %q:\n%s", anchor, page)
+	}
+	if strings.Contains(page, `id="pullrequestreview"`) {
+		t.Errorf("conversation timeline still uses the bare, colliding pullrequestreview id:\n%s", page)
 	}
 	if !strings.Contains(page, "Changes approved") {
 		t.Errorf("merge box is missing the approved rollup")
