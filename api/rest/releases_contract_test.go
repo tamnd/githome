@@ -1,10 +1,62 @@
 package rest
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
 )
+
+// TestReleaseAssetOctetStreamAccept pins the R01-3G fix: octokit sends the
+// octet-stream Accept with a quality parameter and alongside other media types,
+// so the asset download must still serve the raw bytes rather than the JSON
+// metadata.
+func TestReleaseAssetOctetStreamAccept(t *testing.T) {
+	fx := repoServer(t)
+
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/releases", fx.token,
+		`{"tag_name":"v1.0.0"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("release create status %d, body %s", resp.StatusCode, body)
+	}
+	releaseID := jsonInt(t, body, "id")
+
+	resp, body = authedSend(t, fx.srv, http.MethodPost,
+		"/api/uploads/repos/octocat/hello/releases/"+itoa(releaseID)+"/assets?name=bin.tar.gz", fx.token,
+		"binary bytes")
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("upload status %d, body %s", resp.StatusCode, body)
+	}
+	assetID := jsonInt(t, body, "id")
+
+	req, err := http.NewRequest(http.MethodGet, fx.srv.URL+"/repos/octocat/hello/releases/assets/"+itoa(assetID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "token "+fx.token)
+	req.Header.Set("Accept", "application/octet-stream; q=1.0, application/json")
+	got, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = got.Body.Close() }()
+	out, _ := io.ReadAll(got.Body)
+	if string(out) != "binary bytes" {
+		t.Errorf("octet-stream download served %q, want the raw bytes", out)
+	}
+}
+
+// TestReleaseDiscussionCategoryAccepted confirms a release create carrying
+// discussion_category_name (GoReleaser v2 sets it) is accepted, not rejected,
+// even though Githome links no discussion.
+func TestReleaseDiscussionCategoryAccepted(t *testing.T) {
+	fx := repoServer(t)
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/releases", fx.token,
+		`{"tag_name":"v2.0.0","discussion_category_name":"Announcements"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("release create status %d, want 201, body %s", resp.StatusCode, body)
+	}
+}
 
 // TestReleaseGenerateNotesContract pins POST /releases/generate-notes: a
 // {name, body} pair in GitHub's "What's Changed" shape, with the previous tag
