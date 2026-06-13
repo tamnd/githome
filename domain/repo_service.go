@@ -56,6 +56,7 @@ type RepoStore interface {
 	RepoByRedirect(ctx context.Context, owner, name string) (*store.RepoRow, error)
 	UpsertRepoRedirect(ctx context.Context, oldOwner, oldName string, repoPK int64) error
 	ReposByOwner(ctx context.Context, ownerPK int64) ([]*store.RepoRow, error)
+	ListPublicRepos(ctx context.Context, sinceDBID int64, limit int) ([]*store.RepoRow, error)
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
 	InsertRepo(ctx context.Context, r *store.RepoRow) error
@@ -273,6 +274,33 @@ func (s *RepoService) ListRepos(ctx context.Context, viewerPK, ownerPK int64) ([
 		if canSee(r, viewerPK) {
 			out = append(out, repoFromRow(r, owner))
 		}
+	}
+	return out, nil
+}
+
+// ListPublicRepos returns up to limit live public repositories with a db_id
+// greater than sinceDBID, ascending by id. It backs the global GET /repositories
+// listing, which walks every public repository by id; each row's owner is
+// resolved for the URL builder, with a missing owner skipped rather than
+// failing the page.
+func (s *RepoService) ListPublicRepos(ctx context.Context, sinceDBID int64, limit int) ([]*Repo, error) {
+	rows, err := s.store.ListPublicRepos(ctx, sinceDBID, limit)
+	if err != nil {
+		return nil, err
+	}
+	owners := map[int64]*User{}
+	out := make([]*Repo, 0, len(rows))
+	for _, r := range rows {
+		owner, ok := owners[r.OwnerPK]
+		if !ok {
+			ownerRow, err := s.store.UserByPK(ctx, r.OwnerPK)
+			if err != nil {
+				continue
+			}
+			owner = userFromRow(ownerRow)
+			owners[r.OwnerPK] = owner
+		}
+		out = append(out, repoFromRow(r, owner))
 	}
 	return out, nil
 }
