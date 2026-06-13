@@ -3,7 +3,9 @@ package render
 import (
 	"fmt"
 	"html/template"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tamnd/githome/fe/assets"
@@ -60,6 +62,13 @@ func dict(pairs ...any) (map[string]any, error) {
 // rather than the raw name or an empty string, so a typo surfaces in review
 // instead of shipping silently; the coverage test in icons_coverage_test.go
 // turns that into a failing build for template references.
+// octiconCache memoizes the rendered markup for the decorative (unlabeled) icon
+// path, which is almost every call: the SVG body, grid, and attributes are fully
+// determined by (name, size), so the result never changes. A labeled icon varies
+// by its label and skips the cache. The map only ever grows to the small set of
+// (name, size) pairs the templates reference, so it needs no eviction.
+var octiconCache sync.Map // string key -> template.HTML
+
 func octicon(name string, args ...any) (template.HTML, error) {
 	size := 16
 	label := ""
@@ -76,6 +85,15 @@ func octicon(name string, args ...any) (template.HTML, error) {
 	if size <= 0 {
 		size = 16
 	}
+	// The decorative path is cacheable; a labeled icon is not, so it falls
+	// through to render every time.
+	var key string
+	if label == "" {
+		key = name + "\x00" + strconv.Itoa(size)
+		if cached, ok := octiconCache.Load(key); ok {
+			return cached.(template.HTML), nil
+		}
+	}
 	icon, ok := assets.Icons[name]
 	if size >= 24 {
 		if icon24, ok24 := assets.Icons24[name]; ok24 {
@@ -83,10 +101,14 @@ func octicon(name string, args ...any) (template.HTML, error) {
 		}
 	}
 	if !ok {
-		return template.HTML(fmt.Sprintf(
+		missing := template.HTML(fmt.Sprintf(
 			`<svg class="octicon octicon-missing" width="%d" height="%d" viewBox="0 0 16 16" `+
 				`aria-hidden="true" style="outline:1px dashed currentColor"><title>missing icon: %s</title></svg>`,
-			size, size, template.HTMLEscapeString(name))), nil
+			size, size, template.HTMLEscapeString(name)))
+		if key != "" {
+			octiconCache.Store(key, missing)
+		}
+		return missing, nil
 	}
 	width := size * icon.Width / icon.Height
 	aria := `aria-hidden="true"`
@@ -95,10 +117,14 @@ func octicon(name string, args ...any) (template.HTML, error) {
 		aria = fmt.Sprintf(`role="img" aria-label="%s"`, template.HTMLEscapeString(label))
 		title = "<title>" + template.HTMLEscapeString(label) + "</title>"
 	}
-	return template.HTML(fmt.Sprintf(
+	out := template.HTML(fmt.Sprintf(
 		`<svg class="octicon octicon-%s" width="%d" height="%d" viewBox="0 0 %d %d" `+
 			`fill="currentColor" %s>%s%s</svg>`,
-		template.HTMLEscapeString(name), width, size, icon.Width, icon.Height, aria, title, icon.Body)), nil
+		template.HTMLEscapeString(name), width, size, icon.Width, icon.Height, aria, title, icon.Body))
+	if key != "" {
+		octiconCache.Store(key, out)
+	}
+	return out, nil
 }
 
 // colorModeAttrs renders the three attributes the html element carries so CSS

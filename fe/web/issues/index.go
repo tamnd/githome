@@ -54,8 +54,8 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 		return h.listError(c, err)
 	}
 
-	// The inactive tab's count needs its own total. A one-row probe in the other
-	// state is the cheapest honest way to get it without a count-only API.
+	// The inactive tab needs its own total. A COUNT in the flipped state is the
+	// cheapest way to get it, fetching no rows.
 	openTotal, closedTotal := h.tabCounts(ctx, vc.pk, owner, repo.Name, q, total)
 
 	vm := view.IssueIndexVM{
@@ -107,8 +107,9 @@ func (h *Handlers) rows(repo *domain.Repo, issues []*domain.Issue) []view.IssueR
 }
 
 // tabCounts returns the open and closed totals for the state tabs. The active
-// state's total comes from the list query already run; the other is a one-row
-// probe in the flipped state.
+// state's total comes from the list query already run; the other is a COUNT in
+// the flipped state, which fetches no rows (the old one-row probe still ran the
+// page query under a LIMIT 1).
 func (h *Handlers) tabCounts(ctx context.Context, viewerPK int64, owner, name string, q *Query, activeTotal int) (open, closed int) {
 	other := "open"
 	if q.state() == "open" {
@@ -117,9 +118,7 @@ func (h *Handlers) tabCounts(ctx context.Context, viewerPK int64, owner, name st
 	probe := q.clone()
 	probe.State = other
 	pq := probe.Filter(view.ViewerFrom(ctx))
-	pq.Page = 1
-	pq.PerPage = 1
-	_, otherTotal, err := h.issues.ListIssues(ctx, viewerPK, owner, name, pq)
+	otherTotal, err := h.issues.CountIssues(ctx, viewerPK, owner, name, pq)
 	if err != nil {
 		otherTotal = 0
 	}
