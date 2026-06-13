@@ -2,6 +2,8 @@ package repo
 
 import (
 	"errors"
+	"net/http"
+	"strings"
 
 	"github.com/go-mizu/mizu"
 
@@ -43,6 +45,19 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	// An abbreviated SHA 301s to the canonical 40-char address, so a commit has
+	// exactly one URL the way GitHub canonicalizes /commit/{short}. A branch or
+	// tag name (master, v0.1.0, HEAD) is left in place — GitHub canonicalizes
+	// only a hex prefix of the resolved SHA, not a ref. The diff-axis query
+	// rides across the redirect.
+	if isAbbreviatedSHA(sha, commit.SHA) {
+		target := route.Commit(ownerLogin(repo), repo.Name, commit.SHA)
+		if raw := c.Request().URL.RawQuery; raw != "" {
+			target += "?" + raw
+		}
+		return c.Redirect(http.StatusMovedPermanently, target)
 	}
 
 	mode := diffModeFromQuery(c)
@@ -103,6 +118,24 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 		Diff: commitDiffToggle(route.Commit(owner, repo.Name, commit.SHA), mode, ignoreWS),
 	}
 	return h.render.Page(c, "repo/commit", vm)
+}
+
+// isAbbreviatedSHA reports whether req is a shortened hex form of the resolved
+// full SHA: all hex digits, shorter than the 40-char id, and a case-insensitive
+// prefix of it. This is the one input GitHub canonicalizes to the full address;
+// a branch or tag name that happens to resolve to the same commit keeps its own
+// URL.
+func isAbbreviatedSHA(req, full string) bool {
+	if req == "" || len(req) >= len(full) {
+		return false
+	}
+	lower := strings.ToLower(req)
+	for _, r := range lower {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return strings.HasPrefix(full, lower)
 }
 
 // commitDiffFiles maps the commit's per-file changes into the shared diff
