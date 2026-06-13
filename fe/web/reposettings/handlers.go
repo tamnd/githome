@@ -148,15 +148,18 @@ func (h *Handlers) owner(c *mizu.Ctx) string { return c.Param("owner") }
 func (h *Handlers) name(c *mizu.Ctx) string  { return c.Param("repo") }
 
 // nav builds the repository settings sidebar: the repository's full name heading
-// linking back to the repository, and the section links. Webhooks is the only
-// backed section, so it is the only entry; active marks the current page.
+// linking back to the repository, and the section links. General and Webhooks
+// are the backed sections, so they are the entries; active marks the current
+// page. A section Githome does not back gets no row rather than a dead link.
 func (h *Handlers) nav(c *mizu.Ctx, active string) view.SettingsNav {
 	owner, name := h.owner(c), h.name(c)
+	general := route.RepoSettings(owner, name)
 	hooks := route.RepoHooks(owner, name)
 	return view.SettingsNav{
 		Heading:    owner + "/" + name,
 		HeadingURL: route.Repo(owner, name),
 		Items: []view.SettingsNavItem{
+			{Label: "General", URL: general, IsActive: active == general},
 			{Label: "Webhooks", URL: hooks, IsActive: active == hooks},
 		},
 	}

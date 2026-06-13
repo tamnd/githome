@@ -1,0 +1,94 @@
+{{define "content" -}}
+{{/* The data is RepoGeneralVM. The main form renames the repository, edits its
+     description, and changes its default branch, all backed by the domain
+     UpdateRepo. The danger zone flips the repository between public and private
+     and deletes it, each its own post the page confirms. A rejected change
+     re-renders this form with FormError and the typed values intact. Sections
+     Githome does not yet back get no form here. See 2005/review/01 R01-51. */ -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <h1 class="settings-title">General</h1>
+
+    {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
+
+    <form class="settings-form" method="post" action="{{.Action}}">
+      {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+
+      <div class="settings-field">
+        <label class="settings-label" for="name">Repository name</label>
+        <input class="input" id="name" type="text" name="name" value="{{.Name}}" required>
+        <p class="settings-hint">Renaming leaves a redirect behind, so existing links keep working.</p>
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="description">Description</label>
+        <input class="input" id="description" type="text" name="description" value="{{.Description}}"
+               placeholder="Short description of this repository">
+      </div>
+
+      <div class="settings-field">
+        <label class="settings-label" for="default_branch">Default branch</label>
+        {{if .HasBranches -}}
+        <select class="input settings-select" id="default_branch" name="default_branch">
+          {{range .Branches -}}
+          <option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+          {{end -}}
+        </select>
+        <p class="settings-hint">The branch new pull requests and clones open against by default.</p>
+        {{- else -}}
+        <input class="input" id="default_branch" type="text" disabled placeholder="No branches yet">
+        <p class="settings-hint">This repository has no commits yet, so there is no branch to set as default.</p>
+        {{- end}}
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" type="submit">Save changes</button>
+      </div>
+    </form>
+
+    <div class="settings-danger">
+      <h2 class="settings-danger-title">Danger zone</h2>
+
+      <div class="settings-danger-row">
+        {{if .Private -}}
+        <div class="settings-danger-text">
+          <strong>Change repository visibility</strong>
+          <p class="settings-hint">This repository is currently private. Making it public lets anyone see it.</p>
+        </div>
+        <form method="post" action="{{.VisibilityAction}}"
+              onsubmit="return confirm('Make this repository public? Anyone will be able to see it.')">
+          {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+          <input type="hidden" name="visibility" value="public">
+          <button class="btn" type="submit">Make public</button>
+        </form>
+        {{- else -}}
+        <div class="settings-danger-text">
+          <strong>Change repository visibility</strong>
+          <p class="settings-hint">This repository is currently public. Making it private hides it from everyone but you.</p>
+        </div>
+        <form method="post" action="{{.VisibilityAction}}"
+              onsubmit="return confirm('Make this repository private? It will no longer be publicly visible.')">
+          {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+          <input type="hidden" name="visibility" value="private">
+          <button class="btn" type="submit">Make private</button>
+        </form>
+        {{- end}}
+      </div>
+
+      <div class="settings-danger-row">
+        <div class="settings-danger-text">
+          <strong>Delete this repository</strong>
+          <p class="settings-hint">Once deleted, it cannot be recovered. Type <code>{{.RepoFullName}}</code> to confirm.</p>
+        </div>
+        <form method="post" action="{{.DeleteAction}}"
+              onsubmit="return confirm('Delete {{.RepoFullName}}? This cannot be undone.')">
+          {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+          <input class="input" type="text" name="confirm" placeholder="{{.RepoFullName}}" required>
+          <button class="btn btn-danger" type="submit">{{octicon "trash" 16}} Delete this repository</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+{{- end}}

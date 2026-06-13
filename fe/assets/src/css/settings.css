@@ -288,3 +288,37 @@
   font-size: var(--text-body-size);
   font-weight: 600;
 }
+
+.settings-danger-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--base-size-12);
+  padding: var(--base-size-12) 0;
+  border-top: var(--borderWidth-thin) solid var(--borderColor-danger-muted);
+}
+
+.settings-danger-row:first-of-type {
+  border-top: 0;
+}
+
+.settings-danger-text {
+  flex: 1 1 16rem;
+}
+
+.settings-danger-text strong {
+  display: block;
+  font-weight: 600;
+}
+
+.settings-danger-row .settings-hint {
+  margin: var(--base-size-4) 0 0;
+}
+
+.settings-danger-row form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--base-size-8);
+}

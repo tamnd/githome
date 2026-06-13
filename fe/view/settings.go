@@ -77,6 +77,35 @@ type ProfileSettingsVM struct {
 	FormError       string
 }
 
+// RepoGeneralVM is a repository's General settings page: the first thing
+// /{owner}/{repo}/settings shows. The main form renames the repository, edits
+// its description, and changes its default branch, all backed by the domain
+// UpdateRepo the REST surface writes through. The danger zone flips the
+// repository between public and private and deletes it, each its own post the
+// page confirms. FormError carries an inline message so a rejected change
+// re-renders the filled form rather than an error page. Sections Githome does
+// not yet back (collaborators, branch protection, deploy keys) get no form
+// here, the same honest absence the rest of the settings tree took.
+type RepoGeneralVM struct {
+	Chrome Chrome
+	Nav    SettingsNav
+
+	RepoFullName string
+	Action       string
+
+	Name        string
+	Description string
+
+	Branches    []AppearanceOption
+	HasBranches bool
+
+	Private          bool
+	VisibilityAction string
+	DeleteAction     string
+
+	FormError string
+}
+
 // HookListVM is a repository's webhooks list: a row per hook with its delivery
 // target, its active state, the events it fires on, and the status of its most
 // recent delivery. Empty drives the blankslate for a repository with no hooks.

@@ -124,6 +124,9 @@ func newFixture(t *testing.T) fixture {
 
 	rg := page.With(h.Resolve)
 	rg.Get("/{owner}/{repo}/settings", h.Root)
+	rg.Post("/{owner}/{repo}/settings", h.UpdateGeneral)
+	rg.Post("/{owner}/{repo}/settings/visibility", h.UpdateVisibility)
+	rg.Post("/{owner}/{repo}/settings/delete", h.Delete)
 	rg.Get("/{owner}/{repo}/settings/hooks", h.Hooks)
 	rg.Get("/{owner}/{repo}/settings/hooks/new", h.NewHook)
 	rg.Post("/{owner}/{repo}/settings/hooks", h.CreateHook)
@@ -435,15 +438,15 @@ func TestAnonymousGetsNotFound(t *testing.T) {
 	}
 }
 
-func TestRootRedirectsToHooks(t *testing.T) {
+func TestRootServesGeneral(t *testing.T) {
 	fx := newFixture(t)
 	fx.login(t)
-	resp, _ := fx.get(t, "/octocat/hello/settings")
-	if resp.StatusCode != http.StatusSeeOther {
-		t.Fatalf("settings root status %d, want 303", resp.StatusCode)
+	resp, body := fx.get(t, "/octocat/hello/settings")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("settings root status %d, want 200", resp.StatusCode)
 	}
-	if loc := resp.Header.Get("Location"); loc != "/octocat/hello/settings/hooks" {
-		t.Errorf("settings root redirected to %q, want the hooks list", loc)
+	if !strings.Contains(body, `<h1 class="settings-title">General</h1>`) {
+		t.Errorf("settings root should serve the General page:\n%s", body)
 	}
 }
 

@@ -105,6 +105,20 @@ func RepoSettings(owner, name string) string {
 	return Repo(owner, name) + "/settings"
 }
 
+// RepoSettingsVisibility is the change-visibility POST target,
+// /{owner}/{repo}/settings/visibility. Toggling between public and private is a
+// post, never a get, so it sits behind the CSRF guard.
+func RepoSettingsVisibility(owner, name string) string {
+	return RepoSettings(owner, name) + "/visibility"
+}
+
+// RepoSettingsDelete is the delete-repository POST target,
+// /{owner}/{repo}/settings/delete. Deleting is a post the danger zone confirms,
+// never a get a crawler could trip.
+func RepoSettingsDelete(owner, name string) string {
+	return RepoSettings(owner, name) + "/delete"
+}
+
 // RepoHooks is a repository's webhooks list, /{owner}/{repo}/settings/hooks.
 func RepoHooks(owner, name string) string {
 	return Repo(owner, name) + "/settings/hooks"
