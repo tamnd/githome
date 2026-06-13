@@ -321,6 +321,33 @@ func TestFilesTabRendersDiff(t *testing.T) {
 	}
 }
 
+func TestFilesTabSplitMode(t *testing.T) {
+	fx := newFixture(t)
+
+	// Default (no ?diff): unified table, Unified option selected.
+	_, unified := get(t, fx.srv, "/octocat/hello/pull/"+itoa(fx.prNum)+"/files")
+	if strings.Contains(unified, "diff-table-split") {
+		t.Errorf("default files tab rendered the split table:\n%s", unified)
+	}
+
+	// ?diff=split: the side-by-side table renders and the Split option is current.
+	resp, split := get(t, fx.srv, "/octocat/hello/pull/"+itoa(fx.prNum)+"/files?diff=split")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("split files tab status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(split, "diff-table-split") {
+		t.Errorf("split files tab is missing the split table:\n%s", split)
+	}
+	// The toggle marks Split selected (aria-current on the split link's href).
+	if !strings.Contains(split, `href="/octocat/hello/pull/`+itoa(fx.prNum)+`/files?diff=split" aria-current="true"`) {
+		t.Errorf("split files tab toggle does not mark Split current:\n%s", split)
+	}
+	// The split view never disturbs the path or the file content.
+	if !strings.Contains(split, "b.txt") {
+		t.Errorf("split files tab dropped the changed file path:\n%s", split)
+	}
+}
+
 func TestMergeBoxFragment(t *testing.T) {
 	fx := newFixture(t)
 	resp, body := get(t, fx.srv, "/octocat/hello/pull/"+itoa(fx.prNum)+"/partials/merge-box")

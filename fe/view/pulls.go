@@ -248,6 +248,17 @@ type PRFilesVM struct {
 	Files        []DiffFileVM
 	Truncated    bool            // true when the file list was capped, logged by the handler
 	Review       ReviewSurfaceVM // the inline-comment and review-verdict context (F5)
+	Diff         DiffToggleVM    // the unified/split control and which mode is current
+}
+
+// DiffToggleVM is the unified/split control on a diff page. Split is the current
+// mode when Split is true; the two URLs re-request the same page in the other
+// mode, preserving the rest of the query so a whitespace toggle survives a mode
+// switch.
+type DiffToggleVM struct {
+	Split      bool
+	UnifiedURL string
+	SplitURL   string
 }
 
 // MergeBoxState is the visual state of the merge box, derived once from the cached

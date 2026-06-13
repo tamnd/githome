@@ -192,7 +192,7 @@ func (h *Handlers) prRow(repo *domain.Repo, pr *domain.PullRequest) view.PRRow {
 // models. The producer yields each file's unified-diff Patch text (the same bytes
 // the REST .diff media type serves); BuildDiffFile parses that text and assigns row
 // kinds and positions without recomputing the diff. F4 renders unified, read-only.
-func diffFiles(changes []git.FileChange) []view.DiffFileVM {
+func diffFiles(changes []git.FileChange, mode view.DiffMode) []view.DiffFileVM {
 	out := make([]view.DiffFileVM, 0, len(changes))
 	for _, ch := range changes {
 		out = append(out, view.BuildDiffFile(
@@ -202,10 +202,31 @@ func diffFiles(changes []git.FileChange) []view.DiffFileVM {
 			ch.Additions,
 			ch.Deletions,
 			ch.Patch,
-			view.DiffUnified,
+			mode,
 		))
 	}
 	return out
+}
+
+// diffModeFromQuery reads GitHub's ?diff= parameter: "split" selects the
+// side-by-side view, anything else (including absent) the unified view. The
+// value is display-only; it never changes the row Position the API anchors on.
+func diffModeFromQuery(c *mizu.Ctx) view.DiffMode {
+	if c.Request().URL.Query().Get("diff") == "split" {
+		return view.DiffSplit
+	}
+	return view.DiffUnified
+}
+
+// diffToggle builds the unified/split control for a diff page. base is the page's
+// own path; the split URL carries ?diff=split and the unified URL drops it, so the
+// control flips the mode without disturbing the rest of the page.
+func diffToggle(base string, mode view.DiffMode) view.DiffToggleVM {
+	return view.DiffToggleVM{
+		Split:      mode == view.DiffSplit,
+		UnifiedURL: base,
+		SplitURL:   base + "?diff=split",
+	}
 }
 
 // commitGroups groups the PR's commits by authored calendar date, newest day

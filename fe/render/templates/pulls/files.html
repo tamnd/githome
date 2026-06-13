@@ -12,6 +12,10 @@
         <span class="diff-count-add">+{{.Additions}}</span>
         <span class="diff-count-del">-{{.Deletions}}</span>
       </span>
+      <span class="diff-mode-toggle" role="group" aria-label="Diff view">
+        <a class="diff-mode-option{{if not .Diff.Split}} is-selected{{end}}" href="{{.Diff.UnifiedURL}}"{{if not .Diff.Split}} aria-current="true"{{end}}>Unified</a>
+        <a class="diff-mode-option{{if .Diff.Split}} is-selected{{end}}" href="{{.Diff.SplitURL}}"{{if .Diff.Split}} aria-current="true"{{end}}>Split</a>
+      </span>
       {{if .Review.Overlay.CanComment -}}
       <details class="review-overlay">
         <summary class="btn btn-primary review-overlay-toggle">{{octicon "eye" 16}} Review changes</summary>
