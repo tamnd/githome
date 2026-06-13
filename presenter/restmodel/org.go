@@ -35,3 +35,31 @@ type Organization struct {
 	ArchivedAt       *Time   `json:"archived_at"`
 	Type             string  `json:"type"`
 }
+
+// OrganizationSimple is the trimmed org shape GitHub returns inside list
+// payloads such as GET /user/orgs and GET /orgs/{org}/memberships.
+type OrganizationSimple struct {
+	Login            string  `json:"login"`
+	ID               int64   `json:"id"`
+	NodeID           string  `json:"node_id"`
+	URL              string  `json:"url"`
+	ReposURL         string  `json:"repos_url"`
+	EventsURL        string  `json:"events_url"`
+	HooksURL         string  `json:"hooks_url"`
+	IssuesURL        string  `json:"issues_url"`
+	MembersURL       string  `json:"members_url"`
+	PublicMembersURL string  `json:"public_members_url"`
+	AvatarURL        string  `json:"avatar_url"`
+	Description      *string `json:"description"`
+}
+
+// OrgMembership is the membership shape GitHub returns from
+// GET /user/memberships/orgs and GET /user/memberships/orgs/{org}.
+type OrgMembership struct {
+	URL             string             `json:"url"`
+	State           string             `json:"state"`
+	Role            string             `json:"role"`
+	OrganizationURL string             `json:"organization_url"`
+	Organization    OrganizationSimple `json:"organization"`
+	User            SimpleUser         `json:"user"`
+}

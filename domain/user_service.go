@@ -15,6 +15,7 @@ type UserStore interface {
 	UserByPK(ctx context.Context, pk int64) (*store.UserRow, error)
 	UserByLogin(ctx context.Context, login string) (*store.UserRow, error)
 	UpdateProfile(ctx context.Context, userPK int64, u store.ProfileUpdate) error
+	ListUsers(ctx context.Context, sinceDBID int64, limit int) ([]*store.UserRow, error)
 }
 
 // ProfileFields are the account profile fields the settings page can update.
@@ -74,6 +75,20 @@ func (s *UserService) PKByLogin(ctx context.Context, login string) (int64, error
 		return 0, err
 	}
 	return row.PK, nil
+}
+
+// ListUsers returns up to limit accounts with an id greater than since,
+// ordered by id, backing GitHub's GET /users id-cursor pagination.
+func (s *UserService) ListUsers(ctx context.Context, since int64, limit int) ([]*User, error) {
+	rows, err := s.store.ListUsers(ctx, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*User, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, userFromRow(r))
+	}
+	return out, nil
 }
 
 // UpdateProfile updates the authenticated viewer's profile fields. Only the
