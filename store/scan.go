@@ -122,12 +122,15 @@ func argBool(p *bool) any {
 	return *p
 }
 
-// argTime binds a nullable timestamp.
+// argTime binds a nullable timestamp. It normalizes to UTC, which also strips
+// any monotonic clock reading a time.Now()-derived value carries: without this
+// modernc renders the bound value via time.Time.String() as e.g.
+// "2026-06-13 11:12:07 +0700 +07 m=+3600", a form no scan layout parses.
 func argTime(p *time.Time) any {
 	if p == nil {
 		return nil
 	}
-	return *p
+	return p.UTC()
 }
 
 // sqliteTimeFmt is the format CURRENT_TIMESTAMP uses in SQLite: no timezone

@@ -498,21 +498,89 @@ func handleForksList(d Deps) mizu.Handler {
 	}
 }
 
-// handleInstallationRepos serves GET /installation/repositories.
+// handleInstallationRepos serves GET /installation/repositories, the autodiscovery
+// endpoint Renovate and Dependabot poll to learn what an installation token can
+// reach. The caller is an installation token (ghs_); the listing is the repos
+// the installation is scoped to ("selected") or every repo its account owns
+// ("all").
 func handleInstallationRepos(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if actor.Kind != auth.KindInstallation {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		inst, err := d.Auth.InstallationByPK(ctx, actor.InstallationID)
+		if err != nil {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		acct := d.account(ctx, inst.AccountPK)
+		if acct == nil {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+
+		var repos []*domain.Repo
+		if inst.RepositorySelection == "selected" {
+			pks, err := d.Auth.InstallationRepoPKs(ctx, inst.PK)
+			if err != nil {
+				return err
+			}
+			for _, pk := range pks {
+				r, err := d.Repos.GetRepoByPK(ctx, inst.AccountPK, pk)
+				if err == nil {
+					repos = append(repos, r)
+				}
+			}
+		} else {
+			repos, err = d.Repos.ListRepos(ctx, inst.AccountPK, inst.AccountPK)
+			if err != nil {
+				return err
+			}
+		}
+
+		items := make([]any, 0, len(repos))
+		for _, r := range repos {
+			items = append(items, d.URLs.Repository(r, d.NodeFormat, nil))
+		}
 		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"total_count":  0,
-			"repositories": []any{},
+			"total_count":           len(items),
+			"repository_selection":  inst.RepositorySelection,
+			"repositories":          items,
 		})
 		return nil
 	}
 }
 
-// handleRepoInstallation serves GET /repos/{owner}/{repo}/installation.
+// handleRepoInstallation serves GET /repos/{owner}/{repo}/installation, the
+// lookup Terraform's app_auth and octokit run to find the installation that can
+// reach a repository. The caller is an app JWT; the answer is the app's
+// installation on the repository's owning account.
 func handleRepoInstallation(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeError(c.Writer(), errNotFound())
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if actor.Kind != auth.KindAppJWT {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		ownerPK, err := d.Users.PKByLogin(ctx, c.Param("owner"))
+		if err != nil {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		inst, err := d.Auth.InstallationByAppAndAccount(ctx, actor.AppID, ownerPK)
+		if err != nil {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		app, err := d.Auth.AppByPK(ctx, actor.AppID)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, installationToJSON(inst, app, d.account(ctx, inst.AccountPK), d))
 		return nil
 	}
 }
