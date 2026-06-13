@@ -1,6 +1,7 @@
 package presenter
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/tamnd/githome/domain"
@@ -15,32 +16,46 @@ import (
 // selects the node-ID encoding.
 func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format nodeid.Format) gqlmodel.Repository {
 	perm := gqlmodel.RepositoryPermissionAdmin
+	dbID := int32(r.ID)
 	repo := gqlmodel.Repository{
-		ID:                 nodeid.Encode(nodeid.KindRepository, r.ID, format),
-		Name:               r.Name,
-		NameWithOwner:      r.FullName(),
-		Description:        r.Description,
-		IsPrivate:          r.Private,
-		IsFork:             r.Fork,
-		IsArchived:         r.Archived,
-		IsEmpty:            r.PushedAt == nil,
-		IsInOrganization:   false, // Githome does not yet model organizations
-		ForkCount:          0,     // not stored
-		StargazerCount:     0,     // not stored
-		HomepageURL:        gqlHomepageURL(r.Homepage),
-		CreatedAt:          gqlmodel.NewDateTime(r.CreatedAt),
-		UpdatedAt:          gqlmodel.NewDateTime(r.UpdatedAt),
-		URL:                gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
-		SSHURL:             gqlmodel.URI(b.RepoGitSSH(r.Owner.Login, r.Name)),
-		HTTPSCloneURL:      gqlmodel.URI(b.RepoGitHTTP(r.Owner.Login, r.Name)),
-		ViewerPermission:   &perm, // all authenticated users get ADMIN on their own repos
-		HasIssuesEnabled:   r.HasIssues,
-		AutoMergeAllowed:   true,
-		MergeCommitAllowed: true,
-		SquashMergeAllowed: true,
-		RebaseMergeAllowed: true,
-		RepoOwner:          r.Owner.Login,
-		RepoName:           r.Name,
+		ID:                  nodeid.Encode(nodeid.KindRepository, r.ID, format),
+		Name:                r.Name,
+		NameWithOwner:       r.FullName(),
+		Description:         r.Description,
+		IsPrivate:           r.Private,
+		IsFork:              r.Fork,
+		IsArchived:          r.Archived,
+		IsEmpty:             r.PushedAt == nil,
+		IsInOrganization:    false, // Githome does not yet model organizations
+		ForkCount:           0,     // not stored
+		StargazerCount:      0,     // not stored
+		HomepageURL:         gqlHomepageURL(r.Homepage),
+		CreatedAt:           gqlmodel.NewDateTime(r.CreatedAt),
+		UpdatedAt:           gqlmodel.NewDateTime(r.UpdatedAt),
+		URL:                 gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
+		SSHURL:              gqlmodel.GitSSHRemote(b.RepoGitSSH(r.Owner.Login, r.Name)),
+		DatabaseID:          &dbID,
+		Visibility:          gqlVisibility(r.Private),
+		ViewerPermission:    &perm, // all authenticated users get ADMIN on their own repos
+		ViewerCanAdminister: true,
+		ViewerDefaultMergeMethod: gqlmodel.PullRequestMergeMethodMerge,
+		HasIssuesEnabled:    r.HasIssues,
+		HasWikiEnabled:      r.HasWiki,
+		HasProjectsEnabled:  r.HasProjects,
+		HasDiscussionsEnabled: false, // discussions are not modeled
+		IsTemplate:          r.IsTemplate,
+		IsMirror:            false, // Githome does not mirror
+		DeleteBranchOnMerge: r.DeleteBranchOnMerge,
+		AutoMergeAllowed:    true,
+		MergeCommitAllowed:  true,
+		SquashMergeAllowed:  true,
+		RebaseMergeAllowed:  true,
+		RepositoryTopics:    b.gqlRepositoryTopics(r),
+		Watchers:            &gqlmodel.UserConnection{Nodes: []*gqlmodel.User{}, TotalCount: 0},
+		Languages:           &gqlmodel.LanguageConnection{Nodes: []*gqlmodel.Language{}, Edges: []*gqlmodel.LanguageEdge{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0, TotalSize: 0},
+		RepoOwner:           r.Owner.Login,
+		RepoName:            r.Name,
+		ForkParentPK:        r.ForkOfPK,
 	}
 	if r.PushedAt != nil {
 		pushed := gqlmodel.NewDateTime(*r.PushedAt)
@@ -50,6 +65,42 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 		repo.DefaultBranchRef = GQLRef(r.ID, "refs/heads/"+branch.Name, branch.Name, branch.Commit)
 	}
 	return repo
+}
+
+// gqlVisibility maps a repository's private flag to GitHub's RepositoryVisibility
+// enum. Githome does not model the INTERNAL tier (it has no enterprise org
+// scope), so a repository is either PUBLIC or PRIVATE.
+func gqlVisibility(private bool) gqlmodel.RepositoryVisibility {
+	if private {
+		return gqlmodel.RepositoryVisibilityPrivate
+	}
+	return gqlmodel.RepositoryVisibilityPublic
+}
+
+// gqlRepositoryTopics parses the repository's stored topic list (a JSON array)
+// into a RepositoryTopicConnection. A repository with no topics yields an empty
+// connection, never null, matching the non-null schema field.
+func (b *URLBuilder) gqlRepositoryTopics(r *domain.Repo) *gqlmodel.RepositoryTopicConnection {
+	conn := &gqlmodel.RepositoryTopicConnection{
+		Nodes:    []*gqlmodel.RepositoryTopic{},
+		PageInfo: &gqlmodel.PageInfo{},
+	}
+	var names []string
+	if r.Topics != "" {
+		_ = json.Unmarshal([]byte(r.Topics), &names)
+	}
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		conn.Nodes = append(conn.Nodes, &gqlmodel.RepositoryTopic{
+			ID:    "RT_" + r.Owner.Login + "/" + r.Name + "/" + name,
+			Topic: &gqlmodel.Topic{ID: "T_" + name, Name: name},
+			URL:   gqlmodel.URI(b.HTML("topics", name)),
+		})
+	}
+	conn.TotalCount = int32(len(conn.Nodes))
+	return conn
 }
 
 // GQLRef renders a git reference into the GraphQL Ref shape. repoID is the
@@ -125,6 +176,30 @@ func (b *URLBuilder) GQLMilestone(owner, repo string, m *domain.Milestone, forma
 	if m.DueOn != nil {
 		due := gqlmodel.NewDateTime(*m.DueOn)
 		out.DueOn = &due
+	}
+	return out
+}
+
+// GQLRelease renders a domain release into the GraphQL Release shape. isLatest
+// is whether this is the repository's most recent published release.
+func (b *URLBuilder) GQLRelease(owner, repo string, rel *domain.Release, isLatest bool, format nodeid.Format) *gqlmodel.Release {
+	if rel == nil {
+		return nil
+	}
+	tagPath := rel.TagName
+	out := &gqlmodel.Release{
+		ID:           nodeid.Encode(nodeid.KindRelease, rel.ID, format),
+		Name:         rel.Name,
+		TagName:      rel.TagName,
+		URL:          gqlmodel.URI(b.RepoHTML(owner, repo) + "/releases/tag/" + tagPath),
+		CreatedAt:    gqlmodel.NewDateTime(rel.CreatedAt),
+		IsLatest:     isLatest,
+		IsPrerelease: rel.Prerelease,
+		IsDraft:      rel.Draft,
+	}
+	if rel.PublishedAt != nil {
+		pub := gqlmodel.NewDateTime(*rel.PublishedAt)
+		out.PublishedAt = &pub
 	}
 	return out
 }

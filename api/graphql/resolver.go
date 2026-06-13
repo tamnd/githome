@@ -18,6 +18,7 @@ type Resolver struct {
 	Checks     *domain.ChecksService
 	Users      *domain.UserService
 	SearchSvc  *domain.SearchService
+	Releases   *domain.ReleaseService
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
 }

@@ -69,14 +69,38 @@ type Repository implements Node {
   updatedAt: DateTime!
   pushedAt: DateTime
   url: URI!
-  sshUrl: URI!
-  # httpsCloneUrl is the HTTPS clone URL for the repository.
-  httpsCloneUrl: URI!
+  # sshUrl is the git SSH clone address. GitHub types it GitSSHRemote, not URI.
+  sshUrl: GitSSHRemote!
+  # databaseId is the repository's integer database id, the value the REST API
+  # calls id.
+  databaseId: Int
+  # visibility is the repository's visibility level. gh repo view selects it.
+  visibility: RepositoryVisibility!
   # viewerPermission is the viewer's effective permission on the repository.
   viewerPermission: RepositoryPermission
+  # viewerCanAdminister is whether the viewer can administer the repository.
+  viewerCanAdminister: Boolean!
+  # viewerDefaultMergeMethod is the merge method the viewer's UI defaults to.
+  viewerDefaultMergeMethod: PullRequestMergeMethod!
   # hasIssuesEnabled is whether the repository accepts issues. gh issue list
   # checks it before listing.
   hasIssuesEnabled: Boolean!
+  # hasWikiEnabled is whether the repository has a wiki.
+  hasWikiEnabled: Boolean!
+  # hasProjectsEnabled is whether the repository has projects.
+  hasProjectsEnabled: Boolean!
+  # hasDiscussionsEnabled is whether the repository has discussions. Githome
+  # does not model discussions, so it is always false.
+  hasDiscussionsEnabled: Boolean!
+  # isTemplate is whether the repository is a template.
+  isTemplate: Boolean!
+  # isMirror is whether the repository is a mirror. Githome does not mirror, so
+  # it is always false and mirrorUrl is always null.
+  isMirror: Boolean!
+  mirrorUrl: URI
+  # deleteBranchOnMerge is whether head branches are deleted automatically on
+  # merge.
+  deleteBranchOnMerge: Boolean!
   # autoMergeAllowed is whether auto-merge can be enabled on pull requests in
   # this repository. Githome always returns true.
   autoMergeAllowed: Boolean!
@@ -86,6 +110,33 @@ type Repository implements Node {
   squashMergeAllowed: Boolean!
   # rebaseMergeAllowed is whether rebase merges are allowed in pull requests.
   rebaseMergeAllowed: Boolean!
+  # parent is the repository this one was forked from, null for a non-fork.
+  # gh repo view and the cross-fork pr create flow select it.
+  parent: Repository
+  # repositoryTopics is the connection over the repository's topics.
+  repositoryTopics(first: Int, after: String): RepositoryTopicConnection!
+  # watchers is the connection over the users watching the repository.
+  watchers(first: Int, after: String): UserConnection!
+  # languages is the connection over the languages detected in the repository,
+  # ordered by byte size. Githome does not compute language statistics, so it
+  # is always empty.
+  languages(first: Int, after: String, orderBy: LanguageOrder): LanguageConnection
+  # milestones is the connection over the repository's milestones.
+  milestones(
+    first: Int
+    after: String
+    states: [MilestoneState!]
+    orderBy: MilestoneOrder
+    query: String
+  ): MilestoneConnection
+  # latestRelease is the repository's most recent published release, null when
+  # there are none.
+  latestRelease: Release
+  # issueTemplates is the set of issue templates configured in the repository.
+  issueTemplates: [IssueTemplate!]
+  # pullRequestTemplates is the set of pull-request templates configured in the
+  # repository.
+  pullRequestTemplates: [PullRequestTemplate!]
   # ref looks up a single ref by its qualified name, e.g. "refs/heads/main".
   # Returns null when the ref does not exist.
   ref(qualifiedName: String!): Ref
@@ -281,4 +332,112 @@ type SearchResultItemConnection {
 type SearchResultItemEdge {
   cursor: String!
   node: SearchResultItem
+}
+
+# RepositoryVisibility is a repository's visibility level.
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+# Topic is a repository topic.
+type Topic implements Node {
+  id: ID!
+  name: String!
+}
+
+# RepositoryTopic pairs a topic with the repository it is applied to.
+type RepositoryTopic implements Node {
+  id: ID!
+  topic: Topic!
+  url: URI!
+}
+
+# RepositoryTopicConnection is the connection over a repository's topics.
+type RepositoryTopicConnection {
+  nodes: [RepositoryTopic]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# LanguageOrderField is the field to order languages by.
+enum LanguageOrderField {
+  SIZE
+}
+
+# LanguageOrder specifies how to order languages.
+input LanguageOrder {
+  field: LanguageOrderField!
+  direction: OrderDirection!
+}
+
+# LanguageConnection is the connection over the languages in a repository.
+type LanguageConnection {
+  edges: [LanguageEdge]
+  nodes: [Language]
+  pageInfo: PageInfo!
+  totalCount: Int!
+  totalSize: Int!
+}
+
+# LanguageEdge pairs a language with the number of bytes written in it.
+type LanguageEdge {
+  cursor: String!
+  node: Language!
+  size: Int!
+}
+
+# MilestoneState is whether a milestone is open or closed.
+enum MilestoneState {
+  OPEN
+  CLOSED
+}
+
+# MilestoneOrderField is the field to order milestones by.
+enum MilestoneOrderField {
+  DUE_DATE
+  CREATED_AT
+  UPDATED_AT
+  NUMBER
+}
+
+# MilestoneOrder specifies how to order milestones.
+input MilestoneOrder {
+  field: MilestoneOrderField!
+  direction: OrderDirection!
+}
+
+# MilestoneConnection is the connection over a repository's milestones.
+type MilestoneConnection {
+  nodes: [Milestone]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# Release is a published release of a repository.
+type Release implements Node {
+  id: ID!
+  name: String
+  tagName: String!
+  url: URI!
+  createdAt: DateTime!
+  publishedAt: DateTime
+  isLatest: Boolean!
+  isPrerelease: Boolean!
+  isDraft: Boolean!
+}
+
+# IssueTemplate is an issue template configured in a repository.
+type IssueTemplate {
+  name: String!
+  title: String
+  body: String
+  about: String
+}
+
+# PullRequestTemplate is a pull-request template configured in a repository.
+type PullRequestTemplate {
+  filename: String
+  body: String
 }

@@ -188,6 +188,7 @@ func run() error {
 		Checks:     checksSvc,
 		Users:      userSvc,
 		Search:     searchSvc,
+		Releases:   releaseSvc,
 		Batch:      domain.NewBatcher(st),
 		URLs:       urls,
 		NodeFormat: nodeid.FormatNew,

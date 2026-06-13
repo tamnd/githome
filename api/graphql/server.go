@@ -30,6 +30,7 @@ type Deps struct {
 	Checks     *domain.ChecksService
 	Users      *domain.UserService
 	Search     *domain.SearchService
+	Releases   *domain.ReleaseService
 	Batch      *domain.Batcher
 	URLs       *presenter.URLBuilder
 	NodeFormat nodeid.Format
@@ -58,6 +59,7 @@ func NewHandler(d Deps) http.Handler {
 			Checks:     d.Checks,
 			Users:      d.Users,
 			SearchSvc:  d.Search,
+			Releases:   d.Releases,
 			URLs:       d.URLs,
 			NodeFormat: d.NodeFormat,
 		},
