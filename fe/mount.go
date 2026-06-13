@@ -71,6 +71,7 @@ type Deps struct {
 	Search        *domain.SearchService
 	Users         *domain.UserService
 	Events        *domain.EventService
+	Social        *domain.SocialService
 	Notifications *domain.NotificationService
 	URLs          *presenter.URLBuilder
 	Markup        *markup.Renderer
@@ -576,6 +577,7 @@ func mountProfile(page *mizu.Router, d Deps) {
 		Users:  d.Users,
 		Events: d.Events,
 		Search: d.Search,
+		Social: d.Social,
 		URLs:   d.URLs,
 		Render: d.Render,
 		View:   d.View,

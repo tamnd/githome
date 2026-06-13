@@ -20,9 +20,9 @@
     {{if .Header.Bio}}<p class="profile-bio">{{.Header.Bio}}</p>{{end}}
 
     <p class="profile-social">
-      <span class="profile-social-item">{{octicon "person" 16}} <strong>{{.Header.Followers}}</strong> follower{{if ne .Header.Followers 1}}s{{end}}</span>
+      <a class="profile-social-item" href="{{.FollowersURL}}">{{octicon "person" 16}} <strong>{{.Header.Followers}}</strong> follower{{if ne .Header.Followers 1}}s{{end}}</a>
       <span class="profile-social-sep" aria-hidden="true">·</span>
-      <span class="profile-social-item"><strong>{{.Header.Following}}</strong> following</span>
+      <a class="profile-social-item" href="{{.FollowingURL}}"><strong>{{.Header.Following}}</strong> following</a>
     </p>
 
     <ul class="profile-vcard">
@@ -49,8 +49,13 @@
     {{if eq .ActiveTab "repositories" -}}
     {{with .Repos -}}
     <div class="profile-repos">
-      {{if .Sorts -}}
       <div class="profile-repos-head">
+        <form class="profile-repos-filter" method="get" action="/{{.OwnerLogin}}" role="search">
+          <input type="hidden" name="tab" value="repositories">
+          <input class="profile-repos-find" type="text" name="q" value="{{.Query}}"
+                 placeholder="Find a repository…" aria-label="Find a repository">
+        </form>
+        {{if .Sorts -}}
         <details class="profile-sort">
           <summary class="profile-sort-summary">Sort {{octicon "triangle-down" 16}}</summary>
           <div class="profile-sort-menu" role="menu">
@@ -60,8 +65,8 @@
             {{- end}}
           </div>
         </details>
+        {{- end}}
       </div>
-      {{- end}}
 
       {{if .Empty -}}
       <div class="blankslate profile-empty">
@@ -80,6 +85,71 @@
           </div>
           {{if .Description}}<p class="profile-repo-desc">{{.Description}}</p>{{end}}
           {{if .UpdatedAt}}<p class="profile-repo-meta">Updated <relative-time datetime="{{.UpdatedISO}}">{{.UpdatedAt}}</relative-time></p>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- end}}
+
+      {{if or .Pager.PrevURL .Pager.NextURL -}}
+      <nav class="paginate" aria-label="Pagination">
+        {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+        {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
+    </div>
+    {{- end}}
+    {{- else if eq .ActiveTab "stars" -}}
+    {{with .Stars -}}
+    <div class="profile-repos">
+      {{if .Empty -}}
+      <div class="blankslate profile-empty">
+        <span class="blankslate-icon" aria-hidden="true">{{octicon "star" 24}}</span>
+        <p class="blankslate-text">{{.EmptyReason}}</p>
+      </div>
+      {{- else -}}
+      <ul class="profile-repo-list">
+        {{range .Items -}}
+        <li class="profile-repo">
+          <div class="profile-repo-head">
+            <a class="profile-repo-name" href="{{.URL}}">{{.FullName}}</a>
+            {{if .Private}}<span class="profile-pill">Private</span>{{end}}
+            {{if .Fork}}<span class="profile-pill">Fork</span>{{end}}
+            {{if .Archived}}<span class="profile-pill profile-pill-archived">Archived</span>{{end}}
+          </div>
+          {{if .Description}}<p class="profile-repo-desc">{{.Description}}</p>{{end}}
+          {{if .UpdatedAt}}<p class="profile-repo-meta">Updated <relative-time datetime="{{.UpdatedISO}}">{{.UpdatedAt}}</relative-time></p>{{end}}
+        </li>
+        {{- end}}
+      </ul>
+      {{- end}}
+
+      {{if or .Pager.PrevURL .Pager.NextURL -}}
+      <nav class="paginate" aria-label="Pagination">
+        {{if .Pager.PrevURL}}<a class="paginate-prev" href="{{.Pager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Previous</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Previous</span>{{end}}
+        {{if .Pager.NextURL}}<a class="paginate-next" href="{{.Pager.NextURL}}" rel="next">Next {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Next {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
+    </div>
+    {{- end}}
+    {{- else if or (eq .ActiveTab "followers") (eq .ActiveTab "following") -}}
+    {{with .People -}}
+    <div class="profile-people">
+      <h2 class="profile-section-title">{{.Heading}}</h2>
+      {{if .Empty -}}
+      <div class="blankslate profile-empty">
+        <span class="blankslate-icon" aria-hidden="true">{{octicon "person" 24}}</span>
+        <p class="blankslate-text">{{.EmptyReason}}</p>
+      </div>
+      {{- else -}}
+      <ul class="profile-people-list">
+        {{range .Users -}}
+        <li class="profile-person">
+          <a class="profile-person-avatar" href="{{.ProfileURL}}"><img src="{{.AvatarURL}}" alt="{{.Login}}" width="48" height="48"></a>
+          <div class="profile-person-body">
+            <a class="profile-person-name" href="{{.ProfileURL}}">{{if .Name}}{{.Name}}{{else}}{{.Login}}{{end}}</a>
+            {{if .Name}}<span class="profile-person-login">{{.Login}}</span>{{end}}
+            {{if .Bio}}<p class="profile-person-bio">{{.Bio}}</p>{{end}}
+          </div>
         </li>
         {{- end}}
       </ul>

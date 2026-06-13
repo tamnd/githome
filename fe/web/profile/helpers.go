@@ -66,11 +66,14 @@ func (h *Handlers) header(u *domain.User) view.ProfileHeaderVM {
 	return hdr
 }
 
-// tabs builds the two-tab strip the profile wears: the overview and the
-// repositories tab, the only two surfaces the domain backs. The repositories tab
-// carries the public-repo count badge; the overview carries none. Each tab's URL
-// is the canonical /{owner} or /{owner}?tab=repositories, so a click never lands
-// on a redundant ?tab=overview.
+// tabs builds the strip the profile wears: the overview, the repositories tab, and
+// the stars tab, the surfaces the domain backs. The repositories tab carries the
+// public-repo count badge; the others carry none. The followers and following
+// surfaces are reached from the identity card's count line rather than the strip,
+// the way GitHub lays them out, so they are not strip entries; their bodies still
+// render in the main column when their ?tab= is active. Each tab's URL is the
+// canonical /{owner} or /{owner}?tab=…, so a click never lands on a redundant
+// ?tab=overview.
 func (h *Handlers) tabs(u *domain.User, active string) []view.ProfileTab {
 	return []view.ProfileTab{
 		{
@@ -88,6 +91,13 @@ func (h *Handlers) tabs(u *domain.User, active string) []view.ProfileTab {
 			IsActive: active == view.ProfileRepositories,
 			Count:    u.PublicRepos,
 			HasCount: true,
+		},
+		{
+			Key:      view.ProfileStars,
+			Label:    "Stars",
+			Icon:     "star",
+			URL:      route.ProfileTab(u.Login, view.ProfileStars),
+			IsActive: active == view.ProfileStars,
 		},
 	}
 }

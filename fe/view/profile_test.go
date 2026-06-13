@@ -3,7 +3,7 @@ package view
 import "testing"
 
 // ProfileTabOr is the view's tolerance for a hand-edited ?tab=: it validates
-// against the two backed tabs and degrades an unknown or empty value to the
+// against the backed tabs and degrades an unknown or empty value to the
 // overview rather than erroring. See implementation/12 section 5.
 
 func TestProfileTabOr(t *testing.T) {
@@ -13,8 +13,11 @@ func TestProfileTabOr(t *testing.T) {
 		{"", ProfileOverview},
 		{"overview", ProfileOverview},
 		{"repositories", ProfileRepositories},
+		{"stars", ProfileStars},
+		{"followers", ProfileFollowers},
+		{"following", ProfileFollowing},
 		// An unknown tab falls back to the overview, never an error or a blank page.
-		{"stars", ProfileOverview},
+		{"projects", ProfileOverview},
 		{"REPOSITORIES", ProfileOverview}, // case-sensitive: only the exact key selects the tab
 	}
 	for _, c := range cases {
