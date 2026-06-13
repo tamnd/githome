@@ -38,7 +38,7 @@ type Set struct {
 	assetFS fs.FS // the built asset tree (assets.FS()): manifest + bytes
 	dev     bool
 
-	manMu sync.Mutex
+	manMu sync.RWMutex
 	man   map[string]string // logical asset name -> hashed file name
 }
 

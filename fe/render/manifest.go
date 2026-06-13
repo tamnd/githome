@@ -52,9 +52,9 @@ func (s *Set) asset(logical string) string {
 			return AssetURLPrefix + logical + "?manifest-error"
 		}
 	}
-	s.manMu.Lock()
+	s.manMu.RLock()
 	hashed, ok := s.man[logical]
-	s.manMu.Unlock()
+	s.manMu.RUnlock()
 	if !ok {
 		return AssetURLPrefix + logical + "?missing"
 	}
