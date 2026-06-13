@@ -4,14 +4,33 @@
  * vendoring @primer. References functional tokens only. See implementation/04.
  */
 
-/* Layout container. */
+/* Layout containers. The four widths share one centered, gutter-padded box and
+   differ only in their max-width cap, matching Primer's container-sm…xl. */
+.container-sm,
+.container-md,
+.container-lg,
 .container-xl {
   width: 100%;
-  max-width: var(--container-xl);
   margin-right: auto;
   margin-left: auto;
   padding-right: var(--base-size-16);
   padding-left: var(--base-size-16);
+}
+
+.container-sm {
+  max-width: var(--container-sm);
+}
+
+.container-md {
+  max-width: var(--container-md);
+}
+
+.container-lg {
+  max-width: var(--container-lg);
+}
+
+.container-xl {
+  max-width: var(--container-xl);
 }
 
 .page-main {
@@ -268,6 +287,20 @@
 .BtnGroup .btn:last-child {
   border-top-right-radius: var(--borderRadius-medium);
   border-bottom-right-radius: var(--borderRadius-medium);
+}
+
+/* Below the sm breakpoint a tap is a finger, not a cursor, so a standalone
+   primary button grows to the 44px target Apple and Material both recommend.
+   Buttons grouped in a BtnGroup keep their compact height so the row still
+   fits a narrow viewport. */
+@media (max-width: 543px) {
+  .btn-primary {
+    min-height: 44px;
+  }
+
+  .BtnGroup .btn-primary {
+    min-height: 0;
+  }
 }
 
 .input {
