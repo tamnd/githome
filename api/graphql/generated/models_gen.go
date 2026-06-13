@@ -177,6 +177,12 @@ type ClosePullRequestPayload struct {
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
 }
 
+type CommitConnection struct {
+	Nodes      []*gqlmodel.Commit `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
+}
+
 type ConvertPullRequestToDraftInput struct {
 	PullRequestID    string  `json:"pullRequestId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -367,6 +373,19 @@ type EnablePullRequestAutoMergePayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
 	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
+type GitActor struct {
+	Name  *string                `json:"name,omitempty"`
+	Email *string                `json:"email,omitempty"`
+	Date  *gqlmodel.GitTimestamp `json:"date,omitempty"`
+	User  *gqlmodel.User         `json:"user,omitempty"`
+}
+
+type GitActorConnection struct {
+	Nodes      []*GitActor        `json:"nodes,omitempty"`
+	PageInfo   *gqlmodel.PageInfo `json:"pageInfo"`
+	TotalCount int32              `json:"totalCount"`
 }
 
 type IssueCommentEdge struct {

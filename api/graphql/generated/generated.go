@@ -143,11 +143,22 @@ type ComplexityRoot struct {
 
 	Commit struct {
 		AbbreviatedOid    func(childComplexity int) int
+		AuthoredDate      func(childComplexity int) int
+		Authors           func(childComplexity int, first *int32, after *string) int
+		CommittedDate     func(childComplexity int) int
 		ID                func(childComplexity int) int
 		Message           func(childComplexity int) int
 		MessageHeadline   func(childComplexity int) int
 		Oid               func(childComplexity int) int
+		Parents           func(childComplexity int, first *int32, after *string) int
 		StatusCheckRollup func(childComplexity int) int
+		Tree              func(childComplexity int) int
+	}
+
+	CommitConnection struct {
+		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
 	}
 
 	ConvertPullRequestToDraftPayload struct {
@@ -216,6 +227,19 @@ type ComplexityRoot struct {
 		Actor            func(childComplexity int) int
 		ClientMutationID func(childComplexity int) int
 		PullRequest      func(childComplexity int) int
+	}
+
+	GitActor struct {
+		Date  func(childComplexity int) int
+		Email func(childComplexity int) int
+		Name  func(childComplexity int) int
+		User  func(childComplexity int) int
+	}
+
+	GitActorConnection struct {
+		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
 	}
 
 	Issue struct {
@@ -812,7 +836,7 @@ type ComplexityRoot struct {
 	}
 
 	StatusCheckRollup struct {
-		Contexts func(childComplexity int, first *int32) int
+		Contexts func(childComplexity int, first *int32, after *string) int
 		State    func(childComplexity int) int
 	}
 
@@ -984,6 +1008,11 @@ type CommitResolver interface {
 
 	Message(ctx context.Context, obj *gqlmodel.Commit) (string, error)
 	MessageHeadline(ctx context.Context, obj *gqlmodel.Commit) (string, error)
+	CommittedDate(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.GitTimestamp, error)
+	AuthoredDate(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.GitTimestamp, error)
+	Authors(ctx context.Context, obj *gqlmodel.Commit, first *int32, after *string) (*GitActorConnection, error)
+	Tree(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.Tree, error)
+	Parents(ctx context.Context, obj *gqlmodel.Commit, first *int32, after *string) (*CommitConnection, error)
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
 type IssueResolver interface {
@@ -1109,7 +1138,7 @@ type RepositoryResolver interface {
 	PullRequests(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, last *int32, before *string, states []gqlmodel.PullRequestState, headRefName *string, baseRefName *string, labels []string, orderBy *IssueOrder) (*gqlmodel.PullRequestConnection, error)
 }
 type StatusCheckRollupResolver interface {
-	Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*StatusCheckRollupContextConnection, error)
+	Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32, after *string) (*StatusCheckRollupContextConnection, error)
 }
 type StatusContextResolver interface {
 	AvatarURL(ctx context.Context, obj *gqlmodel.StatusContext, size *int32) (*gqlmodel.URI, error)
@@ -1491,6 +1520,29 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Commit.AbbreviatedOid(childComplexity), true
+	case "Commit.authoredDate":
+		if e.ComplexityRoot.Commit.AuthoredDate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Commit.AuthoredDate(childComplexity), true
+	case "Commit.authors":
+		if e.ComplexityRoot.Commit.Authors == nil {
+			break
+		}
+
+		args, err := ec.field_Commit_authors_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Commit.Authors(childComplexity, args["first"].(*int32), args["after"].(*string)), true
+	case "Commit.committedDate":
+		if e.ComplexityRoot.Commit.CommittedDate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Commit.CommittedDate(childComplexity), true
 	case "Commit.id":
 		if e.ComplexityRoot.Commit.ID == nil {
 			break
@@ -1515,12 +1567,48 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Commit.Oid(childComplexity), true
+	case "Commit.parents":
+		if e.ComplexityRoot.Commit.Parents == nil {
+			break
+		}
+
+		args, err := ec.field_Commit_parents_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Commit.Parents(childComplexity, args["first"].(*int32), args["after"].(*string)), true
 	case "Commit.statusCheckRollup":
 		if e.ComplexityRoot.Commit.StatusCheckRollup == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Commit.StatusCheckRollup(childComplexity), true
+	case "Commit.tree":
+		if e.ComplexityRoot.Commit.Tree == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Commit.Tree(childComplexity), true
+
+	case "CommitConnection.nodes":
+		if e.ComplexityRoot.CommitConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommitConnection.Nodes(childComplexity), true
+	case "CommitConnection.pageInfo":
+		if e.ComplexityRoot.CommitConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommitConnection.PageInfo(childComplexity), true
+	case "CommitConnection.totalCount":
+		if e.ComplexityRoot.CommitConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommitConnection.TotalCount(childComplexity), true
 
 	case "ConvertPullRequestToDraftPayload.clientMutationId":
 		if e.ComplexityRoot.ConvertPullRequestToDraftPayload.ClientMutationID == nil {
@@ -1691,6 +1779,50 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EnablePullRequestAutoMergePayload.PullRequest(childComplexity), true
+
+	case "GitActor.date":
+		if e.ComplexityRoot.GitActor.Date == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActor.Date(childComplexity), true
+	case "GitActor.email":
+		if e.ComplexityRoot.GitActor.Email == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActor.Email(childComplexity), true
+	case "GitActor.name":
+		if e.ComplexityRoot.GitActor.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActor.Name(childComplexity), true
+	case "GitActor.user":
+		if e.ComplexityRoot.GitActor.User == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActor.User(childComplexity), true
+
+	case "GitActorConnection.nodes":
+		if e.ComplexityRoot.GitActorConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActorConnection.Nodes(childComplexity), true
+	case "GitActorConnection.pageInfo":
+		if e.ComplexityRoot.GitActorConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActorConnection.PageInfo(childComplexity), true
+	case "GitActorConnection.totalCount":
+		if e.ComplexityRoot.GitActorConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GitActorConnection.TotalCount(childComplexity), true
 
 	case "Issue.assignees":
 		if e.ComplexityRoot.Issue.Assignees == nil {
@@ -4538,7 +4670,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.StatusCheckRollup.Contexts(childComplexity, args["first"].(*int32)), true
+		return e.ComplexityRoot.StatusCheckRollup.Contexts(childComplexity, args["first"].(*int32), args["after"].(*string)), true
 	case "StatusCheckRollup.state":
 		if e.ComplexityRoot.StatusCheckRollup.State == nil {
 			break
@@ -6074,6 +6206,42 @@ type Commit implements GitObject & Node {
   abbreviatedOid: String!
   message: String!
   messageHeadline: String!
+  # committedDate and authoredDate are the committer and author timestamps gh
+  # pr view --json commits reads off each commit.
+  committedDate: GitTimestamp!
+  authoredDate: GitTimestamp!
+  # authors lists the commit's authors (the author signature, plus any
+  # co-authors once trailer parsing lands); gh selects name and email.
+  authors(first: Int, after: String): GitActorConnection!
+  # tree is the root tree the commit points at.
+  tree: Tree!
+  # parents are the commits this one descends from: one for an ordinary commit,
+  # two or more for a merge.
+  parents(first: Int, after: String): CommitConnection!
+}
+
+# GitActor is a name/email/date triple a git commit records, optionally linked
+# to the Githome user whose email matches.
+type GitActor {
+  name: String
+  email: String
+  date: GitTimestamp
+  user: User
+}
+
+# GitActorConnection is the connection over a commit's authors.
+type GitActorConnection {
+  nodes: [GitActor]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# CommitConnection is the connection over a set of commits, e.g. a commit's
+# parents.
+type CommitConnection {
+  nodes: [Commit]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 type PullRequestCommitConnection {
@@ -6492,10 +6660,12 @@ enum PullRequestReviewDecision {
   REVIEW_REQUIRED
 }
 
-# StatusState is a rollup or status state, worst first.
+# StatusState is a rollup or status state. The value order matches GitHub's
+# published schema exactly so a client that indexes the enum by position (spec
+# 04:1240 warns some clients do) sees the same value at each ordinal GitHub does.
 enum StatusState {
-  ERROR
   EXPECTED
+  ERROR
   FAILURE
   PENDING
   SUCCESS
@@ -6538,7 +6708,7 @@ type StatusCheckRollup {
   state: StatusState!
   # contexts lists each individual status or check run that contributes to the
   # rollup state.
-  contexts(first: Int): StatusCheckRollupContextConnection!
+  contexts(first: Int, after: String): StatusCheckRollupContextConnection!
 }
 
 # StatusCheckRollupContextConnection is the connection over check/status contexts.
@@ -6592,14 +6762,15 @@ type Workflow {
   name: String!
 }
 
-# CheckStatusState is the status of a check run.
+# CheckStatusState is the status of a check run. The value order matches
+# GitHub's published schema so position-indexed clients agree with it.
 enum CheckStatusState {
+  REQUESTED
   QUEUED
   IN_PROGRESS
   COMPLETED
   WAITING
   PENDING
-  REQUESTED
 }
 
 # CheckConclusionState is the conclusion of a completed check run.
@@ -7473,10 +7644,32 @@ func (ec *executionContext) childFields_Commit(ctx context.Context, field graphq
 		return ec.fieldContext_Commit_message(ctx, field)
 	case "messageHeadline":
 		return ec.fieldContext_Commit_messageHeadline(ctx, field)
+	case "committedDate":
+		return ec.fieldContext_Commit_committedDate(ctx, field)
+	case "authoredDate":
+		return ec.fieldContext_Commit_authoredDate(ctx, field)
+	case "authors":
+		return ec.fieldContext_Commit_authors(ctx, field)
+	case "tree":
+		return ec.fieldContext_Commit_tree(ctx, field)
+	case "parents":
+		return ec.fieldContext_Commit_parents(ctx, field)
 	case "statusCheckRollup":
 		return ec.fieldContext_Commit_statusCheckRollup(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Commit", field.Name)
+}
+
+func (ec *executionContext) childFields_CommitConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_CommitConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_CommitConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_CommitConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CommitConnection", field.Name)
 }
 
 func (ec *executionContext) childFields_ConvertPullRequestToDraftPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -7613,6 +7806,32 @@ func (ec *executionContext) childFields_EnablePullRequestAutoMergePayload(ctx co
 		return ec.fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type EnablePullRequestAutoMergePayload", field.Name)
+}
+
+func (ec *executionContext) childFields_GitActor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "name":
+		return ec.fieldContext_GitActor_name(ctx, field)
+	case "email":
+		return ec.fieldContext_GitActor_email(ctx, field)
+	case "date":
+		return ec.fieldContext_GitActor_date(ctx, field)
+	case "user":
+		return ec.fieldContext_GitActor_user(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type GitActor", field.Name)
+}
+
+func (ec *executionContext) childFields_GitActorConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_GitActorConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_GitActorConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_GitActorConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type GitActorConnection", field.Name)
 }
 
 func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8733,6 +8952,18 @@ func (ec *executionContext) childFields_TransferIssuePayload(ctx context.Context
 	return nil, fmt.Errorf("no field named %q was found under type TransferIssuePayload", field.Name)
 }
 
+func (ec *executionContext) childFields_Tree(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Tree_id(ctx, field)
+	case "oid":
+		return ec.fieldContext_Tree_oid(ctx, field)
+	case "abbreviatedOid":
+		return ec.fieldContext_Tree_abbreviatedOid(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Tree", field.Name)
+}
+
 func (ec *executionContext) childFields_UnlockLockablePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "unlockedRecord":
@@ -9072,6 +9303,50 @@ func (ec *executionContext) field_CheckRun_isRequired_args(ctx context.Context, 
 		return nil, err
 	}
 	args["pullRequestId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Commit_authors_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Commit_parents_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
 	return args, nil
 }
 
@@ -10724,6 +10999,14 @@ func (ec *executionContext) field_StatusCheckRollup_contexts_args(ctx context.Co
 		return nil, err
 	}
 	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
 	return args, nil
 }
 
@@ -12431,6 +12714,172 @@ func (ec *executionContext) fieldContext_Commit_messageHeadline(_ context.Contex
 	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Commit_committedDate(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_committedDate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Commit().CommittedDate(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.GitTimestamp) graphql.Marshaler {
+			return ec.marshalNGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_committedDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type GitTimestamp does not have child fields"))
+}
+
+func (ec *executionContext) _Commit_authoredDate(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_authoredDate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Commit().AuthoredDate(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.GitTimestamp) graphql.Marshaler {
+			return ec.marshalNGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_authoredDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Commit", field, true, true, errors.New("field of type GitTimestamp does not have child fields"))
+}
+
+func (ec *executionContext) _Commit_authors(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_authors(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Commit().Authors(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *GitActorConnection) graphql.Marshaler {
+			return ec.marshalNGitActorConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActorConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_authors(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Commit",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_GitActorConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Commit_authors_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Commit_tree(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_tree(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Commit().Tree(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Tree) graphql.Marshaler {
+			return ec.marshalNTree2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐTree(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_tree(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Commit",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Tree(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Commit_parents(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Commit_parents(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Commit().Parents(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CommitConnection) graphql.Marshaler {
+			return ec.marshalNCommitConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCommitConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Commit_parents(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Commit",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CommitConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Commit_parents_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Commit_statusCheckRollup(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Commit) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12461,6 +12910,93 @@ func (ec *executionContext) fieldContext_Commit_statusCheckRollup(_ context.Cont
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _CommitConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *CommitConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommitConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*gqlmodel.Commit) graphql.Marshaler {
+			return ec.marshalOCommit2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CommitConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommitConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Commit(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommitConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *CommitConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommitConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommitConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommitConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommitConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *CommitConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommitConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommitConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CommitConnection", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _ConvertPullRequestToDraftPayload_pullRequest(ctx context.Context, field graphql.CollectedField, obj *ConvertPullRequestToDraftPayload) (ret graphql.Marshaler) {
@@ -13167,6 +13703,194 @@ func (ec *executionContext) _EnablePullRequestAutoMergePayload_clientMutationId(
 }
 func (ec *executionContext) fieldContext_EnablePullRequestAutoMergePayload_clientMutationId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EnablePullRequestAutoMergePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _GitActor_name(ctx context.Context, field graphql.CollectedField, obj *GitActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActor_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_GitActor_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GitActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _GitActor_email(ctx context.Context, field graphql.CollectedField, obj *GitActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActor_email(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Email, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_GitActor_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GitActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _GitActor_date(ctx context.Context, field graphql.CollectedField, obj *GitActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActor_date(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Date, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.GitTimestamp) graphql.Marshaler {
+			return ec.marshalOGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_GitActor_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GitActor", field, false, false, errors.New("field of type GitTimestamp does not have child fields"))
+}
+
+func (ec *executionContext) _GitActor_user(ctx context.Context, field graphql.CollectedField, obj *GitActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActor_user(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.User, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_GitActor_user(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GitActor",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GitActorConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *GitActorConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActorConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*GitActor) graphql.Marshaler {
+			return ec.marshalOGitActor2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_GitActorConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GitActorConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_GitActor(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GitActorConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *GitActorConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActorConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GitActorConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GitActorConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GitActorConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *GitActorConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GitActorConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GitActorConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GitActorConnection", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Issue_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
@@ -24877,7 +25601,7 @@ func (ec *executionContext) _StatusCheckRollup_contexts(ctx context.Context, fie
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.StatusCheckRollup().Contexts(ctx, obj, fc.Args["first"].(*int32))
+			return ec.Resolvers.StatusCheckRollup().Contexts(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *StatusCheckRollupContextConnection) graphql.Marshaler {
@@ -32319,6 +33043,186 @@ func (ec *executionContext) _Commit(ctx context.Context, sel ast.SelectionSet, o
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "committedDate":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_committedDate(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "authoredDate":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_authoredDate(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "authors":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_authors(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "tree":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_tree(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "parents":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Commit_parents(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "statusCheckRollup":
 			field := field
 
@@ -32352,6 +33256,52 @@ func (ec *executionContext) _Commit(ctx context.Context, sel ast.SelectionSet, o
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var commitConnectionImplementors = []string{"CommitConnection"}
+
+func (ec *executionContext) _CommitConnection(ctx context.Context, sel ast.SelectionSet, obj *CommitConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commitConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CommitConnection")
+		case "nodes":
+			out.Values[i] = ec._CommitConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._CommitConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._CommitConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -32880,6 +33830,94 @@ func (ec *executionContext) _EnablePullRequestAutoMergePayload(ctx context.Conte
 			out.Values[i] = ec._EnablePullRequestAutoMergePayload_actor(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._EnablePullRequestAutoMergePayload_clientMutationId(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var gitActorImplementors = []string{"GitActor"}
+
+func (ec *executionContext) _GitActor(ctx context.Context, sel ast.SelectionSet, obj *GitActor) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gitActorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GitActor")
+		case "name":
+			out.Values[i] = ec._GitActor_name(ctx, field, obj)
+		case "email":
+			out.Values[i] = ec._GitActor_email(ctx, field, obj)
+		case "date":
+			out.Values[i] = ec._GitActor_date(ctx, field, obj)
+		case "user":
+			out.Values[i] = ec._GitActor_user(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var gitActorConnectionImplementors = []string{"GitActorConnection"}
+
+func (ec *executionContext) _GitActorConnection(ctx context.Context, sel ast.SelectionSet, obj *GitActorConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gitActorConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GitActorConnection")
+		case "nodes":
+			out.Values[i] = ec._GitActorConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._GitActorConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._GitActorConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -39928,6 +40966,20 @@ func (ec *executionContext) marshalNCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋp
 	return ec._Commit(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNCommitConnection2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCommitConnection(ctx context.Context, sel ast.SelectionSet, v CommitConnection) graphql.Marshaler {
+	return ec._CommitConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCommitConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐCommitConnection(ctx context.Context, sel ast.SelectionSet, v *CommitConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CommitConnection(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNConvertPullRequestToDraftInput2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐConvertPullRequestToDraftInput(ctx context.Context, v any) (ConvertPullRequestToDraftInput, error) {
 	res, err := ec.unmarshalInputConvertPullRequestToDraftInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -40008,6 +41060,20 @@ func (ec *executionContext) unmarshalNEnablePullRequestAutoMergeInput2githubᚗc
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNGitActorConnection2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActorConnection(ctx context.Context, sel ast.SelectionSet, v GitActorConnection) graphql.Marshaler {
+	return ec._GitActorConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGitActorConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActorConnection(ctx context.Context, sel ast.SelectionSet, v *GitActorConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GitActorConnection(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNGitObjectID2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx context.Context, v any) (gqlmodel.GitObjectID, error) {
 	var res gqlmodel.GitObjectID
 	err := res.UnmarshalGQL(v)
@@ -40025,6 +41091,32 @@ func (ec *executionContext) unmarshalNGitSSHRemote2githubᚗcomᚋtamndᚋgithom
 }
 
 func (ec *executionContext) marshalNGitSSHRemote2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitSSHRemote(ctx context.Context, sel ast.SelectionSet, v gqlmodel.GitSSHRemote) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNGitTimestamp2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, v any) (gqlmodel.GitTimestamp, error) {
+	var res gqlmodel.GitTimestamp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGitTimestamp2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, sel ast.SelectionSet, v gqlmodel.GitTimestamp) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, v any) (*gqlmodel.GitTimestamp, error) {
+	var res = new(gqlmodel.GitTimestamp)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitTimestamp) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
 	return v
 }
 
@@ -40773,6 +41865,20 @@ func (ec *executionContext) unmarshalNTransferIssueInput2githubᚗcomᚋtamndᚋ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNTree2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐTree(ctx context.Context, sel ast.SelectionSet, v gqlmodel.Tree) graphql.Marshaler {
+	return ec._Tree(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTree2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐTree(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Tree) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Tree(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNURI2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐURI(ctx context.Context, v any) (gqlmodel.URI, error) {
 	var res gqlmodel.URI
 	err := res.UnmarshalGQL(v)
@@ -41173,6 +42279,19 @@ func (ec *executionContext) marshalOClosePullRequestPayload2ᚖgithubᚗcomᚋta
 	return ec._ClosePullRequestPayload(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOCommit2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.Commit) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalOCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx, sel, v[i])
+	})
+
+	return ret
+}
+
 func (ec *executionContext) marshalOCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.Commit) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -41365,6 +42484,26 @@ func (ec *executionContext) marshalOEnablePullRequestAutoMergePayload2ᚖgithub�
 	return ec._EnablePullRequestAutoMergePayload(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOGitActor2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActor(ctx context.Context, sel ast.SelectionSet, v []*GitActor) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalOGitActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActor(ctx, sel, v[i])
+	})
+
+	return ret
+}
+
+func (ec *executionContext) marshalOGitActor2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐGitActor(ctx context.Context, sel ast.SelectionSet, v *GitActor) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._GitActor(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOGitObject2githubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObject(ctx context.Context, sel ast.SelectionSet, v gqlmodel.GitObject) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -41382,6 +42521,22 @@ func (ec *executionContext) unmarshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgith
 }
 
 func (ec *executionContext) marshalOGitObjectID2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitObjectID(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitObjectID) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) unmarshalOGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, v any) (*gqlmodel.GitTimestamp, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(gqlmodel.GitTimestamp)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOGitTimestamp2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐGitTimestamp(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.GitTimestamp) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

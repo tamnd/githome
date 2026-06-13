@@ -63,6 +63,89 @@ func (r *commitResolver) MessageHeadline(ctx context.Context, obj *gqlmodel.Comm
 	return msg, nil
 }
 
+// CommittedDate is the resolver for the committedDate field. It reads the
+// committer timestamp off the git commit, the instant gh pr view --json commits
+// records as committedDate.
+func (r *commitResolver) CommittedDate(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.GitTimestamp, error) {
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return nil, err
+	}
+	ts := gqlmodel.GitTimestamp{T: c.Committer.When}
+	return &ts, nil
+}
+
+// AuthoredDate is the resolver for the authoredDate field, the author timestamp
+// off the git commit (distinct from committedDate after a rebase or amend).
+func (r *commitResolver) AuthoredDate(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.GitTimestamp, error) {
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return nil, err
+	}
+	ts := gqlmodel.GitTimestamp{T: c.Author.When}
+	return &ts, nil
+}
+
+// Authors is the resolver for the authors field. A git commit records one
+// author signature, which is the single author Githome reports; GitHub also
+// folds in Co-authored-by trailers, which Githome does not parse yet.
+func (r *commitResolver) Authors(ctx context.Context, obj *gqlmodel.Commit, first *int32, after *string) (*generated.GitActorConnection, error) {
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return &generated.GitActorConnection{PageInfo: pageInfoFor(0, 0, 0)}, err
+	}
+	name, email := c.Author.Name, c.Author.Email
+	date := gqlmodel.GitTimestamp{T: c.Author.When}
+	all := []*generated.GitActor{{Name: &name, Email: &email, Date: &date}}
+	start, end, err := windowSlice(len(all), first, after)
+	if err != nil {
+		return nil, err
+	}
+	nodes := all[start:end]
+	return &generated.GitActorConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, len(nodes), len(all)),
+		TotalCount: int32(len(all)),
+	}, nil
+}
+
+// Tree is the resolver for the tree field: the root tree the commit points at.
+func (r *commitResolver) Tree(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.Tree, error) {
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return &gqlmodel.Tree{Oid: gqlmodel.GitObjectID(c.Tree)}, nil
+}
+
+// Parents is the resolver for the parents field: the commits this one descends
+// from, one for an ordinary commit and two or more for a merge. Each parent
+// carries the repository coordinates so its own fields resolve lazily.
+func (r *commitResolver) Parents(ctx context.Context, obj *gqlmodel.Commit, first *int32, after *string) (*generated.CommitConnection, error) {
+	c, ok, err := r.loadCommit(ctx, obj)
+	if err != nil || !ok {
+		return &generated.CommitConnection{PageInfo: pageInfoFor(0, 0, 0)}, err
+	}
+	all := make([]*gqlmodel.Commit, 0, len(c.Parents))
+	for _, p := range c.Parents {
+		all = append(all, &gqlmodel.Commit{
+			Oid:       gqlmodel.GitObjectID(p),
+			RepoOwner: obj.RepoOwner,
+			RepoName:  obj.RepoName,
+		})
+	}
+	start, end, err := windowSlice(len(all), first, after)
+	if err != nil {
+		return nil, err
+	}
+	nodes := all[start:end]
+	return &generated.CommitConnection{
+		Nodes:      nodes,
+		PageInfo:   pageInfoFor(start, len(nodes), len(all)),
+		TotalCount: int32(len(all)),
+	}, nil
+}
+
 // CreatePullRequest is the resolver for the createPullRequest field. gh pr create
 // sends this mutation with the repository node ID, base/head branch names, title,
 // and optional body and draft flag.
