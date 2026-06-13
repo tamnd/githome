@@ -55,6 +55,9 @@ func mountGists(r *mizu.Router, d Deps) {
 	r.Get("/gists/{gist_id}/star", handleGistIsStarred(d))
 	r.Get("/gists/{gist_id}/comments", handleGistCommentsList(d))
 	r.Post("/gists/{gist_id}/comments", handleGistCommentCreate(d))
+	r.Get("/gists/{gist_id}/comments/{comment_id}", handleGistCommentGet(d))
+	r.Patch("/gists/{gist_id}/comments/{comment_id}", handleGistCommentUpdate(d))
+	r.Delete("/gists/{gist_id}/comments/{comment_id}", handleGistCommentDelete(d))
 }
 
 // handleUserGists serves GET /users/{username}/gists.
@@ -439,6 +442,104 @@ func handleGistCommentCreate(d Deps) mizu.Handler {
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.GistComment(comment, u, d.NodeFormat))
 		return nil
+	}
+}
+
+func handleGistCommentGet(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		actor := auth.ActorFrom(c.Request().Context())
+		gistID := c.Param("gist_id")
+		commentID, ok := pathInt64(c, "comment_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		comment, err := d.Gists.GetGistComment(c.Request().Context(), gistID, commentID, actor.UserID)
+		if gistCommentError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		u, err := d.Users.Viewer(c.Request().Context(), comment.UserPK)
+		if err != nil {
+			return err
+		}
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, d.URLs.GistComment(comment, u, d.NodeFormat))
+		return nil
+	}
+}
+
+func handleGistCommentUpdate(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		actor := auth.ActorFrom(c.Request().Context())
+		if actor.UserID == 0 {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		gistID := c.Param("gist_id")
+		commentID, ok := pathInt64(c, "comment_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		var body gistCommentBody
+		if !decodeJSON(c, &body) {
+			return nil
+		}
+		comment, err := d.Gists.UpdateGistComment(c.Request().Context(), gistID, commentID, actor.UserID, body.Body)
+		if gistCommentError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		u, err := d.Users.Viewer(c.Request().Context(), comment.UserPK)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.GistComment(comment, u, d.NodeFormat))
+		return nil
+	}
+}
+
+func handleGistCommentDelete(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		actor := auth.ActorFrom(c.Request().Context())
+		if actor.UserID == 0 {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		gistID := c.Param("gist_id")
+		commentID, ok := pathInt64(c, "comment_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		err := d.Gists.DeleteGistComment(c.Request().Context(), gistID, commentID, actor.UserID)
+		if gistCommentError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
+// gistCommentError maps gist/comment lookup and permission errors to their HTTP
+// responses, writing the body and reporting whether it handled the error.
+func gistCommentError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, domain.ErrGistNotFound), errors.Is(err, domain.ErrGistCommentNotFound):
+		writeError(w, errNotFound())
+		return true
+	case errors.Is(err, domain.ErrForbidden):
+		writeError(w, errForbidden("You must own the comment to modify it."))
+		return true
+	default:
+		return false
 	}
 }
 

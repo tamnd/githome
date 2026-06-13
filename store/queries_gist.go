@@ -207,6 +207,50 @@ func (s *Store) ListGistComments(ctx context.Context, gistPK int64) ([]GistComme
 	return out, rows.Err()
 }
 
+// GetGistComment returns one comment by its primary key.
+func (s *Store) GetGistComment(ctx context.Context, commentPK int64) (*GistCommentRow, error) {
+	q := s.rebind(`SELECT pk, gist_pk, user_pk, body, created_at, updated_at
+		FROM gist_comments WHERE pk = ?`)
+	var c GistCommentRow
+	var cr, up nullTime
+	err := s.rdb.QueryRowContext(ctx, q, commentPK).Scan(&c.PK, &c.GistPK, &c.UserPK, &c.Body, &cr, &up)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.CreatedAt = cr.Time
+	c.UpdatedAt = up.Time
+	return &c, nil
+}
+
+// UpdateGistComment rewrites a comment's body and bumps updated_at.
+func (s *Store) UpdateGistComment(ctx context.Context, commentPK int64, body string) error {
+	q := s.rebind(`UPDATE gist_comments SET body = ?, updated_at = CURRENT_TIMESTAMP WHERE pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, body, commentPK)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteGistComment removes a comment by its primary key.
+func (s *Store) DeleteGistComment(ctx context.Context, commentPK int64) error {
+	q := s.rebind(`DELETE FROM gist_comments WHERE pk = ?`)
+	res, err := s.db.ExecContext(ctx, q, commentPK)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func scanGist(row *sql.Row) (*GistRow, error) {
 	var g GistRow
 	var pub boolVal
