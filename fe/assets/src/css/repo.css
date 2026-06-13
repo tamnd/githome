@@ -487,6 +487,16 @@
   background-color: var(--bgColor-attention-muted);
 }
 
+/* A line range (#L3-L7) cannot be a :target — only one element matches — so the
+   line-selection enhancement paints the span with a class instead. It carries
+   the same attention tint as the single-line :target, so a range and a single
+   line read identically. With JS off no range is ever selected and the :target
+   rule above still paints the one linked line. */
+.blob-line.is-line-selected,
+.blob-line.is-line-selected .blob-num {
+  background-color: var(--bgColor-attention-muted);
+}
+
 .blob-render {
   padding: var(--base-size-24);
   text-align: center;
@@ -856,18 +866,6 @@
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
   overflow: hidden;
-}
-
-.commit-patch {
-  margin: 0;
-  padding: var(--base-size-16);
-  font-family: var(--fontStack-monospace);
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-x: auto;
-  background-color: var(--bgColor-default);
-  color: var(--fgColor-default);
-  white-space: pre;
 }
 
 /* Blame view. */
