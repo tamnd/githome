@@ -25,6 +25,8 @@ type SearchStore interface {
 	CountSearchRepositories(ctx context.Context, q store.RepoSearch) (int, error)
 	SearchCode(ctx context.Context, q store.CodeSearch) ([]store.CodeHit, error)
 	CountSearchCode(ctx context.Context, q store.CodeSearch) (int, error)
+	SearchUsers(ctx context.Context, q store.UserSearch) ([]store.UserRow, error)
+	CountSearchUsers(ctx context.Context, q store.UserSearch) (int, error)
 	CodeIndexHead(ctx context.Context, repoPK int64) (string, error)
 	CodeIndexTruncated(ctx context.Context, repoPKs []int64) (bool, error)
 	ReplaceCodeDocs(ctx context.Context, repoPK int64, headSHA string, truncated bool, docs []store.CodeDoc) error
@@ -172,6 +174,38 @@ func (s *SearchService) SearchRepositories(ctx context.Context, viewerPK int64, 
 			return nil, 0, err
 		}
 		out = append(out, repo)
+	}
+	return out, total, nil
+}
+
+// SearchUsers runs an account search over the users table and returns the page
+// of matched accounts plus the total match count. The free-text terms match
+// the login, name, and public email; the type: qualifier narrows to user or
+// org accounts. Unlike code search it spans every account, since accounts are
+// public; visibility never enters into it.
+func (s *SearchService) SearchUsers(ctx context.Context, raw, sort, order string, page, perPage int) ([]*User, int, error) {
+	q := search.Parse(raw)
+	f := store.UserSearch{
+		Terms:  q.Terms,
+		Sort:   userSearchSort(sort),
+		Order:  search.NormalizeOrder(order),
+		Limit:  perPage,
+		Offset: offsetFor(page, perPage),
+	}
+	if v, ok := q.First("type"); ok {
+		f.Type = v
+	}
+	rows, err := s.store.SearchUsers(ctx, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.store.CountSearchUsers(ctx, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]*User, 0, len(rows))
+	for i := range rows {
+		out = append(out, userFromRow(&rows[i]))
 	}
 	return out, total, nil
 }
@@ -555,6 +589,15 @@ func repoSearchSort(sort string) string {
 		return "updated"
 	default:
 		return "created"
+	}
+}
+
+func userSearchSort(sort string) string {
+	switch strings.ToLower(sort) {
+	case "joined", "followers", "repositories":
+		return strings.ToLower(sort)
+	default:
+		return ""
 	}
 }
 

@@ -293,14 +293,30 @@ func handleIssueTimeline(d Deps) mizu.Handler {
 	}
 }
 
-// handleSearchUsers serves GET /search/users.
+// handleSearchUsers serves GET /search/users. It runs a real account search
+// over the users table: the q free-text matches login, name, and public
+// email, the type: qualifier narrows to user or org accounts, and sort/order
+// pick the ordering. A missing q is the required-field 422, matching GitHub.
 func handleSearchUsers(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, map[string]any{
-			"total_count":        0,
-			"incomplete_results": false,
-			"items":              []any{},
-		})
+		raw, ok := searchTerm(c)
+		if !ok {
+			writeError(c.Writer(), errValidation(missingQ()))
+			return nil
+		}
+		page, perr := parsePageFor(c, "Search")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		users, total, err := d.Search.SearchUsers(c.Request().Context(), raw, c.Query("sort"), c.Query("order"), page.Page, page.PerPage)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.SearchUsers(users, total, false, d.NodeFormat)
+		page.Total = total
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, body)
 		return nil
 	}
 }
