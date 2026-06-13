@@ -20,7 +20,6 @@ the host changes.
 | Terraform github provider | `base_url = "https://your-host/"` |
 | VS Code (git) | No change needed |
 | JetBrains (git) | No change needed |
-| GitHub Actions runners | Use tamnd/githome-action |
 
 ## Supported features
 
@@ -43,13 +42,16 @@ the host changes.
 | GraphQL v4 (queries, mutations, relay pagination) | Supported |
 | Git Smart HTTP (clone, fetch, push) | Supported |
 | Check runs and status contexts | Supported |
-| GitHub Actions (CI workflows) | Supported via tamnd/githome-action |
+| Web notifications inbox | Supported |
 
 ## Not supported
 
 | Feature | Notes |
 |---|---|
-| SSH transport | Planned |
+| SSH transport | Planned (config reserved, not yet wired) |
+| Organization accounts | Planned (everything is user-owned today) |
+| GitHub Actions (CI workflows) | In progress in the separate tamnd/githome-action project; not yet served by the githome binary |
+| Email notifications | Not planned (the web inbox is supported) |
 | GitHub Packages / Container Registry | Not planned |
 | GitHub Copilot | Not applicable |
 | Dependabot | Not planned |
@@ -58,4 +60,3 @@ the host changes.
 | Code scanning / SARIF | Not planned |
 | SAML SSO | Not planned |
 | Merge queue | Not planned |
-| Notifications (email / web) | Not planned |

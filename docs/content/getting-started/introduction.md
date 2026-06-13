@@ -42,7 +42,7 @@ keep everything else:
 - VS Code and JetBrains git integrations: no change needed
 - Octokit (JS, Python, Go, Ruby): set `baseUrl` once
 - Terraform GitHub provider: set `base_url` in the provider block
-- CI runners: use tamnd/githome-action for GitHub Actions compatibility
+- CI runners: GitHub Actions support is in progress in tamnd/githome-action (not yet served by the githome binary)
 
 See [Connect your tools](/getting-started/connect-your-tools/) for the exact
 config change for each tool.

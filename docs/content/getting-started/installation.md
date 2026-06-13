@@ -9,13 +9,19 @@ weight: 30
 Grab the latest release from
 [GitHub Releases](https://github.com/tamnd/githome/releases/latest).
 
+Archive names carry the version, so set it once and download the right asset.
+Each archive holds all three binaries (`githome`, `githome-migrate`,
+`githome-conform`) plus the license and readme.
+
 ```sh
+VERSION=0.1.3
+
 # Linux amd64
-curl -L https://github.com/tamnd/githome/releases/latest/download/githome_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/tamnd/githome/releases/download/v${VERSION}/githome_${VERSION}_linux_amd64.tar.gz | tar xz
 sudo mv githome /usr/local/bin/
 
 # macOS arm64 (Apple Silicon)
-curl -L https://github.com/tamnd/githome/releases/latest/download/githome_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/tamnd/githome/releases/download/v${VERSION}/githome_${VERSION}_darwin_arm64.tar.gz | tar xz
 sudo mv githome /usr/local/bin/
 ```
 
@@ -60,7 +66,7 @@ apk add --allow-untrusted githome_*.apk
 go install github.com/tamnd/githome/cmd/githome@latest
 ```
 
-Requires Go 1.22+.
+Requires Go 1.26+ and a `git` binary on `PATH`.
 
 ## Requirements
 

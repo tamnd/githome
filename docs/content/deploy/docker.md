@@ -11,7 +11,7 @@ Create `docker-compose.yml`:
 ```yaml
 services:
   githome:
-    image: ghcr.io/tamnd/githome:0.1.2  # pin to a release tag
+    image: ghcr.io/tamnd/githome:0.1.3  # pin to a release tag
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"   # loopback only; nginx/Caddy handles TLS
@@ -47,7 +47,7 @@ Add a Postgres service and change the database URL:
 ```yaml
 services:
   githome:
-    image: ghcr.io/tamnd/githome:0.1.2
+    image: ghcr.io/tamnd/githome:0.1.3
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
