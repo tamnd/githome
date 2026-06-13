@@ -43,15 +43,17 @@ var fixedWhen = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 // the repo handlers over a real sqlite store and a real git store, plus the names
 // the seed produced so the assertions can address them.
 type fixture struct {
-	srv     *httptest.Server
-	repos   *domain.RepoService
-	ownerPK int64
-	owner   string
-	repo    string
-	private string
-	blank   string
-	headSHA string
-	branch  string
+	srv      *httptest.Server
+	repos    *domain.RepoService
+	ownerPK  int64
+	owner    string
+	repo     string
+	private  string
+	blank    string
+	headSHA  string
+	branch   string
+	helloID  int64
+	secretID int64
 }
 
 // newFixture seeds one owner with three repositories: a populated public repo
@@ -144,6 +146,7 @@ func newFixture(t *testing.T) fixture {
 	rg.Get("/{owner}/{repo}/tags", h.Tags)
 	rg.Get("/{owner}/{repo}/find/{rest...}", h.FileFinder)
 	rg.Get("/{owner}/{repo}/archive/{rest...}", h.Archive)
+	page.Get("/repositories/{id}", h.RepositoryByID)
 
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
@@ -152,6 +155,7 @@ func newFixture(t *testing.T) fixture {
 		srv: srv, repos: repoSvc, ownerPK: u.PK,
 		owner: "octocat", repo: "hello", private: "secret", blank: "blank",
 		headSHA: head.Commit, branch: head.Name,
+		helloID: hello.DBID, secretID: secret.DBID,
 	}
 }
 

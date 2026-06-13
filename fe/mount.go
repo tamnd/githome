@@ -265,6 +265,11 @@ func mountRepo(page *mizu.Router, d Deps) {
 	page.Get("/new", rh.NewForm)
 	page.Post("/new", rh.CreateRepo)
 
+	// The numeric /repositories/{id} permalink resolves outside the Resolve
+	// chain: it carries an id, not an owner/repo pair, and 301s to the canonical
+	// path the way GitHub keeps an id-based URL alive across renames.
+	page.Get("/repositories/{id}", rh.RepositoryByID)
+
 	rg := page.With(rh.Resolve)
 	rg.Get("/{owner}/{repo}", rh.Home)
 	rg.Get("/{owner}/{repo}/tree/{rest...}", rh.Tree)
