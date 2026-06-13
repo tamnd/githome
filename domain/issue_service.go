@@ -88,6 +88,7 @@ type IssueStore interface {
 
 	ListIssueComments(ctx context.Context, issuePK int64, limit, offset int) ([]store.CommentRow, error)
 	ListIssueCommentsAfter(ctx context.Context, issuePK int64, createdAt time.Time, afterPK int64, limit int) ([]store.CommentRow, error)
+	ListIssueEvents(ctx context.Context, issuePK int64) ([]store.IssueEventRow, error)
 	GetComment(ctx context.Context, dbID int64) (*store.CommentRow, error)
 	GetCommentByPK(ctx context.Context, pk int64) (*store.CommentRow, error)
 	UpdateComment(ctx context.Context, c *store.CommentRow) error

@@ -105,6 +105,63 @@ func (s *IssueService) ListCommentsAfter(ctx context.Context, viewerPK int64, ow
 	return s.assembleComments(ctx, row, rows)
 }
 
+// ListIssueEvents returns an issue's event log in chronological order, with each
+// event's actor resolved. The events are the action entries EditIssue and the
+// lock toggles append (closed, reopened, locked, unlocked, ...); the timeline
+// endpoint merges them with comments, while the events endpoint returns them
+// alone. The viewer must be able to see the repository.
+func (s *IssueService) ListIssueEvents(ctx context.Context, viewerPK int64, owner, name string, number int64) ([]*IssueEvent, error) {
+	repo, err := s.repos.GetRepo(ctx, viewerPK, owner, name)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.store.GetIssueByNumber(ctx, repo.PK, number)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrIssueNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.ListIssueEvents(ctx, row.PK)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	userPKSet := map[int64]struct{}{}
+	for i := range rows {
+		if rows[i].ActorPK != nil {
+			userPKSet[*rows[i].ActorPK] = struct{}{}
+		}
+	}
+	userPKs := make([]int64, 0, len(userPKSet))
+	for pk := range userPKSet {
+		userPKs = append(userPKs, pk)
+	}
+	userMap, err := s.store.UsersByPKs(ctx, userPKs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*IssueEvent, 0, len(rows))
+	for i := range rows {
+		var actor *User
+		if rows[i].ActorPK != nil {
+			if u, ok := userMap[*rows[i].ActorPK]; ok {
+				actor = userFromRow(u)
+			}
+		}
+		out = append(out, &IssueEvent{
+			ID:          rows[i].DBID,
+			IssueNumber: row.Number,
+			Event:       rows[i].Event,
+			Actor:       actor,
+			CreatedAt:   rows[i].CreatedAt,
+		})
+	}
+	return out, nil
+}
+
 // GetComment resolves a single comment by its public id, gating on the
 // repository the comment's issue belongs to being visible to the viewer.
 func (s *IssueService) GetComment(ctx context.Context, viewerPK int64, owner, name string, commentID int64) (*Comment, error) {

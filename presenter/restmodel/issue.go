@@ -83,6 +83,20 @@ type Milestone struct {
 	DueOn        *Time       `json:"due_on"`
 }
 
+// IssueEvent is one entry of an issue's event log, as the events and timeline
+// endpoints return it. commit_id/commit_url are present-but-null for the action
+// events githome records (none of them reference a commit).
+type IssueEvent struct {
+	ID        int64       `json:"id"`
+	NodeID    string      `json:"node_id"`
+	URL       string      `json:"url"`
+	Actor     *SimpleUser `json:"actor"`
+	Event     string      `json:"event"`
+	CommitID  *string     `json:"commit_id"`
+	CommitURL *string     `json:"commit_url"`
+	CreatedAt Time        `json:"created_at"`
+}
+
 // IssueComment is the object the comment endpoints return.
 type IssueComment struct {
 	ID                int64          `json:"id"`

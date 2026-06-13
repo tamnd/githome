@@ -87,6 +87,17 @@ type Comment struct {
 	UpdatedAt   time.Time
 }
 
+// IssueEvent is one entry of an issue's event log: an action (closed, reopened,
+// locked, ...) performed by an actor at a point in time. IssueNumber is carried
+// so the presenter can build the event's issue URLs without a second lookup.
+type IssueEvent struct {
+	ID          int64
+	IssueNumber int64
+	Event       string
+	Actor       *User
+	CreatedAt   time.Time
+}
+
 // ReactionRollup is the per-content reaction count GitHub embeds on reactable
 // objects. Counts is keyed by reaction content (+1, heart, ...); TotalCount is
 // their sum.

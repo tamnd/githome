@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -358,6 +359,11 @@ func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 		writeError(c.Writer(), perr)
 		return nil
 	}
+	since, perr := timeQuery(c, "since")
+	if perr != nil {
+		writeError(c.Writer(), perr)
+		return nil
+	}
 	comments, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(page.Page), int64(page.PerPage))
 	if issueError(c.Writer(), err) {
 		return nil
@@ -371,9 +377,10 @@ func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 	if len(comments) == page.PerPage {
 		peek, err := d.Issues.ListComments(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number, int64(page.Page+1), int64(page.PerPage))
 		if err == nil {
-			hasNext = len(peek) > 0
+			hasNext = sinceFilter(peek, since) > 0
 		}
 	}
+	comments = comments[:sinceFilter(comments, since)]
 	out := make([]restmodel.IssueComment, 0, len(comments))
 	for _, cm := range comments {
 		out = append(out, d.URLs.IssueComment(c.Param("owner"), c.Param("repo"), cm, d.NodeFormat))
@@ -381,6 +388,24 @@ func commentsList(d Deps, c *mizu.Ctx, number int64) error {
 	writeLinkHeaderUncounted(c.Writer(), c.Request(), d.URLs, page, hasNext)
 	writeJSON(c.Writer(), http.StatusOK, out)
 	return nil
+}
+
+// sinceFilter compacts comments whose last update is at or after since to the
+// front of the slice in place, preserving order, and returns how many survived.
+// A nil since keeps every comment. GitHub's since filter on the comment list is
+// "updated at or after", which this applies to the already-fetched page.
+func sinceFilter(comments []*domain.Comment, since *time.Time) int {
+	if since == nil {
+		return len(comments)
+	}
+	n := 0
+	for _, cm := range comments {
+		if !cm.UpdatedAt.Before(*since) {
+			comments[n] = cm
+			n++
+		}
+	}
+	return n
 }
 
 // commentGet serves a single comment fetched by its public id.
@@ -636,10 +661,18 @@ func handleLabelDelete(d Deps) mizu.Handler {
 	}
 }
 
-// handleMilestonesList serves GET /repos/{owner}/{repo}/milestones.
+// handleMilestonesList serves GET /repos/{owner}/{repo}/milestones. The list is
+// ordered by the sort/direction pair GitHub accepts (sort=due_on|completeness,
+// direction=asc|desc, defaulting to due_on ascending) and then paged with a Link
+// header, so a milestone client that walks pages sees a stable order.
 func handleMilestonesList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
 		actor := auth.ActorFrom(c.Request().Context())
+		page, perr := parsePageFor(c, "Milestone")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
 		ms, err := d.Issues.ListMilestones(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), c.Query("state"))
 		if issueError(c.Writer(), err) {
 			return nil
@@ -647,13 +680,62 @@ func handleMilestonesList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		sortMilestones(ms, c.Query("sort"), c.Query("direction"))
 		out := make([]restmodel.Milestone, 0, len(ms))
 		for _, m := range ms {
 			out = append(out, d.URLs.Milestone(c.Param("owner"), c.Param("repo"), m, d.NodeFormat))
 		}
-		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, out)
+		paged := paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		conditionalJSON(c.Writer(), c.Request(), http.StatusOK, paged)
 		return nil
 	}
+}
+
+// sortMilestones orders milestones in place by the GitHub sort/direction pair.
+// sort=due_on (the default) orders by the due date, with milestones that have no
+// due date sorting after the dated ones; sort=completeness orders by the share
+// of closed issues. direction=desc reverses the ascending default. A milestone's
+// number breaks ties so the order is deterministic.
+func sortMilestones(ms []*domain.Milestone, sortKey, direction string) {
+	desc := direction == "desc"
+	less := func(a, b *domain.Milestone) bool {
+		switch sortKey {
+		case "completeness":
+			ca, cb := completeness(a), completeness(b)
+			if ca != cb {
+				return ca < cb
+			}
+		default: // due_on
+			switch {
+			case a.DueOn == nil && b.DueOn == nil:
+				// both undated: fall through to the number tie-break
+			case a.DueOn == nil:
+				return false // undated sorts after dated
+			case b.DueOn == nil:
+				return true
+			case !a.DueOn.Equal(*b.DueOn):
+				return a.DueOn.Before(*b.DueOn)
+			}
+		}
+		return a.Number < b.Number
+	}
+	sort.SliceStable(ms, func(i, j int) bool {
+		if desc {
+			return less(ms[j], ms[i])
+		}
+		return less(ms[i], ms[j])
+	})
+}
+
+// completeness is the fraction of a milestone's issues that are closed, used as
+// the sort=completeness key. A milestone with no issues is zero.
+func completeness(m *domain.Milestone) float64 {
+	total := m.OpenIssues + m.ClosedIssues
+	if total == 0 {
+		return 0
+	}
+	return float64(m.ClosedIssues) / float64(total)
 }
 
 // handleMilestoneCreate serves POST /repos/{owner}/{repo}/milestones.

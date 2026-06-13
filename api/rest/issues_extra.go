@@ -283,6 +283,32 @@ func handleAssigneesList(d Deps) mizu.Handler {
 	}
 }
 
+// handleAssigneeCheck serves GET /repos/{owner}/{repo}/assignees/{username}.
+// GitHub answers 204 when the user can be assigned to issues in the repo and 404
+// when they cannot, with no body either way. The assignable set mirrors
+// handleAssigneesList: the repository owner. A user the repo itself is not
+// visible to gets the same 404, so the endpoint never leaks a private repo.
+func handleAssigneeCheck(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		owner, repoName := c.Param("owner"), c.Param("repo")
+		actor := auth.ActorFrom(c.Request().Context())
+		repo, err := d.Repos.GetRepo(c.Request().Context(), actor.UserID, owner, repoName)
+		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if repo.Owner != nil && repo.Owner.Login == c.Param("username") {
+			c.Writer().WriteHeader(http.StatusNoContent)
+			return nil
+		}
+		writeError(c.Writer(), errNotFound())
+		return nil
+	}
+}
+
 // handleIssueAssigneesAdd serves POST /repos/{owner}/{repo}/issues/{number}/assignees.
 func handleIssueAssigneesAdd(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
