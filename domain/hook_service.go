@@ -176,6 +176,43 @@ func (s *HookService) PingHook(ctx context.Context, actorPK int64, owner, name s
 	return nil
 }
 
+// TestHook fires the hook against the repository's latest push, the way
+// GitHub's tests endpoint exercises a real event rather than the ping body.
+// The hook only receives the delivery when it subscribes to push events
+// (explicitly or through the wildcard); otherwise the call authorizes and
+// returns with no delivery, matching GitHub's 204-but-no-POST behavior. An
+// empty repository has no head to push, so it too is a no-op.
+func (s *HookService) TestHook(ctx context.Context, actorPK int64, owner, name string, hookID int64) error {
+	repo, row, err := s.loadHook(ctx, actorPK, owner, name, hookID)
+	if err != nil {
+		return err
+	}
+	if !subscribesTo(unmarshalEvents(row.Events), EventPush) {
+		return nil
+	}
+	push, ok, err := s.repos.SyntheticHeadPush(ctx, repo.PK, repo.DefaultBranch, actorPK)
+	if err != nil || !ok {
+		return err
+	}
+	body, err := json.Marshal(DeliverWebhookPayload{WebhookPK: row.PK, Push: push, SenderPK: actorPK})
+	if err != nil {
+		return nil
+	}
+	_, _ = s.enq.Enqueue(ctx, JobDeliverWebhook, string(body), "")
+	return nil
+}
+
+// subscribesTo reports whether a hook's event list covers the named event,
+// either by naming it or through the "*" wildcard.
+func subscribesTo(events []string, event string) bool {
+	for _, e := range events {
+		if e == "*" || e == event {
+			return true
+		}
+	}
+	return false
+}
+
 // enqueuePing submits one ping delivery job. Like event fan-out it is
 // best-effort: a queue failure never fails the caller's write.
 func (s *HookService) enqueuePing(ctx context.Context, webhookPK, actorPK int64) {
