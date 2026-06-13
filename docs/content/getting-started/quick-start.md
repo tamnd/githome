@@ -28,8 +28,9 @@ If you prefer a binary:
 
 ```sh
 # macOS (Apple Silicon)
-curl -L https://github.com/tamnd/githome/releases/latest/download/githome_darwin_arm64.tar.gz | tar xz
-./githome serve
+VERSION=0.1.3
+curl -L https://github.com/tamnd/githome/releases/download/v${VERSION}/githome_${VERSION}_darwin_arm64.tar.gz | tar xz
+GITHOME_HTML_BASE_URL=http://localhost:3000 ./githome
 ```
 
 ## Create your first account

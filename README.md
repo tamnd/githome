@@ -12,13 +12,14 @@ That means the compatibility target is not "GitHub-like". It is GitHub:
 
 ## Status
 
-Usable today, and honest about the edges. The compatibility surface is built and released: three tagged versions are out, and one tag push produces the prebuilt binaries, the Linux packages, and the container image attached to each release (see [Install](#install)).
+Usable today, and honest about the edges. The compatibility surface is built and released: four tagged versions are out, and one tag push produces the prebuilt binaries, the Linux packages, and the container image attached to each release (see [Install](#install)).
 
 | Version | What it added |
 | --- | --- |
 | `v0.1.0` | The first complete forge: auth, git read and push, issues, pull requests, code review, webhooks, events, search, conditional requests, the full REST and GraphQL surface |
 | `v0.1.1` | A performance pass: batch loaders instead of N+1, keyset pagination, FTS-backed search, object caches, GraphQL dataloaders |
 | `v0.1.2` | The release pipeline: archives, deb/rpm/apk, a multi-arch container image, and the language-agnostic package managers |
+| `v0.1.3` | The built-in web UI (repo and code browsing, diffs, inline review, profiles, settings, notifications), a conformance suite wired into CI, the REST and GraphQL compatibility ladders, h2c serving, and a green Postgres test leg |
 
 What works, end to end:
 
@@ -34,7 +35,7 @@ Not yet:
 - SSH git transport (the config is reserved, the server is not wired)
 - Organization accounts (everything is user-owned for now)
 - At-rest encryption of webhook secrets
-- GitHub Actions runner compatibility
+- GitHub Actions runner compatibility (in progress in the separate `tamnd/githome-action` project, not yet served by this binary)
 
 The definition of done is mechanical, not a claim. Every endpoint has a recorded fixture and a contract test; real `gh` and real `git` drive the server in CI; a JSON differ compares responses against recorded github.com output field for field; and the suite runs against both SQLite and Postgres. The `githome-conform` tool certifies a running instance against the compatibility matrix as a black-box client and exits non-zero on any drift, so it can gate a release.
 

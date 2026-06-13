@@ -87,12 +87,8 @@ All standard `github_*` resources and data sources work against githome.
 
 ## GitHub Actions runners
 
-Use [tamnd/githome-action](https://github.com/tamnd/githome-action) to run
-GitHub Actions workflows against githome. The runner speaks the same Actions
-protocol as GitHub's hosted runners.
-
-```sh
-./githome-action --url https://your-githome-host --token RUNNER_TOKEN
-```
-
-Register it from your repo: **Settings > Actions > Runners > Add runner**.
+GitHub Actions support is in progress in the separate
+[tamnd/githome-action](https://github.com/tamnd/githome-action) project, which
+reimplements the Actions runner and service protocol. The githome binary does
+not serve the Actions API yet, so workflows do not run against a githome host
+today. Follow that repository for status.
