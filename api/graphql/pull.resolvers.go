@@ -343,6 +343,32 @@ func (r *mutationResolver) DisablePullRequestAutoMerge(ctx context.Context, inpu
 	}, nil
 }
 
+// UpdatePullRequestBranch is the resolver for the updatePullRequestBranch field.
+// gh pr update-branch sends it to merge the base branch into the head branch.
+// expectedHeadOid, when supplied, guards against updating a branch that moved
+// since the client last read it, matching GitHub's optimistic check.
+func (r *mutationResolver) UpdatePullRequestBranch(ctx context.Context, input generated.UpdatePullRequestBranchInput) (*generated.UpdatePullRequestBranchPayload, error) {
+	owner, name, number, err := r.prRefFromID(ctx, input.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+	expected := ""
+	if input.ExpectedHeadOid != nil {
+		expected = string(*input.ExpectedHeadOid)
+	}
+	if err := r.Pulls.UpdateBranch(ctx, viewerID(ctx), owner, name, number, expected); err != nil {
+		return nil, mapMergeErr(err)
+	}
+	pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UpdatePullRequestBranchPayload{
+		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
 // AvatarURL is the resolver for the avatarUrl field on Organization. It applies
 // the optional size the same way the User resolver does. Githome does not model
 // organizations, so this only runs if a future caller hands one to the schema.

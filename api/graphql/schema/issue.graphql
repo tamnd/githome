@@ -291,6 +291,156 @@ type Mutation {
   addComment(input: AddCommentInput!): AddCommentPayload
   closeIssue(input: CloseIssueInput!): CloseIssuePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
+  # updateIssueComment edits an issue or pull request comment's body, the
+  # mutation gh issue comment --edit-last and gh pr comment --edit-last send.
+  updateIssueComment(input: UpdateIssueCommentInput!): UpdateIssueCommentPayload
+  # lockLockable locks a lockable subject's conversation, optionally recording a
+  # reason; gh issue lock and gh pr lock send it.
+  lockLockable(input: LockLockableInput!): LockLockablePayload
+  # unlockLockable reopens a locked conversation; gh issue unlock sends it.
+  unlockLockable(input: UnlockLockableInput!): UnlockLockablePayload
+  # addReaction adds an emoji reaction to a reactable subject (issue, pull
+  # request, comment, or review); gh's reaction path and the web client send it.
+  addReaction(input: AddReactionInput!): AddReactionPayload
+  # removeReaction removes the viewer's emoji reaction from a subject.
+  removeReaction(input: RemoveReactionInput!): RemoveReactionPayload
+  # deleteIssue permanently deletes an issue. Githome does not support deleting
+  # issues, so it returns an UNPROCESSABLE error rather than a fake success.
+  deleteIssue(input: DeleteIssueInput!): DeleteIssuePayload
+  # transferIssue moves an issue to another repository. Githome does not support
+  # transferring issues, so it returns an UNPROCESSABLE error.
+  transferIssue(input: TransferIssueInput!): TransferIssuePayload
+  # pinIssue pins an issue to its repository. Githome does not support pinned
+  # issues, so it returns an UNPROCESSABLE error.
+  pinIssue(input: PinIssueInput!): PinIssuePayload
+  # unpinIssue unpins a pinned issue. Githome does not support pinned issues, so
+  # it returns an UNPROCESSABLE error.
+  unpinIssue(input: UnpinIssueInput!): UnpinIssuePayload
+}
+
+input UpdateIssueCommentInput {
+  id: ID!
+  body: String!
+  clientMutationId: String
+}
+
+type UpdateIssueCommentPayload {
+  issueComment: IssueComment
+  clientMutationId: String
+}
+
+# LockReason is why a conversation was locked, the values gh issue lock --reason
+# accepts.
+enum LockReason {
+  OFF_TOPIC
+  TOO_HEATED
+  RESOLVED
+  SPAM
+}
+
+input LockLockableInput {
+  lockableId: ID!
+  lockReason: LockReason
+  clientMutationId: String
+}
+
+type LockLockablePayload {
+  # lockedRecord is the issue or pull request whose conversation was locked.
+  lockedRecord: Node
+  # actor is the viewer who locked the conversation.
+  actor: Actor
+  clientMutationId: String
+}
+
+input UnlockLockableInput {
+  lockableId: ID!
+  clientMutationId: String
+}
+
+type UnlockLockablePayload {
+  # unlockedRecord is the issue or pull request whose conversation was unlocked.
+  unlockedRecord: Node
+  actor: Actor
+  clientMutationId: String
+}
+
+# Reaction is a single emoji reaction a user left on a reactable subject.
+type Reaction implements Node {
+  id: ID!
+  content: ReactionContent!
+  user: User
+  createdAt: DateTime!
+}
+
+input AddReactionInput {
+  subjectId: ID!
+  content: ReactionContent!
+  clientMutationId: String
+}
+
+type AddReactionPayload {
+  reaction: Reaction
+  # subject is the issue, pull request, comment, or review the reaction was
+  # added to.
+  subject: Node
+  # reactionGroups is the subject's reaction summary after the change.
+  reactionGroups: [ReactionGroup!]
+  clientMutationId: String
+}
+
+input RemoveReactionInput {
+  subjectId: ID!
+  content: ReactionContent!
+  clientMutationId: String
+}
+
+type RemoveReactionPayload {
+  reaction: Reaction
+  subject: Node
+  reactionGroups: [ReactionGroup!]
+  clientMutationId: String
+}
+
+input DeleteIssueInput {
+  issueId: ID!
+  clientMutationId: String
+}
+
+type DeleteIssuePayload {
+  repository: Repository
+  clientMutationId: String
+}
+
+input TransferIssueInput {
+  issueId: ID!
+  repositoryId: ID!
+  createLabelsIfMissing: Boolean
+  clientMutationId: String
+}
+
+type TransferIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
+
+input PinIssueInput {
+  issueId: ID!
+  clientMutationId: String
+}
+
+type PinIssuePayload {
+  issue: Issue
+  clientMutationId: String
+}
+
+input UnpinIssueInput {
+  issueId: ID!
+  clientMutationId: String
+}
+
+type UnpinIssuePayload {
+  issue: Issue
+  clientMutationId: String
 }
 
 input CreateIssueInput {

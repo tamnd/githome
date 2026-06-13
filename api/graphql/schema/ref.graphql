@@ -7,6 +7,9 @@ extend type Mutation {
   createRef(input: CreateRefInput!): CreateRefPayload
   # deleteRef removes an existing git reference.
   deleteRef(input: DeleteRefInput!): DeleteRefPayload
+  # updateRef points an existing git reference at a new commit, optionally
+  # forcing a non-fast-forward update; gh's branch-sync path sends it.
+  updateRef(input: UpdateRefInput!): UpdateRefPayload
   # createBranchProtectionRule creates a branch protection rule.
   createBranchProtectionRule(input: CreateBranchProtectionRuleInput!): CreateBranchProtectionRulePayload
   # updateBranchProtectionRule updates an existing branch protection rule.
@@ -33,6 +36,18 @@ input DeleteRefInput {
 }
 
 type DeleteRefPayload {
+  clientMutationId: String
+}
+
+input UpdateRefInput {
+  refId: ID!
+  oid: GitObjectID!
+  force: Boolean
+  clientMutationId: String
+}
+
+type UpdateRefPayload {
+  ref: Ref
   clientMutationId: String
 }
 

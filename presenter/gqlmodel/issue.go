@@ -59,6 +59,21 @@ type ReactionGroup struct {
 	Users   ReactingUserConnection
 }
 
+// Reaction is a single emoji reaction a user left on a reactable subject, the
+// node addReaction and removeReaction return.
+type Reaction struct {
+	ID        string          // the Reaction node ID
+	Content   ReactionContent // the emoji
+	User      *User           // who reacted; null for a ghost user
+	CreatedAt DateTime        // when the reaction was added
+}
+
+// IsNode marks Reaction as implementing the Node interface.
+func (Reaction) IsNode() {}
+
+// GetID satisfies the Node interface getter gqlgen requires.
+func (r Reaction) GetID() string { return r.ID }
+
 // Issue is the GraphQL Issue object, reduced to the fields gh issue view and gh
 // issue list select.
 type Issue struct {

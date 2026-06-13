@@ -54,6 +54,34 @@ func (r *mutationResolver) DeleteRef(ctx context.Context, input generated.Delete
 	return &generated.DeleteRefPayload{ClientMutationID: input.ClientMutationID}, nil
 }
 
+// UpdateRef is the resolver for the updateRef field. It points an existing
+// reference at a new commit; gh's branch-sync path sends it. force allows a
+// non-fast-forward update, matching GitHub's force flag.
+func (r *mutationResolver) UpdateRef(ctx context.Context, input generated.UpdateRefInput) (*generated.UpdateRefPayload, error) {
+	tag, repoID, refName, err := nodeid.DecodeGitObject(input.RefID)
+	if err != nil || tag != "ref" {
+		return nil, unresolvable("Ref", input.RefID)
+	}
+	repo, rErr := r.Repos.GetRepoByID(ctx, viewerID(ctx), repoID)
+	if rErr != nil {
+		return nil, mapErr(rErr)
+	}
+	owner, name := repo.Owner.Login, repo.Name
+	force := input.Force != nil && *input.Force
+	ref, err := r.Repos.UpdateRef(ctx, viewerID(ctx), owner, name, refName, string(input.Oid), force)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	shortName := ref.Name
+	if i := strings.LastIndex(ref.Name, "/"); i >= 0 {
+		shortName = ref.Name[i+1:]
+	}
+	return &generated.UpdateRefPayload{
+		Ref:              presenter.GQLRef(repo.ID, ref.Name, shortName, string(ref.Target)),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
 // CreateBranchProtectionRule is the resolver for the createBranchProtectionRule
 // field. Githome does not implement branch protection rules. Returning a fake
 // rule with a sentinel id let a client believe protection was in force when it

@@ -292,6 +292,22 @@ extend type Mutation {
   markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
   # disablePullRequestAutoMerge disables auto-merge on a pull request.
   disablePullRequestAutoMerge(input: DisablePullRequestAutoMergeInput!): DisablePullRequestAutoMergePayload
+  # updatePullRequestBranch updates a pull request branch with the latest base.
+  # gh pr update-branch sends this mutation.
+  updatePullRequestBranch(input: UpdatePullRequestBranchInput!): UpdatePullRequestBranchPayload
+}
+
+# UpdatePullRequestBranchInput names the pull request to update and, optionally,
+# the head oid the caller expects so a racing push fails loudly.
+input UpdatePullRequestBranchInput {
+  pullRequestId: ID!
+  expectedHeadOid: GitObjectID
+  clientMutationId: String
+}
+
+type UpdatePullRequestBranchPayload {
+  pullRequest: PullRequest
+  clientMutationId: String
 }
 
 input CreatePullRequestInput {
