@@ -138,6 +138,52 @@ func TestUnknownPathRendersThemed404(t *testing.T) {
 	}
 }
 
+func TestOrgOverviewRedirectsToProfile(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	// github.com keeps the organization profile at the root, /{org}, and 302s the
+	// legacy /orgs/{org} overview there. The bare overview redirects; the deeper
+	// management surfaces have no org model behind them and stay themed 404s.
+	resp, _ := get(t, srv, "/orgs/acme")
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("GET /orgs/acme = %d, want 302", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/acme" {
+		t.Errorf("Location = %q, want /acme", got)
+	}
+
+	// The management tabs are unbacked: they render the themed 404, not a
+	// plain-text one, the honest absence until an org model lands.
+	for _, path := range []string{"/orgs/acme/people", "/orgs/acme/teams", "/orgs/acme/settings"} {
+		resp, body := get(t, srv, path)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s = %d, want 404", path, resp.StatusCode)
+		}
+		if !strings.Contains(body, "<!DOCTYPE html>") {
+			t.Errorf("GET %s should render the themed 404, got a non-HTML body", path)
+		}
+	}
+}
+
+// TestReservedSurfacesRenderThemed404 pins the honest absence of the gist and
+// Actions surfaces: the run engine and the gist subsystem are unbacked, so their
+// URLs fall to the router catch-all and render the themed 404 rather than the
+// mux's plain-text one.
+func TestReservedSurfacesRenderThemed404(t *testing.T) {
+	srv, _ := buildServer(t, nil)
+	for _, path := range []string{"/gist", "/gists", "/octocat/repo/actions", "/octocat/repo/actions/runs/1"} {
+		resp, body := get(t, srv, path)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s = %d, want 404", path, resp.StatusCode)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+			t.Errorf("GET %s content-type = %q, want text/html", path, ct)
+		}
+		if !strings.Contains(body, "This is not the web page") {
+			t.Errorf("GET %s should render the themed 404 body", path)
+		}
+	}
+}
+
 func TestUnknownAPIPathStaysJSON(t *testing.T) {
 	srv, _ := buildServer(t, nil)
 	// The REST surface leaves the root 404 to the front when both share the

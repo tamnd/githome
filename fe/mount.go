@@ -135,6 +135,7 @@ func Mount(root *mizu.Router, d Deps) http.Handler {
 	mountPulls(page, d)
 	mountSearch(page, d)
 	mountDashboard(page, d)
+	mountOrgs(page, d)
 	mountNotifications(page, d)
 	mountRepoSettings(page, d)
 	mountSettings(page, d)
@@ -591,6 +592,22 @@ func mountProfile(page *mizu.Router, d Deps) {
 	})
 	pg := page.With(ph.Resolve)
 	pg.Get("/{owner}", ph.Show)
+}
+
+// mountOrgs registers the organization overview redirect. github.com puts the
+// organization profile at the root, /{org}, the same place a user profile lives,
+// and 302s the legacy /orgs/{org} overview there (spec §1.3); a saved /orgs/{org}
+// bookmark or an actor link written against github.com lands on the profile in
+// one hop. The deeper management surfaces (/orgs/{org}/people, /teams,
+// /repositories, /settings) need an organization model the domain does not
+// expose yet, so they stay unmounted and fall to the themed 404, the honest
+// absence. The redirect itself needs no service, so it is always registered: the
+// profile it points at renders or 404s on the user service's own gate. "orgs" is
+// a reserved top-level name (fe/route), so it is never read as a /{owner} login.
+func mountOrgs(page *mizu.Router, d Deps) {
+	page.Get("/orgs/{org}", func(c *mizu.Ctx) error {
+		return c.Redirect(http.StatusFound, route.Profile(c.Param("org")))
+	})
 }
 
 // mountAuth registers the web auth routes: /login (GET + POST /login/session),
