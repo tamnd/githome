@@ -14,6 +14,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -364,6 +365,55 @@ func (r *pullRequestResolver) BaseRef(ctx context.Context, obj *gqlmodel.PullReq
 // HeadRef returns the head branch ref of the pull request, pre-loaded by the presenter.
 func (r *pullRequestResolver) HeadRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error) {
 	return obj.HeadRef, nil
+}
+
+// MergeCommit is the resolver for the mergeCommit field. It resolves the merge
+// commit from its recorded sha once the pull request has merged, returning null
+// while it is open or when the commit is no longer reachable.
+func (r *pullRequestResolver) MergeCommit(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Commit, error) {
+	if !obj.Merged || obj.MergeCommitOID == "" {
+		return nil, nil
+	}
+	repo, err := r.Resolver.Repos.GetRepo(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	c, err := r.Resolver.Repos.GetCommit(repo, obj.MergeCommitOID)
+	if err != nil {
+		return nil, nil
+	}
+	return presenter.GQLCommit(repo.ID, repo.Owner.Login, repo.Name, c), nil
+}
+
+// PotentialMergeCommit is the resolver for the potentialMergeCommit field.
+// GitHub computes a test-merge commit for an open, mergeable pull request;
+// Githome does not, so it returns null — a value GitHub itself returns whenever
+// the test merge has not been computed.
+func (r *pullRequestResolver) PotentialMergeCommit(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Commit, error) {
+	return nil, nil
+}
+
+// ClosingIssuesReferences is the resolver for the closingIssuesReferences field.
+// It parses the body for closing keywords and resolves each referenced issue,
+// dropping references that do not name a visible issue, the way GitHub omits a
+// reference it cannot link.
+func (r *pullRequestResolver) ClosingIssuesReferences(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string, orderBy *generated.IssueOrder) (*gqlmodel.IssueConnection, error) {
+	page, err := issuePageArgs(ctx, first, after, last, before)
+	if err != nil {
+		return nil, err
+	}
+	viewer := viewerID(ctx)
+	issues := make([]*domain.Issue, 0)
+	for _, n := range closingIssueNumbers(obj.Body) {
+		iss, err := r.Resolver.Issues.GetIssue(ctx, viewer, obj.RepoOwner, obj.RepoName, n)
+		if err != nil {
+			continue
+		}
+		issues = append(issues, iss)
+	}
+	total := len(issues)
+	start, end := page.window(total)
+	return r.buildIssueConnection(ctx, obj.RepoOwner, obj.RepoName, issues[start:end], total, start), nil
 }
 
 // Labels returns the labels of the pull request, pre-loaded by the presenter.

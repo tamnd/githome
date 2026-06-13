@@ -65,6 +65,16 @@ type PullRequest implements Node {
   fullDatabaseId: BigInt
   # mergedBy is the actor who merged the pull request, null while unmerged.
   mergedBy: Actor
+  # mergeCommit is the commit created when the pull request merged, null while
+  # it is unmerged.
+  mergeCommit: Commit
+  # potentialMergeCommit is the test-merge commit GitHub computes for an open,
+  # mergeable pull request. Githome does not compute one, so it is null.
+  potentialMergeCommit: Commit
+  # closingIssuesReferences is the connection over issues this pull request will
+  # close when merged, parsed from closing keywords (closes/fixes/resolves #N)
+  # in the body.
+  closingIssuesReferences(first: Int, after: String, last: Int, before: String, orderBy: IssueOrder): IssueConnection
   additions: Int!
   deletions: Int!
   changedFiles: Int!

@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -342,6 +343,30 @@ func (r *Resolver) userLoginsFromIDs(ctx context.Context, ids []string) ([]strin
 		logins = append(logins, login)
 	}
 	return logins, nil
+}
+
+// closingKeywordRE matches GitHub's closing keywords followed by a same-repo
+// issue reference (#123). GitHub recognizes close/closes/closed, fix/fixes/
+// fixed, and resolve/resolves/resolved, case-insensitively. Cross-repo
+// owner/name#123 forms are out of scope; Githome links same-repo references.
+var closingKeywordRE = regexp.MustCompile(`(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b\s*:?\s+#(\d+)`)
+
+// closingIssueNumbers parses a pull request body for closing keywords and
+// returns the distinct issue numbers they reference, in first-seen order, the
+// set GitHub exposes as closingIssuesReferences.
+func closingIssueNumbers(body string) []int64 {
+	matches := closingKeywordRE.FindAllStringSubmatch(body, -1)
+	nums := make([]int64, 0, len(matches))
+	seen := map[int64]bool{}
+	for _, m := range matches {
+		n, err := strconv.ParseInt(m[1], 10, 64)
+		if err != nil || seen[n] {
+			continue
+		}
+		seen[n] = true
+		nums = append(nums, n)
+	}
+	return nums
 }
 
 // milestoneNumberFromID decodes a milestone node ID into its number, checking

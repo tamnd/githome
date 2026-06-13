@@ -427,54 +427,57 @@ type ComplexityRoot struct {
 	}
 
 	PullRequest struct {
-		Additions           func(childComplexity int) int
-		Assignees           func(childComplexity int, first *int32, after *string) int
-		Author              func(childComplexity int) int
-		AuthorAssociation   func(childComplexity int) int
-		AutoMergeRequest    func(childComplexity int) int
-		BaseRef             func(childComplexity int) int
-		BaseRefName         func(childComplexity int) int
-		BaseRefOid          func(childComplexity int) int
-		Body                func(childComplexity int) int
-		ChangedFiles        func(childComplexity int) int
-		Closed              func(childComplexity int) int
-		ClosedAt            func(childComplexity int) int
-		Comments            func(childComplexity int, first *int32, after *string, last *int32, before *string) int
-		Commits             func(childComplexity int, first *int32, after *string, last *int32, before *string) int
-		CreatedAt           func(childComplexity int) int
-		Deletions           func(childComplexity int) int
-		Files               func(childComplexity int, first *int32, after *string) int
-		FullDatabaseID      func(childComplexity int) int
-		HeadRef             func(childComplexity int) int
-		HeadRefName         func(childComplexity int) int
-		HeadRefOid          func(childComplexity int) int
-		HeadRepository      func(childComplexity int) int
-		HeadRepositoryOwner func(childComplexity int) int
-		ID                  func(childComplexity int) int
-		IsCrossRepository   func(childComplexity int) int
-		IsDraft             func(childComplexity int) int
-		IsInMergeQueue      func(childComplexity int) int
-		Labels              func(childComplexity int, first *int32, after *string) int
-		LatestReviews       func(childComplexity int, first *int32, after *string) int
-		Locked              func(childComplexity int) int
-		MaintainerCanModify func(childComplexity int) int
-		MergeStateStatus    func(childComplexity int) int
-		Mergeable           func(childComplexity int) int
-		Merged              func(childComplexity int) int
-		MergedAt            func(childComplexity int) int
-		MergedBy            func(childComplexity int) int
-		Milestone           func(childComplexity int) int
-		Number              func(childComplexity int) int
-		ProjectCards        func(childComplexity int, first *int32, after *string) int
-		ReactionGroups      func(childComplexity int) int
-		ReviewDecision      func(childComplexity int) int
-		ReviewRequests      func(childComplexity int, first *int32, after *string) int
-		ReviewThreads       func(childComplexity int, first *int32, after *string) int
-		Reviews             func(childComplexity int, first *int32, after *string) int
-		State               func(childComplexity int) int
-		Title               func(childComplexity int) int
-		URL                 func(childComplexity int) int
-		UpdatedAt           func(childComplexity int) int
+		Additions               func(childComplexity int) int
+		Assignees               func(childComplexity int, first *int32, after *string) int
+		Author                  func(childComplexity int) int
+		AuthorAssociation       func(childComplexity int) int
+		AutoMergeRequest        func(childComplexity int) int
+		BaseRef                 func(childComplexity int) int
+		BaseRefName             func(childComplexity int) int
+		BaseRefOid              func(childComplexity int) int
+		Body                    func(childComplexity int) int
+		ChangedFiles            func(childComplexity int) int
+		Closed                  func(childComplexity int) int
+		ClosedAt                func(childComplexity int) int
+		ClosingIssuesReferences func(childComplexity int, first *int32, after *string, last *int32, before *string, orderBy *IssueOrder) int
+		Comments                func(childComplexity int, first *int32, after *string, last *int32, before *string) int
+		Commits                 func(childComplexity int, first *int32, after *string, last *int32, before *string) int
+		CreatedAt               func(childComplexity int) int
+		Deletions               func(childComplexity int) int
+		Files                   func(childComplexity int, first *int32, after *string) int
+		FullDatabaseID          func(childComplexity int) int
+		HeadRef                 func(childComplexity int) int
+		HeadRefName             func(childComplexity int) int
+		HeadRefOid              func(childComplexity int) int
+		HeadRepository          func(childComplexity int) int
+		HeadRepositoryOwner     func(childComplexity int) int
+		ID                      func(childComplexity int) int
+		IsCrossRepository       func(childComplexity int) int
+		IsDraft                 func(childComplexity int) int
+		IsInMergeQueue          func(childComplexity int) int
+		Labels                  func(childComplexity int, first *int32, after *string) int
+		LatestReviews           func(childComplexity int, first *int32, after *string) int
+		Locked                  func(childComplexity int) int
+		MaintainerCanModify     func(childComplexity int) int
+		MergeCommit             func(childComplexity int) int
+		MergeStateStatus        func(childComplexity int) int
+		Mergeable               func(childComplexity int) int
+		Merged                  func(childComplexity int) int
+		MergedAt                func(childComplexity int) int
+		MergedBy                func(childComplexity int) int
+		Milestone               func(childComplexity int) int
+		Number                  func(childComplexity int) int
+		PotentialMergeCommit    func(childComplexity int) int
+		ProjectCards            func(childComplexity int, first *int32, after *string) int
+		ReactionGroups          func(childComplexity int) int
+		ReviewDecision          func(childComplexity int) int
+		ReviewRequests          func(childComplexity int, first *int32, after *string) int
+		ReviewThreads           func(childComplexity int, first *int32, after *string) int
+		Reviews                 func(childComplexity int, first *int32, after *string) int
+		State                   func(childComplexity int) int
+		Title                   func(childComplexity int) int
+		URL                     func(childComplexity int) int
+		UpdatedAt               func(childComplexity int) int
 	}
 
 	PullRequestChangedFile struct {
@@ -948,6 +951,10 @@ type OrganizationResolver interface {
 type PullRequestResolver interface {
 	BaseRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error)
 	HeadRef(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Ref, error)
+
+	MergeCommit(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Commit, error)
+	PotentialMergeCommit(ctx context.Context, obj *gqlmodel.PullRequest) (*gqlmodel.Commit, error)
+	ClosingIssuesReferences(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string, last *int32, before *string, orderBy *IssueOrder) (*gqlmodel.IssueConnection, error)
 
 	Labels(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.LabelConnection, error)
 	Assignees(ctx context.Context, obj *gqlmodel.PullRequest, first *int32, after *string) (*gqlmodel.UserConnection, error)
@@ -2710,6 +2717,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PullRequest.ClosedAt(childComplexity), true
+	case "PullRequest.closingIssuesReferences":
+		if e.ComplexityRoot.PullRequest.ClosingIssuesReferences == nil {
+			break
+		}
+
+		args, err := ec.field_PullRequest_closingIssuesReferences_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.PullRequest.ClosingIssuesReferences(childComplexity, args["first"].(*int32), args["after"].(*string), args["last"].(*int32), args["before"].(*string), args["orderBy"].(*IssueOrder)), true
 	case "PullRequest.comments":
 		if e.ComplexityRoot.PullRequest.Comments == nil {
 			break
@@ -2849,6 +2867,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PullRequest.MaintainerCanModify(childComplexity), true
+	case "PullRequest.mergeCommit":
+		if e.ComplexityRoot.PullRequest.MergeCommit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequest.MergeCommit(childComplexity), true
 	case "PullRequest.mergeStateStatus":
 		if e.ComplexityRoot.PullRequest.MergeStateStatus == nil {
 			break
@@ -2891,6 +2915,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PullRequest.Number(childComplexity), true
+	case "PullRequest.potentialMergeCommit":
+		if e.ComplexityRoot.PullRequest.PotentialMergeCommit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PullRequest.PotentialMergeCommit(childComplexity), true
 	case "PullRequest.projectCards":
 		if e.ComplexityRoot.PullRequest.ProjectCards == nil {
 			break
@@ -5270,6 +5300,16 @@ type PullRequest implements Node {
   fullDatabaseId: BigInt
   # mergedBy is the actor who merged the pull request, null while unmerged.
   mergedBy: Actor
+  # mergeCommit is the commit created when the pull request merged, null while
+  # it is unmerged.
+  mergeCommit: Commit
+  # potentialMergeCommit is the test-merge commit GitHub computes for an open,
+  # mergeable pull request. Githome does not compute one, so it is null.
+  potentialMergeCommit: Commit
+  # closingIssuesReferences is the connection over issues this pull request will
+  # close when merged, parsed from closing keywords (closes/fixes/resolves #N)
+  # in the body.
+  closingIssuesReferences(first: Int, after: String, last: Int, before: String, orderBy: IssueOrder): IssueConnection
   additions: Int!
   deletions: Int!
   changedFiles: Int!
@@ -7278,6 +7318,12 @@ func (ec *executionContext) childFields_PullRequest(ctx context.Context, field g
 		return ec.fieldContext_PullRequest_fullDatabaseId(ctx, field)
 	case "mergedBy":
 		return ec.fieldContext_PullRequest_mergedBy(ctx, field)
+	case "mergeCommit":
+		return ec.fieldContext_PullRequest_mergeCommit(ctx, field)
+	case "potentialMergeCommit":
+		return ec.fieldContext_PullRequest_potentialMergeCommit(ctx, field)
+	case "closingIssuesReferences":
+		return ec.fieldContext_PullRequest_closingIssuesReferences(ctx, field)
 	case "additions":
 		return ec.fieldContext_PullRequest_additions(ctx, field)
 	case "deletions":
@@ -8859,6 +8905,52 @@ func (ec *executionContext) field_PullRequest_assignees_args(ctx context.Context
 		return nil, err
 	}
 	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_PullRequest_closingIssuesReferences_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int32, error) {
+			return ec.unmarshalOInt2ᚖint32(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*IssueOrder, error) {
+			return ec.unmarshalOIssueOrder2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐIssueOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg4
 	return args, nil
 }
 
@@ -16954,6 +17046,114 @@ func (ec *executionContext) fieldContext_PullRequest_mergedBy(_ context.Context,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PullRequest_mergeCommit(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequest) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequest_mergeCommit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PullRequest().MergeCommit(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Commit) graphql.Marshaler {
+			return ec.marshalOCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequest_mergeCommit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PullRequest",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Commit(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PullRequest_potentialMergeCommit(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequest) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequest_potentialMergeCommit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PullRequest().PotentialMergeCommit(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.Commit) graphql.Marshaler {
+			return ec.marshalOCommit2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐCommit(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequest_potentialMergeCommit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PullRequest",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Commit(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PullRequest_closingIssuesReferences(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.PullRequest) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PullRequest_closingIssuesReferences(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.PullRequest().ClosingIssuesReferences(ctx, obj, fc.Args["first"].(*int32), fc.Args["after"].(*string), fc.Args["last"].(*int32), fc.Args["before"].(*string), fc.Args["orderBy"].(*IssueOrder))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueConnection) graphql.Marshaler {
+			return ec.marshalOIssueConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueConnection(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PullRequest_closingIssuesReferences(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PullRequest",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_PullRequest_closingIssuesReferences_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -31367,6 +31567,105 @@ func (ec *executionContext) _PullRequest(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = ec._PullRequest_fullDatabaseId(ctx, field, obj)
 		case "mergedBy":
 			out.Values[i] = ec._PullRequest_mergedBy(ctx, field, obj)
+		case "mergeCommit":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PullRequest_mergeCommit(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "potentialMergeCommit":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PullRequest_potentialMergeCommit(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "closingIssuesReferences":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PullRequest_closingIssuesReferences(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "additions":
 			out.Values[i] = ec._PullRequest_additions(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -37347,6 +37646,13 @@ func (ec *executionContext) marshalOIssueCommentEdge2ᚖgithubᚗcomᚋtamndᚋg
 		return graphql.Null
 	}
 	return ec._IssueCommentEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOIssueConnection2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueConnection(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.IssueConnection) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._IssueConnection(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOIssueEdge2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueEdge(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.IssueEdge) graphql.Marshaler {

@@ -80,6 +80,7 @@ type PullRequest struct {
 	IsDraft             bool                     // whether the pull request is a draft
 	Merged              bool                     // whether the pull request has merged
 	MergedAt            *DateTime                // null while unmerged
+	MergeCommitOID      string                   // the merge commit sha; empty while unmerged
 	Mergeable           MergeableState           // the tri-state mergeable
 	MergeStateStatus    MergeStateStatus         // the richer merge state
 	Author              Actor                    // null for a ghost author
