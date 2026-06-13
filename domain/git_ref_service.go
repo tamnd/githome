@@ -154,15 +154,36 @@ func refType(ref string) string {
 // Visibility is enforced by GetRepo, so the not-found-vs-forbidden distinction
 // matches GitHub: invisible -> 404 (ErrRepoNotFound), visible-but-no-write -> 403
 // (ErrForbidden). The git transport calls it to gate receive-pack.
+//
+// Write access follows the actor's effective role from RepoPermission: the owner
+// is admin, a collaborator carries the role of their grant, and any other viewer
+// the repository is visible to is pull-only. push, maintain, and admin may write;
+// pull (or no access) may not.
 func (s *RepoService) AuthorizeWrite(ctx context.Context, actorPK int64, owner, name string) (*Repo, error) {
 	repo, err := s.GetRepo(ctx, actorPK, owner, name)
 	if err != nil {
 		return nil, err
 	}
-	if !canWrite(repo, actorPK) {
+	role, err := s.RepoPermission(ctx, actorPK, repo)
+	if err != nil {
+		return nil, err
+	}
+	if !roleCanWrite(role) {
 		return nil, ErrForbidden
 	}
 	return repo, nil
+}
+
+// roleCanWrite reports whether an effective repository role may push and use the
+// write APIs. It mirrors GitHub's role ladder: push (write), maintain, and admin
+// grant write; pull (read) and the empty no-access role do not.
+func roleCanWrite(role string) bool {
+	switch role {
+	case "push", "maintain", "admin":
+		return true
+	default:
+		return false
+	}
 }
 
 // resolveRef builds the wire-ready ref value, reading the target's object type
@@ -176,9 +197,10 @@ func (s *RepoService) resolveRef(ctx context.Context, pk int64, ref, sha string)
 	return git.Ref{Name: ref, Target: sha, Type: git.ObjectType(typ)}, nil
 }
 
-// canWrite reports whether the actor may write to the repository. Only the owner
-// may write for now; collaborator and organization roles arrive with their
-// milestone.
+// canWrite is the owner fast-path used where only ownership matters and a store
+// round-trip for the full role would be wasteful (comment-deletion authority,
+// where the author-or-owner rule already covers collaborators through their own
+// authorship). The role-aware write gate is AuthorizeWrite / roleCanWrite.
 func canWrite(repo *Repo, actorPK int64) bool {
 	return actorPK != 0 && actorPK == repo.OwnerPK
 }
