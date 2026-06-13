@@ -217,6 +217,21 @@ func TestGlobalRepositoriesDefault(t *testing.T) {
 	}
 }
 
+func TestGlobalLegacyPageAlias(t *testing.T) {
+	fx := newFixture(t)
+	// page 1 lists the only repo; the legacy p= alias must reach the same pager
+	// as page=, so p=2 pages past the single result and drops the repo. If p=
+	// were ignored the handler would default to page 1 and still show it.
+	_, first := get(t, fx.srv, "/search?q=hello&type=repositories&p=1")
+	if !strings.Contains(first, "octocat/hello") {
+		t.Fatalf("p=1 should list the repo:\n%s", first)
+	}
+	_, second := get(t, fx.srv, "/search?q=hello&type=repositories&p=2")
+	if strings.Contains(second, "octocat/hello") {
+		t.Errorf("p=2 should page past the single result, but the repo is still listed:\n%s", second)
+	}
+}
+
 func TestGlobalIssuesType(t *testing.T) {
 	fx := newFixture(t)
 	_, body := get(t, fx.srv, "/search?q=findme&type=issues")
