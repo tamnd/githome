@@ -333,6 +333,9 @@ func mountRepoExtra(r *mizu.Router, d Deps) {
 	r.Get("/repos/{owner}/{repo}/compare/{basehead}", handleCompare(d))
 	r.Put("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsCreate(d), "repo", "public_repo"))
 	r.Delete("/repos/{owner}/{repo}/contents/{path...}", requireScope(handleContentsDelete(d), "repo", "public_repo"))
+	r.Post("/repos/{owner}/{repo}/merges", requireScope(handleRepoMerge(d), "repo", "public_repo"))
+	r.Post("/repos/{owner}/{repo}/dispatches", requireScope(handleRepoDispatch(d), "repo", "public_repo"))
+	r.Get("/repositories/{id}", handleRepoByID(d))
 }
 
 // keep json import used through writeJSON helper chain

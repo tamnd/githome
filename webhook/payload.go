@@ -133,6 +133,8 @@ func (r *Renderer) Render(ctx context.Context, ev *store.EventRow, push *domain.
 		res, err = r.renderCreate(ev, repo, sender, cd)
 	case domain.EventDelete:
 		res, err = r.renderDelete(ev, repo, sender, cd)
+	case domain.EventRepositoryDispatch:
+		res, err = r.renderRepositoryDispatch(ev, repo, sender, detail)
 	default:
 		return nil, fmt.Errorf("webhook: unknown event %q", ev.Event)
 	}
@@ -518,6 +520,33 @@ func (r *Renderer) renderCreate(ev *store.EventRow, repo *domain.Repo, sender *d
 	}
 	_ = owner
 	return marshalRendered(ev, body, feed)
+}
+
+// renderRepositoryDispatch builds the repository_dispatch delivery: its action
+// is the caller's event_type and it carries the opaque client_payload verbatim,
+// plus the default branch and the usual repository and sender objects. The
+// event has no public Events-API timeline entry, so the stored feed payload
+// mirrors the delivery body.
+func (r *Renderer) renderRepositoryDispatch(ev *store.EventRow, repo *domain.Repo, sender *domain.User, detail *domain.EventDetail) (*Rendered, error) {
+	action, clientPayload := "", json.RawMessage("{}")
+	if detail != nil {
+		action = detail.Action
+		if len(detail.ClientPayload) > 0 {
+			clientPayload = detail.ClientPayload
+		}
+	}
+	body := map[string]any{
+		"action":         action,
+		"branch":         repo.DefaultBranch,
+		"client_payload": clientPayload,
+		"repository":     r.urls.Repository(repo, r.format, nil),
+		"sender":         r.urls.SimpleUser(sender, r.format),
+	}
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return &Rendered{Event: ev.Event, Action: action, Body: bodyJSON, Payload: bodyJSON}, nil
 }
 
 func (r *Renderer) renderDelete(ev *store.EventRow, repo *domain.Repo, sender *domain.User, cd *domain.CreateDeletePayload) (*Rendered, error) {
