@@ -537,3 +537,28 @@ CREATE TABLE IF NOT EXISTS org_members (
     role     TEXT   NOT NULL DEFAULT 'member',
     UNIQUE (org_pk, user_pk)
 );
+
+-- 0034_social_graph
+CREATE TABLE IF NOT EXISTS stars (
+    pk         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_pk    BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    repo_pk    BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_pk, repo_pk)
+);
+CREATE TABLE IF NOT EXISTS repo_subscriptions (
+    pk         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_pk    BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    repo_pk    BIGINT NOT NULL REFERENCES repositories(pk) ON DELETE CASCADE,
+    subscribed BOOLEAN NOT NULL DEFAULT true,
+    ignored    BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_pk, repo_pk)
+);
+CREATE TABLE IF NOT EXISTS follows (
+    pk          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    follower_pk BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    target_pk   BIGINT NOT NULL REFERENCES users(pk) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (follower_pk, target_pk)
+);

@@ -481,6 +481,19 @@ type OrgMemberRow struct {
 	Role   string
 }
 
+// SubscriptionRow is a row of the repo_subscriptions table: a user watching a
+// repository. Subscribed and Ignored mirror GitHub's subscription shape, where
+// a row exists once a user has explicitly set either, and "watching" is the
+// Subscribed-and-not-Ignored case.
+type SubscriptionRow struct {
+	PK         int64
+	UserPK     int64
+	RepoPK     int64
+	Subscribed bool
+	Ignored    bool
+	CreatedAt  time.Time
+}
+
 // GistRow is a row of the gists table, optionally including the file rows.
 type GistRow struct {
 	PK          int64

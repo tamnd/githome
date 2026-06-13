@@ -40,6 +40,10 @@ type Deps struct {
 	Search   *domain.SearchService
 	Releases *domain.ReleaseService
 	Gists    *domain.GistService
+	// Social backs the star, watch, and follow families. Its routes also need
+	// Users (to resolve logins) and Repos (to resolve repositories), so the
+	// mount is gated on all three.
+	Social *domain.SocialService
 	// Notifications maintains and serves the per-user inbox. Its routes also
 	// need Repos, both to gate the repo-scoped list and to render each
 	// thread's repository summary.
@@ -160,6 +164,9 @@ func mountAPI(r *mizu.Router, d Deps, limiter *rateLimiter) {
 	}
 	mountGists(r, d)
 	mountRepoExtra(r, d)
+	if d.Social != nil && d.Users != nil && d.Repos != nil {
+		mountSocial(r, d)
+	}
 	mountMiscCompat(r, d)
 	if d.Hooks != nil {
 		mountHooks(r, d)

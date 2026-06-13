@@ -15,6 +15,18 @@ type NotificationThread struct {
 	SubscriptionURL string              `json:"subscription_url"`
 }
 
+// RepoSubscription is the body of the repository subscription endpoints
+// (GET/PUT/DELETE /repos/{owner}/{repo}/subscription). Reason is always null,
+// matching GitHub, which only sets it on notification thread subscriptions.
+type RepoSubscription struct {
+	Subscribed    bool    `json:"subscribed"`
+	Ignored       bool    `json:"ignored"`
+	Reason        *string `json:"reason"`
+	CreatedAt     Time    `json:"created_at"`
+	URL           string  `json:"url"`
+	RepositoryURL string  `json:"repository_url"`
+}
+
 // NotificationSubject names what the thread is about: the issue or pull
 // request title plus the API URLs a client follows to show it.
 type NotificationSubject struct {
