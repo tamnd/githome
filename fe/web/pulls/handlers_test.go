@@ -349,6 +349,37 @@ func TestFilesTabSplitMode(t *testing.T) {
 	}
 }
 
+func TestFilesTabHideWhitespace(t *testing.T) {
+	fx := newFixture(t)
+	base := "/octocat/hello/pull/" + itoa(fx.prNum) + "/files"
+
+	// Default: the control offers to hide whitespace, pointing at ?w=1.
+	_, def := get(t, fx.srv, base)
+	if !strings.Contains(def, "Hide whitespace") {
+		t.Errorf("default files tab is missing the hide-whitespace control:\n%s", def)
+	}
+	if !strings.Contains(def, `href="`+base+`?w=1"`) {
+		t.Errorf("hide-whitespace link does not point at ?w=1:\n%s", def)
+	}
+
+	// ?w=1: the page renders and the control now offers to show whitespace again.
+	resp, ws := get(t, fx.srv, base+"?w=1")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("hide-whitespace files tab status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(ws, "Show whitespace") {
+		t.Errorf("?w=1 files tab is missing the show-whitespace control:\n%s", ws)
+	}
+	if !strings.Contains(ws, "b.txt") {
+		t.Errorf("?w=1 files tab dropped the changed file path:\n%s", ws)
+	}
+
+	// The two axes compose: with ?w=1 set, the Split link keeps ?w=1 alongside it.
+	if !strings.Contains(ws, `href="`+base+`?diff=split&amp;w=1"`) {
+		t.Errorf("?w=1 split link does not preserve the whitespace axis:\n%s", ws)
+	}
+}
+
 func TestExpandDiffFragment(t *testing.T) {
 	fx := newFixture(t)
 

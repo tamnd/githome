@@ -46,6 +46,7 @@
         <span class="diff-count-add">+{{.Additions}}</span>
         <span class="diff-count-del">-{{.Deletions}}</span>
       </span>
+      {{template "partials/diff_toggle" .Diff}}
     </div>
     {{range .Files -}}
     {{template "pr_diff_file" (dict "File" . "Review" nil)}}

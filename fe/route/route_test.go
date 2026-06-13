@@ -218,3 +218,23 @@ func TestFirstSegment(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffView(t *testing.T) {
+	const base = "/octocat/hello/pull/7/files"
+	cases := []struct {
+		split, ws bool
+		want      string
+	}{
+		// The default unified, show-whitespace view stays at the bare path.
+		{false, false, base},
+		{true, false, base + "?diff=split"},
+		{false, true, base + "?w=1"},
+		// Both axes compose, and url.Values sorts the keys (diff before w).
+		{true, true, base + "?diff=split&w=1"},
+	}
+	for _, tc := range cases {
+		if got := DiffView(base, tc.split, tc.ws); got != tc.want {
+			t.Errorf("DiffView(split=%v, ws=%v) = %q, want %q", tc.split, tc.ws, got, tc.want)
+		}
+	}
+}

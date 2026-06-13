@@ -146,6 +146,79 @@ func TestMergeSurfaceClean(t *testing.T) {
 	}
 }
 
+// TestChangedFilesOptsIgnoreWhitespace proves the ?w=1 path: a file whose only
+// change between the ends is indentation drops out of the diff under -w, while a
+// file with a real content change stays. The two whitespace modes also cache
+// under distinct keys, so the second ask for one form never serves the other.
+func TestChangedFilesOptsIgnoreWhitespace(t *testing.T) {
+	ctx := context.Background()
+	store := git.NewStore(t.TempDir())
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git binary not available")
+	}
+	src := t.TempDir()
+	runGit(t, src, "init", "-q", "-b", "master")
+	mustWrite(t, filepath.Join(src, "ws.txt"), "alpha\nbeta\n")
+	mustWrite(t, filepath.Join(src, "real.txt"), "x\n")
+	runGit(t, src, "add", "-A")
+	runGit(t, src, "commit", "-q", "-m", "base")
+	base := runGit(t, src, "rev-parse", "HEAD")
+
+	// head only re-indents ws.txt (a whitespace-only change) but adds a line to
+	// real.txt (a real change).
+	mustWrite(t, filepath.Join(src, "ws.txt"), "    alpha\n    beta\n")
+	mustWrite(t, filepath.Join(src, "real.txt"), "x\ny\n")
+	runGit(t, src, "add", "-A")
+	runGit(t, src, "commit", "-q", "-m", "head")
+	head := runGit(t, src, "rev-parse", "HEAD")
+
+	bare := store.Dir(20)
+	if err := os.MkdirAll(filepath.Dir(bare), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, "", "clone", "-q", "--bare", src, bare)
+
+	// Canonical diff: both files changed.
+	full, err := store.ChangedFilesOpts(ctx, 20, base, head, true, false)
+	if err != nil {
+		t.Fatalf("ChangedFilesOpts canonical: %v", err)
+	}
+	gotFull := map[string]bool{}
+	for _, f := range full {
+		gotFull[f.Path] = true
+	}
+	if !gotFull["ws.txt"] || !gotFull["real.txt"] {
+		t.Fatalf("canonical diff = %v, want both ws.txt and real.txt", gotFull)
+	}
+
+	// Whitespace-ignored diff: the indentation-only file drops out.
+	ws, err := store.ChangedFilesOpts(ctx, 20, base, head, true, true)
+	if err != nil {
+		t.Fatalf("ChangedFilesOpts ignore-ws: %v", err)
+	}
+	gotWS := map[string]bool{}
+	for _, f := range ws {
+		gotWS[f.Path] = true
+	}
+	if gotWS["ws.txt"] {
+		t.Fatalf("ignore-whitespace diff must drop the indentation-only ws.txt: %v", gotWS)
+	}
+	if !gotWS["real.txt"] {
+		t.Fatalf("ignore-whitespace diff must keep the real change real.txt: %v", gotWS)
+	}
+
+	// The canonical view is still two files on re-read: the two modes did not
+	// collide in the diff cache.
+	again, err := store.ChangedFilesOpts(ctx, 20, base, head, true, false)
+	if err != nil {
+		t.Fatalf("ChangedFilesOpts canonical re-read: %v", err)
+	}
+	if len(again) != len(full) {
+		t.Fatalf("canonical re-read = %d files, want %d (whitespace mode leaked through the cache)", len(again), len(full))
+	}
+}
+
 func TestMergeStrategies(t *testing.T) {
 	ctx := context.Background()
 	store := git.NewStore(t.TempDir())

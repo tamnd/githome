@@ -279,7 +279,7 @@ func (s *Store) DiffStat(ctx context.Context, pk int64, base, head SHA) (additio
 // so the second ask for a range (the review-thread indexer right after the
 // Files page, or a compare reload) skips the git subprocess entirely.
 func (s *Store) ChangedFiles(ctx context.Context, pk int64, base, head SHA) ([]FileChange, error) {
-	return s.changedFiles(ctx, pk, base, head, false)
+	return s.changedFiles(ctx, pk, base, head, false, false)
 }
 
 // ChangedFilesDirect is ChangedFiles over the two-dot form: the diff between
@@ -287,13 +287,24 @@ func (s *Store) ChangedFiles(ctx context.Context, pk int64, base, head SHA) ([]F
 // changes on the base side show up reversed. It backs the compare page's
 // "base..head" URLs.
 func (s *Store) ChangedFilesDirect(ctx context.Context, pk int64, base, head SHA) ([]FileChange, error) {
-	return s.changedFiles(ctx, pk, base, head, true)
+	return s.changedFiles(ctx, pk, base, head, true, false)
 }
 
-// changedFiles runs the diff for both range forms. A direct diff caches under
-// a prefixed key: the two forms answer differently for the same end pair, and
-// a key collision would serve one as the other.
-func (s *Store) changedFiles(ctx context.Context, pk int64, base, head SHA, direct bool) ([]FileChange, error) {
+// ChangedFilesOpts is ChangedFiles with the range form and the whitespace mode
+// chosen by the caller. ignoreWhitespace passes git's -w so a hunk whose only
+// change is whitespace drops out, the body GitHub's "Hide whitespace" (?w=1)
+// serves. The whitespace-ignored diff is a separate view with its own line
+// counts and offsets, so it is cached under a distinct key and never reused as
+// the canonical diff the review anchors resolve against.
+func (s *Store) ChangedFilesOpts(ctx context.Context, pk int64, base, head SHA, direct, ignoreWhitespace bool) ([]FileChange, error) {
+	return s.changedFiles(ctx, pk, base, head, direct, ignoreWhitespace)
+}
+
+// changedFiles runs the diff for both range forms. A direct diff, and a
+// whitespace-ignored one, each cache under a prefixed key: the variants answer
+// differently for the same end pair, and a key collision would serve one as
+// another.
+func (s *Store) changedFiles(ctx context.Context, pk int64, base, head SHA, direct, ignoreWhitespace bool) ([]FileChange, error) {
 	cacheable := s.diffs != nil && isFullSHA(base) && isFullSHA(head)
 	key := ""
 	if cacheable {
@@ -301,11 +312,17 @@ func (s *Store) changedFiles(ctx context.Context, pk int64, base, head SHA, dire
 		if direct {
 			key = "direct:" + key
 		}
+		if ignoreWhitespace {
+			key = "w:" + key
+		}
 		if files := s.diffs.get(key); files != nil {
 			return files, nil
 		}
 	}
 	args := []string{"diff", "--no-color", "--full-index", "--find-renames"}
+	if ignoreWhitespace {
+		args = append(args, "-w")
+	}
 	if direct {
 		args = append(args, base, head)
 	} else {

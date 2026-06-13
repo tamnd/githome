@@ -253,14 +253,27 @@ func diffModeFromQuery(c *mizu.Ctx) view.DiffMode {
 	return view.DiffUnified
 }
 
-// diffToggle builds the unified/split control for a diff page. base is the page's
-// own path; the split URL carries ?diff=split and the unified URL drops it, so the
-// control flips the mode without disturbing the rest of the page.
-func diffToggle(base string, mode view.DiffMode) view.DiffToggleVM {
+// ignoreWhitespaceFromQuery reads GitHub's ?w= parameter: "1" hides
+// whitespace-only changes, anything else (including absent) keeps them. Like
+// the diff mode it is display-only — it selects a separate diff whose offsets
+// the review API never anchors on.
+func ignoreWhitespaceFromQuery(c *mizu.Ctx) bool {
+	return c.Request().URL.Query().Get("w") == "1"
+}
+
+// diffToggle builds the unified/split and hide-whitespace controls for a diff
+// page. base is the page's own path; each URL re-encodes both parameters so a
+// control flips its own axis while preserving the other — toggling split keeps
+// ?w=1, and toggling whitespace keeps ?diff=split.
+func diffToggle(base string, mode view.DiffMode, ignoreWS bool) view.DiffToggleVM {
+	split := mode == view.DiffSplit
 	return view.DiffToggleVM{
-		Split:      mode == view.DiffSplit,
-		UnifiedURL: base,
-		SplitURL:   base + "?diff=split",
+		Split:      split,
+		IgnoreWS:   ignoreWS,
+		UnifiedURL: route.DiffView(base, false, ignoreWS),
+		SplitURL:   route.DiffView(base, true, ignoreWS),
+		ShowWSURL:  route.DiffView(base, split, false),
+		HideWSURL:  route.DiffView(base, split, true),
 	}
 }
 

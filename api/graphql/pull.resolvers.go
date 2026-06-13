@@ -524,7 +524,7 @@ func (r *pullRequestResolver) Files(ctx context.Context, obj *gqlmodel.PullReque
 			TotalCount: int32(total),
 		}, nil
 	}
-	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number))
+	files, err := r.Pulls.Files(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, int64(obj.Number), false)
 	if err != nil {
 		return nil, mapErr(err)
 	}

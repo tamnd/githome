@@ -45,7 +45,10 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 		return err
 	}
 
-	changes, err := h.repos.CommitFiles(ctx, repo, commit.SHA)
+	mode := diffModeFromQuery(c)
+	ignoreWS := ignoreWhitespaceFromQuery(c)
+
+	changes, err := h.repos.CommitFiles(ctx, repo, commit.SHA, ignoreWS)
 	if err != nil && !errors.Is(err, domain.ErrGitNotFound) {
 		return err
 	}
@@ -65,7 +68,7 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 		changes = changes[:maxCommitFiles]
 		truncated = true
 	}
-	files := commitDiffFiles(changes, view.DiffUnified)
+	files := commitDiffFiles(changes, mode)
 
 	// Build parent short-SHA + URL pairs.
 	var parentSHAs, parentURLs []string
@@ -95,6 +98,9 @@ func (h *Handlers) Commit(c *mizu.Ctx) error {
 		Deletions:      deletions,
 		CommitsURL:     route.Commits(owner, repo.Name, commit.SHA, ""),
 		TreeURL:        route.Tree(owner, repo.Name, commit.SHA, ""),
+		// The toggle re-requests this commit page flipping one diff axis at a
+		// time, keeping the other where it stands.
+		Diff: commitDiffToggle(route.Commit(owner, repo.Name, commit.SHA), mode, ignoreWS),
 	}
 	return h.render.Page(c, "repo/commit", vm)
 }
@@ -116,6 +122,35 @@ func commitDiffFiles(changes []git.FileChange, mode view.DiffMode) []view.DiffFi
 		))
 	}
 	return out
+}
+
+// diffModeFromQuery reads GitHub's ?diff= parameter: "split" selects the
+// side-by-side view, anything else (including absent) the unified view.
+func diffModeFromQuery(c *mizu.Ctx) view.DiffMode {
+	if c.Request().URL.Query().Get("diff") == "split" {
+		return view.DiffSplit
+	}
+	return view.DiffUnified
+}
+
+// ignoreWhitespaceFromQuery reads GitHub's ?w= parameter: "1" hides
+// whitespace-only changes, anything else keeps them.
+func ignoreWhitespaceFromQuery(c *mizu.Ctx) bool {
+	return c.Request().URL.Query().Get("w") == "1"
+}
+
+// commitDiffToggle builds the unified/split and hide-whitespace controls for
+// the commit page, each URL flipping one axis while preserving the other.
+func commitDiffToggle(base string, mode view.DiffMode, ignoreWS bool) view.DiffToggleVM {
+	split := mode == view.DiffSplit
+	return view.DiffToggleVM{
+		Split:      split,
+		IgnoreWS:   ignoreWS,
+		UnifiedURL: route.DiffView(base, false, ignoreWS),
+		SplitURL:   route.DiffView(base, true, ignoreWS),
+		ShowWSURL:  route.DiffView(base, split, false),
+		HideWSURL:  route.DiffView(base, split, true),
+	}
 }
 
 // commitText serves /{owner}/{repo}/commit/{sha}.diff and .patch: the plain

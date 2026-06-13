@@ -39,7 +39,8 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 	}
 	owner := ownerLogin(repo)
 
-	changes, err := h.pulls.Files(ctx, h.viewer(c).pk, owner, repo.Name, pr.Number)
+	ignoreWS := ignoreWhitespaceFromQuery(c)
+	changes, err := h.pulls.Files(ctx, h.viewer(c).pk, owner, repo.Name, pr.Number, ignoreWS)
 	if err != nil {
 		if isNotFound(err) {
 			return h.notFound(c)
@@ -85,7 +86,7 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 		Files:        files,
 		Truncated:    truncated,
 		Review:       h.reviewSurface(ctx, repo, pr, vc),
-		Diff:         diffToggle(route.PullFiles(owner, repo.Name, pr.Number), mode),
+		Diff:         diffToggle(route.PullFiles(owner, repo.Name, pr.Number), mode, ignoreWS),
 	}
 	return h.render.Page(c, "pulls/files", vm)
 }

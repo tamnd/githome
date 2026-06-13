@@ -62,13 +62,10 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		base = db.Name
 	}
 
-	var cmp *domain.CompareResult
-	var err error
-	if spec.TwoDot {
-		cmp, err = h.repos.CompareDirect(ctx, repo, base, head)
-	} else {
-		cmp, err = h.repos.Compare(ctx, repo, base, head)
-	}
+	mode := diffModeFromQuery(c)
+	ignoreWS := ignoreWhitespaceFromQuery(c)
+
+	cmp, err := h.repos.CompareOpts(ctx, repo, base, head, spec.TwoDot, ignoreWS)
 	if errors.Is(err, domain.ErrGitNotFound) {
 		return h.notFound(c)
 	}
@@ -76,7 +73,7 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		return h.render.ServerError(c, err)
 	}
 
-	files := buildFiles(cmp.Files)
+	files := buildFiles(cmp.Files, mode)
 	if len(files) > maxCompareFiles {
 		files = files[:maxCompareFiles]
 	}
@@ -107,6 +104,10 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 		CreateURL:    route.Pulls(owner, repo.Name, ""),
 		CSRFToken:    view.CSRFFrom(ctx),
 		ExpandURL:    route.CompareExpanded(owner, repo.Name, base, head),
+		// The toggle re-requests this same range — its own path preserves the
+		// two-dot or three-dot form and any qualified sides — flipping one diff
+		// axis at a time.
+		Diff: diffToggle(c.Request().URL.Path, mode, ignoreWS),
 	}
 	return h.render.Page(c, "compare/range", vm)
 }
@@ -169,7 +170,7 @@ func sideInRepo(repo *domain.Repo, s route.CompareSide) bool {
 	return true
 }
 
-func buildFiles(changes []git.FileChange) []view.DiffFileVM {
+func buildFiles(changes []git.FileChange, mode view.DiffMode) []view.DiffFileVM {
 	out := make([]view.DiffFileVM, 0, len(changes))
 	for _, ch := range changes {
 		out = append(out, view.BuildDiffFile(
@@ -177,10 +178,40 @@ func buildFiles(changes []git.FileChange) []view.DiffFileVM {
 			view.FileStatus(ch.Status),
 			ch.Additions, ch.Deletions,
 			ch.Patch,
-			view.DiffUnified,
+			mode,
 		))
 	}
 	return out
+}
+
+// diffModeFromQuery reads GitHub's ?diff= parameter: "split" selects the
+// side-by-side view, anything else (including absent) the unified view.
+func diffModeFromQuery(c *mizu.Ctx) view.DiffMode {
+	if c.Request().URL.Query().Get("diff") == "split" {
+		return view.DiffSplit
+	}
+	return view.DiffUnified
+}
+
+// ignoreWhitespaceFromQuery reads GitHub's ?w= parameter: "1" hides
+// whitespace-only changes, anything else keeps them.
+func ignoreWhitespaceFromQuery(c *mizu.Ctx) bool {
+	return c.Request().URL.Query().Get("w") == "1"
+}
+
+// diffToggle builds the unified/split and hide-whitespace controls for the
+// compare page, each URL flipping one axis while preserving the other. The base
+// is the page's own range path so a control re-requests this same comparison.
+func diffToggle(base string, mode view.DiffMode, ignoreWS bool) view.DiffToggleVM {
+	split := mode == view.DiffSplit
+	return view.DiffToggleVM{
+		Split:      split,
+		IgnoreWS:   ignoreWS,
+		UnifiedURL: route.DiffView(base, false, ignoreWS),
+		SplitURL:   route.DiffView(base, true, ignoreWS),
+		ShowWSURL:  route.DiffView(base, split, false),
+		HideWSURL:  route.DiffView(base, split, true),
+	}
 }
 
 func buildCommits(owner, repo string, commits []git.Commit) []view.CompareCommitVM {
