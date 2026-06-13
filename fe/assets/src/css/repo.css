@@ -475,14 +475,16 @@
   white-space: pre;
 }
 
+/* GitHub paints a linked line attention-yellow, the same tint blame uses, so
+   the highlight reads identically whichever view the deep link lands in. */
 .blob-line:target {
-  background-color: var(--bgColor-accent-muted);
+  background-color: var(--bgColor-attention-muted);
 }
 
 /* The sticky gutter paints its own background, so the target tint must be
    restated on it or the highlighted row would lose its number cell. */
 .blob-line:target .blob-num {
-  background-color: var(--bgColor-accent-muted);
+  background-color: var(--bgColor-attention-muted);
 }
 
 .blob-render {
