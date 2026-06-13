@@ -1,8 +1,11 @@
 package rest
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/go-mizu/mizu"
 
@@ -268,18 +271,125 @@ func handleRepoTeamsList(d Deps) mizu.Handler {
 }
 
 // handleIssueEventsList serves GET /repos/{owner}/{repo}/issues/{number}/events.
+// It returns the issue's recorded action events (closed, reopened, locked, ...)
+// in chronological order, paginated with a Link header.
 func handleIssueEventsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		page, perr := parsePageFor(c, "Issue")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		actor := auth.ActorFrom(c.Request().Context())
+		events, err := d.Issues.ListIssueEvents(c.Request().Context(), actor.UserID, c.Param("owner"), c.Param("repo"), number)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out := make([]restmodel.IssueEvent, 0, len(events))
+		for _, e := range events {
+			out = append(out, d.URLs.IssueEvent(c.Param("owner"), c.Param("repo"), e, d.NodeFormat))
+		}
+		paged := paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, paged)
 		return nil
 	}
 }
 
+// timelineComment is a comment as it appears on the timeline: the comment object
+// with the discriminating event:"commented" field GitHub adds.
+type timelineComment struct {
+	restmodel.IssueComment
+	Event string `json:"event"`
+}
+
 // handleIssueTimeline serves GET /repos/{owner}/{repo}/issues/{number}/timeline.
+// The timeline merges the issue's comments (as commented entries) with its
+// action events, ordered by time, then paginates the merged list with a Link
+// header. It is the union of the comments and events surfaces in one feed.
 func handleIssueTimeline(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		number, ok := pathInt64(c, "number")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		page, perr := parsePageFor(c, "Issue")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		owner, repoName := c.Param("owner"), c.Param("repo")
+		actor := auth.ActorFrom(c.Request().Context())
+		ctx := c.Request().Context()
+
+		events, err := d.Issues.ListIssueEvents(ctx, actor.UserID, owner, repoName, number)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		comments, err := allIssueComments(ctx, d, actor.UserID, owner, repoName, number)
+		if issueError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		// Merge into time-ordered entries; a comment and an event sharing a
+		// timestamp keep comment-before-event so the order is deterministic.
+		type entry struct {
+			when  time.Time
+			value any
+		}
+		entries := make([]entry, 0, len(comments)+len(events))
+		for _, cm := range comments {
+			entries = append(entries, entry{when: cm.CreatedAt, value: timelineComment{
+				IssueComment: d.URLs.IssueComment(owner, repoName, cm, d.NodeFormat),
+				Event:        "commented",
+			}})
+		}
+		for _, e := range events {
+			entries = append(entries, entry{when: e.CreatedAt, value: d.URLs.IssueEvent(owner, repoName, e, d.NodeFormat)})
+		}
+		sort.SliceStable(entries, func(i, j int) bool { return entries[i].when.Before(entries[j].when) })
+
+		paged := paginateSlice(&page, entries)
+		out := make([]any, 0, len(paged))
+		for _, e := range paged {
+			out = append(out, e.value)
+		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
+	}
+}
+
+// allIssueComments walks every page of an issue's comments so the timeline can
+// merge the full set. The page size matches the API ceiling; the loop stops on
+// the first short page.
+func allIssueComments(ctx context.Context, d Deps, viewerPK int64, owner, repoName string, number int64) ([]*domain.Comment, error) {
+	const perPage = 100
+	var all []*domain.Comment
+	for pageNo := int64(1); ; pageNo++ {
+		batch, err := d.Issues.ListComments(ctx, viewerPK, owner, repoName, number, pageNo, perPage)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, batch...)
+		if len(batch) < perPage {
+			return all, nil
+		}
 	}
 }
 
@@ -611,6 +721,7 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 		r.Put("/repos/{owner}/{repo}/issues/{number}/labels", handleIssueLabelsReplace(d))
 		r.Delete("/repos/{owner}/{repo}/issues/{number}/labels/{name}", handleIssueLabelRemove(d))
 		r.Get("/repos/{owner}/{repo}/assignees", handleAssigneesList(d))
+		r.Get("/repos/{owner}/{repo}/assignees/{username}", handleAssigneeCheck(d))
 		r.Post("/repos/{owner}/{repo}/issues/{number}/assignees", handleIssueAssigneesAdd(d))
 		r.Delete("/repos/{owner}/{repo}/issues/{number}/assignees", handleIssueAssigneesRemove(d))
 		r.Get("/repos/{owner}/{repo}/issues/{number}/events", handleIssueEventsList(d))

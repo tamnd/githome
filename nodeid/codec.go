@@ -46,6 +46,7 @@ const (
 	KindGistComment
 	KindTeam
 	KindApp
+	KindIssueEvent
 )
 
 // Format selects the encoding.
@@ -87,6 +88,7 @@ var registry = map[Kind]entry{
 	KindGistComment:              {"GistComment", "011", "GC"},
 	KindTeam:                     {"Team", "04", "T"},
 	KindApp:                      {"App", "03", "A"},
+	KindIssueEvent:               {"IssueEvent", "010", "IE"},
 }
 
 // byNewPrefix and byTypeName are reverse lookups built once at init.

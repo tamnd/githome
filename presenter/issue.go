@@ -72,6 +72,25 @@ var issueLinkSuffixes = [5]string{
 	"/timeline",
 }
 
+// IssueEvent renders one entry of an issue's event log for owner/repo. The URL
+// addresses the event under the repository's issues/events collection, matching
+// GitHub. commit_id/commit_url stay null: the action events githome records do
+// not reference a commit. A nil actor renders as JSON null.
+func (b *URLBuilder) IssueEvent(owner, repo string, e *domain.IssueEvent, format nodeid.Format) restmodel.IssueEvent {
+	out := restmodel.IssueEvent{
+		ID:        e.ID,
+		NodeID:    nodeid.Encode(nodeid.KindIssueEvent, e.ID, format),
+		URL:       b.RepoAPI(owner, repo) + "/issues/events/" + strconv.FormatInt(e.ID, 10),
+		Event:     e.Event,
+		CreatedAt: restmodel.NewTime(e.CreatedAt),
+	}
+	if e.Actor != nil {
+		actor := b.SimpleUser(e.Actor, format)
+		out.Actor = &actor
+	}
+	return out
+}
+
 // Label renders a repository label for owner/repo. The label URL escapes the
 // name so labels with spaces or slashes address correctly.
 func (b *URLBuilder) Label(owner, repo string, l *domain.Label, format nodeid.Format) restmodel.Label {
