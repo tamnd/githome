@@ -16,7 +16,27 @@ type SearchIssues struct {
 // its score.
 type IssueSearchItem struct {
 	Issue
-	Score float64 `json:"score"`
+	Score       float64     `json:"score"`
+	TextMatches []TextMatch `json:"text_matches,omitempty"`
+}
+
+// TextMatch is one text-match metadata entry GitHub attaches to a search hit
+// when the request asks for application/vnd.github.text-match+json. It names
+// the matched property, the fragment of it that contained the match, and the
+// matched substrings with their rune offsets into the fragment.
+type TextMatch struct {
+	ObjectURL  string             `json:"object_url"`
+	ObjectType *string            `json:"object_type"`
+	Property   string             `json:"property"`
+	Fragment   string             `json:"fragment"`
+	Matches    []TextMatchElement `json:"matches"`
+}
+
+// TextMatchElement is one matched substring inside a fragment: the matched text
+// and its [start, end) rune offsets.
+type TextMatchElement struct {
+	Text    string `json:"text"`
+	Indices []int  `json:"indices"`
 }
 
 // SearchRepositories is the GET /search/repositories body.
@@ -30,7 +50,8 @@ type SearchRepositories struct {
 // score.
 type RepoSearchItem struct {
 	Repository
-	Score float64 `json:"score"`
+	Score       float64     `json:"score"`
+	TextMatches []TextMatch `json:"text_matches,omitempty"`
 }
 
 // SearchCode is the GET /search/code body.
@@ -50,8 +71,9 @@ type CodeSearchItem struct {
 	URL        string     `json:"url"`
 	GitURL     string     `json:"git_url"`
 	HTMLURL    string     `json:"html_url"`
-	Repository Repository `json:"repository"`
-	Score      float64    `json:"score"`
+	Repository  Repository  `json:"repository"`
+	Score       float64     `json:"score"`
+	TextMatches []TextMatch `json:"text_matches,omitempty"`
 }
 
 // SearchUsers is the GET /search/users body.
