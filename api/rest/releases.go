@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-mizu/mizu"
 
@@ -22,6 +23,10 @@ type releaseCreateBody struct {
 	Prerelease           bool    `json:"prerelease"`
 	MakeLatest           string  `json:"make_latest"`
 	GenerateReleaseNotes bool    `json:"generate_release_notes"`
+	// DiscussionCategoryName is accepted for client compatibility (GoReleaser
+	// v2 may set it) but ignored: Githome has no release-discussion backend, so
+	// no discussion is created and no discussion_url is emitted.
+	DiscussionCategoryName string `json:"discussion_category_name"`
 }
 
 // generateNotesBody is the POST /releases/generate-notes request. The
@@ -455,10 +460,18 @@ func parseID(c *mizu.Ctx, paramName string) (int64, error) {
 	return strconv.ParseInt(c.Param(paramName), 10, 64)
 }
 
-// wantsOctetStream checks if the client prefers binary content.
+// wantsOctetStream checks if the client prefers binary content. octokit sends
+// `application/octet-stream` with a quality parameter and alongside other media
+// types, so split the header and match each type after stripping its params
+// rather than comparing the whole string.
 func wantsOctetStream(r *http.Request) bool {
-	accept := r.Header.Get("Accept")
-	return accept == "application/octet-stream"
+	for _, part := range strings.Split(r.Header.Get("Accept"), ",") {
+		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(part))
+		if err == nil && mediaType == "application/octet-stream" {
+			return true
+		}
+	}
+	return false
 }
 
 // mapReleaseError maps domain release errors to HTTP errors.
@@ -474,10 +487,10 @@ func mapReleaseError(c *mizu.Ctx, err error) error {
 		writeError(c.Writer(), errNotFound())
 		return nil
 	case errors.Is(err, domain.ErrForbidden):
-		writeError(c.Writer(), &apiError{Status: http.StatusForbidden, Message: "Must have write access to the repository"})
+		writeError(c.Writer(), errForbidden("Must have write access to the repository"))
 		return nil
 	case errors.Is(err, domain.ErrValidation):
-		writeError(c.Writer(), &apiError{Status: http.StatusUnprocessableEntity, Message: "Validation Failed"})
+		writeError(c.Writer(), errValidation())
 		return nil
 	default:
 		return err
