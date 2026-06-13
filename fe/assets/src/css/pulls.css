@@ -450,7 +450,6 @@
   white-space: nowrap;
   vertical-align: top;
   user-select: none;
-  border-right: var(--borderWidth-thin) solid var(--borderColor-muted);
 }
 
 .diff-code {
@@ -468,18 +467,26 @@
 
 .diff-row-hunk .diff-gutter {
   background-color: var(--bgColor-accent-muted);
-  border-right-color: transparent;
 }
 
-.diff-code-addition,
+/* The changed-line cell carries the soft line tint; the gutter carries the
+   stronger Num tint, matching GitHub where the line-number column reads a shade
+   deeper than the code beside it. */
+.diff-code-addition {
+  background-color: var(--diffBlob-additionLine-bgColor);
+}
+
 .diff-row-addition .diff-gutter {
-  background-color: var(--bgColor-success-muted);
+  background-color: var(--diffBlob-additionNum-bgColor);
 }
 
-.diff-code-deletion,
+.diff-code-deletion {
+  background-color: var(--diffBlob-deletionLine-bgColor);
+}
+
 .diff-row-deletion .diff-gutter,
 .diff-gutter-deletion {
-  background-color: var(--bgColor-danger-muted);
+  background-color: var(--diffBlob-deletionNum-bgColor);
 }
 
 /* Intraline (word-level) highlight: inside a changed line the bytes that actually
