@@ -134,8 +134,12 @@ type Language struct {
 
 // License is an open-source license detected in a repository.
 type License struct {
-	Name   string
-	SpdxID *string
+	Key      string
+	Name     string
+	Nickname *string
+	SpdxID   *string
+	URL      *URI
+	Body     string
 }
 
 // RateLimit is the rate-limit state for the viewer.
