@@ -122,16 +122,20 @@ func (r *queryResolver) Nodes(ctx context.Context, ids []string) ([]generated.No
 	return out, nil
 }
 
-// RateLimit is the resolver for the rateLimit field. Githome does not enforce
-// API rate limits, so it returns a fixed stub that reports unlimited headroom.
+// RateLimit is the resolver for the rateLimit field. It reports GitHub's
+// rate-limit shape against this document: the node count and point cost the
+// node-count walk computes for the in-flight operation, charged against the
+// fixed hourly budget. Githome does not deduct from the budget across requests,
+// so used is this call's cost and remaining is the budget less that cost.
 func (r *queryResolver) RateLimit(ctx context.Context) (*gqlmodel.RateLimit, error) {
+	nodeCount, cost := queryCost(ctx)
 	return &gqlmodel.RateLimit{
-		Limit:     5000,
-		Cost:      1,
-		Remaining: 4999,
-		Used:      1,
-		NodeCount: 0,
-		ResetAt:   gqlmodel.NewDateTime(time.Now().UTC().Add(24 * time.Hour)),
+		Limit:     rateLimitBudget,
+		Cost:      int32(cost),
+		Remaining: int32(rateLimitBudget - cost),
+		Used:      int32(cost),
+		NodeCount: int32(nodeCount),
+		ResetAt:   gqlmodel.NewDateTime(time.Now().UTC().Add(time.Hour)),
 	}, nil
 }
 

@@ -8,71 +8,7 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	gqlruntime "github.com/99designs/gqlgen/graphql"
-
-	"github.com/tamnd/githome/api/graphql/generated"
-	"github.com/tamnd/githome/presenter/gqlmodel"
 )
-
-// buildComplexityRoot returns a ComplexityRoot that assigns a cost of 1 to
-// every scalar field and multiplies by the first/last argument for connection
-// fields, matching GitHub's published complexity model.
-func buildComplexityRoot() generated.ComplexityRoot {
-	var c generated.ComplexityRoot
-
-	// multFirst multiplies childComplexity by the first argument value (default 1).
-	multFirst := func(first *int32, childComplexity int) int {
-		n := 1
-		if first != nil && *first > 0 {
-			n = int(*first)
-		}
-		return n * childComplexity
-	}
-
-	// multPage is multFirst for connections that also page backward: the cost
-	// is whichever of first/last the client sent.
-	multPage := func(first, last *int32, childComplexity int) int {
-		if first == nil && last != nil {
-			return multFirst(last, childComplexity)
-		}
-		return multFirst(first, childComplexity)
-	}
-
-	c.Repository.Issues = func(childComplexity int, first *int32, _ *string, last *int32, _ *string, _ []gqlmodel.IssueState, _ *generated.IssueFilters, _ *generated.IssueOrder, _ []string) int {
-		return multPage(first, last, childComplexity)
-	}
-	c.Repository.PullRequests = func(childComplexity int, first *int32, _ *string, last *int32, _ *string, _ []gqlmodel.PullRequestState, _ *string, _ *string, _ []string, _ *generated.IssueOrder) int {
-		return multPage(first, last, childComplexity)
-	}
-	c.Issue.Comments = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
-		return multPage(first, last, childComplexity)
-	}
-	c.Issue.Labels = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-	c.PullRequest.Commits = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
-		return multPage(first, last, childComplexity)
-	}
-	c.PullRequest.Files = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-	c.PullRequest.ReviewThreads = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-	c.PullRequest.Reviews = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-	c.PullRequest.ReviewRequests = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-	c.PullRequest.Comments = func(childComplexity int, first *int32, _ *string, last *int32, _ *string) int {
-		return multPage(first, last, childComplexity)
-	}
-	c.PullRequestReviewThread.Comments = func(childComplexity int, first *int32, _ *string) int {
-		return multFirst(first, childComplexity)
-	}
-
-	return c
-}
 
 // depthLimit is a gqlgen HandlerExtension + OperationContextMutator that
 // rejects documents whose nesting depth exceeds the configured maximum.
