@@ -129,10 +129,21 @@ models:
       id:
         resolver: true
       # A Ref.target commit starts out as just a SHA; the message resolvers
-      # read the commit from git on demand.
+      # read the commit from git on demand. committedDate/authoredDate/authors/
+      # tree/parents read the same commit lazily, so they resolve too.
       message:
         resolver: true
       messageHeadline:
+        resolver: true
+      committedDate:
+        resolver: true
+      authoredDate:
+        resolver: true
+      authors:
+        resolver: true
+      tree:
+        resolver: true
+      parents:
         resolver: true
   StatusCheckRollup:
     model: github.com/tamnd/githome/presenter/gqlmodel.StatusCheckRollup

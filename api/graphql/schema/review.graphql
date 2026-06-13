@@ -28,10 +28,12 @@ enum PullRequestReviewDecision {
   REVIEW_REQUIRED
 }
 
-# StatusState is a rollup or status state, worst first.
+# StatusState is a rollup or status state. The value order matches GitHub's
+# published schema exactly so a client that indexes the enum by position (spec
+# 04:1240 warns some clients do) sees the same value at each ordinal GitHub does.
 enum StatusState {
-  ERROR
   EXPECTED
+  ERROR
   FAILURE
   PENDING
   SUCCESS
@@ -74,7 +76,7 @@ type StatusCheckRollup {
   state: StatusState!
   # contexts lists each individual status or check run that contributes to the
   # rollup state.
-  contexts(first: Int): StatusCheckRollupContextConnection!
+  contexts(first: Int, after: String): StatusCheckRollupContextConnection!
 }
 
 # StatusCheckRollupContextConnection is the connection over check/status contexts.
@@ -128,14 +130,15 @@ type Workflow {
   name: String!
 }
 
-# CheckStatusState is the status of a check run.
+# CheckStatusState is the status of a check run. The value order matches
+# GitHub's published schema so position-indexed clients agree with it.
 enum CheckStatusState {
+  REQUESTED
   QUEUED
   IN_PROGRESS
   COMPLETED
   WAITING
   PENDING
-  REQUESTED
 }
 
 # CheckConclusionState is the conclusion of a completed check run.

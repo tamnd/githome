@@ -336,35 +336,29 @@ func (r *pullRequestReviewThreadResolver) Comments(ctx context.Context, obj *gql
 // Contexts is the resolver for the contexts field. It re-fetches the full
 // rollup from the domain using the coordinates stored in the StatusCheckRollup
 // struct, then folds each check run and commit status into a union context node.
-func (r *statusCheckRollupResolver) Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32) (*generated.StatusCheckRollupContextConnection, error) {
+func (r *statusCheckRollupResolver) Contexts(ctx context.Context, obj *gqlmodel.StatusCheckRollup, first *int32, after *string) (*generated.StatusCheckRollupContextConnection, error) {
 	rollup, err := r.Checks.Rollup(ctx, viewerID(ctx), obj.RepoOwner, obj.RepoName, obj.SHA)
 	if err != nil {
-		return &generated.StatusCheckRollupContextConnection{}, nil
+		return &generated.StatusCheckRollupContextConnection{PageInfo: pageInfoFor(0, 0, 0)}, nil
 	}
-	limit := len(rollup.CheckRuns) + len(rollup.Statuses)
-	if first != nil && int(*first) < limit {
-		limit = int(*first)
-	}
-	nodes := make([]generated.StatusCheckRollupContext, 0, limit)
+	// Materialize the full context list (check runs first, then statuses) so the
+	// after cursor pages over a stable order.
+	all := make([]generated.StatusCheckRollupContext, 0, len(rollup.CheckRuns)+len(rollup.Statuses))
 	for _, cr := range rollup.CheckRuns {
-		if len(nodes) >= limit {
-			break
-		}
-		c := presenter.GQLCheckRun(cr, r.format(ctx))
-		nodes = append(nodes, c)
+		all = append(all, presenter.GQLCheckRun(cr, r.format(ctx)))
 	}
 	for _, s := range rollup.Statuses {
-		if len(nodes) >= limit {
-			break
-		}
-		sc := presenter.GQLStatusContext(s)
-		nodes = append(nodes, sc)
+		all = append(all, presenter.GQLStatusContext(s))
 	}
-	total := len(rollup.CheckRuns) + len(rollup.Statuses)
+	start, end, err := windowSlice(len(all), first, after)
+	if err != nil {
+		return nil, err
+	}
+	nodes := all[start:end]
 	return &generated.StatusCheckRollupContextConnection{
 		Nodes:      nodes,
-		PageInfo:   pageInfoFor(0, len(nodes), total),
-		TotalCount: int32(total),
+		PageInfo:   pageInfoFor(start, len(nodes), len(all)),
+		TotalCount: int32(len(all)),
 	}, nil
 }
 

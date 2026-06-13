@@ -199,6 +199,42 @@ type Commit implements GitObject & Node {
   abbreviatedOid: String!
   message: String!
   messageHeadline: String!
+  # committedDate and authoredDate are the committer and author timestamps gh
+  # pr view --json commits reads off each commit.
+  committedDate: GitTimestamp!
+  authoredDate: GitTimestamp!
+  # authors lists the commit's authors (the author signature, plus any
+  # co-authors once trailer parsing lands); gh selects name and email.
+  authors(first: Int, after: String): GitActorConnection!
+  # tree is the root tree the commit points at.
+  tree: Tree!
+  # parents are the commits this one descends from: one for an ordinary commit,
+  # two or more for a merge.
+  parents(first: Int, after: String): CommitConnection!
+}
+
+# GitActor is a name/email/date triple a git commit records, optionally linked
+# to the Githome user whose email matches.
+type GitActor {
+  name: String
+  email: String
+  date: GitTimestamp
+  user: User
+}
+
+# GitActorConnection is the connection over a commit's authors.
+type GitActorConnection {
+  nodes: [GitActor]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# CommitConnection is the connection over a set of commits, e.g. a commit's
+# parents.
+type CommitConnection {
+  nodes: [Commit]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 type PullRequestCommitConnection {

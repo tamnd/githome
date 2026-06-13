@@ -64,6 +64,40 @@ func (p issuePage) window(total int) (start, end int) {
 	return start, end
 }
 
+// windowSlice resolves a forward [start, end) slice over an in-memory result of
+// the given length from a Relay first/after pair. It serves the small, already
+// materialized sub-connections (a commit's authors and parents) where the whole
+// set is in hand and paging is a slice, not a query. An absent first returns the
+// whole remainder, the way GitHub serves a small nested connection; a negative
+// or over-limit first is rejected with GitHub's wording. after decodes to the
+// absolute offset the next page begins at.
+func windowSlice(total int, first *int32, after *string) (start, end int, err error) {
+	if after != nil {
+		off, derr := decodeCursor(*after)
+		if derr != nil {
+			return 0, 0, derr
+		}
+		start = off
+	}
+	if start > total {
+		start = total
+	}
+	end = total
+	if first != nil {
+		n := int(*first)
+		if n < 0 {
+			return 0, 0, gqlError{"`first` must be a non-negative integer."}
+		}
+		if n > maxPageSize {
+			return 0, 0, gqlError{fmt.Sprintf("Requesting %d records exceeds the `first` limit of %d records.", n, maxPageSize)}
+		}
+		if start+n < end {
+			end = start + n
+		}
+	}
+	return start, end, nil
+}
+
 // issuePageArgs validates the Relay page arguments and resolves the window. It
 // mirrors GitHub's wording: a connection must be paginated with exactly one of
 // first or last, the messages name the connection field, and the over-limit
