@@ -383,6 +383,33 @@ func handleWebhookPing(d Deps) mizu.Handler {
 	}
 }
 
+// handleWebhookTest serves POST /repos/{owner}/{repo}/hooks/{hook_id}/tests.
+// GitHub triggers the hook against the repository's latest push when the hook
+// subscribes to push events, and answers 204 either way; the service fires the
+// synthetic delivery and a no-subscription or empty repository is the silent
+// 204.
+func handleWebhookTest(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		owner, repo := c.Param("owner"), c.Param("repo")
+		hookID, ok := pathInt64(c, "hook_id")
+		if !ok {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		err := d.Hooks.TestHook(ctx, actor.UserID, owner, repo, hookID)
+		if hookError(c.Writer(), err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.Writer().WriteHeader(http.StatusNoContent)
+		return nil
+	}
+}
+
 // handleSingleCommitGet serves GET /repos/{owner}/{repo}/commits/{sha}.
 func handleSingleCommitGet(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
@@ -882,6 +909,7 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 	}
 	if d.Hooks != nil {
 		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/pings", requireScope(handleWebhookPing(d), "repo", "write:repo_hook"))
+		r.Post("/repos/{owner}/{repo}/hooks/{hook_id}/tests", requireScope(handleWebhookTest(d), "repo", "write:repo_hook"))
 	}
 	if d.Teams != nil {
 		r.Get("/orgs/{org}/teams", handleOrgTeamsList(d))

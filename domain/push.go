@@ -2,9 +2,11 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
+	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/store"
 )
 
@@ -96,4 +98,31 @@ func (s *RepoService) OnPush(ctx context.Context, b PushBatch) error {
 		}
 	}
 	return nil
+}
+
+// SyntheticHeadPush builds the push a hook test fires: a single update of the
+// repository's default branch, before and after both pinned to its current
+// head, so the body renders against real refs without moving anything. ok is
+// false when the default branch has no commit yet (an empty repository), where
+// there is nothing to test against and GitHub sends no delivery. pusherPK names
+// the actor who triggered the test.
+func (s *RepoService) SyntheticHeadPush(ctx context.Context, repoPK int64, defaultBranch string, pusherPK int64) (*PushPayload, bool, error) {
+	ref := "refs/heads/" + defaultBranch
+	sha, err := s.gitStore.RefSHA(ctx, repoPK, ref)
+	if errors.Is(err, git.ErrRefNotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return &PushPayload{
+		RepoPK:   repoPK,
+		PusherPK: pusherPK,
+		Protocol: "http",
+		Updates: []RefUpdate{{
+			Ref:    ref,
+			OldSHA: string(sha),
+			NewSHA: string(sha),
+		}},
+	}, true, nil
 }
