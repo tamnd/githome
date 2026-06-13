@@ -133,6 +133,11 @@ type DiffRow struct {
 	AnchorSide string // "LEFT", "RIGHT", or "" for a structural row
 	AnchorLine int    // file line the comment anchors to, 0 when not commentable
 	Threads    []ReviewThreadVM
+
+	// raw is the line content with the op byte stripped, kept on addition and
+	// deletion rows so a paired replacement can word-diff the two sides without
+	// re-parsing the escaped cell. It is unexported: the template never reads it.
+	raw string
 }
 
 // patchHunk is one @@ block parsed out of a file's patch text.
@@ -282,10 +287,10 @@ func buildRows(hunks []patchHunk, mode DiffMode) []DiffRow {
 				oldLn++
 				newLn++
 			case '-':
-				r = DiffRow{Kind: RowDeletion, OldLine: oldLn, Text: escapeHTML("-" + l.text), Side: SideLeft, Position: pos, Hunk: hi, AnchorSide: "LEFT", AnchorLine: oldLn}
+				r = DiffRow{Kind: RowDeletion, OldLine: oldLn, Text: escapeHTML("-" + l.text), Side: SideLeft, Position: pos, Hunk: hi, AnchorSide: "LEFT", AnchorLine: oldLn, raw: l.text}
 				oldLn++
 			case '+':
-				r = DiffRow{Kind: RowAddition, NewLine: newLn, Text: escapeHTML("+" + l.text), Side: SideRight, Position: pos, Hunk: hi, AnchorSide: "RIGHT", AnchorLine: newLn}
+				r = DiffRow{Kind: RowAddition, NewLine: newLn, Text: escapeHTML("+" + l.text), Side: SideRight, Position: pos, Hunk: hi, AnchorSide: "RIGHT", AnchorLine: newLn, raw: l.text}
 				newLn++
 			}
 			if l.noEOL {
@@ -296,6 +301,8 @@ func buildRows(hunks []patchHunk, mode DiffMode) []DiffRow {
 	}
 	if mode == DiffSplit {
 		rows = pairForSplit(rows)
+	} else {
+		applyIntralineUnified(rows)
 	}
 	return rows
 }
@@ -339,12 +346,13 @@ func zipReplace(dels, adds []DiffRow) []DiffRow {
 	n := min(len(dels), len(adds))
 	for k := range n {
 		d, a := dels[k], adds[k]
+		oldHTML, newHTML := intralineHighlight(d.raw, a.raw)
 		out = append(out, DiffRow{
 			Kind:       RowReplace,
 			OldLine:    d.OldLine,
 			NewLine:    a.NewLine,
-			OldText:    d.Text,
-			NewText:    a.Text,
+			OldText:    oldHTML,
+			NewText:    newHTML,
 			Side:       SideRight,
 			Position:   a.Position,
 			Hunk:       a.Hunk,
@@ -367,6 +375,180 @@ func zipReplace(dels, adds []DiffRow) []DiffRow {
 // lands so the field is never empty.
 func diffAnchor(path string) string {
 	return "diff-" + path
+}
+
+// maxIntralineTokens bounds the word-diff: past it the line is long enough that
+// the O(n*m) LCS is not worth the spans, so the pair falls back to a whole-line
+// tint with no intraline markup. A typical code line is well under this.
+const maxIntralineTokens = 400
+
+// applyIntralineUnified word-highlights replaced lines in the unified row stream.
+// It finds each contiguous deletion run followed by an addition run, pairs them by
+// index (the same pairing the split view uses), and rewrites the paired rows' Text
+// with diff-word spans around the bytes that changed. Rows it does not pair (a lone
+// deletion or addition, context, headers) keep their whole-line text. It mutates
+// rows in place; the Position and line numbers are untouched.
+func applyIntralineUnified(rows []DiffRow) {
+	i := 0
+	for i < len(rows) {
+		if rows[i].Kind != RowDeletion {
+			i++
+			continue
+		}
+		delStart := i
+		for i < len(rows) && rows[i].Kind == RowDeletion {
+			i++
+		}
+		addStart := i
+		for i < len(rows) && rows[i].Kind == RowAddition {
+			i++
+		}
+		dels, adds := addStart-delStart, i-addStart
+		n := min(dels, adds)
+		for k := 0; k < n; k++ {
+			d := &rows[delStart+k]
+			a := &rows[addStart+k]
+			d.Text, a.Text = intralineHighlight(d.raw, a.raw)
+		}
+	}
+}
+
+// intralineHighlight word-diffs a replaced line pair and returns the two op-prefixed
+// cell HTMLs with a diff-word span around each side's changed run. It tokenizes both
+// sides, takes the longest common token subsequence, and wraps the tokens unique to
+// each side. When the two lines share no non-whitespace token it is a rewrite, not an
+// edit, so it skips the spans and returns the plain whole-line tint — the same call
+// GitHub makes, and what keeps a wholly different pair from lighting up end to end.
+func intralineHighlight(oldRaw, newRaw string) (oldHTML, newHTML template.HTML) {
+	oldTok := tokenizeWords(oldRaw)
+	newTok := tokenizeWords(newRaw)
+	if len(oldTok) > maxIntralineTokens || len(newTok) > maxIntralineTokens {
+		return escapeHTML("-" + oldRaw), escapeHTML("+" + newRaw)
+	}
+	oldKeep, newKeep := lcsMask(oldTok, newTok)
+	if !sharesWord(oldTok, oldKeep) {
+		return escapeHTML("-" + oldRaw), escapeHTML("+" + newRaw)
+	}
+	return template.HTML("-") + wrapChanged(oldTok, oldKeep),
+		template.HTML("+") + wrapChanged(newTok, newKeep)
+}
+
+// tokenizeWords splits a line into word tokens: a maximal run of identifier bytes
+// (letters, digits, underscore), a maximal run of whitespace, or one other byte on
+// its own. Punctuation standing alone keeps the diff granular ("a.b" vs "a.c" pins
+// the changed "b"/"c"), and identifier runs keep whole names together.
+func tokenizeWords(s string) []string {
+	var toks []string
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		switch {
+		case isWordByte(c):
+			j := i
+			for j < len(s) && isWordByte(s[j]) {
+				j++
+			}
+			toks = append(toks, s[i:j])
+			i = j
+		case c == ' ' || c == '\t':
+			j := i
+			for j < len(s) && (s[j] == ' ' || s[j] == '\t') {
+				j++
+			}
+			toks = append(toks, s[i:j])
+			i = j
+		default:
+			toks = append(toks, s[i:i+1])
+			i++
+		}
+	}
+	return toks
+}
+
+// isWordByte reports whether a byte is part of an identifier run.
+func isWordByte(c byte) bool {
+	return c == '_' ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9')
+}
+
+// lcsMask returns, for each side, a bool per token marking the tokens that lie on a
+// longest common subsequence (true = unchanged, false = changed). It is the standard
+// LCS DP over token equality, then a backtrack that sets the kept positions.
+func lcsMask(a, b []string) (aKeep, bKeep []bool) {
+	n, m := len(a), len(b)
+	aKeep = make([]bool, n)
+	bKeep = make([]bool, m)
+	if n == 0 || m == 0 {
+		return aKeep, bKeep
+	}
+	dp := make([][]int, n+1)
+	for i := range dp {
+		dp[i] = make([]int, m+1)
+	}
+	for i := n - 1; i >= 0; i-- {
+		for j := m - 1; j >= 0; j-- {
+			if a[i] == b[j] {
+				dp[i][j] = dp[i+1][j+1] + 1
+			} else if dp[i+1][j] >= dp[i][j+1] {
+				dp[i][j] = dp[i+1][j]
+			} else {
+				dp[i][j] = dp[i][j+1]
+			}
+		}
+	}
+	i, j := 0, 0
+	for i < n && j < m {
+		switch {
+		case a[i] == b[j]:
+			aKeep[i], bKeep[j] = true, true
+			i++
+			j++
+		case dp[i+1][j] >= dp[i][j+1]:
+			i++
+		default:
+			j++
+		}
+	}
+	return aKeep, bKeep
+}
+
+// sharesWord reports whether any kept token is a non-whitespace word, the test for
+// "these two lines are an edit of each other" rather than a full rewrite.
+func sharesWord(toks []string, keep []bool) bool {
+	for i, k := range keep {
+		if k && strings.TrimSpace(toks[i]) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// wrapChanged escapes the token stream and wraps each maximal run of changed tokens
+// in a diff-word span. Kept tokens render as plain escaped text, so only the bytes
+// that differ carry the darker word tint.
+func wrapChanged(toks []string, keep []bool) template.HTML {
+	var b strings.Builder
+	i := 0
+	for i < len(toks) {
+		if keep[i] {
+			b.WriteString(template.HTMLEscapeString(toks[i]))
+			i++
+			continue
+		}
+		j := i
+		var run strings.Builder
+		for j < len(toks) && !keep[j] {
+			run.WriteString(toks[j])
+			j++
+		}
+		b.WriteString(`<span class="diff-word">`)
+		b.WriteString(template.HTMLEscapeString(run.String()))
+		b.WriteString(`</span>`)
+		i = j
+	}
+	return template.HTML(b.String())
 }
 
 // escapeHTML wraps plain patch text as template.HTML after escaping it. Syntax

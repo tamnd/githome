@@ -164,6 +164,24 @@ func TestTooltipsAndFlashChrome(t *testing.T) {
 	ruleBody(t, string(src), "html[data-js-enhanced] .flash-close")
 }
 
+// TestIntralineWordHighlight guards review 02 task R02-31: the diff sheet must
+// tint the word-level change inside an edited line, the addition word in the
+// success word shade and the deletion word in the danger one, reading the
+// diffBlob word tokens so every theme recolors them. The builder wraps the
+// changed run in .diff-word; this pins the two cells that color it.
+func TestIntralineWordHighlight(t *testing.T) {
+	src, err := os.ReadFile("src/css/pulls.css")
+	if err != nil {
+		t.Fatalf("read pulls.css: %v", err)
+	}
+	if body := ruleBody(t, string(src), ".diff-code-addition .diff-word"); !strings.Contains(body, "var(--diffBlob-additionWord-bgColor)") {
+		t.Errorf(".diff-code-addition .diff-word must read the addition word token:\n%s", body)
+	}
+	if body := ruleBody(t, string(src), ".diff-code-deletion .diff-word"); !strings.Contains(body, "var(--diffBlob-deletionWord-bgColor)") {
+		t.Errorf(".diff-code-deletion .diff-word must read the deletion word token:\n%s", body)
+	}
+}
+
 // cssRule is one selector { body } pair lifted out of a sheet.
 type cssRule struct {
 	selector string
