@@ -33,18 +33,39 @@ func doGQL(t *testing.T, h http.Handler, query string) gqlResponse {
 	return resp
 }
 
-func TestComplexityLimitRejection(t *testing.T) {
-	// A query that selects 5001 nodes via first:5001 exceeds the 5000-point cap.
+// TestNodeLimitRejection confirms the node-count gate rejects a document that
+// could return more than GitHub's 500,000-node ceiling. A nested first:1000 in
+// first:1000 is 1,000,000 + 1,000 nodes, well over the cap.
+func TestNodeLimitRejection(t *testing.T) {
+	h := graphql.NewHandler(graphql.Deps{})
+	query := `{ repository(owner:"o",name:"r") { pullRequests(first:1000) { nodes { comments(first:1000) { nodes { id } } } } } }`
+	resp := doGQL(t, h, query)
+	if len(resp.Errors) == 0 {
+		t.Fatal("expected node-limit error, got none")
+	}
+	msg := resp.Errors[0].Message
+	if !strings.Contains(strings.ToLower(msg), "node count") &&
+		!strings.Contains(strings.ToLower(msg), "exceeds") {
+		t.Fatalf("unexpected error message: %q", msg)
+	}
+	ext := resp.Errors[0].Extensions
+	if code, _ := ext["code"].(string); code != "MAX_NODE_LIMIT_EXCEEDED" {
+		t.Fatalf("expected MAX_NODE_LIMIT_EXCEEDED extension code, got %q (full error: %q)", code, msg)
+	}
+}
+
+// TestNodeLimitAllowsLargeButBoundedQuery confirms a query the old fixed
+// 5000-point cap rejected — first:5001 on a single connection — passes the
+// node-count gate, the way GitHub serves it (5,001 nodes << 500,000). It may
+// still produce a resolution error for missing data, but never a node-limit one.
+func TestNodeLimitAllowsLargeButBoundedQuery(t *testing.T) {
 	h := graphql.NewHandler(graphql.Deps{})
 	query := `{ repository(owner:"o",name:"r") { issues(first:5001) { nodes { id } } } }`
 	resp := doGQL(t, h, query)
-	if len(resp.Errors) == 0 {
-		t.Fatal("expected complexity error, got none")
-	}
-	msg := resp.Errors[0].Message
-	if !strings.Contains(strings.ToLower(msg), "complexity") &&
-		!strings.Contains(strings.ToLower(msg), "exceeded") {
-		t.Fatalf("unexpected error message: %q", msg)
+	for _, e := range resp.Errors {
+		if code, _ := e.Extensions["code"].(string); code == "MAX_NODE_LIMIT_EXCEEDED" {
+			t.Fatalf("node-limit error on a 5001-node query GitHub serves: %q", e.Message)
+		}
 	}
 }
 

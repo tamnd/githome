@@ -36,10 +36,6 @@ type Deps struct {
 	NodeFormat nodeid.Format
 }
 
-// maxQueryComplexity is the maximum allowed query-complexity score. GitHub's
-// public API uses 5000; Githome matches that value.
-const maxQueryComplexity = 5000
-
 // maxQueryDepth is the maximum nesting depth allowed before the server rejects
 // the document. gh's statusCheckRollup expansion nests 13 levels deep, so the
 // cap sits well above the deepest document a real client sends.
@@ -63,7 +59,6 @@ func NewHandler(d Deps) http.Handler {
 			URLs:       d.URLs,
 			NodeFormat: d.NodeFormat,
 		},
-		Complexity: buildComplexityRoot(),
 	})
 	srv := handler.New(es)
 	srv.AddTransport(transport.POST{})
@@ -71,7 +66,7 @@ func NewHandler(d Deps) http.Handler {
 	srv.SetQueryCache(lru.New[*ast.QueryDocument](256))
 	srv.SetErrorPresenter(presentError)
 	srv.Use(extension.Introspection{})
-	srv.Use(extension.FixedComplexityLimit(maxQueryComplexity))
+	srv.Use(nodeLimitExtension(maxNodeLimit))
 	srv.Use(depthLimitExtension(maxQueryDepth))
 	var h http.Handler = liftErrorTypes(srv)
 	if d.Batch != nil {
