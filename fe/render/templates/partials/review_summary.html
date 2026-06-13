@@ -5,7 +5,7 @@
      A pending draft never reaches the timeline; only submitted reviews do. The state
      modifier colors the header. */ -}}
 {{$r := . -}}
-<article class="review-summary review-summary-{{$r.State.Modifier}}" id="pullrequestreview">
+<article class="review-summary review-summary-{{$r.State.Modifier}}" id="{{$r.Anchor}}">
   <div class="review-summary-head">
     <span class="review-summary-icon" aria-hidden="true">{{octicon $r.State.Icon 16}}</span>
     {{if $r.Author.AvatarURL}}<img class="avatar" src="{{$r.Author.AvatarURL}}" width="24" height="24" alt="" loading="lazy">{{else}}{{octicon "person" 16}}{{end}}

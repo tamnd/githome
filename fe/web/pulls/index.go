@@ -4,12 +4,14 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/web/issues"
 	"github.com/tamnd/githome/fe/webmw"
 )
 
@@ -34,6 +36,19 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 	owner := ownerLogin(repo)
 
 	state := stateParam(c.Query("state"))
+	// GitHub's PR index carries its filter in the same q grammar the issues
+	// index uses, pre-scoped to is:pr: the Open and Closed tabs and any
+	// bookmarked is:pr URL put the state in ?q=, not ?state=. Reuse the issues
+	// parser so the tokenization (is:open, is:closed, quoted terms) is identical
+	// to the issues index, then project the state token onto the PR list. The
+	// rest of the grammar (author/label/free-text) has no PRQuery backing yet
+	// (domain.PRQuery filters by state only), so those qualifiers round-trip in
+	// the search value but do not narrow the list; that waits on the PR list
+	// service growing the same filters the issue list already has.
+	queryRaw := strings.TrimSpace(c.Query("q"))
+	if queryRaw != "" {
+		state = prStateFromQuery(issues.ParseQuery(queryRaw))
+	}
 	page := pageParam(c.Query("page"))
 	viewerPK := webmw.ViewerID(ctx)
 
@@ -49,14 +64,15 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 	openTotal, closedTotal := h.tabCounts(ctx, viewerPK, owner, repo.Name, state, total)
 
 	vm := view.PRIndexVM{
-		Chrome:    h.chrome(c, repo.Name+" pull requests"),
-		Header:    h.header(repo),
-		Nav:       h.nav(repo),
-		Repo:      repoRef(repo),
-		OpenTab:   view.FilterTab{Label: "Open", Count: openTotal, URL: tabURL(owner, repo.Name, "open"), IsActive: state == "open"},
-		ClosedTab: view.FilterTab{Label: "Closed", Count: closedTotal, URL: tabURL(owner, repo.Name, "closed"), IsActive: state == "closed"},
-		Rows:      h.indexRows(repo, rows),
-		Pager:     h.pager(owner, repo.Name, state, page, total),
+		Chrome:     h.chrome(c, repo.Name+" pull requests"),
+		Header:     h.header(repo),
+		Nav:        h.nav(repo),
+		Repo:       repoRef(repo),
+		QueryValue: queryRaw,
+		OpenTab:    view.FilterTab{Label: "Open", Count: openTotal, URL: tabURL(owner, repo.Name, "open"), IsActive: state == "open"},
+		ClosedTab:  view.FilterTab{Label: "Closed", Count: closedTotal, URL: tabURL(owner, repo.Name, "closed"), IsActive: state == "closed"},
+		Rows:       h.indexRows(repo, rows),
+		Pager:      h.pager(owner, repo.Name, state, page, total),
 	}
 	if len(vm.Rows) == 0 {
 		vm.Empty = true
@@ -138,6 +154,23 @@ func listQuery(state string, page int) string {
 		vals.Set("page", strconv.Itoa(page))
 	}
 	return vals.Encode()
+}
+
+// prStateFromQuery maps a parsed q grammar onto the PR list's open/closed state.
+// is:merged and is:closed both list under the Closed tab, since a merged pull
+// request is closed; everything else, including is:open and an unset state, is
+// open. The PR list has no merged-only or draft-only state to project, so those
+// finer GitHub tabs collapse onto closed and open respectively.
+func prStateFromQuery(q *issues.Query) string {
+	for _, ql := range q.Quals {
+		if ql.Key == "is" && ql.Value == "merged" && !ql.Negate {
+			return "closed"
+		}
+	}
+	if q.State == "closed" {
+		return "closed"
+	}
+	return "open"
 }
 
 // stateParam reads the ?state= selector, defaulting to open and treating only the

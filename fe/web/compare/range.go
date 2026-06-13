@@ -80,7 +80,10 @@ func (h *Handlers) Range(c *mizu.Ctx) error {
 
 	commits := buildCommits(owner, repo.Name, cmp.Commits)
 
-	expanded := c.Query("expand") == "1"
+	// GitHub opens the PR creation form when either ?expand=1 or its older
+	// ?quick_pull=1 spelling is set; the "Create pull request" buttons on
+	// github.com still emit quick_pull, so accept both.
+	expanded := c.Query("expand") == "1" || c.Query("quick_pull") == "1"
 	sep := "..."
 	if spec.TwoDot {
 		sep = ".."

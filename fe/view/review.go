@@ -205,6 +205,7 @@ type ReviewSummaryVM struct {
 	SubmittedAt  string
 	SubmittedISO string
 	CommentCount int
+	Anchor       string
 	URL          string
 }
 

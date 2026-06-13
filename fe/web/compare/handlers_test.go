@@ -231,6 +231,32 @@ func TestCompareQualifiedSides(t *testing.T) {
 
 // TestCompareBadGrammar covers the strings that do not parse, and the ranges
 // that parse but name no branch: all of them are the soft 404.
+// TestCompareExpandAliases covers the PR-creation form gate: the bare range
+// shows the "Create pull request" button, ?expand=1 swaps it for the creation
+// form, and github.com's older ?quick_pull=1 spelling does the same, since the
+// "Create pull request" buttons on github.com still emit quick_pull.
+func TestCompareExpandAliases(t *testing.T) {
+	srv := newFixture(t)
+
+	_, collapsed := get(t, srv, "/octocat/hello/compare/master...feature")
+	if strings.Contains(collapsed, "compare-create-pr") {
+		t.Error("bare range showed the creation form before it was expanded")
+	}
+	if !strings.Contains(collapsed, "Create pull request") {
+		t.Error("bare range is missing the Create pull request button")
+	}
+
+	for _, q := range []string{"?expand=1", "?quick_pull=1"} {
+		resp, body := get(t, srv, "/octocat/hello/compare/master...feature"+q)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s: status %d, want 200", q, resp.StatusCode)
+		}
+		if !strings.Contains(body, "compare-create-pr") {
+			t.Errorf("GET %s did not expand the creation form:\n%s", q, body)
+		}
+	}
+}
+
 func TestCompareBadGrammar(t *testing.T) {
 	srv := newFixture(t)
 	for _, path := range []string{

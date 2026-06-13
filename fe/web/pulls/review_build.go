@@ -119,6 +119,7 @@ func (h *Handlers) reviewSummary(ctx context.Context, repo *domain.Repo, pr *dom
 		Author:       h.userChip(r.User),
 		State:        view.DeriveReviewState(r.State).StateVM(),
 		CommentCount: len(r.Comments),
+		Anchor:       "pullrequestreview-" + strconv.FormatInt(r.ID, 10),
 		URL:          route.PullReviewSummary(owner, repo.Name, pr.Number, r.ID),
 	}
 	if r.SubmittedAt != nil {

@@ -409,6 +409,7 @@ func mountPulls(page *mizu.Router, d Deps) {
 	pg.Post("/{owner}/{repo}/pulls", ph.Create)
 	pg.Get("/{owner}/{repo}/pull/{number}", ph.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", ph.Commits)
+	pg.Get("/{owner}/{repo}/pull/{number}/commits/{sha}", ph.CommitRedirect)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", ph.Files)
 	pg.Get("/{owner}/{repo}/pull/{number}/files/expand", ph.ExpandDiff)
 	// The Checks tab mounts only when the checks service is wired, the same gate

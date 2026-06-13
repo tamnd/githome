@@ -137,6 +137,7 @@ func newFixture(t *testing.T) fixture {
 	pg.Get("/{owner}/{repo}/pulls", h.Index)
 	pg.Get("/{owner}/{repo}/pull/{number}", h.Conversation)
 	pg.Get("/{owner}/{repo}/pull/{number}/commits", h.Commits)
+	pg.Get("/{owner}/{repo}/pull/{number}/commits/{sha}", h.CommitRedirect)
 	pg.Get("/{owner}/{repo}/pull/{number}/files", h.Files)
 	pg.Get("/{owner}/{repo}/pull/{number}/files/expand", h.ExpandDiff)
 	pg.Get("/{owner}/{repo}/pull/{number}/checks", h.Checks)
