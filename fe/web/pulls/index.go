@@ -65,7 +65,7 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 
 	vm := view.PRIndexVM{
 		Chrome:     h.chrome(c, repo.Name+" pull requests"),
-		Header:     h.header(repo),
+		Header:     h.header(c.Context(), repo),
 		Nav:        h.nav(repo),
 		Repo:       repoRef(repo),
 		QueryValue: queryRaw,

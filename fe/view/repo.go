@@ -50,8 +50,9 @@ type RepoHeaderVM struct {
 	Fork        bool
 	ParentName  string // owner/name of the fork parent, empty when not a fork
 	ParentURL   string
-	ActiveTab   string // code | issues | pulls | commits | branches | tags, drives the underline nav
+	ActiveTab   string // code | issues | pulls | commits | branches | tags | settings, drives the underline nav
 	OpenIssues  int    // open-issue count for the Issues tab counter, 0 hides it
+	CanSettings bool   // the viewer administers the repo, so the Settings tab shows (github.com hides it otherwise)
 }
 
 // TreeNav is the per-tab link set the repo underline nav renders. It is computed
@@ -66,6 +67,7 @@ type TreeNav struct {
 	CommitsURL  string
 	BranchesURL string
 	TagsURL     string
+	SettingsURL string
 }
 
 // RefPickerVM is the branch/tag switcher. It lists the refs inline (bounded) and

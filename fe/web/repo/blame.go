@@ -54,7 +54,7 @@ func (h *Handlers) Blame(c *mizu.Ctx) error {
 
 	vm := view.BlameVM{
 		Chrome:  h.chrome(c, "Blame · "+path),
-		Header:  h.header(repo, "blame"),
+		Header:  h.header(c.Context(), repo, "blame"),
 		Nav:     h.nav(repo, ref),
 		Repo:    repoRef(repo),
 		Ref:     view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch},

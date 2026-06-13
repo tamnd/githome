@@ -68,7 +68,7 @@ func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, i
 
 	vm := view.IssueDetailVM{
 		Chrome:    h.chrome(c, iss.Title+" #"+strconv.FormatInt(iss.Number, 10)),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		Number:    iss.Number,
@@ -153,7 +153,7 @@ func (h *Handlers) New(c *mizu.Ctx) error {
 	vc := h.viewer(c)
 	vm := view.NewIssueVM{
 		Chrome:    h.chrome(c, "New issue"),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		Action:    route.Issues(owner, repo.Name, ""),

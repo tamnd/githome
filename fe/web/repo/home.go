@@ -45,7 +45,7 @@ func (h *Handlers) Home(c *mizu.Ctx) error {
 
 	vm := view.RepoHomeVM{
 		Chrome: h.chrome(c, repo.Name),
-		Header: h.header(repo, "code"),
+		Header: h.header(c.Context(), repo, "code"),
 		Nav:    h.nav(repo, ref.Name),
 		Tree:   tree,
 		About:  h.about(repo),
@@ -59,7 +59,7 @@ func (h *Handlers) Home(c *mizu.Ctx) error {
 func (h *Handlers) quickSetup(c *mizu.Ctx, repo *domain.Repo) error {
 	vm := view.QuickSetupVM{
 		Chrome: h.chrome(c, repo.Name),
-		Header: h.header(repo, "code"),
+		Header: h.header(c.Context(), repo, "code"),
 		Nav:    h.nav(repo, repo.DefaultBranch),
 		Clone:  h.clone(repo),
 	}
@@ -97,7 +97,7 @@ func (h *Handlers) about(repo *domain.Repo) view.AboutVM {
 // inside the home page so the home and tree pages share it.
 func (h *Handlers) buildTreeFromDir(ctx context.Context, repo *domain.Repo, refs *refSet, ref view.Ref, rev, p string, dir []git.PathEntry, embedded bool) view.TreeVM {
 	return view.TreeVM{
-		Header:    h.header(repo, "code"),
+		Header:    h.header(ctx, repo, "code"),
 		Nav:       h.nav(repo, ref.Name),
 		Repo:      repoRef(repo),
 		Ref:       ref,

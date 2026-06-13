@@ -39,7 +39,7 @@ func (h *Handlers) build(c *mizu.Ctx, r req) (view.SearchPageVM, error) {
 	}
 	vm.Chrome = h.chrome(c, r.title)
 	if r.scope == view.ScopeRepo {
-		vm.Header = h.header(r.repo)
+		vm.Header = h.header(ctx, r.repo)
 		vm.Nav = h.nav(r.repo)
 		vm.Repo = repoRef(r.repo)
 	}

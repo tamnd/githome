@@ -107,7 +107,7 @@ func (h *Handlers) renderNewError(c *mizu.Ctx, repo *domain.Repo, vc viewerCtx, 
 	owner := ownerLogin(repo)
 	vm := view.NewIssueVM{
 		Chrome:    h.chrome(c, "New issue"),
-		Header:    h.header(repo),
+		Header:    h.header(c.Context(), repo),
 		Nav:       h.nav(repo),
 		Repo:      repoRef(repo),
 		Action:    route.Issues(owner, repo.Name, ""),

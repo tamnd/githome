@@ -48,7 +48,7 @@ func (h *Handlers) Picker(c *mizu.Ctx) error {
 	title := "Compare · " + owner + "/" + repo.Name
 	vm := view.ComparePickerVM{
 		Chrome:   h.chrome(c, title),
-		Header:   h.header(repo, "pulls"),
+		Header:   h.header(c.Context(), repo, "pulls"),
 		Nav:      h.nav(repo),
 		Branches: names,
 		Base:     defaultBranch,

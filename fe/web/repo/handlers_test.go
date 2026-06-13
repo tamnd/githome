@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
@@ -54,6 +55,35 @@ type fixture struct {
 	branch   string
 	helloID  int64
 	secretID int64
+}
+
+// repoTestSessionKey is a fixed 32-byte key for the test session signer.
+var repoTestSessionKey = []byte("githome-repo-test-session-key!!!")
+
+// ownerClient returns an HTTP client whose cookie jar carries the owner's session,
+// so a request it makes is the signed-in repo owner. Tests that want the anonymous
+// floor keep using the plain get helper, which sends no cookie.
+func (fx fixture) ownerClient(t *testing.T) *http.Client {
+	t.Helper()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("cookiejar: %v", err)
+	}
+	client := &http.Client{
+		Jar: jar,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Get(fx.srv.URL + "/_test/login")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login status %d", resp.StatusCode)
+	}
+	return client
 }
 
 // newFixture seeds one owner with three repositories: a populated public repo
@@ -132,8 +162,26 @@ func newFixture(t *testing.T) fixture {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
+	// The session middleware maps the owner's pk to a viewer, so a request that
+	// carries the owner's cookie reads as signed in; an anonymous request (no
+	// cookie) stays at pk zero. This is what the Settings tab gates on.
+	sessions := webmw.NewSessions(repoTestSessionKey, time.Hour, func(_ context.Context, pk int64) (*view.Viewer, error) {
+		if pk == u.PK {
+			return &view.Viewer{Login: "octocat", Name: "The Octocat"}, nil
+		}
+		return nil, nil
+	})
+
 	root := mizu.NewRouter()
-	page := root.With(webmw.ColorMode())
+	page := root.With(sessions.Middleware(), webmw.ColorMode())
+
+	// A tiny login route stands in for the real auth flow: it issues the owner a
+	// session cookie so a jar-backed client acts as the signed-in owner.
+	page.Get("/_test/login", func(c *mizu.Ctx) error {
+		sessions.Issue(c, u.PK, time.Now())
+		return c.Text(http.StatusOK, "ok")
+	})
+
 	rg := page.With(h.Resolve)
 	rg.Get("/{owner}/{repo}", h.Home)
 	rg.Get("/{owner}/{repo}/tree/{rest...}", h.Tree)
@@ -310,6 +358,40 @@ func TestHomeRendersRepoChrome(t *testing.T) {
 	}
 	if strings.Contains(body, `<a class="topic-tag"`) {
 		t.Errorf("topic chips must not be links until a topic browse surface exists")
+	}
+}
+
+// TestRepoSettingsTabVisibility pins the Settings tab to repo admins: github.com
+// shows it only to an account that administers the repo, which for githome's
+// single-owner model is the owning user. The anonymous floor never sees it, and
+// the owner always does, with the tab pointing at the settings root.
+func TestRepoSettingsTabVisibility(t *testing.T) {
+	fx := newFixture(t)
+
+	// Anonymous: no Settings tab, since an anonymous viewer cannot administer the
+	// repo and the settings pages would 404 for them anyway.
+	resp, body := get(t, fx.srv, "/octocat/hello")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("anon home status %d, want 200", resp.StatusCode)
+	}
+	if strings.Contains(body, `href="/octocat/hello/settings"`) {
+		t.Errorf("anonymous viewer must not see the Settings tab:\n%s", body)
+	}
+
+	// The owner sees the Settings tab linking at the settings root.
+	client := fx.ownerClient(t)
+	ownerResp, err := client.Get(fx.srv.URL + "/octocat/hello")
+	if err != nil {
+		t.Fatalf("owner GET home: %v", err)
+	}
+	ob, _ := io.ReadAll(ownerResp.Body)
+	_ = ownerResp.Body.Close()
+	ownerBody := string(ob)
+	if ownerResp.StatusCode != http.StatusOK {
+		t.Fatalf("owner home status %d, want 200", ownerResp.StatusCode)
+	}
+	if !strings.Contains(ownerBody, `href="/octocat/hello/settings"`) {
+		t.Errorf("owner is missing the Settings tab:\n%s", ownerBody)
 	}
 }
 

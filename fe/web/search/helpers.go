@@ -10,6 +10,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 )
 
 // helpers.go holds the small shared mappers the search build reuses: the repo
@@ -42,16 +43,18 @@ func (h *Handlers) chrome(c *mizu.Ctx, title string) view.Chrome {
 // header builds the repo context bar for an in-repo search. No repo nav tab is
 // the search page's own, so none is marked current; the bar links back to the
 // repo's tabs.
-func (h *Handlers) header(r *domain.Repo) view.RepoHeaderVM {
+func (h *Handlers) header(ctx context.Context, r *domain.Repo) view.RepoHeaderVM {
 	owner := ownerLogin(r)
+	pk := webmw.ViewerID(ctx)
 	hdr := view.RepoHeaderVM{
-		Owner:      owner,
-		Name:       r.Name,
-		OwnerURL:   "/" + owner,
-		URL:        route.Repo(owner, r.Name),
-		Private:    r.Private,
-		Fork:       r.Fork,
-		OpenIssues: r.OpenIssuesCount,
+		Owner:       owner,
+		Name:        r.Name,
+		OwnerURL:    "/" + owner,
+		URL:         route.Repo(owner, r.Name),
+		Private:     r.Private,
+		Fork:        r.Fork,
+		OpenIssues:  r.OpenIssuesCount,
+		CanSettings: pk != 0 && pk == r.OwnerPK,
 	}
 	if r.Description != nil {
 		hdr.Description = *r.Description
@@ -70,6 +73,7 @@ func (h *Handlers) nav(r *domain.Repo) view.TreeNav {
 		CommitsURL:  route.Commits(owner, r.Name, r.DefaultBranch, ""),
 		BranchesURL: route.Branches(owner, r.Name),
 		TagsURL:     route.Tags(owner, r.Name),
+		SettingsURL: route.RepoSettings(owner, r.Name),
 	}
 }
 

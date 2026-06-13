@@ -10,6 +10,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/fe/route"
 	"github.com/tamnd/githome/fe/view"
+	"github.com/tamnd/githome/fe/webmw"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/markup"
 )
@@ -35,23 +36,36 @@ func ownerLogin(r *domain.Repo) string {
 	return ""
 }
 
-// header builds the repo context bar for the given active tab.
-func (h *Handlers) header(r *domain.Repo, activeTab string) view.RepoHeaderVM {
+// header builds the repo context bar for the given active tab. The viewer's pk
+// (from ctx) decides whether the Settings tab shows: github.com renders it only
+// for an account that administers the repo, which for githome's single-owner
+// model is the owning user.
+func (h *Handlers) header(ctx context.Context, r *domain.Repo, activeTab string) view.RepoHeaderVM {
 	owner := ownerLogin(r)
 	hdr := view.RepoHeaderVM{
-		Owner:      owner,
-		Name:       r.Name,
-		OwnerURL:   "/" + owner,
-		URL:        route.Repo(owner, r.Name),
-		Private:    r.Private,
-		Fork:       r.Fork,
-		OpenIssues: r.OpenIssuesCount,
-		ActiveTab:  activeTab,
+		Owner:       owner,
+		Name:        r.Name,
+		OwnerURL:    "/" + owner,
+		URL:         route.Repo(owner, r.Name),
+		Private:     r.Private,
+		Fork:        r.Fork,
+		OpenIssues:  r.OpenIssuesCount,
+		ActiveTab:   activeTab,
+		CanSettings: canAdmin(ctx, r),
 	}
 	if r.Description != nil {
 		hdr.Description = *r.Description
 	}
 	return hdr
+}
+
+// canAdmin reports whether the viewer administers the repo: a signed-in user whose
+// pk owns it. It gates the Settings tab the same way the settings pages gate access
+// (a non-owner gets a 404, not a 403), so the tab never points at a page the viewer
+// cannot open.
+func canAdmin(ctx context.Context, r *domain.Repo) bool {
+	pk := webmw.ViewerID(ctx)
+	return pk != 0 && pk == r.OwnerPK
 }
 
 // nav builds the repo underline-nav link set. The Code, Issues, Pull requests,
@@ -67,6 +81,7 @@ func (h *Handlers) nav(r *domain.Repo, ref string) view.TreeNav {
 		CommitsURL:  route.Commits(owner, r.Name, ref, ""),
 		BranchesURL: route.Branches(owner, r.Name),
 		TagsURL:     route.Tags(owner, r.Name),
+		SettingsURL: route.RepoSettings(owner, r.Name),
 	}
 }
 

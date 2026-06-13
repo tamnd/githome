@@ -75,7 +75,7 @@ func (h *Handlers) Commits(c *mizu.Ctx) error {
 	base := route.Commits(owner, repo.Name, ref, path)
 	vm := view.CommitsVM{
 		Chrome:       h.chrome(c, "Commits · "+repo.FullName()),
-		Header:       h.header(repo, "commits"),
+		Header:       h.header(c.Context(), repo, "commits"),
 		Nav:          h.nav(repo, ref),
 		Repo:         repoRef(repo),
 		Ref:          view.Ref{Name: ref, IsDefault: ref == repo.DefaultBranch},
