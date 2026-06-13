@@ -13,6 +13,7 @@
 
     <form class="auth-form" method="post" action="{{.Action}}">
       {{if .Chrome.CSRFToken}}<input type="hidden" name="_csrf" value="{{.Chrome.CSRFToken}}">{{end}}
+      {{if .ReturnTo}}<input type="hidden" name="return_to" value="{{.ReturnTo}}">{{end}}
 
       <div class="auth-field">
         <label class="auth-label" for="login">Username</label>

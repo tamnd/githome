@@ -113,10 +113,141 @@ func authServer(t *testing.T) *httptest.Server {
 	page.Post("/login/session", h.LoginSubmit)
 	page.Get("/join", h.JoinForm)
 	page.Post("/join", h.JoinSubmit)
+	page.Get("/logout", h.LogoutForm)
+	page.Post("/logout/session", h.LogoutSubmit)
+	// The github.com-shaped aliases mountAuth also registers.
+	page.Post("/session", h.LoginSubmit)
+	page.Post("/logout", h.LogoutSubmit)
+	page.Get("/signup", h.JoinForm)
 
 	srv := httptest.NewServer(root)
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// TestSessionAliasSignsIn checks the github.com-shaped POST /session accepts the
+// same credentials and issues a session, exactly like /login/session.
+func TestSessionAliasSignsIn(t *testing.T) {
+	srv := authServer(t)
+	resp, _ := postForm(t, srv, "/session", url.Values{
+		"login":    {"octocat"},
+		"password": {"correct horse"},
+	})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status %d, want 303", resp.StatusCode)
+	}
+	if !hasSessionCookie(resp) {
+		t.Error("POST /session did not issue a session cookie")
+	}
+}
+
+// TestLogoutAliasClearsSession checks the github.com-shaped POST /logout clears
+// the session, like /logout/session.
+func TestLogoutAliasClearsSession(t *testing.T) {
+	srv := authServer(t)
+	login, _ := postForm(t, srv, "/session", url.Values{
+		"login":    {"octocat"},
+		"password": {"correct horse"},
+	})
+	if !hasSessionCookie(login) {
+		t.Fatal("precondition: sign-in did not set a session cookie")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/logout", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ck := range login.Cookies() {
+		req.AddCookie(ck)
+	}
+	resp, err := noFollow().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("status %d, want 303", resp.StatusCode)
+	}
+	if !clearsSessionCookie(resp) {
+		t.Error("POST /logout did not clear the session cookie")
+	}
+}
+
+// TestSignupAliasRendersJoin checks GET /signup serves the same sign-up form as
+// /join.
+func TestSignupAliasRendersJoin(t *testing.T) {
+	srv := authServer(t)
+	resp, err := noFollow().Get(srv.URL + "/signup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	if !strings.Contains(string(b), `name="email"`) {
+		t.Errorf("/signup did not render the join form:\n%s", b)
+	}
+}
+
+// TestJoinReturnTo checks the sign-up form carries a safe return_to through to
+// the post-join redirect, and falls back to / for an open-redirect attempt.
+func TestJoinReturnTo(t *testing.T) {
+	srv := authServer(t)
+
+	// The GET form embeds a safe return_to as a hidden field.
+	resp, err := noFollow().Get(srv.URL + "/join?return_to=/octocat/hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if !strings.Contains(string(b), `name="return_to" value="/octocat/hello"`) {
+		t.Errorf("join form did not carry return_to as a hidden field:\n%s", b)
+	}
+
+	// A successful sign-up lands on the safe return_to.
+	resp2, _ := postForm(t, srv, "/join", url.Values{
+		"login":     {"newbie"},
+		"email":     {"newbie@example.com"},
+		"password":  {"long enough password"},
+		"return_to": {"/octocat/hello"},
+	})
+	if loc := resp2.Header.Get("Location"); loc != "/octocat/hello" {
+		t.Errorf("join Location = %q, want /octocat/hello", loc)
+	}
+
+	// An open-redirect return_to falls back to /.
+	resp3, _ := postForm(t, srv, "/join", url.Values{
+		"login":     {"newbie2"},
+		"email":     {"newbie2@example.com"},
+		"password":  {"long enough password"},
+		"return_to": {"https://evil.example/x"},
+	})
+	if loc := resp3.Header.Get("Location"); loc != "/" {
+		t.Errorf("join open-redirect Location = %q, want /", loc)
+	}
+}
+
+// hasSessionCookie reports whether the response sets a non-empty session cookie.
+func hasSessionCookie(resp *http.Response) bool {
+	for _, ck := range resp.Cookies() {
+		if ck.Name == webmw.DefaultSessionCookie && ck.Value != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// clearsSessionCookie reports whether the response expires the session cookie.
+func clearsSessionCookie(resp *http.Response) bool {
+	for _, ck := range resp.Cookies() {
+		if ck.Name == webmw.DefaultSessionCookie && (ck.Value == "" || ck.MaxAge < 0) {
+			return true
+		}
+	}
+	return false
 }
 
 func noFollow() *http.Client {
