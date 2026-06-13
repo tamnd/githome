@@ -301,7 +301,7 @@ func (s *EventService) OrgFeed(ctx context.Context, viewerPK int64, org string, 
 // following anyone. The publicOnly flag is accepted for the
 // /received_events/public twin and is a no-op while the feed is already public.
 // It backs GET /users/{u}/received_events[/public].
-func (s *EventService) ReceivedFeed(ctx context.Context, login string, perPage int, publicOnly bool) ([]Event, error) {
+func (s *EventService) ReceivedFeed(ctx context.Context, login string, perPage int, _ bool) ([]Event, error) {
 	if _, err := s.store.UserByLogin(ctx, login); err != nil {
 		return nil, ErrUserNotFound
 	}

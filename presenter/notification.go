@@ -37,7 +37,6 @@ func (b *URLBuilder) NotificationThread(t *domain.NotificationThread, repo *doma
 	}
 }
 
-// NotificationSubscription renders the thread's subscription state.
 // RepoSubscription renders a repository subscription. The url is the
 // subscription endpoint and repository_url the repository itself, the pair
 // GitHub returns on this body.
@@ -52,6 +51,7 @@ func (b *URLBuilder) RepoSubscription(s *domain.Subscription) restmodel.RepoSubs
 	}
 }
 
+// NotificationSubscription renders the thread's subscription state.
 func (b *URLBuilder) NotificationSubscription(t *domain.NotificationThread) restmodel.NotificationSubscription {
 	id := strconv.FormatInt(t.ID, 10)
 	return restmodel.NotificationSubscription{

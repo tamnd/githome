@@ -3,22 +3,22 @@ package gqlmodel
 // User is the GraphQL User object, carrying the fields gh api and gh auth
 // status select. It grows toward the full GitHub User type milestone by milestone.
 type User struct {
-	ID              string   // the User node ID
-	Login           string   // the user's login
-	Name            *string  // display name, null when unset
-	Email           *string  // public email, null when unset
-	Bio             *string  // profile bio, null when unset
-	Company         *string  // profile company, null when unset
-	Location        *string  // profile location, null when unset
-	WebsiteURL      *URI     // profile blog/website URL, null when unset
-	TwitterUsername *string  // Twitter/X handle without the @, null when unset
-	DatabaseID      *int32   // the integer database id (REST id)
-	URL             URI      // the user's profile HTML URL
-	AvatarURL       URI      // the user's avatar URL; the size arg appends ?s=
-	ResourcePath    URI      // the path part of the profile URL, e.g. /octocat
+	ID              string      // the User node ID
+	Login           string      // the user's login
+	Name            *string     // display name, null when unset
+	Email           *string     // public email, null when unset
+	Bio             *string     // profile bio, null when unset
+	Company         *string     // profile company, null when unset
+	Location        *string     // profile location, null when unset
+	WebsiteURL      *URI        // profile blog/website URL, null when unset
+	TwitterUsername *string     // Twitter/X handle without the @, null when unset
+	DatabaseID      *int32      // the integer database id (REST id)
+	URL             URI         // the user's profile HTML URL
+	AvatarURL       URI         // the user's avatar URL; the size arg appends ?s=
+	ResourcePath    URI         // the path part of the profile URL, e.g. /octocat
 	Status          *UserStatus // the user's set status; always null today
-	CreatedAt       DateTime // account creation instant
-	UpdatedAt       DateTime // last-update instant
+	CreatedAt       DateTime    // account creation instant
+	UpdatedAt       DateTime    // last-update instant
 }
 
 // IsNode marks User as implementing the Node interface.

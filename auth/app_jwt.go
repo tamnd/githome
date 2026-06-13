@@ -40,7 +40,7 @@ func (c *publicKeyCache) set(pk int64, k *rsa.PublicKey) {
 // On success it returns a KindAppJWT actor whose AppID is the app's internal PK.
 func (s *Service) resolveAppJWT(ctx context.Context, raw string) (*Actor, error) {
 	var claims jwt.RegisteredClaims
-	keyFunc := func(t *jwt.Token) (any, error) {
+	keyFunc := func(_ *jwt.Token) (any, error) {
 		iss, err := claims.GetIssuer()
 		if err != nil || iss == "" {
 			return nil, ErrBadCredentials
@@ -130,8 +130,7 @@ func (s *Service) resolveInstallation(ctx context.Context, raw string) (*Actor, 
 // and own the installation. On success it returns the plaintext token and expiry.
 // repos and permissions narrow the grant (empty = full installation grant).
 func (s *Service) CreateInstallationToken(ctx context.Context, actor *Actor, instPK int64,
-	repos []string, permissions map[string]string) (plaintext string, expiresAt time.Time, err error) {
-
+	_ []string, _ map[string]string) (plaintext string, expiresAt time.Time, err error) {
 	if actor.Kind != KindAppJWT {
 		return "", time.Time{}, ErrBadCredentials
 	}

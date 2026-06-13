@@ -54,8 +54,11 @@ func Run(opts Options) *Report {
 type Status int
 
 const (
+	// Pass means the check ran and the behavior matched.
 	Pass Status = iota
+	// Fail means the check ran and the behavior did not match.
 	Fail
+	// Skip means the check did not run.
 	Skip
 )
 

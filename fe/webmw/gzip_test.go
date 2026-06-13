@@ -12,7 +12,7 @@ import (
 // gzipEcho serves a fixed body under the given content type, optionally with a
 // preset Content-Encoding, behind the Gzip layer.
 func gzipEcho(contentType, encoding, body string) http.Handler {
-	return Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return Gzip(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", contentType)
 		if encoding != "" {
 			w.Header().Set("Content-Encoding", encoding)

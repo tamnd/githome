@@ -99,37 +99,6 @@ func handleReviewCommentEdit(d Deps) mizu.Handler {
 	}
 }
 
-// handleReviewCommentDelete serves DELETE /repos/{owner}/{repo}/pulls/comments/{comment_id}.
-func handleReviewCommentDelete(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		ctx := c.Request().Context()
-		actor := auth.ActorFrom(ctx)
-		if !actor.IsUser() {
-			writeError(c.Writer(), errRequiresAuth())
-			return nil
-		}
-		id, ok := pathInt64(c, "comment_id")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		err := d.Reviews.DeleteReviewComment(ctx, actor.UserID, id)
-		if errors.Is(err, domain.ErrNotFound) {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		if errors.Is(err, domain.ErrForbidden) {
-			writeError(c.Writer(), errForbidden("not allowed"))
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		c.Writer().WriteHeader(http.StatusNoContent)
-		return nil
-	}
-}
-
 // handleAllReviewCommentsList serves GET /repos/{owner}/{repo}/pulls/comments.
 func handleAllReviewCommentsList(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
@@ -185,40 +154,6 @@ func handleRequestedReviewersAdd(d Deps) mizu.Handler {
 			d.Notifications.NotifyReviewRequested(ctx, actor.UserID, owner, repo, number, body.Reviewers)
 		}
 		writeJSON(c.Writer(), http.StatusCreated, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
-		return nil
-	}
-}
-
-// handleRequestedReviewersRemove serves DELETE /repos/{owner}/{repo}/pulls/{number}/requested_reviewers.
-func handleRequestedReviewersRemove(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		number, ok := pathInt64(c, "number")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		ctx := c.Request().Context()
-		actor := auth.ActorFrom(ctx)
-		if !actor.IsUser() {
-			writeError(c.Writer(), errRequiresAuth())
-			return nil
-		}
-		var body struct {
-			Reviewers     []string `json:"reviewers"`
-			TeamReviewers []string `json:"team_reviewers"`
-		}
-		if !decodeJSON(c, &body) {
-			return nil
-		}
-		owner, repo := c.Param("owner"), c.Param("repo")
-		pr, err := d.Pulls.RemoveRequestedReviewers(ctx, actor.UserID, owner, repo, number, body.Reviewers)
-		if pullError(c.Writer(), err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		writeJSON(c.Writer(), http.StatusOK, d.URLs.PullRequest(owner, repo, pr, d.NodeFormat, true))
 		return nil
 	}
 }

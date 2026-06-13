@@ -60,13 +60,13 @@ func newFixture(t *testing.T) fixture {
 
 	// Two issue rows: a plain issue and a pull request sharing the number
 	// sequence. Each backs one notification thread.
-	issuePK := seedIssue(t, ctx, st, hello.PK, "the unread bug", false)
-	pullPK := seedIssue(t, ctx, st, hello.PK, "the read pull", true)
+	issuePK := seedIssue(ctx, t, st, hello.PK, "the unread bug", false)
+	pullPK := seedIssue(ctx, t, st, hello.PK, "the read pull", true)
 
 	// The unread thread shows in both the Inbox and the All filter; the read one
 	// only in All.
-	upsertThread(t, ctx, st, octocat.PK, hello.PK, issuePK, "mention")
-	readPK := upsertThread(t, ctx, st, octocat.PK, hello.PK, pullPK, "review_requested")
+	upsertThread(ctx, t, st, octocat.PK, hello.PK, issuePK, "mention")
+	readPK := upsertThread(ctx, t, st, octocat.PK, hello.PK, pullPK, "review_requested")
 	if err := st.MarkNotificationThreadRead(ctx, readPK); err != nil {
 		t.Fatalf("mark read: %v", err)
 	}
@@ -123,7 +123,7 @@ func newFixture(t *testing.T) fixture {
 // number from the repo's sequence, and returns its PK. The domain gates
 // creation on access this fixture does not grant, and the inbox only needs the
 // row to resolve a thread's subject.
-func seedIssue(t *testing.T, ctx context.Context, st *store.Store, repoPK int64, title string, isPull bool) int64 {
+func seedIssue(ctx context.Context, t *testing.T, st *store.Store, repoPK int64, title string, isPull bool) int64 {
 	t.Helper()
 	var pk int64
 	if err := st.WithTx(ctx, func(tx *store.Tx) error {
@@ -145,7 +145,7 @@ func seedIssue(t *testing.T, ctx context.Context, st *store.Store, repoPK int64,
 
 // upsertThread records a notification thread for the user on the issue and
 // returns its PK.
-func upsertThread(t *testing.T, ctx context.Context, st *store.Store, userPK, repoPK, issuePK int64, reason string) int64 {
+func upsertThread(ctx context.Context, t *testing.T, st *store.Store, userPK, repoPK, issuePK int64, reason string) int64 {
 	t.Helper()
 	row := &store.NotificationThreadRow{UserPK: userPK, RepoPK: repoPK, IssuePK: issuePK, Reason: reason}
 	if err := st.UpsertNotificationThread(ctx, row); err != nil {

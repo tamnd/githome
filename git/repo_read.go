@@ -602,7 +602,7 @@ type BlameLine struct {
 // it. It returns ErrObjectNotFound when the path does not exist in the tree at
 // ref, and ErrRepoNotFound for other resolution failures.
 func (r *Repo) Blame(ref, path string) ([]BlameLine, error) {
-	if lines, err, handled := r.blameBatch(ref, path); handled {
+	if lines, handled, err := r.blameBatch(ref, path); handled {
 		return lines, err
 	}
 	c, err := r.commitFromRev(ref)

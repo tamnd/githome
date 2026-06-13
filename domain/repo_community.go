@@ -91,7 +91,7 @@ func (s *RepoService) repoFilePaths(repo *Repo) ([]string, error) {
 // is the one GitHub would surface.
 var (
 	communityReadme              = matcher("README")
-	communityLicense             = prefixMatcher([]string{""}, "LICENSE", "LICENCE", "COPYING")
+	communityLicense             = prefixMatcher([]string{""}, "LICENSE", "LICENSE", "COPYING")
 	communityContributing        = matcher("CONTRIBUTING")
 	communityCodeOfConduct       = matcher("CODE_OF_CONDUCT")
 	communityIssueTemplate       = matcher("ISSUE_TEMPLATE")

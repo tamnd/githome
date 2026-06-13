@@ -189,7 +189,7 @@ func TestReadsRunConcurrentWithWriteTx(t *testing.T) {
 	release := make(chan struct{})
 	txDone := make(chan error, 1)
 	go func() {
-		txDone <- st.WithTx(ctx, func(tx *store.Tx) error {
+		txDone <- st.WithTx(ctx, func(_ *store.Tx) error {
 			close(txStarted)
 			<-release
 			return nil

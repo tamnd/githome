@@ -104,7 +104,7 @@ func liftErrorTypes(next http.Handler) http.Handler {
 		}
 		// The cost walk filled the rate-limit holder during execution; write its
 		// headers here, the last point that holds the header map before flush.
-		applyRateLimitHeaders(w.Header(), r.Context())
+		applyRateLimitHeaders(r.Context(), w.Header())
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		w.WriteHeader(rec.status)
 		_, _ = w.Write(body)

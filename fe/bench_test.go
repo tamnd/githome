@@ -576,7 +576,10 @@ func TestPageSLO(t *testing.T) {
 			}
 			avg := time.Since(start) / measure
 			t.Logf("%s: avg=%v", p.name, avg)
-			if avg > budget {
+			// Under -race the instrumentation inflates every request far past the
+			// budget; the requests above still run for the race detector, but the
+			// wall-clock gate only holds on an uninstrumented build.
+			if !raceEnabled && avg > budget {
 				t.Errorf("%s: avg=%v exceeds the %v budget", p.name, avg, budget)
 			}
 		})

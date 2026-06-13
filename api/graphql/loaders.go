@@ -42,8 +42,10 @@ type Loaders struct {
 
 // newLoaders constructs a fresh Loaders set for one request. batch provides
 // the underlying batch-store methods; urls and format render domain types into
-// the gqlmodel shapes the resolvers return.
-func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid.Format) *Loaders {
+// the gqlmodel shapes the resolvers return. wait is the batch coalescing window
+// every loader shares; production passes loaderWait, tests widen it so a slow,
+// loaded runner cannot break up a single logical wave into two fetches.
+func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid.Format, wait time.Duration) *Loaders {
 	return &Loaders{
 		Users: dataloader.New(func(ctx context.Context, pks []int64) (map[int64]*gqlmodel.User, error) {
 			users, err := batch.Users(ctx, pks)
@@ -55,7 +57,7 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 				out[pk] = urls.GQLUser(u, format)
 			}
 			return out, nil
-		}, loaderWait),
+		}, wait),
 
 		LabelsByIssue: dataloader.New(func(ctx context.Context, issuePKs []int64) (map[int64][]*gqlmodel.Label, error) {
 			lmap, err := batch.LabelsByIssues(ctx, issuePKs)
@@ -76,7 +78,7 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 				out[pk] = nodes
 			}
 			return out, nil
-		}, loaderWait),
+		}, wait),
 
 		AssigneesByIssue: dataloader.New(func(ctx context.Context, issuePKs []int64) (map[int64][]*gqlmodel.User, error) {
 			amap, err := batch.AssigneesByIssues(ctx, issuePKs)
@@ -92,7 +94,7 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 				out[pk] = users
 			}
 			return out, nil
-		}, loaderWait),
+		}, wait),
 
 		CommentsByIssue: dataloader.New(func(ctx context.Context, keys []commentsPreviewKey) (map[commentsPreviewKey][]*domain.Comment, error) {
 			// Group by limit so each distinct first: argument is one query.
@@ -111,7 +113,7 @@ func newLoaders(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid
 				}
 			}
 			return out, nil
-		}, loaderWait),
+		}, wait),
 	}
 }
 
@@ -133,7 +135,7 @@ func loadersFrom(ctx context.Context) *Loaders {
 // middleware stored on the context, falling back to the configured default.
 func loadersMiddleware(batch *domain.Batcher, urls *presenter.URLBuilder, format nodeid.Format, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := withLoaders(r.Context(), newLoaders(batch, urls, idFormat(r.Context(), format)))
+		ctx := withLoaders(r.Context(), newLoaders(batch, urls, idFormat(r.Context(), format), loaderWait))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

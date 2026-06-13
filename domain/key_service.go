@@ -71,7 +71,6 @@ func (s *KeyService) GetDeployKey(ctx context.Context, repoPK, dbID int64) (*sto
 // CreateDeployKey parses and registers a new deploy key on repoPK.
 func (s *KeyService) CreateDeployKey(ctx context.Context, repoPK, ownerPK int64,
 	title, rawKey string, readOnly bool) (*store.SSHKeyRow, error) {
-
 	keyType, fp, err := parseSSHPublicKey(rawKey)
 	if err != nil {
 		return nil, ErrInvalidSSHKey

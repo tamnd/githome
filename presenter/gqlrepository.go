@@ -18,44 +18,44 @@ func (b *URLBuilder) GQLRepository(r *domain.Repo, branch *git.Branch, format no
 	perm := gqlmodel.RepositoryPermissionAdmin
 	dbID := int32(r.ID)
 	repo := gqlmodel.Repository{
-		ID:                  nodeid.Encode(nodeid.KindRepository, r.ID, format),
-		Name:                r.Name,
-		NameWithOwner:       r.FullName(),
-		Description:         r.Description,
-		IsPrivate:           r.Private,
-		IsFork:              r.Fork,
-		IsArchived:          r.Archived,
-		IsEmpty:             r.PushedAt == nil,
-		IsInOrganization:    false, // Githome does not yet model organizations
-		ForkCount:           0,     // not stored
-		StargazerCount:      0,     // not stored
-		HomepageURL:         gqlHomepageURL(r.Homepage),
-		CreatedAt:           gqlmodel.NewDateTime(r.CreatedAt),
-		UpdatedAt:           gqlmodel.NewDateTime(r.UpdatedAt),
-		URL:                 gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
-		SSHURL:              gqlmodel.GitSSHRemote(b.RepoGitSSH(r.Owner.Login, r.Name)),
-		DatabaseID:          &dbID,
-		Visibility:          gqlVisibility(r.Private),
-		ViewerPermission:    &perm, // all authenticated users get ADMIN on their own repos
-		ViewerCanAdminister: true,
+		ID:                       nodeid.Encode(nodeid.KindRepository, r.ID, format),
+		Name:                     r.Name,
+		NameWithOwner:            r.FullName(),
+		Description:              r.Description,
+		IsPrivate:                r.Private,
+		IsFork:                   r.Fork,
+		IsArchived:               r.Archived,
+		IsEmpty:                  r.PushedAt == nil,
+		IsInOrganization:         false, // Githome does not yet model organizations
+		ForkCount:                0,     // not stored
+		StargazerCount:           0,     // not stored
+		HomepageURL:              gqlHomepageURL(r.Homepage),
+		CreatedAt:                gqlmodel.NewDateTime(r.CreatedAt),
+		UpdatedAt:                gqlmodel.NewDateTime(r.UpdatedAt),
+		URL:                      gqlmodel.URI(b.RepoHTML(r.Owner.Login, r.Name)),
+		SSHURL:                   gqlmodel.GitSSHRemote(b.RepoGitSSH(r.Owner.Login, r.Name)),
+		DatabaseID:               &dbID,
+		Visibility:               gqlVisibility(r.Private),
+		ViewerPermission:         &perm, // all authenticated users get ADMIN on their own repos
+		ViewerCanAdminister:      true,
 		ViewerDefaultMergeMethod: gqlmodel.PullRequestMergeMethodMerge,
-		HasIssuesEnabled:    r.HasIssues,
-		HasWikiEnabled:      r.HasWiki,
-		HasProjectsEnabled:  r.HasProjects,
-		HasDiscussionsEnabled: false, // discussions are not modeled
-		IsTemplate:          r.IsTemplate,
-		IsMirror:            false, // Githome does not mirror
-		DeleteBranchOnMerge: r.DeleteBranchOnMerge,
-		AutoMergeAllowed:    true,
-		MergeCommitAllowed:  true,
-		SquashMergeAllowed:  true,
-		RebaseMergeAllowed:  true,
-		RepositoryTopics:    b.gqlRepositoryTopics(r),
-		Watchers:            &gqlmodel.UserConnection{Nodes: []*gqlmodel.User{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0},
-		Languages:           &gqlmodel.LanguageConnection{Nodes: []*gqlmodel.Language{}, Edges: []*gqlmodel.LanguageEdge{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0, TotalSize: 0},
-		RepoOwner:           r.Owner.Login,
-		RepoName:            r.Name,
-		ForkParentPK:        r.ForkOfPK,
+		HasIssuesEnabled:         r.HasIssues,
+		HasWikiEnabled:           r.HasWiki,
+		HasProjectsEnabled:       r.HasProjects,
+		HasDiscussionsEnabled:    false, // discussions are not modeled
+		IsTemplate:               r.IsTemplate,
+		IsMirror:                 false, // Githome does not mirror
+		DeleteBranchOnMerge:      r.DeleteBranchOnMerge,
+		AutoMergeAllowed:         true,
+		MergeCommitAllowed:       true,
+		SquashMergeAllowed:       true,
+		RebaseMergeAllowed:       true,
+		RepositoryTopics:         b.gqlRepositoryTopics(r),
+		Watchers:                 &gqlmodel.UserConnection{Nodes: []*gqlmodel.User{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0},
+		Languages:                &gqlmodel.LanguageConnection{Nodes: []*gqlmodel.Language{}, Edges: []*gqlmodel.LanguageEdge{}, PageInfo: &gqlmodel.PageInfo{}, TotalCount: 0, TotalSize: 0},
+		RepoOwner:                r.Owner.Login,
+		RepoName:                 r.Name,
+		ForkParentPK:             r.ForkOfPK,
 	}
 	if r.PushedAt != nil {
 		pushed := gqlmodel.NewDateTime(*r.PushedAt)

@@ -77,7 +77,7 @@ func (r *mutationResolver) UpdateRef(ctx context.Context, input generated.Update
 		shortName = ref.Name[i+1:]
 	}
 	return &generated.UpdateRefPayload{
-		Ref:              presenter.GQLRef(repo.ID, ref.Name, shortName, string(ref.Target)),
+		Ref:              presenter.GQLRef(repo.ID, ref.Name, shortName, ref.Target),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
 }

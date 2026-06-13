@@ -45,8 +45,8 @@ func redirectAllowed(app *store.OAuthAppRow, redirectURI string) bool {
 	return strings.HasPrefix(redirectURI, app.CallbackURL)
 }
 
-// AuthCodeRequest holds the parameters the caller passes to GenerateAuthCode.
-type AuthCodeRequest struct {
+// CodeRequest holds the parameters the caller passes to GenerateAuthCode.
+type CodeRequest struct {
 	ClientID    string
 	RedirectURI string
 	Scope       string
@@ -56,7 +56,7 @@ type AuthCodeRequest struct {
 // GenerateAuthCode creates a new single-use authorization code for the OAuth
 // web flow. It returns the opaque plaintext code the server embeds in the
 // redirect to the client's redirect_uri.
-func (s *Service) GenerateAuthCode(ctx context.Context, req AuthCodeRequest) (string, error) {
+func (s *Service) GenerateAuthCode(ctx context.Context, req CodeRequest) (string, error) {
 	return s.GenerateOAuthAuthCode(ctx, req.ClientID, req.RedirectURI, req.Scope, req.UserPK)
 }
 

@@ -230,36 +230,6 @@ func handleIssueLabelRemove(d Deps) mizu.Handler {
 	}
 }
 
-// handleIssueLabelsRemoveAll serves DELETE /repos/{owner}/{repo}/issues/{number}/labels.
-func handleIssueLabelsRemoveAll(d Deps) mizu.Handler {
-	return func(c *mizu.Ctx) error {
-		ctx := c.Request().Context()
-		actor := auth.ActorFrom(ctx)
-		if !actor.IsUser() {
-			writeError(c.Writer(), errRequiresAuth())
-			return nil
-		}
-		number, ok := pathInt64(c, "number")
-		if !ok {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		empty := []string{}
-		_, err := d.Issues.EditIssue(ctx, actor.UserID, c.Param("owner"), c.Param("repo"), number, domain.IssuePatch{
-			Labels: &empty,
-		})
-		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrRepoNotFound) {
-			writeError(c.Writer(), errNotFound())
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		c.Writer().WriteHeader(http.StatusNoContent)
-		return nil
-	}
-}
-
 // handleAssigneesList serves GET /repos/{owner}/{repo}/assignees.
 // Returns a list of users who can be assigned to issues in the repo
 // (the owner plus collaborators).

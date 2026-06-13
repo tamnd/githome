@@ -182,7 +182,7 @@ func (n nodeLimit) MutateOperationContext(_ context.Context, opCtx *gqlruntime.O
 }
 
 // nodeLimitExtension returns a gqlgen extension that rejects queries requesting
-// more than max nodes.
-func nodeLimitExtension(max int) gqlruntime.HandlerExtension {
-	return nodeLimit{max: max}
+// more than limit nodes.
+func nodeLimitExtension(limit int) gqlruntime.HandlerExtension {
+	return nodeLimit{max: limit}
 }

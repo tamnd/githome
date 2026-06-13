@@ -174,19 +174,19 @@ type ComposerVM struct {
 // IssueDetailVM is the issue detail page: the title and state header, the comment
 // timeline, the sidebar, and the composer.
 type IssueDetailVM struct {
-	Chrome    Chrome
-	Header    RepoHeaderVM
-	Nav       TreeNav
-	Repo      RepoRef
-	Number    int64
-	Title     string
-	State     IssueStateVM
-	Author    UserChipVM
-	OpenedAt  string
-	OpenedISO string
-	Locked    bool
-	EditURL   string // the edit-title form target, shown when the viewer can edit
-	CanEdit   bool
+	Chrome        Chrome
+	Header        RepoHeaderVM
+	Nav           TreeNav
+	Repo          RepoRef
+	Number        int64
+	Title         string
+	State         IssueStateVM
+	Author        UserChipVM
+	OpenedAt      string
+	OpenedISO     string
+	Locked        bool
+	EditURL       string // the edit-title form target, shown when the viewer can edit
+	CanEdit       bool
 	Timeline      []CommentVM
 	TimelinePager Pager // prev/next over a long comment thread; zero value hides it
 	Sidebar       SidebarVM

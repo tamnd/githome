@@ -8,7 +8,7 @@ import (
 
 // apiRoot is GitHub's root hypermedia document: the *_url template map clients
 // like Octokit's hypermedia mode read to derive every other endpoint instead of
-// hardcoding paths. Field order matches api.github.com.
+// hardcoding paths. Field order matches the GitHub REST API root.
 type apiRoot struct {
 	CurrentUserURL                   string `json:"current_user_url"`
 	CurrentUserAuthorizationsHTMLURL string `json:"current_user_authorizations_html_url"`
@@ -45,8 +45,8 @@ type apiRoot struct {
 }
 
 // handleAPIRoot serves GET at the API root. The body is the same template map
-// api.github.com returns, with every URL rebuilt on the configured hosts. It is
-// computed once at mount time: nothing in it varies per request.
+// the GitHub REST API root returns, with every URL rebuilt on the configured
+// hosts. It is computed once at mount time: nothing in it varies per request.
 func handleAPIRoot(d Deps) mizu.Handler {
 	api := d.URLs.APIBase()
 	doc := apiRoot{

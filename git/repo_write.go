@@ -91,7 +91,7 @@ func (s *Store) runEnv(ctx context.Context, pk int64, extraEnv []string, stdin i
 // ours, not a git failure. It exists for reads whose size the server cannot
 // know in advance, like a commit's patch, where buffering an unbounded diff
 // would defeat the point of capping it.
-func (s *Store) runLimited(ctx context.Context, pk int64, max int64, args ...string) (stdout []byte, truncated bool, code int, err error) {
+func (s *Store) runLimited(ctx context.Context, pk int64, limit int64, args ...string) (stdout []byte, truncated bool, code int, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	full := append([]string{"--git-dir", s.runDir(pk)}, args...)
@@ -104,9 +104,9 @@ func (s *Store) runLimited(ctx context.Context, pk int64, max int64, args ...str
 	if err := cmd.Start(); err != nil {
 		return nil, false, 0, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}
-	out, readErr := io.ReadAll(io.LimitReader(pipe, max+1))
-	if int64(len(out)) > max {
-		out, truncated = out[:max], true
+	out, readErr := io.ReadAll(io.LimitReader(pipe, limit+1))
+	if int64(len(out)) > limit {
+		out, truncated = out[:limit], true
 		cancel() // kill the producer; Wait's error is then ours to ignore
 	}
 	waitErr := cmd.Wait()

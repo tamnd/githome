@@ -27,47 +27,47 @@ const (
 // Nullable GraphQL fields use Go pointers so gqlgen renders null rather than a
 // zero value.
 type Repository struct {
-	ID                 string                // the Repository node ID
-	Name               string                // the short repository name
-	NameWithOwner      string                // owner login + "/" + name
-	Description        *string               // null when unset
-	IsPrivate          bool                  // visibility
-	IsFork             bool                  // whether this is a fork
-	IsArchived         bool                  // whether this is archived
-	IsEmpty            bool                  // true when the repository has no commits
-	IsInOrganization   bool                  // true when owner is an org
-	ForkCount          int32                 // number of forks
-	StargazerCount     int32                 // number of stars
-	DiskUsage          *int32                // disk usage in KB, null when unavailable
-	HomepageURL        *URI                  // null when unset
-	CreatedAt          DateTime              // creation instant
-	UpdatedAt          DateTime              // last metadata update
-	PushedAt           *DateTime             // last push, null for a repository with no commits
-	URL                URI                   // the repository's HTML URL
-	SSHURL             GitSSHRemote          // the SSH clone URL, GitHub's GitSSHRemote scalar
-	DatabaseID         *int32                // the integer database id REST calls id
-	Visibility         RepositoryVisibility  // PUBLIC, PRIVATE, or INTERNAL
-	ViewerPermission   *RepositoryPermission // viewer's permission, null for anonymous
-	ViewerCanAdminister bool                 // whether the viewer can administer the repository
-	ViewerDefaultMergeMethod PullRequestMergeMethod // the viewer's default merge method
-	HasIssuesEnabled   bool                  // whether the repository accepts issues
-	HasWikiEnabled     bool                  // whether the repository has a wiki
-	HasProjectsEnabled bool                  // whether the repository has projects
-	HasDiscussionsEnabled bool               // whether the repository has discussions (always false)
-	IsTemplate         bool                  // whether the repository is a template
-	IsMirror           bool                  // whether the repository is a mirror (always false)
-	MirrorURL          *URI                  // the mirror source URL (always null)
-	DeleteBranchOnMerge bool                 // whether head branches are deleted on merge
-	AutoMergeAllowed   bool                  // whether auto-merge can be enabled (always true)
-	MergeCommitAllowed bool                  // whether merge commits are allowed (always true)
-	SquashMergeAllowed bool                  // whether squash merges are allowed (always true)
-	RebaseMergeAllowed bool                  // whether rebase merges are allowed (always true)
-	DefaultBranchRef   *Ref                  // the head branch, null for an empty repository
-	RepositoryTopics   *RepositoryTopicConnection // the repository's topics
-	Watchers           *UserConnection       // the users watching the repository
-	Languages          *LanguageConnection   // detected languages (always empty)
-	IssueTemplates     []*IssueTemplate      // configured issue templates (always null)
-	PullRequestTemplates []*PullRequestTemplate // configured PR templates (always null)
+	ID                       string                     // the Repository node ID
+	Name                     string                     // the short repository name
+	NameWithOwner            string                     // owner login + "/" + name
+	Description              *string                    // null when unset
+	IsPrivate                bool                       // visibility
+	IsFork                   bool                       // whether this is a fork
+	IsArchived               bool                       // whether this is archived
+	IsEmpty                  bool                       // true when the repository has no commits
+	IsInOrganization         bool                       // true when owner is an org
+	ForkCount                int32                      // number of forks
+	StargazerCount           int32                      // number of stars
+	DiskUsage                *int32                     // disk usage in KB, null when unavailable
+	HomepageURL              *URI                       // null when unset
+	CreatedAt                DateTime                   // creation instant
+	UpdatedAt                DateTime                   // last metadata update
+	PushedAt                 *DateTime                  // last push, null for a repository with no commits
+	URL                      URI                        // the repository's HTML URL
+	SSHURL                   GitSSHRemote               // the SSH clone URL, GitHub's GitSSHRemote scalar
+	DatabaseID               *int32                     // the integer database id REST calls id
+	Visibility               RepositoryVisibility       // PUBLIC, PRIVATE, or INTERNAL
+	ViewerPermission         *RepositoryPermission      // viewer's permission, null for anonymous
+	ViewerCanAdminister      bool                       // whether the viewer can administer the repository
+	ViewerDefaultMergeMethod PullRequestMergeMethod     // the viewer's default merge method
+	HasIssuesEnabled         bool                       // whether the repository accepts issues
+	HasWikiEnabled           bool                       // whether the repository has a wiki
+	HasProjectsEnabled       bool                       // whether the repository has projects
+	HasDiscussionsEnabled    bool                       // whether the repository has discussions (always false)
+	IsTemplate               bool                       // whether the repository is a template
+	IsMirror                 bool                       // whether the repository is a mirror (always false)
+	MirrorURL                *URI                       // the mirror source URL (always null)
+	DeleteBranchOnMerge      bool                       // whether head branches are deleted on merge
+	AutoMergeAllowed         bool                       // whether auto-merge can be enabled (always true)
+	MergeCommitAllowed       bool                       // whether merge commits are allowed (always true)
+	SquashMergeAllowed       bool                       // whether squash merges are allowed (always true)
+	RebaseMergeAllowed       bool                       // whether rebase merges are allowed (always true)
+	DefaultBranchRef         *Ref                       // the head branch, null for an empty repository
+	RepositoryTopics         *RepositoryTopicConnection // the repository's topics
+	Watchers                 *UserConnection            // the users watching the repository
+	Languages                *LanguageConnection        // detected languages (always empty)
+	IssueTemplates           []*IssueTemplate           // configured issue templates (always null)
+	PullRequestTemplates     []*PullRequestTemplate     // configured PR templates (always null)
 
 	// RepoOwner, RepoName, and ForkParentID carry the repository coordinates for
 	// resolvers that look up ref, milestone, release, or parent data on demand.

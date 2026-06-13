@@ -112,7 +112,7 @@ func (s *Store) InstallationsByAppPK(ctx context.Context, appPK int64) ([]*Insta
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*InstallationRow
 	for rows.Next() {
 		r, err := scanInstallation(rows)
@@ -140,7 +140,7 @@ func (s *Store) InstallationRepoPKs(ctx context.Context, instPK int64) ([]int64,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []int64
 	for rows.Next() {
 		var pk int64
@@ -173,9 +173,9 @@ func scanGitHubApp(row interface{ Scan(...any) error }) (*GitHubAppRow, error) {
 
 func scanInstallation(row interface{ Scan(...any) error }) (*InstallationRow, error) {
 	var (
-		r          InstallationRow
-		suspended  nullTime
-		created    nullTime
+		r         InstallationRow
+		suspended nullTime
+		created   nullTime
 	)
 	err := row.Scan(
 		&r.PK, &r.DBID, &r.AppPK, &r.AccountPK, &r.RepositorySelection,

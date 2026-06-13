@@ -87,7 +87,7 @@ func rateLimitHeaders(next http.Handler) http.Handler {
 // (rejected before an operation context existed, or with no holder installed)
 // reports the one-point minimum against the full budget, matching a cost-free
 // call. It must be called before the response head is flushed.
-func applyRateLimitHeaders(h http.Header, ctx context.Context) {
+func applyRateLimitHeaders(ctx context.Context, h http.Header) {
 	used, nodes := 1, 0
 	if info := rateLimitInfoFrom(ctx); info != nil && info.filled {
 		used = info.used

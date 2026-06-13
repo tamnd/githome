@@ -11,7 +11,7 @@ import (
 
 // CreateBlobInput holds content for POST /git/blobs.
 type CreateBlobInput struct {
-	Content  []byte // already decoded (caller converts from utf-8 or base64)
+	Content []byte // already decoded (caller converts from utf-8 or base64)
 }
 
 // CreateBlobResult holds the outcome of CreateBlob.
@@ -42,10 +42,10 @@ func (r *Repo) CreateBlob(in CreateBlobInput) (*CreateBlobResult, error) {
 // CreateTreeEntry is one entry passed to CreateTree.
 type CreateTreeEntry struct {
 	Path    string
-	Mode    string // "100644", "100755", "040000", "160000", "120000"
+	Mode    string     // "100644", "100755", "040000", "160000", "120000"
 	Type    ObjectType // "blob", "tree", "commit"
-	SHA     string // object SHA; empty string is allowed for inline blobs
-	Content []byte // non-nil: create an inline blob first
+	SHA     string     // object SHA; empty string is allowed for inline blobs
+	Content []byte     // non-nil: create an inline blob first
 }
 
 // CreateTreeResult holds the outcome of CreateTree.
@@ -132,11 +132,11 @@ func (r *Repo) CreateTree(baseTreeSHA string, entries []CreateTreeEntry) (*Creat
 
 // CreateCommitInput holds parameters for POST /git/commits.
 type CreateCommitInput struct {
-	Message    string
-	Tree       string
-	Parents    []string
-	Author     Signature
-	Committer  Signature
+	Message   string
+	Tree      string
+	Parents   []string
+	Author    Signature
+	Committer Signature
 }
 
 // CreateCommitResult holds the outcome of CreateCommit.
@@ -259,7 +259,9 @@ func (r *Repo) CreateTag(in CreateTagInput) (*CreateTagResult, error) {
 	}, nil
 }
 
-// GetTag reads an annotated tag object by SHA.
+// GetTagResult is the decoded form of an annotated tag object: the tag's own
+// SHA and name, its message, and the object it points at with that object's
+// type and the tagger signature.
 type GetTagResult struct {
 	SHA     string
 	Tag     string
@@ -269,6 +271,7 @@ type GetTagResult struct {
 	Tagger  Signature
 }
 
+// GetTag reads an annotated tag object by SHA.
 func (r *Repo) GetTag(sha string) (*GetTagResult, error) {
 	st := r.repo.Storer
 	t, err := object.GetTag(st, plumbing.NewHash(sha))

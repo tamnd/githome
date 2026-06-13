@@ -604,7 +604,7 @@ func mountProfile(page *mizu.Router, d Deps) {
 // absence. The redirect itself needs no service, so it is always registered: the
 // profile it points at renders or 404s on the user service's own gate. "orgs" is
 // a reserved top-level name (fe/route), so it is never read as a /{owner} login.
-func mountOrgs(page *mizu.Router, d Deps) {
+func mountOrgs(page *mizu.Router, _ Deps) {
 	page.Get("/orgs/{org}", func(c *mizu.Ctx) error {
 		return c.Redirect(http.StatusFound, route.Profile(c.Param("org")))
 	})

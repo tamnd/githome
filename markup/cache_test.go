@@ -60,7 +60,7 @@ func TestRenderWithResolveBypassesCache(t *testing.T) {
 	rc := RenderContext{
 		Mode: ModeComment,
 		Repo: &RepoRef{Owner: "octo", Name: "hello", ID: 7},
-		Resolve: func(ctx context.Context, kind RefKind, raw string) (string, bool) {
+		Resolve: func(_ context.Context, _ RefKind, _ string) (string, bool) {
 			return "", false
 		},
 	}

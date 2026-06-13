@@ -188,7 +188,7 @@ func TestWatchingFlow(t *testing.T) {
 	if sub["ignored"] != true {
 		t.Fatalf("ignored subscription = %v", sub)
 	}
-	resp, body = authedGet(t, fx.srv, "/repos/octocat/hello/subscribers", "token "+fx.token)
+	_, body = authedGet(t, fx.srv, "/repos/octocat/hello/subscribers", "token "+fx.token)
 	subs = decodeArray(t, body)
 	if len(subs) != 0 {
 		t.Fatalf("subscribers after ignore = %v, want []", subs)
@@ -239,12 +239,12 @@ func TestFollowingFlow(t *testing.T) {
 	}
 
 	// octocat's following list shows hubber; hubber's followers show octocat.
-	resp, body = authedGet(t, fx.srv, "/user/following", "token "+octo)
+	_, body = authedGet(t, fx.srv, "/user/following", "token "+octo)
 	following := decodeArray(t, body)
 	if len(following) != 1 || following[0]["login"] != "hubber" {
 		t.Fatalf("following = %v, want [hubber]", following)
 	}
-	resp, body = authedGet(t, fx.srv, "/users/hubber/followers", "token "+hubber)
+	_, body = authedGet(t, fx.srv, "/users/hubber/followers", "token "+hubber)
 	followers := decodeArray(t, body)
 	if len(followers) != 1 || followers[0]["login"] != "octocat" {
 		t.Fatalf("followers = %v, want [octocat]", followers)

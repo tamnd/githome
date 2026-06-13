@@ -62,6 +62,17 @@ func (s *Store) codeTable() string {
 	return "code_fts"
 }
 
+// codePathOrder returns the ORDER BY expression for path. SQLite sorts text
+// bytewise (BINARY); Postgres sorts by the cluster's collation, which orders
+// mixed-case paths differently. Pinning the Postgres sort to the "C" collation
+// makes both dialects page in the same byte order.
+func (s *Store) codePathOrder() string {
+	if s.dialect == DialectPostgres {
+		return `path COLLATE "C"`
+	}
+	return "path"
+}
+
 // SearchCode returns the page of indexed files matching the query, ordered by
 // repository then path so pagination is deterministic.
 func (s *Store) SearchCode(ctx context.Context, q CodeSearch) ([]CodeHit, error) {
@@ -78,7 +89,7 @@ func (s *Store) SearchCode(ctx context.Context, q CodeSearch) ([]CodeHit, error)
 	}
 	args = append(args, limit, q.Offset)
 	sql := s.rebind(`SELECT repo_pk, path, sha FROM ` + s.codeTable() + where +
-		` ORDER BY repo_pk, path LIMIT ? OFFSET ?`)
+		` ORDER BY repo_pk, ` + s.codePathOrder() + ` LIMIT ? OFFSET ?`)
 	rows, err := s.rdb.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, err

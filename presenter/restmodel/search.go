@@ -65,12 +65,12 @@ type SearchCode struct {
 // the blob object id, the API and HTML URLs that address it, the repository it
 // lives in, and the score.
 type CodeSearchItem struct {
-	Name       string     `json:"name"`
-	Path       string     `json:"path"`
-	SHA        string     `json:"sha"`
-	URL        string     `json:"url"`
-	GitURL     string     `json:"git_url"`
-	HTMLURL    string     `json:"html_url"`
+	Name        string      `json:"name"`
+	Path        string      `json:"path"`
+	SHA         string      `json:"sha"`
+	URL         string      `json:"url"`
+	GitURL      string      `json:"git_url"`
+	HTMLURL     string      `json:"html_url"`
 	Repository  Repository  `json:"repository"`
 	Score       float64     `json:"score"`
 	TextMatches []TextMatch `json:"text_matches,omitempty"`

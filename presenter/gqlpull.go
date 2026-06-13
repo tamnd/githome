@@ -202,7 +202,7 @@ func patchStatus(status string) gqlmodel.PatchStatus {
 // the coordinates the statusCheckRollup resolver reads back.
 func GQLCommit(repoDBID int64, owner, name string, c git.Commit) *gqlmodel.Commit {
 	return &gqlmodel.Commit{
-		ID:              nodeid.EncodeGitObject("commit", repoDBID, string(c.SHA)),
+		ID:              nodeid.EncodeGitObject("commit", repoDBID, c.SHA),
 		Oid:             gqlmodel.GitObjectID(c.SHA),
 		Message:         c.Message,
 		MessageHeadline: messageHeadline(c.Message),

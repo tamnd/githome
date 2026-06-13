@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -89,6 +90,71 @@ func TestInstallStampsLedger(t *testing.T) {
 			t.Fatalf("expected Install to refuse a non-empty database")
 		}
 	})
+}
+
+// TestPostgresSchemaFileMatchesMigrations is the drift guard for schema.pg.sql,
+// the Postgres counterpart to TestSchemaFileMatchesMigrations. A database built
+// by Install (the consolidated schema file) must have the same structure as one
+// built by replaying every migration. It runs only where a Postgres DSN is set.
+// schema.pg.sql is maintained by hand, so this catches a migration that was
+// added without folding its tables and columns into the consolidated file.
+func TestPostgresSchemaFileMatchesMigrations(t *testing.T) {
+	dsn := os.Getenv("GITHOME_TEST_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("set GITHOME_TEST_POSTGRES_DSN to run the Postgres schema drift guard")
+	}
+	ctx := context.Background()
+
+	fingerprint := func(build func(*store.Store) error) string {
+		t.Helper()
+		st, err := store.Open(ctx, dsn)
+		if err != nil {
+			t.Fatalf("open: %v", err)
+		}
+		defer func() { _ = st.Close() }()
+		// Reach an empty schema before building, so a reused database does not
+		// taint the comparison.
+		if err := st.Rollback(ctx, 1<<20); err != nil {
+			t.Fatalf("reset: %v", err)
+		}
+		if err := build(st); err != nil {
+			t.Fatalf("build: %v", err)
+		}
+		return pgFingerprint(t, st.DB())
+	}
+
+	want := fingerprint(func(st *store.Store) error { return st.Migrate(ctx) })
+	got := fingerprint(func(st *store.Store) error { return st.Install(ctx) })
+	if want != got {
+		t.Fatalf("schema.pg.sql drifted from the migrations.\n--- migrated ---\n%s\n--- installed ---\n%s", want, got)
+	}
+}
+
+// pgFingerprint renders a stable description of a Postgres database's structure:
+// every application table's columns (type, nullability, default, and any
+// generated expression) and every index, keyed and ordered by name so the
+// column order Install and Migrate happen to write in does not matter. The
+// schema_migrations ledger is excluded so the two build paths are compared on
+// application schema alone.
+func pgFingerprint(t *testing.T, db *sql.DB) string {
+	t.Helper()
+	var b strings.Builder
+	cols := queryStrings(t, db, `SELECT table_name||'.'||column_name||' '||data_type
+		||' null='||is_nullable
+		||' dflt='||coalesce(column_default,'')
+		||' gen='||coalesce(generation_expression,'')
+		FROM information_schema.columns
+		WHERE table_schema='public' AND table_name <> 'schema_migrations'
+		ORDER BY 1`)
+	for _, c := range cols {
+		fmt.Fprintf(&b, "COLUMN %s\n", c)
+	}
+	idx := queryStrings(t, db, `SELECT indexname||' :: '||indexdef FROM pg_indexes
+		WHERE schemaname='public' AND tablename <> 'schema_migrations' ORDER BY 1`)
+	for _, i := range idx {
+		fmt.Fprintf(&b, "INDEX %s\n", i)
+	}
+	return b.String()
 }
 
 // sqliteFingerprint renders a stable, whitespace-normalized description of a

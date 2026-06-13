@@ -112,7 +112,7 @@ func (r *Repo) logBatch(opts LogOpts, limit int) ([]Commit, bool) {
 	if opts.Until != nil {
 		args = append(args, "--until="+opts.Until.Format(time.RFC3339))
 	}
-	args = append(args, "--end-of-options", string(opts.From))
+	args = append(args, "--end-of-options", opts.From)
 	if opts.Path != "" {
 		args = append(args, "--", opts.Path)
 	}

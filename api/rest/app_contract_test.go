@@ -177,11 +177,11 @@ func TestAppObjectShape(t *testing.T) {
 		t.Fatalf("status %d, body %s", resp.StatusCode, body)
 	}
 	var app struct {
-		NodeID      string            `json:"node_id"`
-		Slug        string            `json:"slug"`
+		NodeID      string                  `json:"node_id"`
+		Slug        string                  `json:"slug"`
 		Owner       *struct{ Login string } `json:"owner"`
-		Permissions map[string]string `json:"permissions"`
-		Events      []string          `json:"events"`
+		Permissions map[string]string       `json:"permissions"`
+		Events      []string                `json:"events"`
 	}
 	decodeBody(t, body, &app)
 	if !strings.HasPrefix(app.NodeID, "A_") {
@@ -239,7 +239,7 @@ func TestRepoInstallationLookup(t *testing.T) {
 		t.Fatalf("status %d, body %s", resp.StatusCode, body)
 	}
 	var inst struct {
-		ID      int64 `json:"id"`
+		ID      int64                   `json:"id"`
 		Account *struct{ Login string } `json:"account"`
 	}
 	decodeBody(t, body, &inst)
@@ -269,9 +269,9 @@ func TestInstallationTokenScoping(t *testing.T) {
 		t.Fatalf("unscoped mint status %d, body %s", tokResp.StatusCode, tokBody)
 	}
 	var unscoped struct {
-		Token       string `json:"token"`
-		RepoSel     string `json:"repository_selection"`
-		Repos       []any  `json:"repositories"`
+		Token   string `json:"token"`
+		RepoSel string `json:"repository_selection"`
+		Repos   []any  `json:"repositories"`
 	}
 	decodeBody(t, tokBody, &unscoped)
 	if unscoped.RepoSel != "all" {
@@ -290,7 +290,7 @@ func TestInstallationTokenScoping(t *testing.T) {
 		t.Fatalf("scoped mint status %d, body %s", scResp.StatusCode, scBody)
 	}
 	var scoped struct {
-		RepoSel string `json:"repository_selection"`
+		RepoSel string                  `json:"repository_selection"`
 		Repos   []struct{ Name string } `json:"repositories"`
 	}
 	decodeBody(t, scBody, &scoped)
@@ -355,7 +355,7 @@ func TestInstallationReposSelected(t *testing.T) {
 		t.Fatalf("status %d, body %s", resp.StatusCode, body)
 	}
 	var env struct {
-		TotalCount int `json:"total_count"`
+		TotalCount int                     `json:"total_count"`
 		Repos      []struct{ Name string } `json:"repositories"`
 	}
 	decodeBody(t, body, &env)
