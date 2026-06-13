@@ -293,6 +293,27 @@ func (s *Store) DeleteOrgMember(ctx context.Context, orgPK, userPK int64) error 
 	return nil
 }
 
+// OrgMembersByUser lists a user's org memberships, oldest first. The OrgPK
+// field of each row names the org the user belongs to.
+func (s *Store) OrgMembersByUser(ctx context.Context, userPK int64) ([]*OrgMemberRow, error) {
+	q := s.rebind(`SELECT pk, org_pk, user_pk, role FROM org_members
+		WHERE user_pk = ? ORDER BY pk`)
+	rows, err := s.rdb.QueryContext(ctx, q, userPK)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*OrgMemberRow
+	for rows.Next() {
+		var r OrgMemberRow
+		if err := rows.Scan(&r.PK, &r.OrgPK, &r.UserPK, &r.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
 // OrgMembersByOrg lists an org's membership rows, oldest first.
 func (s *Store) OrgMembersByOrg(ctx context.Context, orgPK int64) ([]*OrgMemberRow, error) {
 	q := s.rebind(`SELECT pk, org_pk, user_pk, role FROM org_members

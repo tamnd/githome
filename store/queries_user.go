@@ -28,6 +28,29 @@ func (s *Store) UserByLogin(ctx context.Context, login string) (*UserRow, error)
 	return scanUser(s.rdb.QueryRowContext(ctx, q, login))
 }
 
+// ListUsers returns up to limit live users with db_id greater than sinceDBID,
+// ordered by db_id, matching GitHub's id-cursor GET /users. A sinceDBID of 0
+// starts from the first user.
+func (s *Store) ListUsers(ctx context.Context, sinceDBID int64, limit int) ([]*UserRow, error) {
+	q := s.rebind(`SELECT ` + userColumns + ` FROM users
+		WHERE db_id > ? AND deleted_at IS NULL
+		ORDER BY db_id LIMIT ?`)
+	rows, err := s.rdb.QueryContext(ctx, q, sinceDBID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*UserRow
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
 // InsertUser allocates the shared db_id, writes the row, and fills the
 // server-assigned fields (PK, DBID, CreatedAt, UpdatedAt) back onto u.
 func (s *Store) InsertUser(ctx context.Context, u *UserRow) error {

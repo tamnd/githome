@@ -174,10 +174,153 @@ func handleUserEmails(d Deps) mizu.Handler {
 	}
 }
 
-// handleUserOrgs serves GET /user/orgs.
+// handleUserOrgs serves GET /user/orgs, listing the organizations the
+// authenticated user belongs to.
 func handleUserOrgs(d Deps) mizu.Handler {
 	return func(c *mizu.Ctx) error {
-		writeJSON(c.Writer(), http.StatusOK, []any{})
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		page, perr := parsePageFor(c, "Organization")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		orgs, err := d.Teams.ListUserOrgs(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		out := make([]restmodel.OrganizationSimple, 0, len(orgs))
+		for _, m := range orgs {
+			out = append(out, d.URLs.OrgSimple(m.User, d.NodeFormat))
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
+// handleUserOrgMemberships serves GET /user/memberships/orgs, listing the
+// authenticated user's org memberships.
+func handleUserOrgMemberships(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		page, perr := parsePageFor(c, "Organization")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		user, err := d.Users.Viewer(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		orgs, err := d.Teams.ListUserOrgs(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		out := make([]restmodel.OrgMembership, 0, len(orgs))
+		for _, m := range orgs {
+			out = append(out, d.URLs.OrgMembership(m.User, user, m.Role, d.NodeFormat))
+		}
+		out = paginateSlice(&page, out)
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
+// handleUserOrgMembershipGet serves GET /user/memberships/orgs/{org}, returning
+// the authenticated user's membership in one org (404 when not a member).
+func handleUserOrgMembershipGet(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		actor := auth.ActorFrom(ctx)
+		if !actor.IsUser() {
+			writeError(c.Writer(), errRequiresAuth())
+			return nil
+		}
+		org, err := d.Users.ByLogin(ctx, c.Param("org"))
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		orgPK, err := d.Users.PKByLogin(ctx, org.Login)
+		if err != nil {
+			return err
+		}
+		role, err := d.Teams.GetOrgMembership(ctx, orgPK, actor.UserID)
+		if errors.Is(err, domain.ErrNotFound) {
+			writeError(c.Writer(), errNotFound())
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		user, err := d.Users.Viewer(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.OrgMembership(org, user, role, d.NodeFormat))
+		return nil
+	}
+}
+
+// handleUsersList serves GET /users, the id-cursor listing of all accounts.
+func handleUsersList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		since := int64(0)
+		if s := c.Query("since"); s != "" {
+			v, ok := parseInt64(s)
+			if !ok || v < 0 {
+				writeError(c.Writer(), errValidation(FieldError{
+					Resource: "User", Field: "since", Code: "invalid",
+				}))
+				return nil
+			}
+			since = v
+		}
+		perPage := 30
+		if p := c.Query("per_page"); p != "" {
+			v, ok := parseInt64(p)
+			if !ok || v < 1 || v > 100 {
+				writeError(c.Writer(), errValidation(FieldError{
+					Resource: "User", Field: "per_page", Code: "invalid",
+				}))
+				return nil
+			}
+			perPage = int(v)
+		}
+		// Fetch one extra to decide whether a next page exists.
+		users, err := d.Users.ListUsers(ctx, since, perPage+1)
+		if err != nil {
+			return err
+		}
+		hasNext := len(users) > perPage
+		if hasNext {
+			users = users[:perPage]
+		}
+		out := make([]restmodel.SimpleUser, 0, len(users))
+		for _, u := range users {
+			out = append(out, d.URLs.SimpleUser(u, d.NodeFormat))
+		}
+		if hasNext && len(out) > 0 {
+			last := out[len(out)-1].ID
+			writeUsersSinceLink(c.Writer(), c.Request(), d.URLs, last)
+		}
+		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
 }
@@ -691,6 +834,9 @@ func mountMiscCompat(r *mizu.Router, d Deps) {
 	if d.Users != nil {
 		r.Get("/user/emails", handleUserEmails(d))
 		r.Get("/user/orgs", handleUserOrgs(d))
+		r.Get("/user/memberships/orgs", handleUserOrgMemberships(d))
+		r.Get("/user/memberships/orgs/{org}", handleUserOrgMembershipGet(d))
+		r.Get("/users", handleUsersList(d))
 		r.Get("/orgs/{org}/members", handleOrgMembersList(d))
 		r.Get("/orgs/{org}/members/{username}", handleOrgMemberGet(d))
 		r.Get("/users/{username}/keys", handlePublicUserKeys(d))

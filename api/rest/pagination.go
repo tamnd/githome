@@ -162,6 +162,14 @@ func writeLinkHeaderUncounted(w http.ResponseWriter, r *http.Request, ub *presen
 	w.Header().Set("Link", strings.Join(parts, ", "))
 }
 
+// writeUsersSinceLink sets a single rel="next" Link for an id-cursor listing
+// (GET /users): the only navigation GitHub offers there is forward by since,
+// so no prev/first/last appear.
+func writeUsersSinceLink(w http.ResponseWriter, r *http.Request, ub *presenter.URLBuilder, since int64) {
+	link := "<" + ub.SinceLink(r.URL.Path, r.URL.RawQuery, since) + `>; rel="next"`
+	w.Header().Set("Link", link)
+}
+
 // writeNextCursorLink sets the Link header for the flat read path: a cursor
 // walk skips the COUNT that page-number navigation needs for rel="last", so no
 // total is known and the forward hop stays a keyset cursor. The cursor links

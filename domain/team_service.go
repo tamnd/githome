@@ -36,6 +36,7 @@ type TeamStore interface {
 	OrgMemberRole(ctx context.Context, orgPK, userPK int64) (string, error)
 	DeleteOrgMember(ctx context.Context, orgPK, userPK int64) error
 	OrgMembersByOrg(ctx context.Context, orgPK int64) ([]*store.OrgMemberRow, error)
+	OrgMembersByUser(ctx context.Context, userPK int64) ([]*store.OrgMemberRow, error)
 }
 
 // TeamService manages teams, collaborators, and repository topics.
@@ -308,6 +309,29 @@ func (s *TeamService) RemoveOrgMember(ctx context.Context, orgPK, userPK int64) 
 type OrgMember struct {
 	User *User
 	Role string
+}
+
+// ListUserOrgs returns the organizations userPK belongs to, oldest membership
+// first, each paired with the role held. The User of each entry is the org
+// account (orgs share the users table). An org whose account has vanished is
+// skipped.
+func (s *TeamService) ListUserOrgs(ctx context.Context, userPK int64) ([]OrgMember, error) {
+	rows, err := s.store.OrgMembersByUser(ctx, userPK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrgMember, 0, len(rows))
+	for _, r := range rows {
+		org, err := s.store.UserByPK(ctx, r.OrgPK)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, OrgMember{User: userFromRow(org), Role: r.Role})
+	}
+	return out, nil
 }
 
 // ListOrgMembers returns an org's members with their users resolved, oldest

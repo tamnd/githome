@@ -167,6 +167,19 @@ func (b *URLBuilder) CursorLink(path, rawQuery, cursor string, page int) string 
 	return u.String()
 }
 
+// SinceLink returns the URL for the next page of an id-cursor listing such as
+// GET /users: it carries every query parameter through unchanged except since,
+// which is set to the last id seen, and page, which is dropped because an
+// id-cursor addresses a position rather than a page number.
+func (b *URLBuilder) SinceLink(path, rawQuery string, since int64) string {
+	u := url.URL{Scheme: b.api.Scheme, Host: b.api.Host, Path: path}
+	q, _ := url.ParseQuery(rawQuery)
+	q.Set("since", strconv.FormatInt(since, 10))
+	q.Del("page")
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 // UserAPI returns the API URL for a user, e.g. {api}/users/{login}.
 func (b *URLBuilder) UserAPI(login string) string { return b.API("users", login) }
 
