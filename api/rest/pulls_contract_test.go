@@ -150,6 +150,27 @@ func TestCreatePullContract(t *testing.T) {
 	assertWriteGolden(t, "pull_create.golden.json", body)
 }
 
+// TestPullMaintainerCanModify confirms the full view echoes the
+// maintainer_can_modify flag the create request set, which gh pr edit reads.
+func TestPullMaintainerCanModify(t *testing.T) {
+	fx := pullServer(t)
+	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/pulls", fx.token,
+		`{"title":"Add a feature","head":"feature","base":"main","maintainer_can_modify":true}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create status %d, body %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), `"maintainer_can_modify":true`) {
+		t.Errorf("create response missing maintainer_can_modify:true:\n%s", body)
+	}
+	resp, body = get(t, fx.srv, "/repos/octocat/hello/pulls/1")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("get status %d, body %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(string(body), `"maintainer_can_modify":true`) {
+		t.Errorf("full view missing maintainer_can_modify:true:\n%s", body)
+	}
+}
+
 func TestCreatePullValidation(t *testing.T) {
 	fx := pullServer(t)
 	resp, body := authedSend(t, fx.srv, http.MethodPost, "/repos/octocat/hello/pulls", fx.token,

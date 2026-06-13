@@ -295,6 +295,12 @@ func pullFiles(d Deps, c *mizu.Ctx, number int64) error {
 	if err != nil {
 		return err
 	}
+	// GitHub caps the files listing at 3000 entries; a PR touching more files
+	// stops there rather than paging on forever.
+	const maxPullFiles = 3000
+	if len(files) > maxPullFiles {
+		files = files[:maxPullFiles]
+	}
 	page, perr := parsePageFor(c, "PullRequest")
 	if perr != nil {
 		writeError(c.Writer(), perr)
