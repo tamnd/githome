@@ -31,14 +31,22 @@ type RateLimit struct {
 	Rate      RateLimitBucket    `json:"rate"`
 }
 
-// RateLimitResources is the set of named rate-limit buckets.
+// RateLimitResources is the set of named rate-limit buckets. The buckets Githome
+// does not meter are still reported, at their full configured budget, so a client
+// that reads a specific resource (go-github exposes every one) never sees a
+// missing key.
 type RateLimitResources struct {
-	Core                RateLimitBucket `json:"core"`
-	Search              RateLimitBucket `json:"search"`
-	GraphQL             RateLimitBucket `json:"graphql"`
-	IntegrationManifest RateLimitBucket `json:"integration_manifest"`
-	CodeScanningUpload  RateLimitBucket `json:"code_scanning_upload"`
-	CodeSearch          RateLimitBucket `json:"code_search"`
+	Core                      RateLimitBucket `json:"core"`
+	Search                    RateLimitBucket `json:"search"`
+	GraphQL                   RateLimitBucket `json:"graphql"`
+	IntegrationManifest       RateLimitBucket `json:"integration_manifest"`
+	SourceImport              RateLimitBucket `json:"source_import"`
+	CodeScanningUpload        RateLimitBucket `json:"code_scanning_upload"`
+	ActionsRunnerRegistration RateLimitBucket `json:"actions_runner_registration"`
+	SCIM                      RateLimitBucket `json:"scim"`
+	DependencySnapshots       RateLimitBucket `json:"dependency_snapshots"`
+	CodeSearch                RateLimitBucket `json:"code_search"`
+	AuditLog                  RateLimitBucket `json:"audit_log"`
 }
 
 // RateLimitBucket is one rate-limit window. Reset is a Unix epoch in seconds.
