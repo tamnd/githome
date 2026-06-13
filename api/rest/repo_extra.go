@@ -13,6 +13,7 @@ import (
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
 	"github.com/tamnd/githome/markup"
+	"github.com/tamnd/githome/presenter/restmodel"
 )
 
 // readmeNames are the README candidates, tried in order, matching github.com's
@@ -406,6 +407,91 @@ func mountRepoExtra(r *mizu.Router, d Deps) {
 	r.Post("/repos/{owner}/{repo}/merges", requireScope(handleRepoMerge(d), "repo", "public_repo"))
 	r.Post("/repos/{owner}/{repo}/dispatches", requireScope(handleRepoDispatch(d), "repo", "public_repo"))
 	r.Get("/repositories/{id}", handleRepoByID(d))
+	r.Get("/repositories", handleRepositoriesList(d))
+	r.Get("/repos/{owner}/{repo}/community/profile", handleCommunityProfile(d))
+	r.Get("/repos/{owner}/{repo}/codeowners/errors", handleCodeownersErrors(d))
+}
+
+// handleRepositoriesList serves GET /repositories: the global id-cursor listing
+// of every public repository, ascending by id. The since query is the id to
+// resume after, per_page (default 30, max 100) bounds the page, and a rel="next"
+// Link points at the next id when more remain. Octokit and mirror tools walk the
+// instance this way.
+func handleRepositoriesList(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		ctx := c.Request().Context()
+		since := int64(0)
+		if s := c.Query("since"); s != "" {
+			v, ok := parseInt64(s)
+			if !ok || v < 0 {
+				writeError(c.Writer(), errValidation(FieldError{Resource: "Repository", Field: "since", Code: "invalid"}))
+				return nil
+			}
+			since = v
+		}
+		perPage := 30
+		if p := c.Query("per_page"); p != "" {
+			v, ok := parseInt64(p)
+			if !ok || v < 1 || v > 100 {
+				writeError(c.Writer(), errValidation(FieldError{Resource: "Repository", Field: "per_page", Code: "invalid"}))
+				return nil
+			}
+			perPage = int(v)
+		}
+		repos, err := d.Repos.ListPublicRepos(ctx, since, perPage+1)
+		if err != nil {
+			return err
+		}
+		hasNext := len(repos) > perPage
+		if hasNext {
+			repos = repos[:perPage]
+		}
+		out := make([]restmodel.Repository, 0, len(repos))
+		for _, r := range repos {
+			out = append(out, d.URLs.Repository(r, d.NodeFormat, nil))
+		}
+		if hasNext && len(out) > 0 {
+			writeUsersSinceLink(c.Writer(), c.Request(), d.URLs, out[len(out)-1].ID)
+		}
+		writeJSON(c.Writer(), http.StatusOK, out)
+		return nil
+	}
+}
+
+// handleCommunityProfile serves GET /repos/{owner}/{repo}/community/profile: the
+// community-health summary computed from the files present at the default
+// branch.
+func handleCommunityProfile(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		prof, err := d.Repos.CommunityProfile(repo)
+		if err != nil {
+			return err
+		}
+		body := d.URLs.CommunityProfile(repo.Owner.Login, repo.Name, repo.DefaultBranch, prof, repo.Description)
+		writeJSON(c.Writer(), http.StatusOK, body)
+		return nil
+	}
+}
+
+// handleCodeownersErrors serves GET /repos/{owner}/{repo}/codeowners/errors: the
+// syntax errors found in the repository's CODEOWNERS file at the default branch.
+func handleCodeownersErrors(d Deps) mizu.Handler {
+	return func(c *mizu.Ctx) error {
+		repo, err := loadRepo(d, c)
+		if repo == nil {
+			return err
+		}
+		errs, err := d.Repos.CodeownersErrors(repo)
+		if err != nil {
+			return err
+		}
+		writeJSON(c.Writer(), http.StatusOK, d.URLs.CodeownersErrors(errs))
+		return nil
+	}
 }
 
 // keep json import used through writeJSON helper chain

@@ -88,6 +88,19 @@ func (f *fakeRepoStore) ReposByOwner(_ context.Context, ownerPK int64) ([]*store
 	return out, nil
 }
 
+func (f *fakeRepoStore) ListPublicRepos(_ context.Context, sinceDBID int64, limit int) ([]*store.RepoRow, error) {
+	var out []*store.RepoRow
+	for _, r := range f.repos {
+		if r.DBID > sinceDBID && !r.Private {
+			out = append(out, r)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (f *fakeRepoStore) UserByPK(_ context.Context, pk int64) (*store.UserRow, error) {
 	u, ok := f.users[pk]
 	if !ok {

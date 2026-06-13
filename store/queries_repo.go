@@ -232,6 +232,33 @@ func (s *Store) ReposByOwner(ctx context.Context, ownerPK int64) ([]*RepoRow, er
 	return out, rows.Err()
 }
 
+// ListPublicRepos returns live public repositories ordered by ascending db_id
+// after sinceDBID, capped at limit. It backs the global GET /repositories
+// listing, which walks every public repository by id the way GitHub's
+// id-cursor endpoint does, so a sinceDBID of zero starts from the first repo.
+func (s *Store) ListPublicRepos(ctx context.Context, sinceDBID int64, limit int) ([]*RepoRow, error) {
+	q := s.rebind(`SELECT ` + repoColumns + ` FROM repositories r
+		JOIN users u ON u.pk = r.owner_pk
+		WHERE r.db_id > ? AND r.private = 0
+		  AND r.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY r.db_id ASC
+		LIMIT ?`)
+	rows, err := s.rdb.QueryContext(ctx, q, sinceDBID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*RepoRow
+	for rows.Next() {
+		r, err := scanRepo(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // TouchRepoPushedAt advances pushed_at (and updated_at) to at, which the
 // post-receive sink calls after a push so the pushed_at field and the
 // pushed-sort order reflect the push. The time is stored in UTC to match how
