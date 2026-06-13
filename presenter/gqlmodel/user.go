@@ -95,6 +95,12 @@ type UserConnection struct {
 	TotalCount int32
 }
 
+// UserEdge is one edge of a user connection, pairing a user with its cursor.
+type UserEdge struct {
+	Cursor string
+	Node   *User
+}
+
 // Milestone is the GraphQL Milestone object: the milestone an issue or pull
 // request is attached to. The fields are the subset gh issue view selects.
 type Milestone struct {

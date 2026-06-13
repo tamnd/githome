@@ -55,6 +55,8 @@ type ComplexityRoot struct {
 	AddCommentPayload struct {
 		ClientMutationID func(childComplexity int) int
 		CommentEdge      func(childComplexity int) int
+		Subject          func(childComplexity int) int
+		TimelineEdge     func(childComplexity int) int
 	}
 
 	AddLabelsToLabelablePayload struct {
@@ -264,6 +266,11 @@ type ComplexityRoot struct {
 		Body  func(childComplexity int) int
 		Name  func(childComplexity int) int
 		Title func(childComplexity int) int
+	}
+
+	IssueTimelineItemsEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Label struct {
@@ -711,8 +718,9 @@ type ComplexityRoot struct {
 	}
 
 	RequestReviewsPayload struct {
-		ClientMutationID func(childComplexity int) int
-		PullRequest      func(childComplexity int) int
+		ClientMutationID       func(childComplexity int) int
+		PullRequest            func(childComplexity int) int
+		RequestedReviewersEdge func(childComplexity int) int
 	}
 
 	ResolveReviewThreadPayload struct {
@@ -846,6 +854,11 @@ type ComplexityRoot struct {
 	UserConnection struct {
 		Nodes      func(childComplexity int) int
 		TotalCount func(childComplexity int) int
+	}
+
+	UserEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	UserStatus struct {
@@ -1038,6 +1051,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AddCommentPayload.CommentEdge(childComplexity), true
+	case "AddCommentPayload.subject":
+		if e.ComplexityRoot.AddCommentPayload.Subject == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddCommentPayload.Subject(childComplexity), true
+	case "AddCommentPayload.timelineEdge":
+		if e.ComplexityRoot.AddCommentPayload.TimelineEdge == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AddCommentPayload.TimelineEdge(childComplexity), true
 
 	case "AddLabelsToLabelablePayload.clientMutationId":
 		if e.ComplexityRoot.AddLabelsToLabelablePayload.ClientMutationID == nil {
@@ -1807,6 +1832,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueTemplate.Title(childComplexity), true
+
+	case "IssueTimelineItemsEdge.cursor":
+		if e.ComplexityRoot.IssueTimelineItemsEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueTimelineItemsEdge.Cursor(childComplexity), true
+	case "IssueTimelineItemsEdge.node":
+		if e.ComplexityRoot.IssueTimelineItemsEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueTimelineItemsEdge.Node(childComplexity), true
 
 	case "Label.color":
 		if e.ComplexityRoot.Label.Color == nil {
@@ -3978,6 +4016,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RequestReviewsPayload.PullRequest(childComplexity), true
+	case "RequestReviewsPayload.requestedReviewersEdge":
+		if e.ComplexityRoot.RequestReviewsPayload.RequestedReviewersEdge == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RequestReviewsPayload.RequestedReviewersEdge(childComplexity), true
 
 	case "ResolveReviewThreadPayload.clientMutationId":
 		if e.ComplexityRoot.ResolveReviewThreadPayload.ClientMutationID == nil {
@@ -4462,6 +4506,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.UserConnection.TotalCount(childComplexity), true
 
+	case "UserEdge.cursor":
+		if e.ComplexityRoot.UserEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserEdge.Cursor(childComplexity), true
+	case "UserEdge.node":
+		if e.ComplexityRoot.UserEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserEdge.Node(childComplexity), true
+
 	case "UserStatus.createdAt":
 		if e.ComplexityRoot.UserStatus.CreatedAt == nil {
 			break
@@ -4553,6 +4610,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputDeleteRefInput,
 		ec.unmarshalInputDisablePullRequestAutoMergeInput,
 		ec.unmarshalInputDraftPullRequestReviewComment,
+		ec.unmarshalInputDraftPullRequestReviewThread,
 		ec.unmarshalInputEnablePullRequestAutoMergeInput,
 		ec.unmarshalInputIssueFilters,
 		ec.unmarshalInputIssueOrder,
@@ -4953,6 +5011,11 @@ input CreateIssueInput {
   assigneeIds: [ID!]
   labelIds: [ID!]
   milestoneId: ID
+  # projectIds and issueTemplate are part of GitHub's CreateIssueInput. Githome
+  # does not model classic projects, and the template is a client-side hint, so
+  # both are accepted for document compatibility and otherwise ignored.
+  projectIds: [ID!]
+  issueTemplate: String
   clientMutationId: String
 }
 
@@ -4968,8 +5031,20 @@ input AddCommentInput {
 }
 
 type AddCommentPayload {
+  # subject is the issue or pull request the comment was added to.
+  subject: Node
   commentEdge: IssueCommentEdge
+  # timelineEdge is the new comment as a timeline item, the shape GitHub's web
+  # client reads back. Githome's timeline is the comment itself.
+  timelineEdge: IssueTimelineItemsEdge
   clientMutationId: String
+}
+
+# IssueTimelineItemsEdge is one edge of an issue's timeline. Githome models the
+# timeline as the comment stream, so the node is the added IssueComment.
+type IssueTimelineItemsEdge {
+  cursor: String!
+  node: IssueComment
 }
 
 # IssueClosedStateReason is the reason supplied when closing an issue.
@@ -5432,7 +5507,9 @@ type CreatePullRequestPayload {
 
 input MergePullRequestInput {
   pullRequestId: ID!
-  mergeMethod: PullRequestMergeMethod
+  # mergeMethod defaults to MERGE, matching GitHub's SDL default so a document
+  # that omits it merges with a merge commit rather than failing validation.
+  mergeMethod: PullRequestMergeMethod = MERGE
   commitHeadline: String
   commitBody: String
   expectedHeadOid: GitObjectID
@@ -5508,7 +5585,16 @@ input RequestReviewsInput {
 
 type RequestReviewsPayload {
   pullRequest: PullRequest
+  # requestedReviewersEdge is the first newly requested reviewer as a connection
+  # edge, the shape GitHub returns so a client can append it to a cached list.
+  requestedReviewersEdge: UserEdge
   clientMutationId: String
+}
+
+# UserEdge is one edge of a user connection, pairing a user with its cursor.
+type UserEdge {
+  cursor: String!
+  node: User
 }
 
 input ConvertPullRequestToDraftInput {
@@ -5917,12 +6003,27 @@ input DraftPullRequestReviewComment {
   startSide: DiffSide
 }
 
+# DraftPullRequestReviewThread is a pending review thread: a comment anchored to
+# a line (or line range) on a file. gh's modern review path sends threads
+# instead of position-based comments.
+input DraftPullRequestReviewThread {
+  path: String!
+  line: Int
+  side: DiffSide
+  startLine: Int
+  startSide: DiffSide
+  body: String!
+}
+
 input AddPullRequestReviewInput {
   pullRequestId: ID!
   commitOID: GitObjectID
   body: String
   event: PullRequestReviewEvent
   comments: [DraftPullRequestReviewComment]
+  # threads is the line-anchored form of comments gh's modern review path sends;
+  # each thread becomes a review comment on its file and line.
+  threads: [DraftPullRequestReviewThread]
   clientMutationId: String
 }
 
@@ -6485,8 +6586,12 @@ func (ec *executionContext) childFields_AddAssigneesToAssignablePayload(ctx cont
 
 func (ec *executionContext) childFields_AddCommentPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
+	case "subject":
+		return ec.fieldContext_AddCommentPayload_subject(ctx, field)
 	case "commentEdge":
 		return ec.fieldContext_AddCommentPayload_commentEdge(ctx, field)
+	case "timelineEdge":
+		return ec.fieldContext_AddCommentPayload_timelineEdge(ctx, field)
 	case "clientMutationId":
 		return ec.fieldContext_AddCommentPayload_clientMutationId(ctx, field)
 	}
@@ -6871,6 +6976,16 @@ func (ec *executionContext) childFields_IssueTemplate(ctx context.Context, field
 		return ec.fieldContext_IssueTemplate_about(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type IssueTemplate", field.Name)
+}
+
+func (ec *executionContext) childFields_IssueTimelineItemsEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_IssueTimelineItemsEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_IssueTimelineItemsEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IssueTimelineItemsEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_Label(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -7671,6 +7786,8 @@ func (ec *executionContext) childFields_RequestReviewsPayload(ctx context.Contex
 	switch field.Name {
 	case "pullRequest":
 		return ec.fieldContext_RequestReviewsPayload_pullRequest(ctx, field)
+	case "requestedReviewersEdge":
+		return ec.fieldContext_RequestReviewsPayload_requestedReviewersEdge(ctx, field)
 	case "clientMutationId":
 		return ec.fieldContext_RequestReviewsPayload_clientMutationId(ctx, field)
 	}
@@ -7879,6 +7996,16 @@ func (ec *executionContext) childFields_UserConnection(ctx context.Context, fiel
 		return ec.fieldContext_UserConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UserConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_UserEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_UserEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_UserEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UserEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_UserStatus(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -9687,6 +9814,38 @@ func (ec *executionContext) fieldContext_AddAssigneesToAssignablePayload_clientM
 	return graphql.NewScalarFieldContext("AddAssigneesToAssignablePayload", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _AddCommentPayload_subject(ctx context.Context, field graphql.CollectedField, obj *AddCommentPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddCommentPayload_subject(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Subject, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v Node) graphql.Marshaler {
+			return ec.marshalONode2githubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐNode(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddCommentPayload_subject(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AddCommentPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _AddCommentPayload_commentEdge(ctx context.Context, field graphql.CollectedField, obj *AddCommentPayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9714,6 +9873,38 @@ func (ec *executionContext) fieldContext_AddCommentPayload_commentEdge(_ context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_IssueCommentEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AddCommentPayload_timelineEdge(ctx context.Context, field graphql.CollectedField, obj *AddCommentPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AddCommentPayload_timelineEdge(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TimelineEdge, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueTimelineItemsEdge) graphql.Marshaler {
+			return ec.marshalOIssueTimelineItemsEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueTimelineItemsEdge(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AddCommentPayload_timelineEdge(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AddCommentPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueTimelineItemsEdge(ctx, field)
 		},
 	}
 	return fc, nil
@@ -12870,6 +13061,61 @@ func (ec *executionContext) _IssueTemplate_about(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_IssueTemplate_about(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("IssueTemplate", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IssueTimelineItemsEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueTimelineItemsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueTimelineItemsEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueTimelineItemsEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueTimelineItemsEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IssueTimelineItemsEdge_node(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.IssueTimelineItemsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueTimelineItemsEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.IssueComment) graphql.Marshaler {
+			return ec.marshalOIssueComment2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueComment(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueTimelineItemsEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueTimelineItemsEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueComment(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Label_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Label) (ret graphql.Marshaler) {
@@ -21755,6 +22001,38 @@ func (ec *executionContext) fieldContext_RequestReviewsPayload_pullRequest(_ con
 	return fc, nil
 }
 
+func (ec *executionContext) _RequestReviewsPayload_requestedReviewersEdge(ctx context.Context, field graphql.CollectedField, obj *RequestReviewsPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RequestReviewsPayload_requestedReviewersEdge(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequestedReviewersEdge, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.UserEdge) graphql.Marshaler {
+			return ec.marshalOUserEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUserEdge(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RequestReviewsPayload_requestedReviewersEdge(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RequestReviewsPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UserEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RequestReviewsPayload_clientMutationId(ctx context.Context, field graphql.CollectedField, obj *RequestReviewsPayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -23706,6 +23984,61 @@ func (ec *executionContext) fieldContext_UserConnection_totalCount(_ context.Con
 	return graphql.NewScalarFieldContext("UserConnection", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _UserEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UserEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UserEdge_node(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_UserEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _UserStatus_id(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserStatus) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -25254,7 +25587,7 @@ func (ec *executionContext) unmarshalInputAddPullRequestReviewInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"pullRequestId", "commitOID", "body", "event", "comments", "clientMutationId"}
+	fieldsInOrder := [...]string{"pullRequestId", "commitOID", "body", "event", "comments", "threads", "clientMutationId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -25296,6 +25629,13 @@ func (ec *executionContext) unmarshalInputAddPullRequestReviewInput(ctx context.
 				return it, err
 			}
 			it.Comments = data
+		case "threads":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("threads"))
+			data, err := ec.unmarshalODraftPullRequestReviewThread2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewThread(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Threads = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -25665,7 +26005,7 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"repositoryId", "title", "body", "assigneeIds", "labelIds", "milestoneId", "clientMutationId"}
+	fieldsInOrder := [...]string{"repositoryId", "title", "body", "assigneeIds", "labelIds", "milestoneId", "projectIds", "issueTemplate", "clientMutationId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -25714,6 +26054,20 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.MilestoneID = data
+		case "projectIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("projectIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ProjectIds = data
+		case "issueTemplate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("issueTemplate"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IssueTemplate = data
 		case "clientMutationId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientMutationId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -26171,6 +26525,71 @@ func (ec *executionContext) unmarshalInputDraftPullRequestReviewComment(ctx cont
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputDraftPullRequestReviewThread(ctx context.Context, obj any) (DraftPullRequestReviewThread, error) {
+	var it DraftPullRequestReviewThread
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"path", "line", "side", "startLine", "startSide", "body"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "line":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("line"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Line = data
+		case "side":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("side"))
+			data, err := ec.unmarshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Side = data
+		case "startLine":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startLine"))
+			data, err := ec.unmarshalOInt2ᚖint32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartLine = data
+		case "startSide":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startSide"))
+			data, err := ec.unmarshalODiffSide2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐDiffSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartSide = data
+		case "body":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Body = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputEnablePullRequestAutoMergeInput(ctx context.Context, obj any) (EnablePullRequestAutoMergeInput, error) {
 	var it EnablePullRequestAutoMergeInput
 	if obj == nil {
@@ -26479,6 +26898,10 @@ func (ec *executionContext) unmarshalInputMergePullRequestInput(ctx context.Cont
 	asMap := map[string]any{}
 	for k, v := range obj.(map[string]any) {
 		asMap[k] = v
+	}
+
+	if _, present := asMap["mergeMethod"]; !present {
+		asMap["mergeMethod"] = "MERGE"
 	}
 
 	fieldsInOrder := [...]string{"pullRequestId", "mergeMethod", "commitHeadline", "commitBody", "expectedHeadOid", "authorEmail", "clientMutationId"}
@@ -27759,8 +28182,12 @@ func (ec *executionContext) _AddCommentPayload(ctx context.Context, sel ast.Sele
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("AddCommentPayload")
+		case "subject":
+			out.Values[i] = ec._AddCommentPayload_subject(ctx, field, obj)
 		case "commentEdge":
 			out.Values[i] = ec._AddCommentPayload_commentEdge(ctx, field, obj)
+		case "timelineEdge":
+			out.Values[i] = ec._AddCommentPayload_timelineEdge(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._AddCommentPayload_clientMutationId(ctx, field, obj)
 		default:
@@ -29626,6 +30053,47 @@ func (ec *executionContext) _IssueTemplate(ctx context.Context, sel ast.Selectio
 			out.Values[i] = ec._IssueTemplate_body(ctx, field, obj)
 		case "about":
 			out.Values[i] = ec._IssueTemplate_about(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var issueTimelineItemsEdgeImplementors = []string{"IssueTimelineItemsEdge"}
+
+func (ec *executionContext) _IssueTimelineItemsEdge(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.IssueTimelineItemsEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, issueTimelineItemsEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IssueTimelineItemsEdge")
+		case "cursor":
+			out.Values[i] = ec._IssueTimelineItemsEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._IssueTimelineItemsEdge_node(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -33597,6 +34065,8 @@ func (ec *executionContext) _RequestReviewsPayload(ctx context.Context, sel ast.
 			out.Values[i] = graphql.MarshalString("RequestReviewsPayload")
 		case "pullRequest":
 			out.Values[i] = ec._RequestReviewsPayload_pullRequest(ctx, field, obj)
+		case "requestedReviewersEdge":
+			out.Values[i] = ec._RequestReviewsPayload_requestedReviewersEdge(ctx, field, obj)
 		case "clientMutationId":
 			out.Values[i] = ec._RequestReviewsPayload_clientMutationId(ctx, field, obj)
 		default:
@@ -34728,6 +35198,47 @@ func (ec *executionContext) _UserConnection(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var userEdgeImplementors = []string{"UserEdge"}
+
+func (ec *executionContext) _UserEdge(ctx context.Context, sel ast.SelectionSet, obj *gqlmodel.UserEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, userEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UserEdge")
+		case "cursor":
+			out.Values[i] = ec._UserEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._UserEdge_node(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36647,6 +37158,32 @@ func (ec *executionContext) unmarshalODraftPullRequestReviewComment2ᚖgithubᚗ
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalODraftPullRequestReviewThread2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewThread(ctx context.Context, v any) ([]*DraftPullRequestReviewThread, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*DraftPullRequestReviewThread, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalODraftPullRequestReviewThread2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewThread(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalODraftPullRequestReviewThread2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐDraftPullRequestReviewThread(ctx context.Context, v any) (*DraftPullRequestReviewThread, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputDraftPullRequestReviewThread(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalOEnablePullRequestAutoMergePayload2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐEnablePullRequestAutoMergePayload(ctx context.Context, sel ast.SelectionSet, v *EnablePullRequestAutoMergePayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -36940,6 +37477,13 @@ func (ec *executionContext) marshalOIssueTemplate2ᚕᚖgithubᚗcomᚋtamndᚋg
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalOIssueTimelineItemsEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐIssueTimelineItemsEdge(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.IssueTimelineItemsEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._IssueTimelineItemsEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOLabel2ᚕᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐLabel(ctx context.Context, sel ast.SelectionSet, v []*gqlmodel.Label) graphql.Marshaler {
@@ -37874,6 +38418,13 @@ func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpre
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOUserEdge2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUserEdge(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UserEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._UserEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOUserStatus2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐUserStatus(ctx context.Context, sel ast.SelectionSet, v *gqlmodel.UserStatus) graphql.Marshaler {

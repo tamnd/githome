@@ -105,6 +105,29 @@ func (r *mutationResolver) AddPullRequestReview(ctx context.Context, input gener
 		}
 		ri.Comments = append(ri.Comments, ci)
 	}
+	// threads is gh's modern, line-anchored form of the same review comments;
+	// fold each thread into the comment list so both paths create the same rows.
+	for _, th := range input.Threads {
+		if th == nil {
+			continue
+		}
+		ci := domain.ReviewCommentInput{
+			Path: th.Path,
+			Body: th.Body,
+		}
+		if th.Side != nil {
+			ci.Side = string(*th.Side)
+		}
+		if th.Line != nil {
+			l := int64(*th.Line)
+			ci.Line = &l
+		}
+		if th.StartLine != nil {
+			sl := int64(*th.StartLine)
+			ci.StartLine = &sl
+		}
+		ri.Comments = append(ri.Comments, ci)
+	}
 	review, err := r.Reviews.CreateReview(ctx, viewerID(ctx), owner, name, number, ri)
 	if err != nil {
 		return nil, mapErr(err)

@@ -302,7 +302,9 @@ type CreatePullRequestPayload {
 
 input MergePullRequestInput {
   pullRequestId: ID!
-  mergeMethod: PullRequestMergeMethod
+  # mergeMethod defaults to MERGE, matching GitHub's SDL default so a document
+  # that omits it merges with a merge commit rather than failing validation.
+  mergeMethod: PullRequestMergeMethod = MERGE
   commitHeadline: String
   commitBody: String
   expectedHeadOid: GitObjectID
@@ -378,7 +380,16 @@ input RequestReviewsInput {
 
 type RequestReviewsPayload {
   pullRequest: PullRequest
+  # requestedReviewersEdge is the first newly requested reviewer as a connection
+  # edge, the shape GitHub returns so a client can append it to a cached list.
+  requestedReviewersEdge: UserEdge
   clientMutationId: String
+}
+
+# UserEdge is one edge of a user connection, pairing a user with its cursor.
+type UserEdge {
+  cursor: String!
+  node: User
 }
 
 input ConvertPullRequestToDraftInput {

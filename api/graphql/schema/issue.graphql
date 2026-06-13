@@ -302,6 +302,11 @@ input CreateIssueInput {
   assigneeIds: [ID!]
   labelIds: [ID!]
   milestoneId: ID
+  # projectIds and issueTemplate are part of GitHub's CreateIssueInput. Githome
+  # does not model classic projects, and the template is a client-side hint, so
+  # both are accepted for document compatibility and otherwise ignored.
+  projectIds: [ID!]
+  issueTemplate: String
   clientMutationId: String
 }
 
@@ -317,8 +322,20 @@ input AddCommentInput {
 }
 
 type AddCommentPayload {
+  # subject is the issue or pull request the comment was added to.
+  subject: Node
   commentEdge: IssueCommentEdge
+  # timelineEdge is the new comment as a timeline item, the shape GitHub's web
+  # client reads back. Githome's timeline is the comment itself.
+  timelineEdge: IssueTimelineItemsEdge
   clientMutationId: String
+}
+
+# IssueTimelineItemsEdge is one edge of an issue's timeline. Githome models the
+# timeline as the comment stream, so the node is the added IssueComment.
+type IssueTimelineItemsEdge {
+  cursor: String!
+  node: IssueComment
 }
 
 # IssueClosedStateReason is the reason supplied when closing an issue.

@@ -250,12 +250,27 @@ input DraftPullRequestReviewComment {
   startSide: DiffSide
 }
 
+# DraftPullRequestReviewThread is a pending review thread: a comment anchored to
+# a line (or line range) on a file. gh's modern review path sends threads
+# instead of position-based comments.
+input DraftPullRequestReviewThread {
+  path: String!
+  line: Int
+  side: DiffSide
+  startLine: Int
+  startSide: DiffSide
+  body: String!
+}
+
 input AddPullRequestReviewInput {
   pullRequestId: ID!
   commitOID: GitObjectID
   body: String
   event: PullRequestReviewEvent
   comments: [DraftPullRequestReviewComment]
+  # threads is the line-anchored form of comments gh's modern review path sends;
+  # each thread becomes a review comment on its file and line.
+  threads: [DraftPullRequestReviewThread]
   clientMutationId: String
 }
 

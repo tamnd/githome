@@ -251,13 +251,25 @@ func (r *mutationResolver) AddComment(ctx context.Context, input generated.AddCo
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return &generated.AddCommentPayload{
+	node := r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx))
+	payload := &generated.AddCommentPayload{
 		CommentEdge: &generated.IssueCommentEdge{
 			Cursor: encodeCursor(0),
-			Node:   r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx)),
+			Node:   node,
+		},
+		// timelineEdge is the same comment seen as a timeline item.
+		TimelineEdge: &gqlmodel.IssueTimelineItemsEdge{
+			Cursor: encodeCursor(0),
+			Node:   node,
 		},
 		ClientMutationID: input.ClientMutationID,
-	}, nil
+	}
+	// subject is the issue or pull request that was commented on; resolve it for
+	// the few documents that read it back. A lookup failure leaves it null.
+	if iss, e := r.Issues.GetIssue(ctx, viewerID(ctx), owner, name, number); e == nil {
+		payload.Subject = r.URLs.GQLIssue(owner, name, iss, r.format(ctx))
+	}
+	return payload, nil
 }
 
 // CloseIssue is the resolver for the closeIssue field.
