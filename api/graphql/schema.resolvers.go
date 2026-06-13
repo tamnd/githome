@@ -345,4 +345,3 @@ func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 type queryResolver struct{ *Resolver }
 type repositoryResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
-

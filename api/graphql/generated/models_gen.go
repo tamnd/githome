@@ -54,8 +54,10 @@ type AddCommentInput struct {
 }
 
 type AddCommentPayload struct {
-	CommentEdge      *IssueCommentEdge `json:"commentEdge,omitempty"`
-	ClientMutationID *string           `json:"clientMutationId,omitempty"`
+	Subject          Node                             `json:"subject,omitempty"`
+	CommentEdge      *IssueCommentEdge                `json:"commentEdge,omitempty"`
+	TimelineEdge     *gqlmodel.IssueTimelineItemsEdge `json:"timelineEdge,omitempty"`
+	ClientMutationID *string                          `json:"clientMutationId,omitempty"`
 }
 
 type AddLabelsToLabelableInput struct {
@@ -96,6 +98,7 @@ type AddPullRequestReviewInput struct {
 	Body             *string                          `json:"body,omitempty"`
 	Event            *gqlmodel.PullRequestReviewEvent `json:"event,omitempty"`
 	Comments         []*DraftPullRequestReviewComment `json:"comments,omitempty"`
+	Threads          []*DraftPullRequestReviewThread  `json:"threads,omitempty"`
 	ClientMutationID *string                          `json:"clientMutationId,omitempty"`
 }
 
@@ -200,6 +203,8 @@ type CreateIssueInput struct {
 	AssigneeIds      []string `json:"assigneeIds,omitempty"`
 	LabelIds         []string `json:"labelIds,omitempty"`
 	MilestoneID      *string  `json:"milestoneId,omitempty"`
+	ProjectIds       []string `json:"projectIds,omitempty"`
+	IssueTemplate    *string  `json:"issueTemplate,omitempty"`
 	ClientMutationID *string  `json:"clientMutationId,omitempty"`
 }
 
@@ -304,6 +309,15 @@ type DraftPullRequestReviewComment struct {
 	Side      *gqlmodel.DiffSide `json:"side,omitempty"`
 	StartLine *int32             `json:"startLine,omitempty"`
 	StartSide *gqlmodel.DiffSide `json:"startSide,omitempty"`
+}
+
+type DraftPullRequestReviewThread struct {
+	Path      string             `json:"path"`
+	Line      *int32             `json:"line,omitempty"`
+	Side      *gqlmodel.DiffSide `json:"side,omitempty"`
+	StartLine *int32             `json:"startLine,omitempty"`
+	StartSide *gqlmodel.DiffSide `json:"startSide,omitempty"`
+	Body      string             `json:"body"`
 }
 
 type EnablePullRequestAutoMergeInput struct {
@@ -496,8 +510,9 @@ type RequestReviewsInput struct {
 }
 
 type RequestReviewsPayload struct {
-	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
-	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+	PullRequest            *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
+	RequestedReviewersEdge *gqlmodel.UserEdge    `json:"requestedReviewersEdge,omitempty"`
+	ClientMutationID       *string               `json:"clientMutationId,omitempty"`
 }
 
 type ResolveReviewThreadInput struct {

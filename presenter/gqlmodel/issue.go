@@ -148,6 +148,13 @@ type LabelEdge struct {
 	Node   *Label
 }
 
+// IssueTimelineItemsEdge is one edge of an issue's timeline. Githome models the
+// timeline as the comment stream, so the node is an IssueComment.
+type IssueTimelineItemsEdge struct {
+	Cursor string
+	Node   *IssueComment
+}
+
 // CommentAuthorAssociation is the GraphQL CommentAuthorAssociation enum: the
 // comment author's relationship to the repository.
 type CommentAuthorAssociation string

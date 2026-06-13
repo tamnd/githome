@@ -243,10 +243,22 @@ func (r *mutationResolver) RequestReviews(ctx context.Context, input generated.R
 	if err != nil {
 		return nil, mapErr(err)
 	}
-	return &generated.RequestReviewsPayload{
+	payload := &generated.RequestReviewsPayload{
 		PullRequest:      r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
-	}, nil
+	}
+	// requestedReviewersEdge is the first newly requested reviewer as an edge;
+	// resolve it from the input's user ids so a client can splice it into a
+	// cached connection. Unresolvable ids leave the edge null.
+	if logins, lErr := r.userLoginsFromIDs(ctx, input.UserIds); lErr == nil && len(logins) > 0 {
+		if u, uErr := r.Users.ByLogin(ctx, logins[0]); uErr == nil {
+			payload.RequestedReviewersEdge = &gqlmodel.UserEdge{
+				Cursor: encodeCursor(0),
+				Node:   r.URLs.GQLUser(u, r.format(ctx)),
+			}
+		}
+	}
+	return payload, nil
 }
 
 // ConvertPullRequestToDraft marks a pull request as a draft.
