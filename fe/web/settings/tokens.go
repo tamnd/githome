@@ -93,6 +93,18 @@ func (h *Handlers) Tokens(c *mizu.Ctx) error {
 	return h.renderTokens(c, v, "", "")
 }
 
+// NewToken renders the mint-a-token form at /settings/tokens/new, the dedicated
+// page github.com links to for creating a classic token. It renders the same
+// tokens page the list lives on, whose mint form is the focus here; with no
+// token service wired it falls back to the honest-absence stub.
+func (h *Handlers) NewToken(c *mizu.Ctx) error {
+	v, ok := h.gate(c)
+	if !ok {
+		return h.notFound(c)
+	}
+	return h.renderTokens(c, v, "", "")
+}
+
 // CreateToken mints a new token from the form's note and scopes and re-renders
 // the page with the one-time plaintext. It renders rather than redirects: the
 // secret must not survive the response, so it never enters a cookie.

@@ -118,7 +118,11 @@ func (h *Handlers) nav(v *view.Viewer, active string) view.SettingsNav {
 		Items: []view.SettingsNavItem{
 			item("Profile", route.ProfileSettings()),
 			item("Appearance", route.Appearance()),
+			item("Notifications", route.SettingsNotifications()),
+			item("Emails", route.SettingsEmails()),
+			item("Password and authentication", route.SettingsSecurity()),
 			item("SSH and GPG keys", route.SettingsKeys()),
+			item("Organizations", route.SettingsOrganizations()),
 			item("Personal access tokens", route.SettingsTokens()),
 		},
 	}

@@ -1,0 +1,16 @@
+{{define "content" -}}
+{{/* The data is sectionStubVM. An account-settings section github.com exposes
+     that Githome does not yet back, rendered inside the settings chrome and nav
+     as an honest-absence stub so the documented URL is recognized rather than a
+     site-wide 404. See 2005/review/01 R01-50. */ -}}
+<div class="settings-shell">
+  {{template "settings_nav" .Nav}}
+  <section class="settings-body">
+    <h1 class="settings-title">{{.Title}}</h1>
+    <div class="blankslate">
+      <p class="blankslate-heading">{{.Heading}}</p>
+      <p class="blankslate-description">{{.Description}}</p>
+    </div>
+  </section>
+</div>
+{{- end}}

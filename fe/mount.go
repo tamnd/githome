@@ -535,10 +535,21 @@ func mountSettings(page *mizu.Router, d Deps) {
 	page.Get("/settings/appearance", sh.Appearance)
 	page.Post("/settings/appearance", sh.SaveAppearance)
 	page.Get("/settings/keys", sh.Keys)
+	// The mint form lives at /settings/tokens/new, github.com's dedicated
+	// create page; the literal "new" is registered before the {id}/delete
+	// route so it is never read as a token id.
+	page.Get("/settings/tokens/new", sh.NewToken)
 	page.Get("/settings/tokens", sh.Tokens)
 	if d.Tokens != nil {
 		page.Post("/settings/tokens", sh.CreateToken)
 		page.Post("/settings/tokens/{id}/delete", sh.DeleteToken)
+	}
+	// The remaining account-settings sections github.com exposes that Githome
+	// does not yet back resolve to an honest-absence stub inside the settings
+	// chrome rather than the site-wide 404 they used to hit. See 2005/review/01
+	// R01-50.
+	for _, sec := range websettings.AccountSections() {
+		page.Get(sec.Path, sh.Section(sec))
 	}
 }
 
