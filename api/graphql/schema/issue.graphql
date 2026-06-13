@@ -73,12 +73,21 @@ interface Actor {
 type Issue implements Node {
   id: ID!
   number: Int!
+  # databaseId is the issue's integer database id, the legacy REST `id`.
+  databaseId: Int
   title: String!
   body: String!
   state: IssueState!
   stateReason: IssueStateReason
   url: URI!
   locked: Boolean!
+  # activeLockReason is why the conversation was locked, null when unlocked or
+  # locked without a reason.
+  activeLockReason: LockReason
+  # isPinned reports whether the issue is pinned to the repository.
+  isPinned: Boolean!
+  # viewerCanUpdate reports whether the requesting viewer can edit this issue.
+  viewerCanUpdate: Boolean!
   closed: Boolean!
   author: Actor
   createdAt: DateTime!
@@ -158,6 +167,7 @@ type Milestone implements Node {
 # UserConnection is the Relay connection over users (assignees, etc.).
 type UserConnection {
   nodes: [User]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 

@@ -243,25 +243,29 @@ type ComplexityRoot struct {
 	}
 
 	Issue struct {
-		Assignees      func(childComplexity int, first *int32, after *string) int
-		Author         func(childComplexity int) int
-		Body           func(childComplexity int) int
-		Closed         func(childComplexity int) int
-		ClosedAt       func(childComplexity int) int
-		Comments       func(childComplexity int, first *int32, after *string, last *int32, before *string) int
-		CreatedAt      func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Labels         func(childComplexity int, first *int32, after *string) int
-		Locked         func(childComplexity int) int
-		Milestone      func(childComplexity int) int
-		Number         func(childComplexity int) int
-		ProjectCards   func(childComplexity int, first *int32, after *string) int
-		ReactionGroups func(childComplexity int) int
-		State          func(childComplexity int) int
-		StateReason    func(childComplexity int) int
-		Title          func(childComplexity int) int
-		URL            func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
+		ActiveLockReason func(childComplexity int) int
+		Assignees        func(childComplexity int, first *int32, after *string) int
+		Author           func(childComplexity int) int
+		Body             func(childComplexity int) int
+		Closed           func(childComplexity int) int
+		ClosedAt         func(childComplexity int) int
+		Comments         func(childComplexity int, first *int32, after *string, last *int32, before *string) int
+		CreatedAt        func(childComplexity int) int
+		DatabaseID       func(childComplexity int) int
+		ID               func(childComplexity int) int
+		IsPinned         func(childComplexity int) int
+		Labels           func(childComplexity int, first *int32, after *string) int
+		Locked           func(childComplexity int) int
+		Milestone        func(childComplexity int) int
+		Number           func(childComplexity int) int
+		ProjectCards     func(childComplexity int, first *int32, after *string) int
+		ReactionGroups   func(childComplexity int) int
+		State            func(childComplexity int) int
+		StateReason      func(childComplexity int) int
+		Title            func(childComplexity int) int
+		URL              func(childComplexity int) int
+		UpdatedAt        func(childComplexity int) int
+		ViewerCanUpdate  func(childComplexity int) int
 	}
 
 	IssueComment struct {
@@ -971,6 +975,7 @@ type ComplexityRoot struct {
 
 	UserConnection struct {
 		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
 		TotalCount func(childComplexity int) int
 	}
 
@@ -1016,6 +1021,12 @@ type CommitResolver interface {
 	StatusCheckRollup(ctx context.Context, obj *gqlmodel.Commit) (*gqlmodel.StatusCheckRollup, error)
 }
 type IssueResolver interface {
+	DatabaseID(ctx context.Context, obj *gqlmodel.Issue) (*int32, error)
+
+	ActiveLockReason(ctx context.Context, obj *gqlmodel.Issue) (*LockReason, error)
+
+	ViewerCanUpdate(ctx context.Context, obj *gqlmodel.Issue) (bool, error)
+
 	Author(ctx context.Context, obj *gqlmodel.Issue) (gqlmodel.Actor, error)
 
 	Labels(ctx context.Context, obj *gqlmodel.Issue, first *int32, after *string) (*gqlmodel.LabelConnection, error)
@@ -1824,6 +1835,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GitActorConnection.TotalCount(childComplexity), true
 
+	case "Issue.activeLockReason":
+		if e.ComplexityRoot.Issue.ActiveLockReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.ActiveLockReason(childComplexity), true
 	case "Issue.assignees":
 		if e.ComplexityRoot.Issue.Assignees == nil {
 			break
@@ -1876,12 +1893,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.CreatedAt(childComplexity), true
+	case "Issue.databaseId":
+		if e.ComplexityRoot.Issue.DatabaseID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.DatabaseID(childComplexity), true
 	case "Issue.id":
 		if e.ComplexityRoot.Issue.ID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Issue.ID(childComplexity), true
+	case "Issue.isPinned":
+		if e.ComplexityRoot.Issue.IsPinned == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.IsPinned(childComplexity), true
 	case "Issue.labels":
 		if e.ComplexityRoot.Issue.Labels == nil {
 			break
@@ -1958,6 +1987,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.UpdatedAt(childComplexity), true
+	case "Issue.viewerCanUpdate":
+		if e.ComplexityRoot.Issue.ViewerCanUpdate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.ViewerCanUpdate(childComplexity), true
 
 	case "IssueComment.author":
 		if e.ComplexityRoot.IssueComment.Author == nil {
@@ -5138,6 +5173,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.UserConnection.Nodes(childComplexity), true
+	case "UserConnection.pageInfo":
+		if e.ComplexityRoot.UserConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UserConnection.PageInfo(childComplexity), true
 	case "UserConnection.totalCount":
 		if e.ComplexityRoot.UserConnection.TotalCount == nil {
 			break
@@ -5434,12 +5475,21 @@ interface Actor {
 type Issue implements Node {
   id: ID!
   number: Int!
+  # databaseId is the issue's integer database id, the legacy REST ` + "`" + `id` + "`" + `.
+  databaseId: Int
   title: String!
   body: String!
   state: IssueState!
   stateReason: IssueStateReason
   url: URI!
   locked: Boolean!
+  # activeLockReason is why the conversation was locked, null when unlocked or
+  # locked without a reason.
+  activeLockReason: LockReason
+  # isPinned reports whether the issue is pinned to the repository.
+  isPinned: Boolean!
+  # viewerCanUpdate reports whether the requesting viewer can edit this issue.
+  viewerCanUpdate: Boolean!
   closed: Boolean!
   author: Actor
   createdAt: DateTime!
@@ -5519,6 +5569,7 @@ type Milestone implements Node {
 # UserConnection is the Relay connection over users (assignees, etc.).
 type UserConnection {
   nodes: [User]
+  pageInfo: PageInfo!
   totalCount: Int!
 }
 
@@ -7840,6 +7891,8 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_id(ctx, field)
 	case "number":
 		return ec.fieldContext_Issue_number(ctx, field)
+	case "databaseId":
+		return ec.fieldContext_Issue_databaseId(ctx, field)
 	case "title":
 		return ec.fieldContext_Issue_title(ctx, field)
 	case "body":
@@ -7852,6 +7905,12 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_url(ctx, field)
 	case "locked":
 		return ec.fieldContext_Issue_locked(ctx, field)
+	case "activeLockReason":
+		return ec.fieldContext_Issue_activeLockReason(ctx, field)
+	case "isPinned":
+		return ec.fieldContext_Issue_isPinned(ctx, field)
+	case "viewerCanUpdate":
+		return ec.fieldContext_Issue_viewerCanUpdate(ctx, field)
 	case "closed":
 		return ec.fieldContext_Issue_closed(ctx, field)
 	case "author":
@@ -9122,6 +9181,8 @@ func (ec *executionContext) childFields_UserConnection(ctx context.Context, fiel
 	switch field.Name {
 	case "nodes":
 		return ec.fieldContext_UserConnection_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_UserConnection_pageInfo(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_UserConnection_totalCount(ctx, field)
 	}
@@ -13939,6 +14000,29 @@ func (ec *executionContext) fieldContext_Issue_number(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Issue", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _Issue_databaseId(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_databaseId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().DatabaseID(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_databaseId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Issue", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Issue_title(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -14075,6 +14159,75 @@ func (ec *executionContext) _Issue_locked(ctx context.Context, field graphql.Col
 }
 func (ec *executionContext) fieldContext_Issue_locked(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Issue", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Issue_activeLockReason(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_activeLockReason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().ActiveLockReason(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *LockReason) graphql.Marshaler {
+			return ec.marshalOLockReason2ᚖgithubᚗcomᚋtamndᚋgithomeᚋapiᚋgraphqlᚋgeneratedᚐLockReason(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_activeLockReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Issue", field, true, true, errors.New("field of type LockReason does not have child fields"))
+}
+
+func (ec *executionContext) _Issue_isPinned(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_isPinned(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsPinned, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_isPinned(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Issue", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _Issue_viewerCanUpdate(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_viewerCanUpdate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().ViewerCanUpdate(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_viewerCanUpdate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Issue", field, true, true, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _Issue_closed(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.Issue) (ret graphql.Marshaler) {
@@ -27500,6 +27653,38 @@ func (ec *executionContext) fieldContext_UserConnection_nodes(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _UserConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UserConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *gqlmodel.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋtamndᚋgithomeᚋpresenterᚋgqlmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UserConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UserConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _UserConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *gqlmodel.UserConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -33962,6 +34147,39 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "databaseId":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_databaseId(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "title":
 			out.Values[i] = ec._Issue_title(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -33989,6 +34207,80 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "activeLockReason":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_activeLockReason(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "isPinned":
+			out.Values[i] = ec._Issue_isPinned(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "viewerCanUpdate":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_viewerCanUpdate(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "closed":
 			out.Values[i] = ec._Issue_closed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40319,6 +40611,11 @@ func (ec *executionContext) _UserConnection(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("UserConnection")
 		case "nodes":
 			out.Values[i] = ec._UserConnection_nodes(ctx, field, obj)
+		case "pageInfo":
+			out.Values[i] = ec._UserConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "totalCount":
 			out.Values[i] = ec._UserConnection_totalCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

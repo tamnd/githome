@@ -38,6 +38,14 @@ models:
         resolver: true
       reactionGroups:
         resolver: true
+      # databaseId narrows the int64 db id to Int; activeLockReason maps the raw
+      # reason string onto the LockReason enum; viewerCanUpdate needs the viewer.
+      databaseId:
+        resolver: true
+      activeLockReason:
+        resolver: true
+      viewerCanUpdate:
+        resolver: true
   PullRequest:
     fields:
       commits:
