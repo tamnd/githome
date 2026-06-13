@@ -348,6 +348,11 @@ type LabelOrder struct {
 	Direction OrderDirection  `json:"direction"`
 }
 
+type LanguageOrder struct {
+	Field     LanguageOrderField `json:"field"`
+	Direction OrderDirection     `json:"direction"`
+}
+
 type MarkPullRequestReadyForReviewInput struct {
 	PullRequestID    string  `json:"pullRequestId"`
 	ClientMutationID *string `json:"clientMutationId,omitempty"`
@@ -372,6 +377,11 @@ type MergePullRequestPayload struct {
 	PullRequest      *gqlmodel.PullRequest `json:"pullRequest,omitempty"`
 	Actor            gqlmodel.Actor        `json:"actor,omitempty"`
 	ClientMutationID *string               `json:"clientMutationId,omitempty"`
+}
+
+type MilestoneOrder struct {
+	Field     MilestoneOrderField `json:"field"`
+	Direction OrderDirection      `json:"direction"`
 }
 
 type Mutation struct {
@@ -807,6 +817,173 @@ func (e *LabelOrderField) UnmarshalJSON(b []byte) error {
 }
 
 func (e LabelOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type LanguageOrderField string
+
+const (
+	LanguageOrderFieldSize LanguageOrderField = "SIZE"
+)
+
+var AllLanguageOrderField = []LanguageOrderField{
+	LanguageOrderFieldSize,
+}
+
+func (e LanguageOrderField) IsValid() bool {
+	switch e {
+	case LanguageOrderFieldSize:
+		return true
+	}
+	return false
+}
+
+func (e LanguageOrderField) String() string {
+	return string(e)
+}
+
+func (e *LanguageOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LanguageOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LanguageOrderField", str)
+	}
+	return nil
+}
+
+func (e LanguageOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *LanguageOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e LanguageOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MilestoneOrderField string
+
+const (
+	MilestoneOrderFieldDueDate   MilestoneOrderField = "DUE_DATE"
+	MilestoneOrderFieldCreatedAt MilestoneOrderField = "CREATED_AT"
+	MilestoneOrderFieldUpdatedAt MilestoneOrderField = "UPDATED_AT"
+	MilestoneOrderFieldNumber    MilestoneOrderField = "NUMBER"
+)
+
+var AllMilestoneOrderField = []MilestoneOrderField{
+	MilestoneOrderFieldDueDate,
+	MilestoneOrderFieldCreatedAt,
+	MilestoneOrderFieldUpdatedAt,
+	MilestoneOrderFieldNumber,
+}
+
+func (e MilestoneOrderField) IsValid() bool {
+	switch e {
+	case MilestoneOrderFieldDueDate, MilestoneOrderFieldCreatedAt, MilestoneOrderFieldUpdatedAt, MilestoneOrderFieldNumber:
+		return true
+	}
+	return false
+}
+
+func (e MilestoneOrderField) String() string {
+	return string(e)
+}
+
+func (e *MilestoneOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MilestoneOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MilestoneOrderField", str)
+	}
+	return nil
+}
+
+func (e MilestoneOrderField) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MilestoneOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MilestoneOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MilestoneState string
+
+const (
+	MilestoneStateOpen   MilestoneState = "OPEN"
+	MilestoneStateClosed MilestoneState = "CLOSED"
+)
+
+var AllMilestoneState = []MilestoneState{
+	MilestoneStateOpen,
+	MilestoneStateClosed,
+}
+
+func (e MilestoneState) IsValid() bool {
+	switch e {
+	case MilestoneStateOpen, MilestoneStateClosed:
+		return true
+	}
+	return false
+}
+
+func (e MilestoneState) String() string {
+	return string(e)
+}
+
+func (e *MilestoneState) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MilestoneState(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MilestoneState", str)
+	}
+	return nil
+}
+
+func (e MilestoneState) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MilestoneState) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MilestoneState) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

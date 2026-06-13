@@ -93,9 +93,11 @@ func graphqlServer(t *testing.T) (*httptest.Server, string) {
 	authSvc := auth.NewService(st, "https://git.test.internal")
 	t.Cleanup(authSvc.Close)
 
+	repoSvc := domain.NewRepoService(st, gitStore)
 	h := graphqlapi.NewHandler(graphqlapi.Deps{
 		Auth:       authSvc,
-		Repos:      domain.NewRepoService(st, gitStore),
+		Repos:      repoSvc,
+		Issues:     domain.NewIssueService(st, repoSvc),
 		URLs:       presenter.NewURLBuilder(graphqlURLs(t)),
 		NodeFormat: nodeid.FormatNew,
 	})

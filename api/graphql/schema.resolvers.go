@@ -204,6 +204,88 @@ func (r *repositoryResolver) ViewerPermission(ctx context.Context, obj *gqlmodel
 	return obj.ViewerPermission, nil
 }
 
+// Parent is the resolver for the parent field. A fork carries the parent's
+// internal pk; the resolver loads that repository for the viewer and renders it
+// with its default-branch ref. A non-fork (or a parent the viewer cannot see)
+// resolves to null, matching GitHub.
+func (r *repositoryResolver) Parent(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Repository, error) {
+	if obj.ForkParentPK == nil {
+		return nil, nil
+	}
+	parent, err := r.Repos.GetRepoByPK(ctx, viewerID(ctx), *obj.ForkParentPK)
+	if err != nil {
+		return nil, nil
+	}
+	var branch *git.Branch
+	if b, err := r.Repos.DefaultBranchRef(parent); err == nil {
+		branch = &b
+	}
+	out := r.URLs.GQLRepository(parent, branch, r.format(ctx))
+	return &out, nil
+}
+
+// Milestones is the resolver for the milestones field. It lists the repository's
+// milestones filtered by the requested states, optionally narrowed by a title
+// query substring, and paged by first (default 30). gh's milestone picker reads
+// it during issue and pull-request creation.
+func (r *repositoryResolver) Milestones(ctx context.Context, obj *gqlmodel.Repository, first *int32, after *string, states []generated.MilestoneState, orderBy *generated.MilestoneOrder, query *string) (*gqlmodel.MilestoneConnection, error) {
+	owner, name := splitNWO(obj.NameWithOwner)
+	all, err := r.Resolver.Issues.ListMilestones(ctx, viewerID(ctx), owner, name, milestoneStateFilter(states))
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	conn := &gqlmodel.MilestoneConnection{Nodes: []*gqlmodel.Milestone{}, PageInfo: &gqlmodel.PageInfo{}}
+	limit := 30
+	if first != nil && *first >= 0 {
+		limit = int(*first)
+	}
+	for _, m := range all {
+		if query != nil && *query != "" && !strings.Contains(strings.ToLower(m.Title), strings.ToLower(*query)) {
+			continue
+		}
+		conn.Nodes = append(conn.Nodes, r.URLs.GQLMilestone(owner, name, m, r.format(ctx)))
+	}
+	conn.TotalCount = int32(len(conn.Nodes))
+	if len(conn.Nodes) > limit {
+		conn.Nodes = conn.Nodes[:limit]
+		conn.PageInfo.HasNextPage = true
+	}
+	return conn, nil
+}
+
+// milestoneStateFilter collapses the GraphQL MilestoneState slice into the
+// "open"|"closed"|"all" string the domain service takes. An empty or mixed
+// selection means all states.
+func milestoneStateFilter(states []generated.MilestoneState) string {
+	if len(states) == 1 {
+		switch states[0] {
+		case generated.MilestoneStateOpen:
+			return "open"
+		case generated.MilestoneStateClosed:
+			return "closed"
+		}
+	}
+	return "all"
+}
+
+// LatestRelease is the resolver for the latestRelease field. It returns the
+// repository's most recent published release, or null when there are none or
+// the release service is not wired. gh repo view selects it.
+func (r *repositoryResolver) LatestRelease(ctx context.Context, obj *gqlmodel.Repository) (*gqlmodel.Release, error) {
+	if r.Releases == nil {
+		return nil, nil
+	}
+	owner, name := splitNWO(obj.NameWithOwner)
+	rel, err := r.Releases.GetLatestRelease(ctx, viewerID(ctx), owner, name)
+	if errors.Is(err, domain.ErrReleaseNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, nil
+	}
+	return r.URLs.GQLRelease(owner, name, rel, true, r.format(ctx)), nil
+}
+
 // Ref resolves a single reference in the repository by its fully qualified name
 // (refs/heads/main, refs/tags/v1.0.0). A missing or invalid ref resolves to
 // null, never an error, matching GitHub's behavior.

@@ -89,6 +89,16 @@ models:
       # viewerPermission is computed from the viewer's relationship to the repo.
       viewerPermission:
         resolver: true
+      # parent, milestones, and latestRelease need a service lookup, so the
+      # presenter leaves them to the resolver rather than filling the struct.
+      parent:
+        resolver: true
+      milestones:
+        resolver: true
+      latestRelease:
+        resolver: true
+  RepositoryVisibility:
+    model: github.com/tamnd/githome/presenter/gqlmodel.RepositoryVisibility
   User:
     model: github.com/tamnd/githome/presenter/gqlmodel.User
     fields:
