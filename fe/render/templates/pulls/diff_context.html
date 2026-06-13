@@ -1,0 +1,25 @@
+{{define "content" -}}
+{{/* The data is a DiffContextVM: the context rows an unfold revealed from the head
+     blob, plus whether they belong in the split table. It renders only the <tr>s, the
+     same shapes pr_diff.html uses for a context line, so the enhancement script can
+     splice them in place of the expander row and a JS-off GET still shows the lines.
+     A context row is read-only (no Position), so neither shape carries a composer. */ -}}
+{{if .Split -}}
+{{range .Rows -}}
+<tr class="diff-row diff-row-split diff-row-context">
+  <td class="diff-gutter diff-gutter-old diff-gutter-context">{{.OldLineLabel}}</td>
+  <td class="diff-code diff-code-context">{{.LeftText}}</td>
+  <td class="diff-gutter diff-gutter-new diff-gutter-context">{{.NewLineLabel}}</td>
+  <td class="diff-code diff-code-context">{{.RightText}}</td>
+</tr>
+{{end -}}
+{{- else -}}
+{{range .Rows -}}
+<tr class="diff-row diff-row-context">
+  <td class="diff-gutter diff-gutter-old">{{.OldLineLabel}}</td>
+  <td class="diff-gutter diff-gutter-new">{{.NewLineLabel}}</td>
+  <td class="diff-code diff-code-context">{{.Text}}</td>
+</tr>
+{{end -}}
+{{- end}}
+{{- end}}

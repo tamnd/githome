@@ -498,6 +498,30 @@
   border-radius: var(--borderRadius-small);
 }
 
+/* Hunk expander: the collapsed-context row sits where the diff hides unchanged
+   lines, an unfold control in the gutter and a label in the code cell, both links to
+   the unfold endpoint so a JS-off click still reaches the lines. It reads the accent
+   muted backdrop GitHub gives the expandable gap. */
+.diff-row-expander .diff-gutter-expander,
+.diff-code-expander {
+  background-color: var(--bgColor-accent-muted);
+}
+
+.diff-gutter-expander {
+  text-align: center;
+}
+
+.diff-expander-link,
+.diff-expander-text {
+  color: var(--fgColor-accent);
+}
+
+.diff-expander-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Split (side-by-side) diff: the base column sits left of the head column, each
    with its own gutter, so a deletion and the addition that replaced it line up.
    The two code columns share the row width evenly; an empty filler cell carries

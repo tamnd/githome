@@ -341,6 +341,104 @@ func TestIntraline_EscapesWordSpans(t *testing.T) {
 	}
 }
 
+// TestExpander_LeadingGap pins the expander the builder puts ahead of a hunk that
+// does not start at line 1: it spans the hidden prefix, grows upward, and carries no
+// Position so it can never be a comment anchor.
+func TestExpander_LeadingGap(t *testing.T) {
+	patch := "@@ -5,2 +5,2 @@\n keep\n-old\n+new"
+	f := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified)
+
+	var exp *DiffRow
+	for i := range f.Rows {
+		if f.Rows[i].Kind == RowExpander {
+			exp = &f.Rows[i]
+			break
+		}
+	}
+	if exp == nil {
+		t.Fatal("no expander before a hunk that starts at line 5")
+	}
+	if exp.Expand == nil {
+		t.Fatal("expander row has no Expand spec")
+	}
+	if exp.Expand.Dir != "up" {
+		t.Errorf("leading expander Dir = %q, want up", exp.Expand.Dir)
+	}
+	if exp.Expand.OldStart != 1 || exp.Expand.NewStart != 1 || exp.Expand.Count != 4 {
+		t.Errorf("leading expander = old %d new %d count %d, want 1/1/4",
+			exp.Expand.OldStart, exp.Expand.NewStart, exp.Expand.Count)
+	}
+	if exp.Position != 0 {
+		t.Errorf("expander Position = %d, want 0 (not commentable)", exp.Position)
+	}
+}
+
+// TestExpander_BetweenHunks pins the expander the builder puts in the gap between two
+// hunks: it begins just past the first hunk, spans the hidden lines up to the second,
+// and grows in both directions.
+func TestExpander_BetweenHunks(t *testing.T) {
+	patch := "@@ -1,2 +1,2 @@\n a\n-b\n+B\n@@ -10,2 +10,2 @@\n c\n-d\n+D"
+	f := BuildDiffFile("f.txt", "", StatusModified, 2, 2, patch, DiffUnified)
+
+	var exp *DiffRow
+	for i := range f.Rows {
+		if f.Rows[i].Kind == RowExpander {
+			exp = &f.Rows[i]
+		}
+	}
+	if exp == nil || exp.Expand == nil {
+		t.Fatal("no expander in the gap between the two hunks")
+	}
+	// Hunk 1 covers old 1-2 / new 1-2; hunk 2 starts at line 10. The gap is lines
+	// 3..9 on each side: seven hidden lines.
+	if exp.Expand.Dir != "both" {
+		t.Errorf("inter-hunk expander Dir = %q, want both", exp.Expand.Dir)
+	}
+	if exp.Expand.OldStart != 3 || exp.Expand.NewStart != 3 || exp.Expand.Count != 7 {
+		t.Errorf("inter-hunk expander = old %d new %d count %d, want 3/3/7",
+			exp.Expand.OldStart, exp.Expand.NewStart, exp.Expand.Count)
+	}
+}
+
+// TestExpander_NoGapNoRow pins that a hunk starting at line 1 with no following hunk
+// gets no expander: there is nothing hidden to unfold.
+func TestExpander_NoGapNoRow(t *testing.T) {
+	patch := "@@ -1,2 +1,2 @@\n keep\n-old\n+new"
+	f := BuildDiffFile("f.txt", "", StatusModified, 1, 1, patch, DiffUnified)
+	for _, r := range f.Rows {
+		if r.Kind == RowExpander {
+			t.Errorf("unexpected expander for a hunk that starts at line 1 with no gap")
+		}
+	}
+}
+
+// TestBuildContextRows pins the rows an unfold reveals: count lines from the blob
+// starting at the given line, both sides in lockstep, read-only (no Position), and
+// clamped to the end of the file.
+func TestBuildContextRows(t *testing.T) {
+	content := "l1\nl2\nl3\nl4\nl5\n"
+
+	rows := BuildContextRows(content, 2, 2, 3) // lines 2, 3, 4
+	if len(rows) != 3 {
+		t.Fatalf("got %d context rows, want 3", len(rows))
+	}
+	if string(rows[0].Text) != " l2" || rows[0].OldLine != 2 || rows[0].NewLine != 2 {
+		t.Errorf("row 0 = %q old %d new %d, want ' l2' 2/2", rows[0].Text, rows[0].OldLine, rows[0].NewLine)
+	}
+	if string(rows[2].Text) != " l4" || rows[2].NewLine != 4 {
+		t.Errorf("row 2 = %q new %d, want ' l4' 4", rows[2].Text, rows[2].NewLine)
+	}
+	if rows[0].Position != 0 {
+		t.Errorf("context row Position = %d, want 0", rows[0].Position)
+	}
+
+	// A range running past the end of the file stops at the last real line.
+	clamped := BuildContextRows(content, 4, 4, 10) // lines 4, 5 only
+	if len(clamped) != 2 {
+		t.Errorf("past-EOF unfold returned %d rows, want 2", len(clamped))
+	}
+}
+
 // TestSplitMode_FileFlagged pins that a file built in DiffSplit reports IsSplit and
 // a unified one does not, the boolean the partial branches the two tables on.
 func TestSplitMode_FileFlagged(t *testing.T) {

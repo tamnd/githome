@@ -69,6 +69,11 @@ func (h *Handlers) Files(c *mizu.Ctx) error {
 	threads := h.loadThreadVMs(ctx, repo, pr, vc)
 	files = h.attachThreads(files, threads, owner, repo.Name, pr.Number)
 
+	// Point the collapsed-context expanders at the unfold endpoint, which reads the
+	// hidden lines from the head blob. The pure builder knows the gap math; the head
+	// SHA and the route join it here.
+	fillExpandURLs(files, owner, repo.Name, pr.Number, pr.Head.SHA, mode)
+
 	title := pr.Title + " #" + strconv.FormatInt(pr.Number, 10)
 	shell := h.shell(c, repo, pr, vc.pk, "files", title)
 	vm := view.PRFilesVM{

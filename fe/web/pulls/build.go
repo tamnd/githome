@@ -3,6 +3,7 @@ package pulls
 import (
 	"context"
 	"html/template"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -206,6 +207,40 @@ func diffFiles(changes []git.FileChange, mode view.DiffMode) []view.DiffFileVM {
 		))
 	}
 	return out
+}
+
+// fillExpandURLs points every expander row at the unfold endpoint, carrying the gap
+// it covers in the query: the file path, the head SHA the lines come from, the
+// per-side start lines, the count, the direction, and the diff mode so the returned
+// fragment matches the table it splices into. The pure view builder fills the line
+// math; this is where the route and the head SHA — neither known to fe/view — join
+// it. A file with no head SHA (a pure deletion) gets no URLs, so its expanders render
+// inert rather than linking nowhere.
+func fillExpandURLs(files []view.DiffFileVM, owner, repo string, number int64, headSHA string, mode view.DiffMode) {
+	if headSHA == "" {
+		return
+	}
+	base := route.PullFilesExpand(owner, repo, number)
+	for fi := range files {
+		f := &files[fi]
+		for ri := range f.Rows {
+			r := &f.Rows[ri]
+			if r.Expand == nil {
+				continue
+			}
+			q := url.Values{}
+			q.Set("path", f.Path)
+			q.Set("sha", headSHA)
+			q.Set("os", strconv.Itoa(r.Expand.OldStart))
+			q.Set("ns", strconv.Itoa(r.Expand.NewStart))
+			q.Set("n", strconv.Itoa(r.Expand.Count))
+			q.Set("dir", r.Expand.Dir)
+			if mode == view.DiffSplit {
+				q.Set("diff", "split")
+			}
+			r.Expand.URL = base + "?" + q.Encode()
+		}
+	}
 }
 
 // diffModeFromQuery reads GitHub's ?diff= parameter: "split" selects the

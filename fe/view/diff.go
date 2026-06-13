@@ -134,10 +134,35 @@ type DiffRow struct {
 	AnchorLine int    // file line the comment anchors to, 0 when not commentable
 	Threads    []ReviewThreadVM
 
+	// Expand is set on a RowExpander: the collapsed-context gap this row unfolds.
+	// It is nil on every other kind.
+	Expand *DiffExpand
+
 	// raw is the line content with the op byte stripped, kept on addition and
 	// deletion rows so a paired replacement can word-diff the two sides without
 	// re-parsing the escaped cell. It is unexported: the template never reads it.
 	raw string
+}
+
+// DiffContextVM is the data the unfold endpoint renders: the context rows revealed
+// from the blob and whether they go into the split table (so the fragment shapes its
+// cells the same way the file's table does).
+type DiffContextVM struct {
+	Rows  []DiffRow
+	Split bool
+}
+
+// DiffExpand describes the collapsed-context gap an expander row unfolds: the first
+// hidden line on each side and how many lines the gap hides, plus the direction the
+// unfold grows. The builder fills the line math (it is derivable from the patch); the
+// web layer fills URL with the route that fetches those lines from the blob, since
+// the pure builder knows neither the owner/repo/number nor the head SHA.
+type DiffExpand struct {
+	OldStart int    // first hidden base-side line (1-based)
+	NewStart int    // first hidden head-side line (1-based)
+	Count    int    // hidden line count, derived from the surrounding hunks
+	Dir      string // "up" (gap above the first hunk) or "both" (between two hunks)
+	URL      string // unfold link; empty in the pure builder, set by the web layer
 }
 
 // patchHunk is one @@ block parsed out of a file's patch text.
@@ -269,8 +294,31 @@ func leadingInt(s string) int {
 func buildRows(hunks []patchHunk, mode DiffMode) []DiffRow {
 	var rows []DiffRow
 	pos := 0
+	prevOldEnd, prevNewEnd := 0, 0 // last line each side that a previous hunk covered
 	for hi := range hunks {
 		h := hunks[hi]
+		// Emit an expander for the context the patch hides ahead of this hunk: the
+		// lines from just past the previous hunk up to just before this one. Before
+		// the first hunk the gap runs from line 1; the prefix is unchanged so the two
+		// sides share its length. The expander is synthetic, so it carries Position 0
+		// and does not advance the patch-offset counter.
+		if gap := h.newStart - prevNewEnd - 1; gap > 0 {
+			dir := "both"
+			if hi == 0 {
+				dir = "up"
+			}
+			rows = append(rows, DiffRow{
+				Kind: RowExpander,
+				Side: SideNone,
+				Hunk: hi,
+				Expand: &DiffExpand{
+					OldStart: prevOldEnd + 1,
+					NewStart: prevNewEnd + 1,
+					Count:    gap,
+					Dir:      dir,
+				},
+			})
+		}
 		if hi == 0 {
 			rows = append(rows, DiffRow{Kind: RowHunkHeader, Text: escapeHTML(h.header), Side: SideNone, Hunk: hi})
 		} else {
@@ -298,6 +346,8 @@ func buildRows(hunks []patchHunk, mode DiffMode) []DiffRow {
 			}
 			rows = append(rows, r)
 		}
+		// oldLn/newLn now sit one past the last line this hunk covered on each side.
+		prevOldEnd, prevNewEnd = oldLn-1, newLn-1
 	}
 	if mode == DiffSplit {
 		rows = pairForSplit(rows)
@@ -549,6 +599,45 @@ func wrapChanged(toks []string, keep []bool) template.HTML {
 		i = j
 	}
 	return template.HTML(b.String())
+}
+
+// BuildContextRows builds the rows an unfold reveals: count lines of the file
+// starting at the given base/head line, taken from the head blob's content. The two
+// sides advance together because an unfolded line is unchanged context, so OldLine
+// and NewLine stay in lockstep. The rows carry Position 0: a line that was not in the
+// patch is read-only context, never a comment anchor, which keeps the patch-offset
+// space the review API resolves against untouched. A range past the end of the file
+// stops early, so a too-eager unfold yields what exists and no more.
+func BuildContextRows(content string, oldStart, newStart, count int) []DiffRow {
+	lines := splitLines(content)
+	rows := make([]DiffRow, 0, count)
+	for i := 0; i < count; i++ {
+		ln := newStart + i // 1-based head-side line number
+		if ln < 1 || ln > len(lines) {
+			break
+		}
+		rows = append(rows, DiffRow{
+			Kind:    RowContext,
+			OldLine: oldStart + i,
+			NewLine: ln,
+			Text:    escapeHTML(" " + lines[ln-1]),
+			Side:    SideNone,
+		})
+	}
+	return rows
+}
+
+// splitLines splits file content into lines, dropping the empty trailing element a
+// final newline leaves so the last real line is not shadowed by a phantom blank.
+func splitLines(content string) []string {
+	if content == "" {
+		return nil
+	}
+	lines := strings.Split(content, "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	return lines
 }
 
 // escapeHTML wraps plain patch text as template.HTML after escaping it. Syntax

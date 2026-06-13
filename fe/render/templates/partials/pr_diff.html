@@ -32,7 +32,14 @@
   <table class="diff-table diff-table-split" role="presentation">
     <tbody>
       {{range $file.Rows -}}
-      {{if .IsHunkHeader -}}
+      {{if .IsExpander -}}
+      <tr class="diff-row diff-row-expander">
+        <td class="diff-gutter diff-gutter-expander" aria-hidden="true">
+          {{if .Expand.URL}}<a class="diff-expander-link" href="{{.Expand.URL}}" aria-label="Expand hidden lines">{{octicon "unfold" 16}}</a>{{end}}
+        </td>
+        <td class="diff-code diff-code-expander" colspan="3">{{if .Expand.URL}}<a class="diff-expander-text" href="{{.Expand.URL}}">Expand {{.Expand.Count}} hidden line{{if ne .Expand.Count 1}}s{{end}}</a>{{end}}</td>
+      </tr>
+      {{- else if .IsHunkHeader -}}
       <tr class="diff-row diff-row-hunk">
         <td class="diff-gutter diff-gutter-old" aria-hidden="true"></td>
         <td class="diff-code diff-code-hunk" colspan="3">{{.Text}}</td>
@@ -63,7 +70,14 @@
   <table class="diff-table" role="presentation">
     <tbody>
       {{range $file.Rows -}}
-      {{if .IsHunkHeader -}}
+      {{if .IsExpander -}}
+      <tr class="diff-row diff-row-expander">
+        <td class="diff-gutter diff-gutter-expander" colspan="2" aria-hidden="true">
+          {{if .Expand.URL}}<a class="diff-expander-link" href="{{.Expand.URL}}" aria-label="Expand hidden lines">{{octicon "unfold" 16}}</a>{{end}}
+        </td>
+        <td class="diff-code diff-code-expander">{{if .Expand.URL}}<a class="diff-expander-text" href="{{.Expand.URL}}">Expand {{.Expand.Count}} hidden line{{if ne .Expand.Count 1}}s{{end}}</a>{{end}}</td>
+      </tr>
+      {{- else if .IsHunkHeader -}}
       <tr class="diff-row diff-row-hunk">
         <td class="diff-gutter diff-gutter-old" aria-hidden="true"></td>
         <td class="diff-gutter diff-gutter-new" aria-hidden="true"></td>

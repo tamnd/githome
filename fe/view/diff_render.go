@@ -30,6 +30,10 @@ func (r DiffRow) IsContext() bool { return r.Kind == RowContext }
 // addition runs together.
 func (r DiffRow) IsReplace() bool { return r.Kind == RowReplace }
 
+// IsExpander reports whether the row is a collapsed-context gap: the template
+// renders it as an unfold control rather than a code line.
+func (r DiffRow) IsExpander() bool { return r.Kind == RowExpander }
+
 // IsSplit reports whether the file renders side-by-side, the base column left of
 // the head column. The same row list drives unified and split; only the template
 // shaping differs, so the partial branches on this.

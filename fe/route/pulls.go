@@ -51,6 +51,14 @@ func PullFiles(owner, name string, number int64) string {
 	return Pull(owner, name, number) + "/files"
 }
 
+// PullFilesExpand is the hunk-unfold endpoint, /{owner}/{repo}/pull/{number}/files/expand.
+// It returns the context rows the collapsed gap hides; the query (path, sha, the
+// per-side start lines, count, and diff mode) names the slice to fetch. The path is
+// the base, with the request parameters appended by the build layer.
+func PullFilesExpand(owner, name string, number int64) string {
+	return PullFiles(owner, name, number) + "/expand"
+}
+
 // PullChecks is the Checks tab, /{owner}/{repo}/pull/{number}/checks, the
 // check-run list at the pull request's head sha.
 func PullChecks(owner, name string, number int64) string {
