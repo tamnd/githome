@@ -104,10 +104,17 @@ func handleStatusesList(d Deps) mizu.Handler {
 		if err != nil {
 			return err
 		}
+		page, perr := parsePageFor(c, "Status")
+		if perr != nil {
+			writeError(c.Writer(), perr)
+			return nil
+		}
+		statuses = paginateSlice(&page, statuses)
 		out := make([]restmodel.Status, 0, len(statuses))
 		for _, s := range statuses {
 			out = append(out, d.URLs.Status(owner, repo, s, d.NodeFormat))
 		}
+		writeLinkHeader(c.Writer(), c.Request(), d.URLs, page)
 		writeJSON(c.Writer(), http.StatusOK, out)
 		return nil
 	}
