@@ -146,6 +146,79 @@ func reviewDBIDFromID(id string) (int64, error) {
 	return dbID, nil
 }
 
+// reviewCommentDBIDFromID decodes a PullRequestReviewComment node ID into the
+// comment's DB id.
+func reviewCommentDBIDFromID(id string) (int64, error) {
+	kind, dbID, err := nodeid.Decode(id)
+	if err != nil || kind != nodeid.KindPullRequestReviewComment {
+		return 0, unresolvable("PullRequestReviewComment", id)
+	}
+	return dbID, nil
+}
+
+// viewerReaction returns the viewer's reaction with the given content from a
+// reaction list, or nil when the viewer has not reacted with that content. It
+// backs removeReaction, which GitHub keys on subject and content rather than a
+// reaction id.
+func viewerReaction(list []*domain.Reaction, viewerPK int64, content string) *domain.Reaction {
+	for _, rc := range list {
+		if rc.Content != content || rc.User == nil {
+			continue
+		}
+		if rc.User.ID == viewerPK {
+			return rc
+		}
+	}
+	return nil
+}
+
+// lockReasonString maps the GraphQL LockReason enum onto the lock reason string
+// GitHub's REST API and Githome's store use.
+func lockReasonString(reason generated.LockReason) string {
+	switch reason {
+	case generated.LockReasonOffTopic:
+		return "off-topic"
+	case generated.LockReasonTooHeated:
+		return "too heated"
+	case generated.LockReasonResolved:
+		return "resolved"
+	case generated.LockReasonSpam:
+		return "spam"
+	}
+	return string(reason)
+}
+
+// lockableNode fetches an Issue or PullRequest and renders it as a Node, the
+// shape lockLockable and unlockLockable return as the affected record.
+func (r *Resolver) lockableNode(ctx context.Context, owner, name string, number int64, isPR bool) (generated.Node, error) {
+	if isPR {
+		pr, err := r.Pulls.GetPR(ctx, viewerID(ctx), owner, name, number)
+		if err != nil {
+			return nil, err
+		}
+		return r.URLs.GQLPullRequest(owner, name, pr, r.format(ctx)), nil
+	}
+	iss, err := r.Issues.GetIssue(ctx, viewerID(ctx), owner, name, number)
+	if err != nil {
+		return nil, err
+	}
+	return r.URLs.GQLIssue(owner, name, iss, r.format(ctx)), nil
+}
+
+// viewerActor renders the request's viewer as an Actor, the entity that
+// performed a mutation. It is nil for an anonymous request or an unknown user.
+func (r *Resolver) viewerActor(ctx context.Context) gqlmodel.Actor {
+	vid := viewerID(ctx)
+	if vid == 0 || r.Users == nil {
+		return nil
+	}
+	u, err := r.Users.Viewer(ctx, vid)
+	if err != nil || u == nil {
+		return nil
+	}
+	return r.URLs.GQLUser(u, r.format(ctx))
+}
+
 // labelableRefFromID decodes a LabelableNode (Issue or PullRequest) node ID
 // into owner, repo, number coordinates for an Issue or PullRequest.
 func (r *Resolver) labelableRefFromID(ctx context.Context, id string) (owner, name string, number int64, isPR bool, err error) {

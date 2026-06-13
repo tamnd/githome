@@ -246,6 +246,51 @@ func (r *mutationResolver) AddPullRequestReviewComment(ctx context.Context, inpu
 	}, nil
 }
 
+// DismissPullRequestReview is the resolver for the dismissPullRequestReview
+// field. gh pr review --dismiss sends it to dismiss a submitted review with a
+// message; only a repository maintainer may dismiss a review.
+func (r *mutationResolver) DismissPullRequestReview(ctx context.Context, input generated.DismissPullRequestReviewInput) (*generated.DismissPullRequestReviewPayload, error) {
+	reviewDBID, err := reviewDBIDFromID(input.PullRequestReviewID)
+	if err != nil {
+		return nil, err
+	}
+	owner, name, number, err := r.Reviews.ReviewRef(ctx, viewerID(ctx), reviewDBID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	review, err := r.Reviews.DismissReview(ctx, viewerID(ctx), owner, name, number, reviewDBID, input.Message)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.DismissPullRequestReviewPayload{
+		PullRequestReview: gqlReview(review, r.URLs, owner, name, r.format(ctx)),
+		ClientMutationID:  input.ClientMutationID,
+	}, nil
+}
+
+// UpdatePullRequestReviewComment is the resolver for the
+// updatePullRequestReviewComment field. gh pr comment --edit-last on a review
+// comment sends it; only the comment author may edit their own comment.
+func (r *mutationResolver) UpdatePullRequestReviewComment(ctx context.Context, input generated.UpdatePullRequestReviewCommentInput) (*generated.UpdatePullRequestReviewCommentPayload, error) {
+	commentDBID, err := reviewCommentDBIDFromID(input.PullRequestReviewCommentID)
+	if err != nil {
+		return nil, err
+	}
+	comment, err := r.Reviews.EditReviewComment(ctx, viewerID(ctx), commentDBID, input.Body)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	repo, err := r.Repos.GetRepoByPK(ctx, viewerID(ctx), comment.RepoPK)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	owner, name := repo.Owner.Login, repo.Name
+	return &generated.UpdatePullRequestReviewCommentPayload{
+		PullRequestReviewComment: r.URLs.GQLReviewComment(owner, name, comment, r.format(ctx)),
+		ClientMutationID:         input.ClientMutationID,
+	}, nil
+}
+
 // ReviewDecision is the resolver for the reviewDecision field. It returns the
 // pull request's derived review decision, null when no submitted review blocks or
 // approves it.

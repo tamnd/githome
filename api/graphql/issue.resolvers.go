@@ -12,6 +12,8 @@ import (
 
 	"github.com/tamnd/githome/api/graphql/generated"
 	"github.com/tamnd/githome/domain"
+	"github.com/tamnd/githome/nodeid"
+	"github.com/tamnd/githome/presenter"
 	"github.com/tamnd/githome/presenter/gqlmodel"
 )
 
@@ -295,6 +297,218 @@ func (r *mutationResolver) ReopenIssue(ctx context.Context, input generated.Reop
 		Issue:            r.URLs.GQLIssue(owner, name, iss, r.format(ctx)),
 		ClientMutationID: input.ClientMutationID,
 	}, nil
+}
+
+// UpdateIssueComment is the resolver for the updateIssueComment field. gh issue
+// comment --edit-last and gh pr comment --edit-last send it; only the comment
+// author may edit their own comment.
+func (r *mutationResolver) UpdateIssueComment(ctx context.Context, input generated.UpdateIssueCommentInput) (*generated.UpdateIssueCommentPayload, error) {
+	kind, dbID, err := nodeid.Decode(input.ID)
+	if err != nil || kind != nodeid.KindIssueComment {
+		return nil, unresolvable("IssueComment", input.ID)
+	}
+	owner, name, err := r.Issues.CommentRepoRef(ctx, dbID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	comment, err := r.Issues.EditComment(ctx, viewerID(ctx), owner, name, dbID, input.Body)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UpdateIssueCommentPayload{
+		IssueComment:     r.URLs.GQLIssueComment(owner, name, comment, r.format(ctx)),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// LockLockable is the resolver for the lockLockable field. gh issue lock and gh
+// pr lock send it; the optional reason is recorded on the conversation.
+func (r *mutationResolver) LockLockable(ctx context.Context, input generated.LockLockableInput) (*generated.LockLockablePayload, error) {
+	owner, name, number, isPR, err := r.labelableRefFromID(ctx, input.LockableID)
+	if err != nil {
+		return nil, err
+	}
+	var reason *string
+	if input.LockReason != nil {
+		s := lockReasonString(*input.LockReason)
+		reason = &s
+	}
+	if err := r.Issues.SetLocked(ctx, viewerID(ctx), owner, name, number, true, reason); err != nil {
+		return nil, mapErr(err)
+	}
+	record, err := r.lockableNode(ctx, owner, name, number, isPR)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.LockLockablePayload{
+		LockedRecord:     record,
+		Actor:            r.viewerActor(ctx),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// UnlockLockable is the resolver for the unlockLockable field. gh issue unlock
+// and gh pr unlock send it to reopen a locked conversation.
+func (r *mutationResolver) UnlockLockable(ctx context.Context, input generated.UnlockLockableInput) (*generated.UnlockLockablePayload, error) {
+	owner, name, number, isPR, err := r.labelableRefFromID(ctx, input.LockableID)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Issues.SetLocked(ctx, viewerID(ctx), owner, name, number, false, nil); err != nil {
+		return nil, mapErr(err)
+	}
+	record, err := r.lockableNode(ctx, owner, name, number, isPR)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &generated.UnlockLockablePayload{
+		UnlockedRecord:   record,
+		Actor:            r.viewerActor(ctx),
+		ClientMutationID: input.ClientMutationID,
+	}, nil
+}
+
+// AddReaction is the resolver for the addReaction field. It adds the viewer's
+// emoji reaction to an issue, pull request, or issue comment, the reactable
+// subjects Githome stores reactions for.
+func (r *mutationResolver) AddReaction(ctx context.Context, input generated.AddReactionInput) (*generated.AddReactionPayload, error) {
+	kind, dbID, err := nodeid.Decode(input.SubjectID)
+	if err != nil {
+		return nil, unresolvable("Reactable", input.SubjectID)
+	}
+	rest := presenter.RESTReactionContent(input.Content)
+	switch kind {
+	case nodeid.KindIssue, nodeid.KindPullRequest:
+		owner, name, number, isPR, refErr := r.labelableRefFromID(ctx, input.SubjectID)
+		if refErr != nil {
+			return nil, refErr
+		}
+		reaction, addErr := r.Issues.CreateIssueReaction(ctx, viewerID(ctx), owner, name, number, rest)
+		if addErr != nil {
+			return nil, mapErr(addErr)
+		}
+		subject, _ := r.lockableNode(ctx, owner, name, number, isPR)
+		list, _ := r.Issues.ListIssueReactions(ctx, viewerID(ctx), owner, name, number)
+		return &generated.AddReactionPayload{
+			Reaction:         r.URLs.GQLReaction(reaction, r.format(ctx)),
+			Subject:          subject,
+			ReactionGroups:   presenter.GQLReactionGroupsFromList(list),
+			ClientMutationID: input.ClientMutationID,
+		}, nil
+	case nodeid.KindIssueComment:
+		owner, name, refErr := r.Issues.CommentRepoRef(ctx, dbID)
+		if refErr != nil {
+			return nil, mapErr(refErr)
+		}
+		reaction, addErr := r.Issues.CreateCommentReaction(ctx, viewerID(ctx), owner, name, dbID, rest)
+		if addErr != nil {
+			return nil, mapErr(addErr)
+		}
+		var subject generated.Node
+		if cm, cErr := r.Issues.GetComment(ctx, viewerID(ctx), owner, name, dbID); cErr == nil {
+			subject = r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx))
+		}
+		list, _ := r.Issues.ListCommentReactions(ctx, viewerID(ctx), owner, name, dbID)
+		return &generated.AddReactionPayload{
+			Reaction:         r.URLs.GQLReaction(reaction, r.format(ctx)),
+			Subject:          subject,
+			ReactionGroups:   presenter.GQLReactionGroupsFromList(list),
+			ClientMutationID: input.ClientMutationID,
+		}, nil
+	}
+	return nil, unprocessablef("Reactions on this subject are not supported.")
+}
+
+// RemoveReaction is the resolver for the removeReaction field. GitHub keys it on
+// the subject and content, not a reaction id, so this finds the viewer's
+// matching reaction and deletes it.
+func (r *mutationResolver) RemoveReaction(ctx context.Context, input generated.RemoveReactionInput) (*generated.RemoveReactionPayload, error) {
+	kind, dbID, err := nodeid.Decode(input.SubjectID)
+	if err != nil {
+		return nil, unresolvable("Reactable", input.SubjectID)
+	}
+	rest := presenter.RESTReactionContent(input.Content)
+	viewer := viewerID(ctx)
+	switch kind {
+	case nodeid.KindIssue, nodeid.KindPullRequest:
+		owner, name, number, isPR, refErr := r.labelableRefFromID(ctx, input.SubjectID)
+		if refErr != nil {
+			return nil, refErr
+		}
+		list, listErr := r.Issues.ListIssueReactions(ctx, viewer, owner, name, number)
+		if listErr != nil {
+			return nil, mapErr(listErr)
+		}
+		removed := viewerReaction(list, viewer, rest)
+		if removed == nil {
+			return nil, unprocessablef("The viewer has not reacted with that content.")
+		}
+		if delErr := r.Issues.DeleteIssueReaction(ctx, viewer, owner, name, number, removed.ID); delErr != nil {
+			return nil, mapErr(delErr)
+		}
+		subject, _ := r.lockableNode(ctx, owner, name, number, isPR)
+		after, _ := r.Issues.ListIssueReactions(ctx, viewer, owner, name, number)
+		return &generated.RemoveReactionPayload{
+			Reaction:         r.URLs.GQLReaction(removed, r.format(ctx)),
+			Subject:          subject,
+			ReactionGroups:   presenter.GQLReactionGroupsFromList(after),
+			ClientMutationID: input.ClientMutationID,
+		}, nil
+	case nodeid.KindIssueComment:
+		owner, name, refErr := r.Issues.CommentRepoRef(ctx, dbID)
+		if refErr != nil {
+			return nil, mapErr(refErr)
+		}
+		list, listErr := r.Issues.ListCommentReactions(ctx, viewer, owner, name, dbID)
+		if listErr != nil {
+			return nil, mapErr(listErr)
+		}
+		removed := viewerReaction(list, viewer, rest)
+		if removed == nil {
+			return nil, unprocessablef("The viewer has not reacted with that content.")
+		}
+		if delErr := r.Issues.DeleteCommentReaction(ctx, viewer, owner, name, dbID, removed.ID); delErr != nil {
+			return nil, mapErr(delErr)
+		}
+		var subject generated.Node
+		if cm, cErr := r.Issues.GetComment(ctx, viewer, owner, name, dbID); cErr == nil {
+			subject = r.URLs.GQLIssueComment(owner, name, cm, r.format(ctx))
+		}
+		after, _ := r.Issues.ListCommentReactions(ctx, viewer, owner, name, dbID)
+		return &generated.RemoveReactionPayload{
+			Reaction:         r.URLs.GQLReaction(removed, r.format(ctx)),
+			Subject:          subject,
+			ReactionGroups:   presenter.GQLReactionGroupsFromList(after),
+			ClientMutationID: input.ClientMutationID,
+		}, nil
+	}
+	return nil, unprocessablef("Reactions on this subject are not supported.")
+}
+
+// DeleteIssue is the resolver for the deleteIssue field. Githome does not
+// support permanently deleting issues, so it reports UNPROCESSABLE rather than
+// a fake success, the GitHub-faithful answer for an unimplemented capability.
+func (r *mutationResolver) DeleteIssue(ctx context.Context, input generated.DeleteIssueInput) (*generated.DeleteIssuePayload, error) {
+	return nil, unprocessablef("Deleting issues is not supported.")
+}
+
+// TransferIssue is the resolver for the transferIssue field. Githome does not
+// support transferring an issue to another repository, so it reports
+// UNPROCESSABLE rather than echo back an issue it never moved.
+func (r *mutationResolver) TransferIssue(ctx context.Context, input generated.TransferIssueInput) (*generated.TransferIssuePayload, error) {
+	return nil, unprocessablef("Transferring issues is not supported.")
+}
+
+// PinIssue is the resolver for the pinIssue field. Githome does not model pinned
+// issues, so it reports UNPROCESSABLE rather than a pin that does nothing.
+func (r *mutationResolver) PinIssue(ctx context.Context, input generated.PinIssueInput) (*generated.PinIssuePayload, error) {
+	return nil, unprocessablef("Pinning issues is not supported.")
+}
+
+// UnpinIssue is the resolver for the unpinIssue field. There are no pinned
+// issues to unpin, so it reports UNPROCESSABLE rather than a hollow success.
+func (r *mutationResolver) UnpinIssue(ctx context.Context, input generated.UnpinIssueInput) (*generated.UnpinIssuePayload, error) {
+	return nil, unprocessablef("Unpinning issues is not supported.")
 }
 
 // Issue is the resolver for the issue field. A missing issue, or one in a

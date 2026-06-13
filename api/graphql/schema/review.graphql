@@ -193,6 +193,32 @@ extend type Mutation {
   deletePullRequestReview(input: DeletePullRequestReviewInput!): DeletePullRequestReviewPayload
   # addPullRequestReviewComment adds an inline review comment to a pull request.
   addPullRequestReviewComment(input: AddPullRequestReviewCommentInput!): AddPullRequestReviewCommentPayload
+  # dismissPullRequestReview dismisses a submitted review with a message.
+  dismissPullRequestReview(input: DismissPullRequestReviewInput!): DismissPullRequestReviewPayload
+  # updatePullRequestReviewComment edits an inline review comment's body.
+  updatePullRequestReviewComment(input: UpdatePullRequestReviewCommentInput!): UpdatePullRequestReviewCommentPayload
+}
+
+input DismissPullRequestReviewInput {
+  pullRequestReviewId: ID!
+  message: String!
+  clientMutationId: String
+}
+
+type DismissPullRequestReviewPayload {
+  pullRequestReview: PullRequestReview
+  clientMutationId: String
+}
+
+input UpdatePullRequestReviewCommentInput {
+  pullRequestReviewCommentId: ID!
+  body: String!
+  clientMutationId: String
+}
+
+type UpdatePullRequestReviewCommentPayload {
+  pullRequestReviewComment: PullRequestReviewComment
+  clientMutationId: String
 }
 
 input ResolveReviewThreadInput {
