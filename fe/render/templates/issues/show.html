@@ -37,6 +37,13 @@
       {{template "issue_comment" (dict "C" . "CSRF" $.Chrome.CSRFToken)}}
       {{- end}}
 
+      {{if or .TimelinePager.PrevURL .TimelinePager.NextURL -}}
+      <nav class="paginate" aria-label="Comment pagination">
+        {{if .TimelinePager.PrevURL}}<a class="paginate-prev" href="{{.TimelinePager.PrevURL}}" rel="prev">{{octicon "chevron-left" 16}} Newer</a>{{else}}<span class="paginate-prev is-disabled" aria-disabled="true">{{octicon "chevron-left" 16}} Newer</span>{{end}}
+        {{if .TimelinePager.NextURL}}<a class="paginate-next" href="{{.TimelinePager.NextURL}}" rel="next">Older {{octicon "chevron-right" 16}}</a>{{else}}<span class="paginate-next is-disabled" aria-disabled="true">Older {{octicon "chevron-right" 16}}</span>{{end}}
+      </nav>
+      {{- end}}
+
       {{if .FormError}}<div class="form-error" role="alert">{{.FormError}}</div>{{end}}
 
       {{if .Composer.CanComment -}}

@@ -49,19 +49,49 @@ func (h *Handlers) Show(c *mizu.Ctx) error {
 		return c.Redirect(http.StatusFound, route.Pull(owner, repo.Name, number))
 	}
 
-	comments, err := h.issues.ListComments(ctx, vc.pk, owner, repo.Name, number, 1, showPerPage)
+	page := pageParam(c.Query("page"))
+	comments, err := h.issues.ListComments(ctx, vc.pk, owner, repo.Name, number, int64(page), showPerPage)
 	if err != nil {
 		return err
 	}
 
-	vm := h.detail(ctx, c, repo, iss, comments, vc, "")
+	pager := h.timelinePager(ctx, vc.pk, owner, repo.Name, number, page, len(comments))
+	vm := h.detail(ctx, c, repo, iss, comments, vc, "", pager)
 	return h.render.Page(c, "issues/show", vm)
+}
+
+// timelinePager builds the prev/next links over a long comment thread. The first
+// page shows no prev; a next page is shown only when this page came back full and
+// a one-row probe confirms a further comment exists, so the last page shows no
+// next link rather than a dead one (ListComments returns no total to divide).
+func (h *Handlers) timelinePager(ctx context.Context, viewerPK int64, owner, name string, number int64, page, got int) view.Pager {
+	p := view.Pager{Page: page}
+	base := route.Issue(owner, name, number)
+	if page > 1 {
+		p.PrevURL = base + timelinePageQuery(page-1)
+	}
+	if got >= showPerPage {
+		next, err := h.issues.ListComments(ctx, viewerPK, owner, name, number, int64(page+1), 1)
+		if err == nil && len(next) > 0 {
+			p.NextURL = base + timelinePageQuery(page+1)
+		}
+	}
+	return p
+}
+
+// timelinePageQuery renders the ?page= suffix for a timeline page, leaving the
+// first page the clean URL.
+func timelinePageQuery(page int) string {
+	if page <= 1 {
+		return ""
+	}
+	return "?page=" + strconv.Itoa(page)
 }
 
 // detail assembles the issue detail view model. formError, when non-empty, is a
 // validation message echoed back into the composer after a failed mutation that
 // re-renders the page (the no-JS error path).
-func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, iss *domain.Issue, comments []*domain.Comment, vc viewerCtx, formError string) view.IssueDetailVM {
+func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, iss *domain.Issue, comments []*domain.Comment, vc viewerCtx, formError string, pager view.Pager) view.IssueDetailVM {
 	owner := ownerLogin(repo)
 	write := canWrite(repo, vc.pk)
 	open := iss.State == "open"
@@ -78,8 +108,9 @@ func (h *Handlers) detail(ctx context.Context, c *mizu.Ctx, repo *domain.Repo, i
 		OpenedAt:  iss.CreatedAt.UTC().Format("Jan 2, 2006"),
 		OpenedISO: iss.CreatedAt.UTC().Format(time.RFC3339),
 		Locked:    iss.Locked,
-		CanEdit:   write,
-		FormError: formError,
+		CanEdit:       write,
+		FormError:     formError,
+		TimelinePager: pager,
 	}
 	if write {
 		vm.EditURL = route.IssueTitle(owner, repo.Name, iss.Number)

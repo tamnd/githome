@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-mizu/mizu"
 
@@ -48,6 +49,18 @@ func (h *Handlers) Index(c *mizu.Ctx) error {
 	dq := q.Filter(view.ViewerFrom(ctx))
 	dq.Page = page
 	dq.PerPage = indexPerPage
+
+	// GitHub's milestone: qualifier takes a milestone title, while the domain
+	// query filters by number, so a non-numeric milestone: value is resolved to
+	// its number with one milestone-list read. Filter already projected a numeric
+	// value, so this only runs for a title. The special forms milestone:* (any)
+	// and milestone:none / no:milestone (unset) need domain query fields that do
+	// not exist yet, so they round-trip without narrowing (query.go as-built note).
+	if raw, ok := q.firstValue("milestone"); ok && dq.MilestoneNumber == nil {
+		if n, found := h.resolveMilestoneTitle(ctx, vc.pk, owner, repo.Name, raw); found {
+			dq.MilestoneNumber = &n
+		}
+	}
 
 	rows, total, err := h.issues.ListIssues(ctx, vc.pk, owner, repo.Name, dq)
 	if err != nil {
@@ -140,6 +153,34 @@ func (h *Handlers) pager(owner, name string, q *Query, page, total int) view.Pag
 		p.NextURL = route.Issues(owner, name, encodePage(base, page+1))
 	}
 	return p
+}
+
+// resolveMilestoneTitle maps a milestone title to its per-repo number, scanning
+// the open then the closed milestones (GitHub's milestone: matches either state).
+// It returns false for the empty value and for the special tokens "*" (any) and
+// "none", which the domain query cannot express; a title that matches no milestone
+// resolves to a number that exists for no milestone, so an unknown milestone: shows
+// no issues rather than silently dropping the filter and showing all of them, which
+// is what github.com does.
+func (h *Handlers) resolveMilestoneTitle(ctx context.Context, viewerPK int64, owner, name, title string) (int64, bool) {
+	title = strings.TrimSpace(title)
+	if title == "" || title == "*" || strings.EqualFold(title, "none") {
+		return 0, false
+	}
+	for _, state := range []string{"open", "closed"} {
+		ms, err := h.issues.ListMilestones(ctx, viewerPK, owner, name, state)
+		if err != nil {
+			continue
+		}
+		for _, m := range ms {
+			if strings.EqualFold(m.Title, title) {
+				return m.Number, true
+			}
+		}
+	}
+	// A title was given but matched nothing: filter on an absent number so the
+	// list is empty, the honest answer for an unknown milestone.
+	return -1, true
 }
 
 // listError maps a domain list error to a response. A repo that vanished between
