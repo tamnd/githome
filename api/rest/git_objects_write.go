@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/go-mizu/mizu"
 
 	"github.com/tamnd/githome/domain"
 	"github.com/tamnd/githome/git"
+	"github.com/tamnd/githome/nodeid"
 )
 
 // handleGitBlobCreate serves POST /repos/{owner}/{repo}/git/blobs.
@@ -30,7 +32,7 @@ func handleGitBlobCreate(d Deps) mizu.Handler {
 		var raw []byte
 		switch strings.ToLower(body.Encoding) {
 		case "base64":
-			raw, err = base64.StdEncoding.DecodeString(strings.ReplaceAll(body.Content, "\n", ""))
+			raw, err = base64.StdEncoding.DecodeString(stripBase64Whitespace(body.Content))
 			if err != nil {
 				writeError(c.Writer(), errUnprocessable("content: invalid base64"))
 				return nil
@@ -151,8 +153,15 @@ func handleGitCommitCreate(d Deps) mizu.Handler {
 		if !decodeJSON(c, &body) {
 			return nil
 		}
+		var missing []FieldError
+		if body.Message == "" {
+			missing = append(missing, FieldError{Resource: "Commit", Field: "message", Code: "missing_field"})
+		}
 		if body.Tree == "" {
-			writeError(c.Writer(), errUnprocessable("tree is required"))
+			missing = append(missing, FieldError{Resource: "Commit", Field: "tree", Code: "missing_field"})
+		}
+		if len(missing) > 0 {
+			writeError(c.Writer(), errValidation(missing...))
 			return nil
 		}
 		in := git.CreateCommitInput{
@@ -271,9 +280,10 @@ func gitTagJSON(res *git.CreateTagResult, d Deps, repo *domain.Repo) map[string]
 		objURL = repoBase + "/git/blobs/" + res.Object
 	}
 	return map[string]any{
-		"sha":  res.SHA,
-		"url":  repoBase + "/git/tags/" + res.SHA,
-		"tag":  res.Tag,
+		"sha":     res.SHA,
+		"node_id": nodeid.EncodeGitObject("tag", repo.ID, res.SHA),
+		"url":     repoBase + "/git/tags/" + res.SHA,
+		"tag":     res.Tag,
 		"message": res.Message,
 		"tagger": map[string]any{
 			"name":  res.Tagger.Name,
@@ -292,6 +302,18 @@ func gitTagJSON(res *git.CreateTagResult, d Deps, repo *domain.Repo) map[string]
 			"payload":   nil,
 		},
 	}
+}
+
+// stripBase64Whitespace removes every whitespace character from a base64 body.
+// GitHub tolerates the line wrapping that clients (and `base64` itself) insert,
+// so newlines, carriage returns, tabs, and spaces all drop out before decoding.
+func stripBase64Whitespace(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // parseGitTime parses an ISO 8601 / RFC 3339 date string. Returns zero time on failure.

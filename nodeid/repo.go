@@ -25,6 +25,7 @@ var gitObjectPrefixes = map[string]string{
 	"commit": "C",
 	"blob":   "B",
 	"tree":   "T",
+	"tag":    "GT",
 	"ref":    "REF",
 }
 
@@ -37,8 +38,8 @@ var byGitObjectPrefix = func() map[string]string {
 }()
 
 // EncodeGitObject builds the node ID for a git object of the given type tag
-// ("commit", "blob", "tree", or "ref") in repository repoDBID with object id
-// oid. An unknown tag yields the empty string.
+// ("commit", "blob", "tree", "tag", or "ref") in repository repoDBID with
+// object id oid. An unknown tag yields the empty string.
 func EncodeGitObject(typeTag string, repoDBID int64, oid string) string {
 	prefix, ok := gitObjectPrefixes[typeTag]
 	if !ok {

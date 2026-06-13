@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/go-mizu/mizu"
 
@@ -71,9 +70,8 @@ func handleContentsCreate(d Deps) mizu.Handler {
 			return nil
 		}
 
-		// GitHub strips newlines from base64-encoded content.
-		b64 := strings.ReplaceAll(body.Content, "\n", "")
-		decoded, err := base64.StdEncoding.DecodeString(b64)
+		// GitHub tolerates the whitespace clients wrap base64 content with.
+		decoded, err := base64.StdEncoding.DecodeString(stripBase64Whitespace(body.Content))
 		if err != nil {
 			writeError(c.Writer(), errUnprocessable("content must be base64-encoded"))
 			return nil
