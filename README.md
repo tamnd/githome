@@ -83,6 +83,10 @@ git clone http://localhost:3000/<you>/myrepo.git
 
 Use a `postgres://` DSN for multi-node or production deployments. Every variable, including the optional ones, is documented in [INSTALL.md](INSTALL.md#configuration) and in the packaged `githome.env`.
 
+## One-click deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/Githome/)
+
 ## Build
 
 Requires Go 1.26 or newer and a `git` binary on `PATH`.
